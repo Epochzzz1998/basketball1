@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dream.basketball.mapper.PlayerMapper">
+    <!-- 查找球员列表 -->
+    <select id="findAllPlayers" parameterType="java.lang.String" resultType="com.dream.basketball.dto.DreamPlayerDto">
+        select t.* from DREAM_PLAYER t
+        <where>
+            <include refid="whereConditionPlayer"></include>
+        </where>
+    </select>
+
+    <!-- 查找球员赛季数据 -->
+    <select id="findPlayersSeasonStats" parameterType="java.lang.String" resultType="com.dream.basketball.dto.PlayerStatsDto">
+        select t.PLAYER_NAME,t.PLAYER_NUMBER,s.* from DREAM_PLAYER t right join
+            (select * from PLAYER_STATS where SEASON_NUM = #{param.seasonNum} ) s  on t.PLAYER_ID = s.PLAYER_ID
+        <where>
+            <include refid="whereConditionPlayer"></include>
+        </where>
+        <if test="param.playerPosition != null and param.playerPosition !=''">
+            and s.PLAYER_POSITION like '%' || #{param.playerPosition} || '%'
+        </if>
+        <if test="param.playerTeam != null and param.playerTeam !=''">
+            and s.PLAYER_TEAM like '%' || #{param.playerTeam} || '%'
+        </if>
+        <choose>
+            <when test="param.field != null and param.field !=''">
+                order by #{param.field}
+            </when>
+            <otherwise>
+                order by s.PLAYER_AVG_SCORE desc
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 查找球员生涯所有赛季数据 -->
+    <select id="findPlayerStats" parameterType="java.lang.String" resultType="com.dream.basketball.dto.PlayerStatsDto">
+        select t.PLAYER_NAME,t.PLAYER_NUMBER,t.PLAYER_BIRTHDAY,s.* from DREAM_PLAYER t right join
+        (select * from PLAYER_STATS ) s  on t.PLAYER_ID = s.PLAYER_ID
+        <where>
+            <include refid="whereConditionPlayer"></include>
+        </where>
+        <choose>
+            <when test="param.field != null and param.field !=''">
+                order by #{param.field}
+            </when>
+            <otherwise>
+                order by s.SEASON_NUM
+            </otherwise>
+        </choose>
+    </select>
+
+    <sql id="whereConditionPlayer">
+        1=1
+        <if test="param.playerName != null and param.playerName !=''">
+             and t.PLAYER_NAME  = #{param.playerName}
+        </if>
+        <if test="param.playerId != null and param.playerId !=''">
+            and t.PLAYER_ID = #{param.playerId}
+        </if>
+    </sql>
+</mapper>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dream.basketball.mapper.UserMapper">
+    <!-- 查找球员列表 -->
+    <select id="findAllUsers" parameterType="java.lang.String" resultType="com.dream.basketball.dto.DreamUserDto">
+        select t.* from DREAM_User t
+        <where>
+            <include refid="whereConditionPlayer"></include>
+        </where>
+    </select>
+
+    <sql id="whereConditionPlayer">
+        1=1
+        <if test="param.userName != null and param.userName !=''">
+             and t.USER_NAME  = #{param.userName}
+        </if>
+        <if test="param.userNickname != null and param.userNickname !=''">
+            and t.USER_NICKNAME  = #{param.userNickname}
+        </if>
+    </sql>
+</mapper>
