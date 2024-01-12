@@ -148,6 +148,7 @@ class PlayerServiceTest {
         for (SearchHit hit : searchHits) {
             News news = (News) hit.getContent();
             System.out.println("返回结果：" + hit.toString());
+
         }
     }
 
