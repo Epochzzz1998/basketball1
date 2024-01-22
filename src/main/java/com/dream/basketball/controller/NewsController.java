@@ -87,7 +87,7 @@ public class NewsController extends BaseUtils {
     */
     @RequestMapping("/CommentListData")
     @ResponseBody
-    public Object CommentListData(String newsId, Integer page, Integer limit, HttpServletResponse response) throws Exception {
+    public Object CommentListData(String newsId, String level, String commentId, Integer page, Integer limit, HttpServletResponse response) throws Exception {
         int code = -1;
         List<DreamNewsCommentDto> rows = new ArrayList<>();
         int count = 0;
@@ -95,6 +95,8 @@ public class NewsController extends BaseUtils {
             PageHelper.startPage(page, limit);
             DreamNewsCommentDto param = new DreamNewsCommentDto();
             param.setNewsId(newsId);
+            param.setLevel(level);
+            param.setCommentId(commentId);
             rows = newsService.getCommentListByParams(param);
             PageInfo<DreamNewsCommentDto> playerStatsDtoPageInfo = new PageInfo<>(rows);
             count = (int) playerStatsDtoPageInfo.getTotal();
@@ -145,8 +147,8 @@ public class NewsController extends BaseUtils {
     }
 
     @RequestMapping("/commentInput")
-    public String commentInput(Model model, String newsId, HttpServletRequest request) {
-        model.addAttribute("comment", newsService.getCommentInit(newsId, request));
+    public String commentInput(Model model, String newsId, HttpServletRequest request, String level, String commentId) {
+        model.addAttribute("comment", newsService.getCommentInit(newsId, request, level, commentId));
         return "news/comment-input";
     }
 
@@ -159,8 +161,9 @@ public class NewsController extends BaseUtils {
      * @time: 15:59
      */
     @RequestMapping("/newsShow")
-    public String newsShow(Model model, String newsId) {
+    public String newsShow(Model model, String newsId, String level) {
         model.addAttribute("news", newsService.getNewsShow(newsId));
+        model.addAttribute("level", level);
         return "news/news-show";
     }
 
@@ -175,6 +178,7 @@ public class NewsController extends BaseUtils {
     @RequestMapping("/commentDetailShow")
     public String commentDetailShow(Model model, String newsId, String commentId) {
         model.addAttribute("news", newsService.getNewsShow(newsId));
+        model.addAttribute("commentId", commentId);
         return "news/comment-detail-show";
     }
 

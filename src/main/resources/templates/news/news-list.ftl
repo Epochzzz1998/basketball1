@@ -219,7 +219,7 @@
             var url = "/news/newsInput?newsId=" + newsId;
             layerOpen(url, '', '', '新闻详情');
         } else {
-            var url = "/news/newsShow?newsId=" + newsId;
+            var url = "/news/newsShow?newsId=" + newsId + "&level=1";
             window.open(url);
         }
     }

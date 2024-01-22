@@ -82,6 +82,11 @@ public class DreamNewsComment extends Model<DreamNewsComment> implements Seriali
     @TableField("FLOOR")
     private Integer floor;
 
+    @Column(name = "LEVEL", columnDefinition = "VARCHAR(100)")
+    @Comment("评论级别")
+    @TableField("LEVEL")
+    private String level;
+
     public String getCommentId() {
         return commentId;
     }
@@ -168,5 +173,13 @@ public class DreamNewsComment extends Model<DreamNewsComment> implements Seriali
 
     public void setFloor(Integer floor) {
         this.floor = floor;
+    }
+
+    public String getLevel() {
+        return level;
+    }
+
+    public void setLevel(String level) {
+        this.level = level;
     }
 }

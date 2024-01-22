@@ -102,7 +102,9 @@
                     url: '/news/CommentListData',
                     method: 'get',
                     where: {
-                        newsId: newsId
+                        newsId: newsId,
+                        level: '1',
+                        commentId: ''
                     },
                     height: 'full+' + 1200,
                     id: "commentList",
@@ -124,7 +126,9 @@
             ,page: true //开启分页
             ,limit: 20
             ,where:{
-                newsId: newsId
+                newsId: newsId,
+                level: '1',
+                commentId: ''
             }
             ,id: "commentList"
             ,even: true
@@ -160,8 +164,8 @@
             var str = '';
             str += '<div>' +
                 '<div style="text-align: left;width: 100%;"><span style="font-size: 16px">' + res.content + '</span></div>' +
-                '<div style="text-align: left;width: 50%;display: inline-block"><a href="javascript:void(0);" onclick="openCommentList(' + "'" + res.newsId + "'," + "'" + res.commentId + "'" +  ')"><span style="font-size: 15px;color: cornflowerblue">查看全部评论</span></a>' +
-                '&nbsp;&nbsp;/&nbsp;&nbsp;<a href="javascript:void(0);" onclick="commentBad(' + "'" + res.commentId + "'" + ')"><span style="font-size: 15px;color: cornflowerblue">回复</span></a></div>' +
+                '<div style="text-align: left;width: 50%;display: inline-block"><a href="javascript:void(0);" onclick="openCommentList(' + "'" + res.newsId + "'," + "'" + res.commentId + "'" + ')"><span style="font-size: 15px;color: cornflowerblue">查看全部评论</span></a>' +
+                '&nbsp;&nbsp;/&nbsp;&nbsp;<a href="javascript:void(0);" onclick="openCommentRel(' + "'" + res.newsId + "'," + "'" + res.commentId + "'" + ')"><span style="font-size: 15px;color: cornflowerblue">回复</span></a></div>' +
                 '<div style="text-align: right;width: 50%;display: inline-block">' +
                 '<a href="javascript:void(0);" onclick="commentGood(' + "'" + res.commentId + "'" + ')"><i class="layui-icon layui-icon-praise" style="font-size: 25px;"></i></a><span style="font-size: 15px;">' + res.goodNum + '</span>' +
                 '&nbsp;&nbsp;<a href="javascript:void(0);" onclick="commentBad(' + "'" + res.commentId + "'" + ')"><i class="layui-icon layui-icon-tread" style="font-size: 25px;"></i></a><span style="font-size: 15px;">' + res.badNum + '</span>' +
@@ -219,7 +223,7 @@
                 data: {},
                 success: function (res) {
                     if (res.result) {
-                        var url = "/news/commentInput?newsId=" + '${news.newsId!}';
+                        var url = "/news/commentInput?newsId=" + '${news.newsId!}' + "&level=1&commentId=''";
                         layerOpen(url, '', '', '评论');
                     } else {
                         layerMsg(res.msg);
@@ -279,6 +283,25 @@
         window.openCommentList = function (newsId, commentId){
             var url = "/news/commentDetailShow?newsId=" + newsId + "&commentId=" + commentId;
             layerOpen(url, '', '', '回复详情');
+        }
+
+        // 回复评论
+        window.openCommentRel = function (newsId, commentId){
+            $.ajax({
+                url: '/user/checkLogin',
+                type: 'post',
+                dataType: 'json',
+                data: {},
+                success: function (res) {
+                    if (res.result) {
+                        var url = "/news/commentInput?newsId=" + newsId + "&level=2&commentId=" + commentId;
+                        layerOpen(url, '', '', '评论');
+                    } else {
+                        layerMsg(res.msg);
+                    }
+
+                }
+            });
         }
 
     });

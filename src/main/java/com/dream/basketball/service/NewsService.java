@@ -46,7 +46,7 @@ public interface NewsService {
 
     public News getInputAndEditNews(String newsId, HttpServletRequest request);
 
-    public DreamNewsComment getCommentInit(String newsId, HttpServletRequest request);
+    public DreamNewsComment getCommentInit(String newsId, HttpServletRequest request, String level, String commentId);
 
     public News getNewsShow(String newsId);
 

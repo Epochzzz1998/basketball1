@@ -7,4 +7,6 @@ import lombok.Data;
 @Data
 public class DreamNewsCommentDto extends DreamNewsComment {
 
+    private Integer commentNum;
+
 }

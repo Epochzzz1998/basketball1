@@ -97,7 +97,7 @@ class PlayerServiceTest {
     @Test
     public void getTest() throws IOException {
         DreamNewsCommentDto dreamNewsComment = new DreamNewsCommentDto();
-        dreamNewsComment.setNewsId("994e6873-8e46-4ffb-b76c-5e35f6dbe836");
+        dreamNewsComment.setLevel("1");
         List<DreamNewsCommentDto> DreamNeswCommentList = newsService.getCommentListByParams(dreamNewsComment);
         for (DreamNewsComment dreamNewsComment1 : DreamNeswCommentList) {
             System.out.println(dreamNewsComment1.getContent() + "\n" + dreamNewsComment1.getNewsId() + "\n" + dreamNewsComment1.getUserName());

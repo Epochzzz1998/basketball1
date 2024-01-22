@@ -48,6 +48,9 @@ public class Comment {
     @Field(type = FieldType.Integer, analyzer = "ik_max_word")
     private Integer floor;
 
+    @Field(type = FieldType.Text, analyzer = "ik_max_word")
+    private String level;
+
 }
 
 

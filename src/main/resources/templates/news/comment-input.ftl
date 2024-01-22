@@ -11,7 +11,8 @@
     <form class="layui-form"  action="">
         <div class="layui-form-item" style="margin-top: 15px">
             <input type="text" name="newsId" id="newsId" value="${(comment.newsId)!}" class="layui-hide">
-
+            <input type="text" name="level" id="level" value="${(comment.level)!}" class="layui-hide">
+            <input type="text" name="commentRelId" id="commentRelId" value="${(comment.commentRelId)!}" class="layui-hide">
             <div class="layui-inline">
                 <label class="layui-form-label">评论人</label>
                 <div class="layui-input-block">

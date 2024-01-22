@@ -232,6 +232,9 @@ public class NewsServiceImpl implements NewsService {
             if (StringUtils.isNotBlank(params.getContent())) {
                 queryBuilder.must(QueryBuilders.matchQuery("content", params.getContent()).operator(Operator.AND));
             }
+            if (StringUtils.isNotBlank(params.getLevel())) {
+                queryBuilder.must(QueryBuilders.matchQuery("level", params.getLevel()).operator(Operator.AND));
+            }
             builder.withSort(SortBuilders.fieldSort("floor").order(SortOrder.ASC));
         }
         return builder.withQuery(queryBuilder);
@@ -395,7 +398,7 @@ public class NewsServiceImpl implements NewsService {
     * @Date: 2024/1/19
     * @time: 10:13
     */
-    public DreamNewsComment getCommentInit(String newsId, HttpServletRequest request){
+    public DreamNewsComment getCommentInit(String newsId, HttpServletRequest request, String level, String commentId){
         DreamNewsComment dreamNewsComment = new DreamNewsComment();
         if (StringUtils.isNotBlank(newsId)) {
             DreamUser dreamUser = SecUtil.getLoginUserToSession(request);
@@ -405,6 +408,8 @@ public class NewsServiceImpl implements NewsService {
             dreamNewsComment.setUserName(dreamUser.getUserNickname());
             dreamNewsComment.setUserId(dreamUser.getUserId());
             dreamNewsComment.setNewsId(newsId);
+            dreamNewsComment.setLevel(level);
+            dreamNewsComment.setCommentRelId(commentId);
         }
         return dreamNewsComment;
     }

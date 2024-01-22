@@ -49,6 +49,7 @@
             ,table = layui.table;
 
         var newsId = '${news.newsId!}';
+        var commentId = '${commentId!}';
 
         var active = {
             reload: function (curr) {
@@ -57,7 +58,9 @@
                     url: '/news/CommentListData',
                     method: 'get',
                     where: {
-                        newsId: newsId
+                        newsId: newsId,
+                        level: '2',
+                        commentId: commentId
                     },
                     height: 'full+' + 1200,
                     id: "commentList",
@@ -79,7 +82,9 @@
             ,page: true //开启分页
             ,limit: 20
             ,where:{
-                newsId: newsId
+                newsId: newsId,
+                level: '2',
+                commentId: commentId
             }
             ,id: "commentList"
             ,even: true
