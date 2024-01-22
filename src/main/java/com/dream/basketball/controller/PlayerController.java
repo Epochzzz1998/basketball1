@@ -226,35 +226,37 @@ public class PlayerController extends BaseUtils {
         // 先将表格数据进行保存修改
         List<PlayerStats> playerStatsList = JSON.parseArray(data, PlayerStats.class);
         if(CollectionUtils.isEmpty(playerStatsList)){
-
-        }
-        boolean flag = false;
-        if(StringUtils.isBlank(playerStatsList.get(0).getStatsId())){
-            for(PlayerStats playerStats : playerStatsList){
-                playerStats.setStatsId(UUID.randomUUID().toString());
-                playerStats.setPlayerId(playerId);
-                playerStatsService.saveOrUpdate(playerStats);
-            }
-        }
-        else {
-            for(PlayerStats playerStats : playerStatsList){
-                if(StringUtils.isBlank(playerStats.getStatsId())){
-                    playerStats.setStatsId(UUID.randomUUID().toString());
-                }
-                flag = true;
-                playerStatsService.saveOrUpdate(playerStats);
-            }
             // 新增一行空列
             PlayerStats playerStats = new PlayerStats();
             playerStats.setStatsId(UUID.randomUUID().toString());
             playerStats.setPlayerId(playerId);
-            playerStats.setSeasonNum(flag ? playerStatsList.size() : playerStatsList.size() + 1);
+            playerStats.setSeasonNum(1);
             playerStatsService.save(playerStats);
+        } else {
+            boolean flag = false;
+            if(StringUtils.isBlank(playerStatsList.get(0).getStatsId())){
+                for(PlayerStats playerStats : playerStatsList){
+                    playerStats.setStatsId(UUID.randomUUID().toString());
+                    playerStats.setPlayerId(playerId);
+                    playerStatsService.saveOrUpdate(playerStats);
+                }
+            }
+            else {
+                for(PlayerStats playerStats : playerStatsList){
+                    if(StringUtils.isBlank(playerStats.getStatsId())){
+                        playerStats.setStatsId(UUID.randomUUID().toString());
+                    }
+                    flag = true;
+                    playerStatsService.saveOrUpdate(playerStats);
+                }
+                // 新增一行空列
+                PlayerStats playerStats = new PlayerStats();
+                playerStats.setStatsId(UUID.randomUUID().toString());
+                playerStats.setPlayerId(playerId);
+                playerStats.setSeasonNum(flag ? playerStatsList.size() : playerStatsList.size() + 1);
+                playerStatsService.save(playerStats);
+            }
         }
-        // 计算生涯场均数据
-        PlayerStatsDto param = new PlayerStatsDto();
-        param.setPlayerId(playerId);
-        List<PlayerStatsDto> rows = playerService.findPlayerStats(param);
     }
 
     @RequestMapping("/savePlayerStats")

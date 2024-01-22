@@ -38,9 +38,10 @@
         }
         .layui-form-item{
             margin-left: -20px;
+            margin-top: 33px;
         }
         #logoid{
-            margin-top: -16px;
+            margin-top: 0px;
             padding-left:135px;
             padding-bottom: 15px;
         }

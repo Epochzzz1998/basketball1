@@ -17,10 +17,10 @@
             <include refid="whereConditionPlayer"></include>
         </where>
         <if test="param.playerPosition != null and param.playerPosition !=''">
-            and s.PLAYER_POSITION like '%' || #{param.playerPosition} || '%'
+            and s.PLAYER_POSITION like CONCAT('%',#{param.playerPosition},'%')
         </if>
         <if test="param.playerTeam != null and param.playerTeam !=''">
-            and s.PLAYER_TEAM like '%' || #{param.playerTeam} || '%'
+            and s.PLAYER_TEAM like CONCAT('%',#{param.playerTeam},'%')
         </if>
         <choose>
             <when test="param.field != null and param.field !=''">

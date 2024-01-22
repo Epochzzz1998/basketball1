@@ -35,12 +35,13 @@
             width: 300px;
             height: 40px;
             font-size: 15px;
+            margin-top: 12px;
         }
         .layui-form-item{
             margin-left: -20px;
         }
         #logoid{
-            margin-top: -16px;
+            margin-top: -17px;
             padding-left:135px;
             padding-bottom: 15px;
         }
@@ -71,9 +72,9 @@
     <div class="bg"></div>
     <div class="container">
 <#--        <button class="close" title="关闭">X</button>-->
-        <div class="layui-form-mid layui-word-aux" >
-            <img id="logoid" src="../../img/login_logo.png" height="35">
-        </div>
+<#--        <div class="layui-form-mid layui-word-aux" >-->
+<#--            <img id="logoid" src="../../img/login_logo.png" height="35">-->
+<#--        </div>-->
         <div class="layui-form-item">
             <label class="layui-form-label">用户名</label>
             <div class="layui-input-block">

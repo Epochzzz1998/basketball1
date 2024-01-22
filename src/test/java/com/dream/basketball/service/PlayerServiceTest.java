@@ -2,13 +2,18 @@ package com.dream.basketball.service;
 
 import cn.hutool.core.date.DateUtil;
 import com.alibaba.fastjson.JSONObject;
+import com.dream.basketball.dto.DreamNewsCommentDto;
 import com.dream.basketball.dto.DreamPlayerDto;
 import com.dream.basketball.dto.NewsDto;
+import com.dream.basketball.entity.DreamNewsComment;
+import com.dream.basketball.esEntity.Comment;
 import com.dream.basketball.esEntity.News;
 import com.dream.basketball.impl.NewsServiceImpl;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.Operator;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
@@ -60,33 +65,54 @@ class PlayerServiceTest {
 
     @Test
     public void insertData() {
-        List<News> list = new ArrayList<>();
-        list.add(new News("2e71072d-7b35-4ce0-b800-3fb83ed7d82b", "詹姆斯真的牛逼111", "詹姆斯太强啦", "epoch", DateUtil.parse("2023-01-08 10:23:22"), "LAL", "新闻"));
-//        list.add(new News(UUID.randomUUID().toString(), "詹姆斯真的不行", "詹姆斯太弱啦", "epoch", DateUtil.parse("2023-01-05 10:13:52"), "LAL", "新闻"));
-//        list.add(new News(UUID.randomUUID().toString(), "你知道的，加兰、米切尔是我兄弟", "詹姆斯又跑啦", "epoch", DateUtil.parse("2023-01-04 08:11:22"), "LAL", "交易"));
-//        list.add(new News(UUID.randomUUID().toString(), "杜兰特给比尔点赞", "杜兰特快跑", "epoch", DateUtil.parse("2023-01-09 12:23:22"), "PHX", "交易"));
-//        list.add(new News(UUID.randomUUID().toString(), "杜兰特想试试回勇士吗", "杜兰特去湖人吧", "epoch", DateUtil.parse("2023-01-09 12:23:22"), "LAL", "交易"));
-        newsService.saveAll(list);
+//        List<News> list = new ArrayList<>();
+//        list.add(new News("2e71072d-7b35-4ce0-b800-3fb83ed7d82b", "詹姆斯真的牛逼111", "詹姆斯太强啦", "epoch", DateUtil.parse("2023-01-08 10:23:22"), "LAL", "新闻"));
+////        list.add(new News(UUID.randomUUID().toString(), "詹姆斯真的不行", "詹姆斯太弱啦", "epoch", DateUtil.parse("2023-01-05 10:13:52"), "LAL", "新闻"));
+////        list.add(new News(UUID.randomUUID().toString(), "你知道的，加兰、米切尔是我兄弟", "詹姆斯又跑啦", "epoch", DateUtil.parse("2023-01-04 08:11:22"), "LAL", "交易"));
+////        list.add(new News(UUID.randomUUID().toString(), "杜兰特给比尔点赞", "杜兰特快跑", "epoch", DateUtil.parse("2023-01-09 12:23:22"), "PHX", "交易"));
+////        list.add(new News(UUID.randomUUID().toString(), "杜兰特想试试回勇士吗", "杜兰特去湖人吧", "epoch", DateUtil.parse("2023-01-09 12:23:22"), "LAL", "交易"));
+//        newsService.saveAll(list);
     }
 
     @Test
     public void getListTest(){
-        NewsDto newsDto = new NewsDto();
-        List<News> newsList = newsService.getNewsByParams(newsDto);
-        for (News news : newsList) {
-            System.out.println(news.getContent() + news.getPublishDate() + news.getNewsType());
+//        NewsDto newsDto = new NewsDto();
+//        List<News> newsList = newsService.getNewsByParams(newsDto);
+//        for (News news : newsList) {
+//            System.out.println(news.getContent() + news.getPublishDate() + news.getNewsType());
+//        }
+    }
+
+//    @Test
+//    public void getTest() throws IOException {
+////        NewsDto newsDto = new NewsDto();
+////        newsDto.setNewsType("交易");
+////        newsDto.setContent("詹姆斯");
+////        List<News> newsList = newsService.getNewsByParams(newsDto);
+////        for (News news : newsList) {
+////            System.out.println(news.getContent() + "\n" + news.getTitle() + "\n" + news.getNewsType());
+////        }
+//    }
+
+    @Test
+    public void getTest() throws IOException {
+        DreamNewsCommentDto dreamNewsComment = new DreamNewsCommentDto();
+        dreamNewsComment.setNewsId("994e6873-8e46-4ffb-b76c-5e35f6dbe836");
+        List<DreamNewsCommentDto> DreamNeswCommentList = newsService.getCommentListByParams(dreamNewsComment);
+        for (DreamNewsComment dreamNewsComment1 : DreamNeswCommentList) {
+            System.out.println(dreamNewsComment1.getContent() + "\n" + dreamNewsComment1.getNewsId() + "\n" + dreamNewsComment1.getUserName());
         }
     }
 
     @Test
-    public void getTest() throws IOException {
-        NewsDto newsDto = new NewsDto();
-        newsDto.setNewsType("交易");
-        newsDto.setContent("詹姆斯");
-        List<News> newsList = newsService.getNewsByParams(newsDto);
-        for (News news : newsList) {
-            System.out.println(news.getContent() + "\n" + news.getTitle() + "\n" + news.getNewsType());
-        }
+    public void testEstSearch(){
+        BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
+        boolQueryBuilder
+                .must(QueryBuilders.matchQuery("newsId", "994e6873-8e46-4ff-5e35f6dbe836").operator(Operator.AND));
+        NativeSearchQuery searchQuery = new NativeSearchQueryBuilder().withQuery(boolQueryBuilder)
+                .build();
+        SearchHits<Comment> search = elasticsearchRestTemplate.search(searchQuery, Comment.class);
+        List<SearchHit<Comment>> searchHits = search.getSearchHits();
     }
 
     @Test

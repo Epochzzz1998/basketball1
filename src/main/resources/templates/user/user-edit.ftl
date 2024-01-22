@@ -3,15 +3,14 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <title>新闻新增</title>
+    <title>用户中心</title>
     <link rel="stylesheet" href="../../layui/css/layui.css">
 </head>
 <body>
 <div class="layui-btn-container">
     <form class="layui-form"  action="">
         <div class="layui-form-item" style="margin-top: 15px">
-            <input type="text" name="newsId" id="newsId" value="${(news.newsId)!}" class="layui-hide">
-            <input type="text" name="authorId" id="authorId" value="${(news.authorId)!}" class="layui-hide">
+            <input type="text" name="userId" id="userId" value="${(user.userId)!}" class="layui-hide">
             <div class="layui-inline">
                 <label class="layui-form-label">帖子标题</label>
                 <div class="layui-input-block">

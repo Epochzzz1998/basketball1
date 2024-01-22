@@ -3,18 +3,30 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <title>新闻咨询</title>
+    <title>D论坛</title>
     <link rel="stylesheet" href="../../layui/css/layui.css">
+    <style>
+        .layui-table-cell {
+            height: auto;
+            line-height: 60px;
+            font-size: 16px;
+        }
+        p{
+            text-align: right;
+            color: #C2C2C2;
+            font-size: 17px;
+        }
+    </style>
 </head>
 <body>
 <#include "/public/head.ftl"/>
 <script type="text/html" id="toolbarDemo">
-    <#if isManagerOrOver?? && isManagerOrOver != ''>
-        <div class="layui-btn-container">
-            <button class="layui-btn layui-btn-sm" id="add" lay-event="add">新增</button>
+    <div class="layui-btn-container">
+        <button class="layui-btn layui-btn-sm" id="add" lay-event="add">发帖</button>
+        <#if isManagerOrOver?? && isManagerOrOver != ''>
             <button class="layui-btn layui-btn-sm" id="del" lay-event="del">删除</button>
-        </div>
-    </#if>
+        </#if>
+    </div>
 </script>
 <div class="layui-btn-container">
     <form class="layui-form" lay-filter="formFilter">
@@ -53,7 +65,7 @@
                 </div>
             </div>
             <div class="layui-input-inline" style="width: 300px;margin-top: 20px">
-                <label class="layui-form-label">新闻类型</label>
+                <label class="layui-form-label">帖子类型</label>
                 <div class="layui-input-block">
                     <select name="newsType" id="newsType" >
                         <option value="">所有</option>
@@ -62,6 +74,9 @@
                         <option value="新闻">新闻</option>
                         <option value="资讯">资讯</option>
                         <option value="球场">球场</option>
+                        <option value="水贴">水贴</option>
+                        <option value="流言板">流言板</option>
+                        <option value="吐槽">吐槽</option>
                     </select>
                 </div>
             </div>
@@ -98,7 +113,6 @@
         };
         active.reload();
 
-
         table.render({
             elem: '#newsList'
             ,height: 'full-' + 145
@@ -108,26 +122,19 @@
             ,limit: 20
             ,id: "newsList"
             ,cols: [[ //表头
-                {type: 'checkbox', width: '2%', fixed: 'left'}
-                ,{field: 'title', title: '新闻标题', width:'60%', align: 'center', style:"text-align: left",
+                {type: 'checkbox', width: '2%' <#if !(isManagerOrOver?? && isManagerOrOver != '')>,hide: true</#if>}
+                ,{field: 'title', title: '<div style="font-size: 30px;">D论坛</div>', width:'100%', align: 'left', style:"text-align: left",
                     templet: function (res) {
-                        // return '<a href="/news/newsInput?newsId=' + res.newsId + '" target="_blank">' + res.title + '</a>';
-                        return '<a href="javascript:void(0);" onclick="openUrl(' + "'" + res.newsId + "'" + ')">' + res.title + '</a>';
+                        return '<a href="javascript:void(0);" onclick="openUrl(' + "'" + res.newsId + "'" + ')">' + res.title + '  /  <span style="color: #C2C2C2">' + res.author + '</span>' + '</a>' + cellData(res);
                     }}
-                ,{field: 'newsType', title: '新闻类别', width:'10%', align: 'center'}
-                ,{field: 'newsId', title: 'id', hide: true}
-                ,{field: 'author', title: '作者', width:'10%', align: 'center'}
-                ,{field: 'publishDate', title: '发布时间', width:'10%', align: 'center',
-                    templet: function (res) {
-                        if (typeof res.publishDate != 'undefined') {
-                            return new Date(res.publishDate).Format("yyyy-MM-dd hh:mm:ss")
-                        } else {
-                            return '';
-                        }
-                    }
-                }
-                ,{field: 'team', title: '队伍', width:'6.8%', align: 'center'}
+                <#if isManagerOrOver?? && isManagerOrOver != ''>,{field: 'newsId', title: 'newsId', hide: true}</#if>
+                <#if isManagerOrOver?? && isManagerOrOver != ''>,{field: 'authorId', title: 'authorId', hide: true}</#if>
             ]]
+            ,skin: 'line'
+            ,
+            done: function (res, curr, count) {
+                // $('th').hide()
+            }
         });
 
         form.on('submit(formDemo)', function(data){
@@ -143,10 +150,21 @@
             return false;
         });
 
+        // 加载行数据
+        function cellData(res){
+            var str = '';
+            var publishDate = formatDateTime(new Date(res.publishDate));
+            str += '<div>' +
+                '<div style="text-align: left;width: 50%;display: inline-block"><span style="font-size: 17px">' + publishDate + '</span>&nbsp;&nbsp;<span style="font-size: 17px">/&nbsp;&nbsp;' + res.newsType + '</span>&nbsp;&nbsp;<span style="font-size: 17px">/&nbsp;&nbsp;' + res.team + '</span></div>' +
+                '<div style="text-align: right;width: 50%;display: inline-block"><i class="layui-icon layui-icon-praise" style="font-size: 20px;"><span style="font-size: 15px;">' + res.goodNum + '</span></i>' +
+                '&nbsp;&nbsp;<i class="layui-icon layui-icon-tread" style="font-size: 20px;"><span style="font-size: 15px;">' + res.badNum + '</span></i>&nbsp;&nbsp;<i class="layui-icon layui-icon-form" style="font-size: 20px;"><span style="font-size: 15px;">' + res.commentNum + '</span></i></div>' +
+                '</div>';
+            return str;
+        }
+
         // 删除
         $("#del").click(function () {
             var data = table.checkStatus("newsList").data;
-            console.log(data)
             if (data.length == 0) {
                 return layerMsg("请至少选择一条数据进行删除！");
             }
@@ -174,10 +192,23 @@
             });
         });
 
-        //新增
+        // 发帖
         $("#add").click(function () {
-            var url = "/news/newsInput";
-            layerOpen(url, '', '', '新增新闻');
+            $.ajax({
+                url: '/user/checkLogin',
+                type: 'post',
+                dataType: 'json',
+                data: {},
+                success: function (res) {
+                    if (res.result) {
+                        var url = "/news/newsInput";
+                        layerOpen(url, '', '', '发帖');
+                    } else {
+                        layerMsg(res.msg);
+                    }
+
+                }
+            });
         });
 
     });
@@ -186,10 +217,11 @@
     function openUrl(newsId){
         if ('${isManagerOrOver!}' == 'true') {
             var url = "/news/newsInput?newsId=" + newsId;
+            layerOpen(url, '', '', '新闻详情');
         } else {
             var url = "/news/newsShow?newsId=" + newsId;
+            window.open(url);
         }
-        layerOpen(url, '', '', '新闻详情');
     }
 
 </script>

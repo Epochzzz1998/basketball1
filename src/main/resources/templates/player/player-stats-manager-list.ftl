@@ -58,20 +58,32 @@
                 ,{field: 'playerAvgAss', title: '场均助攻', width:110, edit: 'text', sort: true, align: 'center'}
                 ,{field: 'playerAccuracy', title: '命中率', width:110, edit: 'text', sort: true, align: 'center',
                     templet: function (res) {
-                        var num = (res.playerAccuracy)*100;
-                        return num.toFixed(1) + "%";
+                        if(res.playerAccuracy != null){
+                            var num = (res.playerAccuracy)*100;
+                            return num.toFixed(1) + "%";
+                        } else {
+                            return "";
+                        }
                     }
                 }
                 ,{field: 'playerThreeAccuracy', title: '三分命中率', width:120, edit: 'text', sort: true, align: 'center',
                     templet: function (res) {
-                        var num = (res.playerThreeAccuracy)*100;
-                        return num.toFixed(1) + "%";
+                        if(res.playerThreeAccuracy != null){
+                            var num = (res.playerThreeAccuracy)*100;
+                            return num.toFixed(1) + "%";
+                        } else {
+                            return "";
+                        }
                     }
                 }
                 ,{field: 'playerFreethrowAccuracy', title: '罚球中率', width:120, edit: 'text', sort: true, align: 'center',
                     templet: function (res) {
-                        var num = (res.playerFreethrowAccuracy)*100;
-                        return num.toFixed(1) + "%";
+                        if(res.playerFreethrowAccuracy != null){
+                            var num = (res.playerFreethrowAccuracy)*100;
+                            return num.toFixed(1) + "%";
+                        } else {
+                            return "";
+                        }
                     }
                 }
                 ,{field: 'playerAvgBlock', title: '盖帽', width:80, edit: 'text', sort: true, align: 'center'}
@@ -84,18 +96,28 @@
                 ,{field: 'playerDefEff', title: '防守效率', width:120, edit: 'text', sort: true, align: 'center'}
                 ,{field: 'playerNetEff', title: '净效率', width:110, edit: 'text', sort: true, align: 'center',
                     templet: function (res) {
-                        if(res.playerNetEff > 0){
-                            return "+" + res.playerNetEff;
+                        if(res.playerNetEff != null){
+                            if(res.playerNetEff > 0){
+                                return "+" + res.playerNetEff;
+                            }
+                            return res.playerNetEff;
+                        } else {
+                            return "";
                         }
-                        return res.playerNetEff;
-                    }}
+                    }
+                }
                 ,{field: 'playerAvgPn', title: '正负值', width:110, edit: 'text', sort: true, align: 'center',
                     templet: function (res) {
-                        if(res.playerAvgPn > 0){
-                            return "+" + res.playerAvgPn;
+                        if(res.playerAvgPn != null){
+                            if(res.playerAvgPn > 0){
+                                return "+" + res.playerAvgPn;
+                            }
+                            return res.playerAvgPn;
+                        } else {
+                            return "";
                         }
-                        return res.playerAvgPn;
-                    }}
+                    }
+                }
                 ,{field: 'mvpRank', title: 'MVP排名', width:110, edit: 'text', sort: true, align: 'center'}
                 ,{field: 'dpoyRank', title: 'DPOY排名', width:120, edit: 'text', sort: true, align: 'center'}
                 ,{field: 'allDbaTeam', title: '最佳阵容', width:120, edit: 'text', align: 'center'}

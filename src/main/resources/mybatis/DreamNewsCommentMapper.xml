@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dream.basketball.mapper.DreamNewsCommentMapper">
+    <select id="findMaxFloor" parameterType="java.lang.String" resultType="Integer">
+        SELECT
+            IFNULL( MAX( FLOOR ) + 1, 1 ) AS FLOOR
+        FROM
+            DREAM_NEWS_COMMENT
+        WHERE
+            NEWS_ID = #{newsId}
+    </select>
+</mapper>

@@ -34,51 +34,6 @@
 <body>
 <#--style="background-color: #cccccc"-->
 <div class="layui-btn-container" style="width: 100%;text-align: center">
-    <form class="layui-form" style="text-align: center" action="">
-        <div class="layui-form-item" style="margin-top: 15px">
-            <input type="text" name="newsId" id="newsId" value="${(news.newsId)!}" class="layui-hide">
-            <input type="text" name="authorId" id="authorId" value="${(news.authorId)!}" class="layui-hide">
-            <div class="layui-inline">
-                <label class="layui-form-label"></label>
-                <div class="layui-input-block">
-                    <input type="text" name="title" id="title" value="${(news.title)!}" required readonly lay-verify="required" placeholder="新闻标题" autocomplete="off" class="layui-input" style= "background-color:transparent;border:2px;width:1150px;font-size: 30px;text-align: center;margin-left: -5%">
-                </div>
-            </div>
-        </div>
-        <div class="layui-form-item">
-            <div class="layui-inline">
-                <label class="layui-form-label">球队：</label>
-                <div class="layui-input-block">
-                    <input type="text" name="team" id="team" style="background-color:transparent;border:0;font-size: 16px;width: 100px" value="${(news.team)!}" readonly class="layui-input">
-                </div>
-            </div>
-            <div class="layui-inline">
-                <label class="layui-form-label">帖子类型：</label>
-                <div class="layui-input-block">
-                    <input type="text" name="newsType" id="newsType" style="background-color:transparent;border:0;font-size: 16px;width: 100px" value="${(news.newsType)!}" readonly class="layui-input">
-                </div>
-            </div>
-            <div class="layui-inline">
-                <label class="layui-form-label">作者：</label>
-                <div class="layui-input-block">
-                    <input type="text" name="author" id="author" style="background-color:transparent;border:0;font-size: 16px;width: 100px" value="${(news.author)!}" readonly class="layui-input">
-                </div>
-            </div>
-            <#--            <div class="layui-form-mid layui-word-aux">辅助文字</div>-->
-        </div>
-        <div class="layui-form-item layui-form-text">
-            <label class="layui-form-label"></label>
-            <div class="layui-input-block">
-                <div style="width: 100%"><pre style="text-align: left;font-size: 20px;font-weight: bold">${(news.content)!}</pre></div>
-<#--                <textarea name="content" id="content" value="${(news.content)!}"  placeholder="请输入内容" readonly class="layui-textarea" style="background-color:transparent;border:0;height: 1000px; width: 95%;resize: none">${(news.content)!}</textarea>-->
-            </div>
-        </div>
-    </form>
-    <div style="width: 90%;text-align: right">
-        <button type="button" class="layui-btn layui-btn-radius layui-btn-normal" id="comment">评论</button>
-        <button type="button" class="layui-btn layui-btn-radius" id="good">赞</button>
-        <button type="button" class="layui-btn layui-btn-radius layui-btn-danger" id="bad">踩</button>
-    </div>
 </div>
 <div style="text-align: center;width: 90%">
     <table class="layui-hide no-scrollbar" id="commentList" lay-filter="commentList"></table>
@@ -160,7 +115,7 @@
             var str = '';
             str += '<div>' +
                 '<div style="text-align: left;width: 100%;"><span style="font-size: 16px">' + res.content + '</span></div>' +
-                '<div style="text-align: left;width: 50%;display: inline-block"><a href="javascript:void(0);" onclick="openCommentList(' + "'" + res.newsId + "'," + "'" + res.commentId + "'" +  ')"><span style="font-size: 15px;color: cornflowerblue">查看全部评论</span></a>' +
+                '<div style="text-align: left;width: 50%;display: inline-block"><a href="javascript:void(0);" onclick="commentBad(' + "'" + res.commentId + "'" + ')"><span style="font-size: 15px;color: cornflowerblue">查看全部评论</span></a>' +
                 '&nbsp;&nbsp;/&nbsp;&nbsp;<a href="javascript:void(0);" onclick="commentBad(' + "'" + res.commentId + "'" + ')"><span style="font-size: 15px;color: cornflowerblue">回复</span></a></div>' +
                 '<div style="text-align: right;width: 50%;display: inline-block">' +
                 '<a href="javascript:void(0);" onclick="commentGood(' + "'" + res.commentId + "'" + ')"><i class="layui-icon layui-icon-praise" style="font-size: 25px;"></i></a><span style="font-size: 15px;">' + res.goodNum + '</span>' +
@@ -273,12 +228,6 @@
 
                 }
             });
-        }
-
-        // 打开评论的评论
-        window.openCommentList = function (newsId, commentId){
-            var url = "/news/commentDetailShow?newsId=" + newsId + "&commentId=" + commentId;
-            layerOpen(url, '', '', '回复详情');
         }
 
     });
