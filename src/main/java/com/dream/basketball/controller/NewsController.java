@@ -87,7 +87,7 @@ public class NewsController extends BaseUtils {
     */
     @RequestMapping("/CommentListData")
     @ResponseBody
-    public Object CommentListData(String newsId, String level, String commentId, Integer page, Integer limit, HttpServletResponse response) throws Exception {
+    public Object CommentListData(String newsId, String level, String commentRelId, Integer page, Integer limit, HttpServletResponse response) throws Exception {
         int code = -1;
         List<DreamNewsCommentDto> rows = new ArrayList<>();
         int count = 0;
@@ -96,7 +96,7 @@ public class NewsController extends BaseUtils {
             DreamNewsCommentDto param = new DreamNewsCommentDto();
             param.setNewsId(newsId);
             param.setLevel(level);
-            param.setCommentId(commentId);
+            param.setCommentRelId(commentRelId);
             rows = newsService.getCommentListByParams(param);
             PageInfo<DreamNewsCommentDto> playerStatsDtoPageInfo = new PageInfo<>(rows);
             count = (int) playerStatsDtoPageInfo.getTotal();
@@ -176,9 +176,9 @@ public class NewsController extends BaseUtils {
     * @time: 17:50
     */
     @RequestMapping("/commentDetailShow")
-    public String commentDetailShow(Model model, String newsId, String commentId) {
+    public String commentDetailShow(Model model, String newsId, String commentRelId) {
         model.addAttribute("news", newsService.getNewsShow(newsId));
-        model.addAttribute("commentId", commentId);
+        model.addAttribute("commentRelId", commentRelId);
         return "news/comment-detail-show";
     }
 
@@ -200,7 +200,7 @@ public class NewsController extends BaseUtils {
             dreamNewsService.saveSyncEs(news);
             return handlerResultJson(true, "操作成功！");
         } catch (Exception e) {
-            logger.error(e.toString());
+            logger.error("{news方法保存异常：}" + e.getMessage(), e);
         }
         return handlerResultJson(false, "操作失败！");
     }

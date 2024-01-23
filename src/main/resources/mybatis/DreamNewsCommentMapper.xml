@@ -5,7 +5,7 @@
         SELECT
             IFNULL( MAX( FLOOR ) + 1, 1 ) AS FLOOR
         FROM
-            DREAM_NEWS_COMMENT
+            dream_news_comment
         WHERE
             NEWS_ID = #{newsId}
     </select>

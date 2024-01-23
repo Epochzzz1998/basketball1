@@ -235,6 +235,9 @@ public class NewsServiceImpl implements NewsService {
             if (StringUtils.isNotBlank(params.getLevel())) {
                 queryBuilder.must(QueryBuilders.matchQuery("level", params.getLevel()).operator(Operator.AND));
             }
+            if (StringUtils.isNotBlank(params.getCommentRelId())) {
+                queryBuilder.must(QueryBuilders.matchQuery("commentRelId", params.getCommentRelId()).operator(Operator.AND));
+            }
             builder.withSort(SortBuilders.fieldSort("floor").order(SortOrder.ASC));
         }
         return builder.withQuery(queryBuilder);

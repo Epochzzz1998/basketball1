@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <title>新闻新增</title>
+    <title>发帖</title>
     <link rel="stylesheet" href="../../layui/css/layui.css">
 </head>
 <body>
@@ -65,14 +65,14 @@
 <#--            <div class="layui-form-mid layui-word-aux">辅助文字</div>-->
         </div>
         <div class="layui-form-item layui-form-text">
-            <label class="layui-form-label">新闻内容</label>
+            <label class="layui-form-label">帖子内容</label>
             <div class="layui-input-block">
                 <textarea name="content" id="content" value="${(news.content)!}" placeholder="请输入内容" class="layui-textarea" style="height: 400px; width: 1000px">${(news.content)!}</textarea>
             </div>
         </div>
         <div class="layui-form-item">
             <div class="layui-input-block">
-                <button class="layui-btn" lay-submit lay-filter="formDemo">发布新闻</button>
+                <button class="layui-btn" lay-submit lay-filter="formDemo">发布</button>
                 <button type="reset" class="layui-btn layui-btn-primary">重置</button>
             </div>
         </div>

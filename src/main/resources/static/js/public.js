@@ -109,8 +109,8 @@ function layerConfirm(msg, callback, cancel) {
  * @param closeFunction 弹出窗关闭之后执行的方法
  */
 function layerOpen(url, width, height, title, maxmin, reload, closeFunction, successFunction, whetherFull) {
-    width = !width ? $(window).width() * 0.9 : width;
-    height = !height ? $(window).height() * 0.9 : height;
+    width = !width ? $(window).width() * 1.0 : width;
+    height = !height ? $(window).height() * 1.0 : height;
     title = !title ? '　' : title;
     maxmin = $.trim(maxmin) == "" ? true : maxmin;
     layui.use("layer", function () {
@@ -122,7 +122,7 @@ function layerOpen(url, width, height, title, maxmin, reload, closeFunction, suc
             shadeClose: false,
             maxmin: maxmin,
             area: [width + 'px', height + 'px'],
-            skin: 'layer-ext-blue',
+            skin: 'layerdemo',
             content: url,
             success: function (layero, index) {
                 if (null != successFunction && "" != successFunction) {

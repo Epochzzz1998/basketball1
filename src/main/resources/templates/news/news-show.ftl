@@ -22,12 +22,18 @@
             font-size: 17px;
         }
         .layui-table-main{
-            height: 2000px;
+            /*height: 2000px;*/
         }
         .no-scrollbar::-webkit-scrollbar {
             width: 0;
             height: 0;
             background-color: transparent;
+        }
+        .layui-table-view{
+            margin-left: 110px;
+            border-radius: 20px;
+            border-width: 2px;
+            padding: 6px;
         }
     </style>
 </head>
@@ -80,8 +86,8 @@
         <button type="button" class="layui-btn layui-btn-radius layui-btn-danger" id="bad">踩</button>
     </div>
 </div>
-<div style="text-align: center;width: 90%">
-    <table class="layui-hide no-scrollbar" id="commentList" lay-filter="commentList"></table>
+<div style="text-align: left;width: 90%">
+    <table class="layui-hide" id="commentList" lay-filter="commentList"></table>
 </div>
 <script src="../../js/jquery-3.6.3.js"></script>
 <script src="../../layui/layui.js"></script>
@@ -106,12 +112,16 @@
                         level: '1',
                         commentId: ''
                     },
-                    height: 'full+' + 1200,
+                    height: 'full',
                     id: "commentList",
                     even: true,
+                    text: {
+                        none: '暂时没有回复捏'
+                    },
                     page: {
                         curr: curr //重新从指定页开始，默认第 1 页
                     },
+                    skin: 'nob',
                     done: function (res, curr, count) {
                     }
                 });
@@ -121,7 +131,7 @@
 
         table.render({
             elem: '#commentList'
-            ,height: 'full+' + 1200
+            ,height: 'full'
             ,url: '/news/CommentListData' //数据接口
             ,page: true //开启分页
             ,limit: 20
@@ -130,16 +140,19 @@
                 level: '1',
                 commentId: ''
             }
+            ,text: {
+                none: '暂时没有回复捏'
+            }
             ,id: "commentList"
             ,even: true
             ,cols: [[ //表头
                 {type: 'checkbox', width: '2%' <#if !(isManagerOrOver?? && isManagerOrOver != '')>,hide: true</#if>}
-                ,{field: 'title', title: '<div style="font-size: 30px;">评论区</div>', width:'100%', align: 'left', style:"text-align: left",
+                ,{field: 'title', title: '<div style="font-size: 30px;">评论区</div>', width:'92%', align: 'left', style:"text-align: left",
                     templet: function (res) {
                         return '<span style="font-weight: bold">' + res.userName + '</span><span>&nbsp;&nbsp;/&nbsp;&nbsp;</span><span>' + new Date(res.commentDate).Format("yyyy-MM-dd hh:mm:ss") + '</span>&nbsp;&nbsp;/&nbsp;&nbsp;<span>' + res.floor + '楼</span>' +  cellData(res);
                     }}
             ]]
-            ,skin: 'line'
+            ,skin: 'nob'
             ,
             done: function (res, curr, count) {
                 // $('th').hide()
@@ -281,7 +294,7 @@
 
         // 打开评论的评论
         window.openCommentList = function (newsId, commentId){
-            var url = "/news/commentDetailShow?newsId=" + newsId + "&commentId=" + commentId;
+            var url = "/news/commentDetailShow?newsId=" + newsId + "&commentRelId=" + commentId;
             layerOpen(url, '', '', '回复详情');
         }
 

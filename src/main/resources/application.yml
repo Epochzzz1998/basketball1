@@ -11,6 +11,9 @@ spring:
     url: jdbc:mysql://127.0.0.1:3306/dream_basketball
     username: root
     password: Aa52485248!@
+#    username: dream_user
+#    password: dream_user_epoch
+
   kafka:
 #    bootstrap-servers: 127.0.0.1:9092,127.0.0.1:9093,127.0.0.1:9094
     bootstrap-servers: localhost:9092 #这个是kafka的地址,对应你server.properties中配置的
@@ -57,7 +60,7 @@ spring:
 #      missing-topics-fatal: false
       type: batch #设置批量消费
   jpa:
-    hibernate.ddl-auto: update
+    hibernate.ddl-auto: none
     show-sql: true
   freemarker:
     cache: false

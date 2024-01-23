@@ -3,7 +3,7 @@
 <mapper namespace="com.dream.basketball.mapper.UserMapper">
     <!-- 查找球员列表 -->
     <select id="findAllUsers" parameterType="java.lang.String" resultType="com.dream.basketball.dto.DreamUserDto">
-        select t.* from DREAM_User t
+        select t.* from dream_user t
         <where>
             <include refid="whereConditionPlayer"></include>
         </where>

@@ -21,13 +21,16 @@
             color: #C2C2C2;
             font-size: 17px;
         }
-        .layui-table-main{
-            height: 2000px;
-        }
         .no-scrollbar::-webkit-scrollbar {
             width: 0;
             height: 0;
             background-color: transparent;
+        }
+        .layui-table-view{
+            margin-left: 110px;
+            border-radius: 20px;
+            border-width: 2px;
+            padding: 6px;
         }
     </style>
 </head>
@@ -35,8 +38,8 @@
 <#--style="background-color: #cccccc"-->
 <div class="layui-btn-container" style="width: 100%;text-align: center">
 </div>
-<div style="text-align: center;width: 90%">
-    <table class="layui-hide no-scrollbar" id="commentList" lay-filter="commentList"></table>
+<div style="text-align: left;width: 90%">
+    <table class="layui-hide" id="commentList" lay-filter="commentList"></table>
 </div>
 <script src="../../js/jquery-3.6.3.js"></script>
 <script src="../../layui/layui.js"></script>
@@ -49,7 +52,7 @@
             ,table = layui.table;
 
         var newsId = '${news.newsId!}';
-        var commentId = '${commentId!}';
+        var commentRelId = '${commentRelId!}';
 
         var active = {
             reload: function (curr) {
@@ -60,11 +63,15 @@
                     where: {
                         newsId: newsId,
                         level: '2',
-                        commentId: commentId
+                        commentRelId: commentRelId
                     },
-                    height: 'full+' + 1200,
+                    height: 'full',
                     id: "commentList",
                     even: true,
+                    skin: 'nob',
+                    text: {
+                      none: '暂时没有回复捏'
+                    },
                     page: {
                         curr: curr //重新从指定页开始，默认第 1 页
                     },
@@ -77,27 +84,29 @@
 
         table.render({
             elem: '#commentList'
-            ,height: 'full+' + 1200
+            ,height: 'full'
             ,url: '/news/CommentListData' //数据接口
             ,page: true //开启分页
             ,limit: 20
             ,where:{
                 newsId: newsId,
                 level: '2',
-                commentId: commentId
+                commentRelId: commentRelId
             }
             ,id: "commentList"
             ,even: true
             ,cols: [[ //表头
                 {type: 'checkbox', width: '2%' <#if !(isManagerOrOver?? && isManagerOrOver != '')>,hide: true</#if>}
-                ,{field: 'title', title: '<div style="font-size: 30px;">评论区</div>', width:'100%', align: 'left', style:"text-align: left",
+                ,{field: 'title', title: '<div style="font-size: 30px;">评论区</div>', width:'92%', align: 'left', style:"text-align: left",
                     templet: function (res) {
                         return '<span style="font-weight: bold">' + res.userName + '</span><span>&nbsp;&nbsp;/&nbsp;&nbsp;</span><span>' + new Date(res.commentDate).Format("yyyy-MM-dd hh:mm:ss") + '</span>&nbsp;&nbsp;/&nbsp;&nbsp;<span>' + res.floor + '楼</span>' +  cellData(res);
                     }}
             ]]
-            ,skin: 'line'
-            ,
-            done: function (res, curr, count) {
+            ,skin: 'nob'
+            ,text: {
+                none: '暂时没有回复捏'
+            }
+            ,done: function (res, curr, count) {
                 // $('th').hide()
             }
         });
@@ -120,8 +129,8 @@
             var str = '';
             str += '<div>' +
                 '<div style="text-align: left;width: 100%;"><span style="font-size: 16px">' + res.content + '</span></div>' +
-                '<div style="text-align: left;width: 50%;display: inline-block"><a href="javascript:void(0);" onclick="commentBad(' + "'" + res.commentId + "'" + ')"><span style="font-size: 15px;color: cornflowerblue">查看全部评论</span></a>' +
-                '&nbsp;&nbsp;/&nbsp;&nbsp;<a href="javascript:void(0);" onclick="commentBad(' + "'" + res.commentId + "'" + ')"><span style="font-size: 15px;color: cornflowerblue">回复</span></a></div>' +
+                '<div style="text-align: left;width: 50%;display: inline-block"><a href="javascript:void(0);" onclick="openCommentList(' + "'" + res.newsId + "'," + "'" + res.commentId + "'" + ')"><span style="font-size: 15px;color: cornflowerblue">查看全部评论</span></a>' +
+                '&nbsp;&nbsp;/&nbsp;&nbsp;<a href="javascript:void(0);" onclick="openCommentRel(' + "'" + res.newsId + "'," + "'" + res.commentId + "'" + ')"><span style="font-size: 15px;color: cornflowerblue">回复</span></a></div>' +
                 '<div style="text-align: right;width: 50%;display: inline-block">' +
                 '<a href="javascript:void(0);" onclick="commentGood(' + "'" + res.commentId + "'" + ')"><i class="layui-icon layui-icon-praise" style="font-size: 25px;"></i></a><span style="font-size: 15px;">' + res.goodNum + '</span>' +
                 '&nbsp;&nbsp;<a href="javascript:void(0);" onclick="commentBad(' + "'" + res.commentId + "'" + ')"><i class="layui-icon layui-icon-tread" style="font-size: 25px;"></i></a><span style="font-size: 15px;">' + res.badNum + '</span>' +
@@ -227,6 +236,31 @@
                         setTimeout(function() {
                             active.reload();
                         }, 1500);
+                    } else {
+                        layerMsg(res.msg);
+                    }
+
+                }
+            });
+        }
+
+        // 打开评论的评论
+        window.openCommentList = function (newsId, commentId){
+            var url = "/news/commentDetailShow?newsId=" + newsId + "&commentRelId=" + commentId;
+            layerOpen(url, '', '', '回复详情');
+        }
+
+        // 回复评论
+        window.openCommentRel = function (newsId, commentId){
+            $.ajax({
+                url: '/user/checkLogin',
+                type: 'post',
+                dataType: 'json',
+                data: {},
+                success: function (res) {
+                    if (res.result) {
+                        var url = "/news/commentInput?newsId=" + newsId + "&level=2&commentId=" + commentId;
+                        layerOpen(url, '', '', '评论');
                     } else {
                         layerMsg(res.msg);
                     }

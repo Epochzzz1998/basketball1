@@ -123,6 +123,12 @@ html #layuicss-layer{display: none; position: absolute; width: 1989px;}
 .layui-layer-molv .layui-layer-title{background: #009f95; color:#fff; border: none;}
 .layui-layer-molv .layui-layer-btn a{background: #009f95; border-color: #009f95;}
 .layui-layer-molv .layui-layer-btn .layui-layer-btn1{background:#92B8B1;}
+body .layerdemo{
+    border-radius: 20px;
+}
+body .layerdemo .layui-layer-title{
+    border-radius: 20px 20px 0 0;
+}
 
 
 /**

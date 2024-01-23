@@ -16,6 +16,11 @@
             color: #C2C2C2;
             font-size: 17px;
         }
+        .layui-table-view{
+            margin-left: 110px;
+            border-radius: 20px;
+            border-width: 2px;
+        }
     </style>
 </head>
 <body>
@@ -28,8 +33,8 @@
         </#if>
     </div>
 </script>
-<div class="layui-btn-container">
-    <form class="layui-form" lay-filter="formFilter">
+<div class="layui-btn-container" style="width: 90%">
+    <form class="layui-form" lay-filter="formFilter" style="width: 90%;margin-left: 110px">
         <div class="layui-form-item" >
             <button class="layui-btn" style="margin-top: 20px" lay-submit lay-filter="formDemo">搜索</button>
             <div class="layui-input-inline" style="width: 300px;margin-top: 20px">
@@ -83,7 +88,9 @@
         </div>
     </form>
 </div>
-<table class="layui-hide" id="newsList" lay-filter="newsList"></table>
+<div style="text-align: left;width: 90%">
+    <table class="transparentDataTable " id="newsList" lay-filter="newsList"></table>
+</div>
 <script src="../../js/jquery-3.6.3.js"></script>
 <script src="../../layui/layui.js"></script>
 <script src="../../js/public.js"></script>
@@ -101,7 +108,7 @@
                     url: '/news/newsListData',
                     method: 'get',
                     where: {},
-                    height: 'full-' + 145,
+                    height: 'full',
                     page: {
                         curr: curr //重新从指定页开始，默认第 1 页
                     },
@@ -115,7 +122,7 @@
 
         table.render({
             elem: '#newsList'
-            ,height: 'full-' + 145
+            ,height: 'full'
             ,toolbar: '#toolbarDemo'
             ,url: '/news/newsListData' //数据接口
             ,page: true //开启分页
@@ -123,7 +130,7 @@
             ,id: "newsList"
             ,cols: [[ //表头
                 {type: 'checkbox', width: '2%' <#if !(isManagerOrOver?? && isManagerOrOver != '')>,hide: true</#if>}
-                ,{field: 'title', title: '<div style="font-size: 30px;">D论坛</div>', width:'100%', align: 'left', style:"text-align: left",
+                ,{field: 'title', title: '<div style="font-size: 30px;">D论坛</div>', width:'92%', align: 'left', style:"text-align: left",
                     templet: function (res) {
                         return '<a href="javascript:void(0);" onclick="openUrl(' + "'" + res.newsId + "'" + ')">' + res.title + '  /  <span style="color: #C2C2C2">' + res.author + '</span>' + '</a>' + cellData(res);
                     }}

@@ -3,7 +3,7 @@
 <mapper namespace="com.dream.basketball.mapper.PlayerMapper">
     <!-- 查找球员列表 -->
     <select id="findAllPlayers" parameterType="java.lang.String" resultType="com.dream.basketball.dto.DreamPlayerDto">
-        select t.* from DREAM_PLAYER t
+        select t.* from dream_player t
         <where>
             <include refid="whereConditionPlayer"></include>
         </where>
@@ -11,8 +11,8 @@
 
     <!-- 查找球员赛季数据 -->
     <select id="findPlayersSeasonStats" parameterType="java.lang.String" resultType="com.dream.basketball.dto.PlayerStatsDto">
-        select t.PLAYER_NAME,t.PLAYER_NUMBER,s.* from DREAM_PLAYER t right join
-            (select * from PLAYER_STATS where SEASON_NUM = #{param.seasonNum} ) s  on t.PLAYER_ID = s.PLAYER_ID
+        select t.PLAYER_NAME,t.PLAYER_NUMBER,s.* from dream_player t right join
+            (select * from player_stats where SEASON_NUM = #{param.seasonNum} ) s  on t.PLAYER_ID = s.PLAYER_ID
         <where>
             <include refid="whereConditionPlayer"></include>
         </where>
@@ -34,8 +34,8 @@
 
     <!-- 查找球员生涯所有赛季数据 -->
     <select id="findPlayerStats" parameterType="java.lang.String" resultType="com.dream.basketball.dto.PlayerStatsDto">
-        select t.PLAYER_NAME,t.PLAYER_NUMBER,t.PLAYER_BIRTHDAY,s.* from DREAM_PLAYER t right join
-        (select * from PLAYER_STATS ) s  on t.PLAYER_ID = s.PLAYER_ID
+        select t.PLAYER_NAME,t.PLAYER_NUMBER,t.PLAYER_BIRTHDAY,s.* from dream_player t right join
+        (select * from player_stats ) s  on t.PLAYER_ID = s.PLAYER_ID
         <where>
             <include refid="whereConditionPlayer"></include>
         </where>
