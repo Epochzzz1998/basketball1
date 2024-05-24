@@ -1,19 +1,11 @@
 package com.dream.basketball.service;
 
-import com.baomidou.mybatisplus.extension.service.IService;
-import com.dream.basketball.dto.DreamNewsCommentDto;
-import com.dream.basketball.dto.DreamPlayerDto;
-import com.dream.basketball.dto.NewsDto;
-import com.dream.basketball.dto.PlayerStatsDto;
+import com.dream.basketball.dto.*;
 import com.dream.basketball.entity.DreamNewsComment;
-import com.dream.basketball.entity.DreamPlayer;
 import com.dream.basketball.esEntity.Comment;
 import com.dream.basketball.esEntity.News;
-import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
-import org.springframework.web.bind.annotation.RequestBody;
 
 import javax.servlet.http.HttpServletRequest;
-import java.util.HashMap;
 import java.util.List;
 
 public interface NewsService {

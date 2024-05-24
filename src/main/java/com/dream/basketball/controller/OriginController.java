@@ -14,6 +14,6 @@ public class OriginController extends BaseUtils {
     @RequestMapping("/")
     public String index(Model model, HttpServletRequest request) throws IOException {
         menuPower(model, request);
-        return "player/all-player-season-stats";
+        return "news/news-list";
     }
 }

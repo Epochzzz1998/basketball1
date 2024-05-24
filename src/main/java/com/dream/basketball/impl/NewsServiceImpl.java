@@ -1,19 +1,20 @@
 package com.dream.basketball.impl;
 
 import cn.hutool.json.JSONUtil;
+import com.alibaba.fastjson.JSONObject;
 import com.dream.basketball.dto.DreamNewsCommentDto;
-import com.dream.basketball.dto.EventDto;
 import com.dream.basketball.dto.NewsDto;
+import com.dream.basketball.dto.UserInformationDto;
 import com.dream.basketball.entity.DreamNews;
 import com.dream.basketball.entity.DreamNewsComment;
 import com.dream.basketball.entity.DreamUser;
 import com.dream.basketball.esEntity.Comment;
 import com.dream.basketball.esEntity.News;
-import com.dream.basketball.kafka.EventProducer;
 import com.dream.basketball.service.DreamNewsCommentService;
 import com.dream.basketball.service.DreamNewsService;
 import com.dream.basketball.service.NewsService;
-import com.dream.basketball.utils.BaseUtils;
+import com.dream.basketball.service.UserInformationService;
+import com.dream.basketball.utils.RedisUtil;
 import com.dream.basketball.utils.SecUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.index.query.BoolQueryBuilder;
@@ -48,11 +49,17 @@ public class NewsServiceImpl implements NewsService {
     @Autowired
     DreamNewsService dreamNewsService;
 
-    @Autowired
-    EventProducer eventProducer;
+//    @Autowired
+//    EventProducer eventProducer;
 
     @Autowired
     DreamNewsCommentService dreamNewsCommentService;
+
+    @Autowired
+    RedisUtil redisUtil;
+
+    @Autowired
+    UserInformationService userInformationService;
 
     public void create(Class<?> clazz) {
         template.indexOps(clazz);
@@ -169,9 +176,28 @@ public class NewsServiceImpl implements NewsService {
         List<DreamNewsCommentDto> dreamNewsCommentDtos = new ArrayList<>();
         for (SearchHit hit : searchHits) {
             DreamNewsCommentDto dreamNewsCommentDto = JSONUtil.toBean(JSONUtil.toJsonStr((Comment) hit.getContent()), DreamNewsCommentDto.class);
+            dreamNewsCommentDto.setCommentNum(getCommentNum(dreamNewsCommentDto.getCommentId()));
             dreamNewsCommentDtos.add(dreamNewsCommentDto);
         }
         return dreamNewsCommentDtos;
+    }
+
+    /**
+    * @Description: 获取评论条数
+    * @param: [commentRelId]
+    * @Author: Epoch
+    * @return: java.lang.Integer
+    * @Date: 2024/1/29
+    * @time: 10:05
+    */
+    public Integer getCommentNum(String commentRelId){
+        NativeSearchQueryBuilder builder = new NativeSearchQueryBuilder();
+        BoolQueryBuilder queryBuilder = new BoolQueryBuilder();
+        queryBuilder.must(QueryBuilders.matchQuery("commentRelId", commentRelId).operator(Operator.AND));
+        NativeSearchQueryBuilder builderFinish = builder.withQuery(queryBuilder);
+        NativeSearchQuery nativeSearchQuery = builderFinish.build();
+        SearchHits<Comment> search = template.search(nativeSearchQuery, Comment.class);
+        return search.getSearchHits().size();
     }
 
     /**
@@ -200,6 +226,9 @@ public class NewsServiceImpl implements NewsService {
             }
             if (StringUtils.isNotBlank(params.getAuthor())) {
                 queryBuilder.must(QueryBuilders.matchQuery("author", params.getAuthor()).operator(Operator.AND));
+            }
+            if (StringUtils.isNotBlank(params.getTitle())) {
+                queryBuilder.must(QueryBuilders.matchQuery("title", params.getTitle()).operator(Operator.AND));
             }
         }
         return builder.withQuery(queryBuilder);
@@ -238,6 +267,9 @@ public class NewsServiceImpl implements NewsService {
             if (StringUtils.isNotBlank(params.getCommentRelId())) {
                 queryBuilder.must(QueryBuilders.matchQuery("commentRelId", params.getCommentRelId()).operator(Operator.AND));
             }
+            if (StringUtils.isNotBlank(params.getCommentId())) {
+                queryBuilder.must(QueryBuilders.matchQuery("commentId", params.getCommentId()).operator(Operator.AND));
+            }
             builder.withSort(SortBuilders.fieldSort("floor").order(SortOrder.ASC));
         }
         return builder.withQuery(queryBuilder);
@@ -253,8 +285,11 @@ public class NewsServiceImpl implements NewsService {
      */
     public Object good(String newsId, HttpServletRequest request) {
         DreamUser dreamUser = SecUtil.getLoginUserToSession(request);
+        DreamNews dreamNews = dreamNewsService.getById(newsId);
         if (dreamUser == null) {
-            return handlerResultJson(false, "尚未登陆！");
+            return handlerResultJson(false, "请先登录！");
+        } else if (dreamNews == null){
+            return handlerResultJson(false, "原帖已删除！");
         } else {
             String userId = dreamUser.getUserId();
             Boolean isGood = stringRedisTemplate.opsForSet().isMember("good:user:" + userId + ":newsId:" + newsId, userId);
@@ -262,11 +297,19 @@ public class NewsServiceImpl implements NewsService {
                 // 已经点赞了的，点赞数-1，redis移除
                 stringRedisTemplate.opsForSet().remove("good:user:" + userId + ":newsId:" + newsId, userId);
                 dreamNewsService.good(newsId, -1);
+                // 个人消息提示取消 redis
+//                redisUtil.removeMsgFromRedis(dreamNews.getAuthorId(), GOOD_NEWS, newsId, dreamUser.getUserId());
+                // 数据库移除点赞信息
+                userInformationService.removeUserInformation(GOOD_NEWS, newsId, dreamUser.getUserId());
                 return handlerResultJson(true, "让我再看看这帖子质量怎么样");
             } else {
                 // 没点赞的，点赞数+1，redis新增
                 stringRedisTemplate.opsForSet().add("good:user:" + userId + ":newsId:" + newsId, userId);
                 dreamNewsService.good(newsId, 1);
+                // 个人消息提示 redis
+//                redisUtil.addMsgToRedis(dreamNews.getAuthorId(), GOOD_NEWS, newsId, dreamUser.getUserId());
+                // 个人消息提示入库
+                userInformationService.saveUserInformation(userId, dreamUser.getUserNickname(), dreamNews.getAuthorId(), GOOD_NEWS, newsId, "", "", "", "", "");
                 return handlerResultJson(true, "好帖，顶！");
             }
         }
@@ -282,8 +325,11 @@ public class NewsServiceImpl implements NewsService {
      */
     public Object bad(String newsId, HttpServletRequest request) {
         DreamUser dreamUser = SecUtil.getLoginUserToSession(request);
+        DreamNews dreamNews = dreamNewsService.getById(newsId);
         if (dreamUser == null) {
-            return handlerResultJson(false, "尚未登陆！");
+            return handlerResultJson(false, "请先登录！");
+        } else if (dreamNews == null){
+            return handlerResultJson(false, "原帖已删除！");
         } else {
             String userId = dreamUser.getUserId();
             Boolean isGood = stringRedisTemplate.opsForSet().isMember("bad:user:" + userId + ":newsId:" + newsId, userId);
@@ -291,11 +337,19 @@ public class NewsServiceImpl implements NewsService {
                 // 已经点赞了的，点赞数-1，redis移除
                 stringRedisTemplate.opsForSet().remove("bad:user:" + userId + ":newsId:" + newsId, userId);
                 dreamNewsService.bad(newsId, -1);
+                // 个人消息提示
+//                redisUtil.removeMsgFromRedis(dreamNews.getAuthorId(), BAD_NEWS, newsId, dreamUser.getUserId());
+                // 数据库移除点灭信息
+                userInformationService.removeUserInformation(BAD_NEWS, newsId, dreamUser.getUserId());
                 return handlerResultJson(true, "我觉得还可以再看看");
             } else {
                 // 没点赞的，点赞数+1，redis新增
                 stringRedisTemplate.opsForSet().add("bad:user:" + userId + ":newsId:" + newsId, userId);
                 dreamNewsService.bad(newsId, 1);
+                // 个人消息提示
+//                redisUtil.addMsgToRedis(dreamNews.getAuthorId(), BAD_NEWS, newsId, dreamUser.getUserId());
+                // 个人消息提示入库
+                userInformationService.saveUserInformation(userId, dreamUser.getUserNickname(), dreamNews.getAuthorId(), BAD_NEWS, newsId, "", "","", "", "");
                 return handlerResultJson(true, "什么垃圾帖子，滚！");
             }
         }
@@ -311,8 +365,11 @@ public class NewsServiceImpl implements NewsService {
     */
     public Object goodComment(String commentId, HttpServletRequest request){
         DreamUser dreamUser = SecUtil.getLoginUserToSession(request);
+        DreamNewsComment dreamNewsComment = dreamNewsCommentService.getById(commentId);
         if (dreamUser == null) {
-            return handlerResultJson(false, "尚未登陆！");
+            return handlerResultJson(false, "请先登录！");
+        } else if (dreamNewsComment == null) {
+            return handlerResultJson(false, "原评论已删除！");
         } else {
             String userId = dreamUser.getUserId();
             Boolean isGood = stringRedisTemplate.opsForSet().isMember("goodComment:user:" + userId + ":commentId:" + commentId, userId);
@@ -320,11 +377,20 @@ public class NewsServiceImpl implements NewsService {
                 // 已经点赞了的，点赞数-1，redis移除
                 stringRedisTemplate.opsForSet().remove("goodComment:user:" + userId + ":commentId:" + commentId, userId);
                 dreamNewsCommentService.goodComment(commentId, -1);
+                // 个人消息提示 redis
+//                redisUtil.removeMsgFromRedis(dreamNewsComment.getUserId(), GOOD_COMMENT, commentId, dreamUser.getUserId());
+                // 数据库移除点赞信息
+                userInformationService.removeUserInformation(GOOD_COMMENT, commentId, dreamUser.getUserId());
                 return handlerResultJson(true, "你的想法尚且需要我三思");
             } else {
                 // 没点赞的，点赞数+1，redis新增
                 stringRedisTemplate.opsForSet().add("goodComment:user:" + userId + ":commentId:" + commentId, userId);
                 dreamNewsCommentService.goodComment(commentId, 1);
+                // 个人消息提示 redis
+//                redisUtil.addMsgToRedis(dreamNewsComment.getUserId(), GOOD_COMMENT, commentId, dreamUser.getUserId());
+                // 个人消息提示入库
+                String level = String.valueOf(Integer.parseInt(dreamNewsComment.getLevel()) + 1);
+                userInformationService.saveUserInformation(userId, dreamUser.getUserNickname(), dreamNewsComment.getUserId(), GOOD_COMMENT, commentId, dreamNewsComment.getNewsId(), "", level, "", StringUtils.equals("2", level) ? "" : dreamNewsComment.getCommentRelId());
                 return handlerResultJson(true, "说得好！");
             }
         }
@@ -340,8 +406,11 @@ public class NewsServiceImpl implements NewsService {
      */
     public Object badComment(String commentId, HttpServletRequest request){
         DreamUser dreamUser = SecUtil.getLoginUserToSession(request);
+        DreamNewsComment dreamNewsComment = dreamNewsCommentService.getById(commentId);
         if (dreamUser == null) {
-            return handlerResultJson(false, "尚未登陆！");
+            return handlerResultJson(false, "请先登录！");
+        } else if (dreamNewsComment == null) {
+            return handlerResultJson(false, "原评论已删除！");
         } else {
             String userId = dreamUser.getUserId();
             Boolean isGood = stringRedisTemplate.opsForSet().isMember("badComment:user:" + userId + ":commentId:" + commentId, userId);
@@ -349,12 +418,21 @@ public class NewsServiceImpl implements NewsService {
                 // 已经点赞了的，点赞数-1，redis移除
                 stringRedisTemplate.opsForSet().remove("badComment:user:" + userId + ":commentId:" + commentId, userId);
                 dreamNewsCommentService.badComment(commentId, -1);
+                // 个人消息提示redis
+//                redisUtil.removeMsgFromRedis(dreamNewsComment.getUserId(), BAD_COMMENT, commentId, dreamUser.getUserId());
+                // 数据库移除点灭信息
+                userInformationService.removeUserInformation(BAD_COMMENT, commentId, dreamUser.getUserId());
                 return handlerResultJson(true, "好像说的也没那么离谱");
             } else {
                 // 没点赞的，点赞数+1，redis新增
                 stringRedisTemplate.opsForSet().add("badComment:user:" + userId + ":commentId:" + commentId, userId);
                 dreamNewsCommentService.badComment(commentId, 1);
-                return handlerResultJson(true, "你说你马呢");
+                // 个人消息提示 redis
+//                redisUtil.addMsgToRedis(dreamNewsComment.getUserId(), BAD_COMMENT, commentId, dreamUser.getUserId());
+                // 个人消息提示入库
+                String level = String.valueOf(Integer.parseInt(dreamNewsComment.getLevel()) + 1);
+                userInformationService.saveUserInformation(userId, dreamUser.getUserNickname(), dreamNewsComment.getUserId(), BAD_COMMENT, commentId, dreamNewsComment.getNewsId(), "", level, "", StringUtils.equals("2", level) ? "" : dreamNewsComment.getCommentRelId());
+                return handlerResultJson(true, "我觉得这完全没道理");
             }
         }
     }
@@ -368,13 +446,61 @@ public class NewsServiceImpl implements NewsService {
     * @time: 8:55
     */
     public Object comment(DreamNewsComment dreamNewsComment, HttpServletRequest request){
-        Map<String, Object> data = new HashMap<>();
-        data.put("comment", dreamNewsComment);
-        EventDto event = new EventDto();
-        event.setTopic(TOPIC_COMMENT);
-        event.setUserId(StringUtils.isNotBlank(SecUtil.getLoginUserIdToSession(request)) ? SecUtil.getLoginUserIdToSession(request) : "");
-        event.setData(data);
-        eventProducer.fireEvent(event);
+//        Map<String, Object> data = new HashMap<>();
+//        data.put("comment", dreamNewsComment);
+//        EventDto event = new EventDto();
+//        event.setTopic(TOPIC_COMMENT);
+//        event.setUserId(StringUtils.isNotBlank(SecUtil.getLoginUserIdToSession(request)) ? SecUtil.getLoginUserIdToSession(request) : "");
+//        event.setData(data);
+//        eventProducer.fireEvent(event);
+        DreamUser dreamUser = SecUtil.getLoginUserToSession(request);
+        if (dreamUser == null) {
+            return handlerResultJson(false, "请先登录！");
+        }
+        dreamNewsComment.setCommentId(UUID.randomUUID().toString());
+        dreamNewsComment.setUserId(dreamUser.getUserId());
+        dreamNewsComment.setUserName(dreamUser.getUserNickname());
+        dreamNewsComment.setCommentDate(new Date());
+        dreamNewsComment.setGoodNum(0);
+        dreamNewsComment.setBadNum(0);
+        dreamNewsComment.setFloor(dreamNewsCommentService.findMaxFloor(dreamNewsComment.getNewsId()));
+        // 同步帖子新闻的评论数
+        DreamNews dreamNews = dreamNewsService.getById(dreamNewsComment.getNewsId());
+        dreamNews.setCommentNum(dreamNews.getCommentNum() + 1);
+        dreamNewsService.saveOrUpdate(dreamNews);
+        // es同步保存评论
+        Comment commentEs = JSONObject.parseObject(JSONObject.toJSONString(dreamNewsComment), Comment.class);
+        if (commentEs != null) {
+            saveComment(commentEs);
+        }
+        // 数据库保存评论
+        dreamNewsCommentService.saveOrUpdate(dreamNewsComment);
+        // 个人消息提示入库
+        String receiverId = "";
+        String commentType = "";
+        String msgId = "";
+        String msgIdSecond = "";
+        String msgIdThird = dreamNewsComment.getCommentId();
+        String level = dreamNewsComment.getLevel();
+        String commentRelRelId = "";
+        // 评论新闻
+        if (StringUtils.isBlank(dreamNewsComment.getCommentRelId())) {
+            receiverId = dreamNews.getAuthorId();
+            commentType = COMMENT_NEWS;
+            msgId = dreamNewsComment.getNewsId();
+        }
+        // 评论评论
+        else {
+            receiverId = dreamNewsCommentService.getById(dreamNewsComment.getCommentRelId()).getUserId();
+            commentType = COMMENT_COMMENT;
+            msgId = dreamNewsComment.getCommentRelId();
+            msgIdSecond = dreamNewsComment.getNewsId();
+            commentRelRelId = dreamNewsCommentService.getById(dreamNewsComment.getCommentRelId()).getCommentRelId();
+        }
+        // 个人消息提示 redis
+//        redisUtil.addMsgToRedis(receiverId, COMMENT, dreamNewsComment.getCommentId(), dreamUser.getUserId());
+        // 数据库
+        userInformationService.saveUserInformation(dreamUser.getUserId(), dreamUser.getUserNickname(), receiverId, commentType, msgId, msgIdSecond, msgIdThird, level, dreamNewsComment.getContent(), commentRelRelId);
         return handlerResultJson(true, "评论成功！");
     }
 
@@ -402,6 +528,7 @@ public class NewsServiceImpl implements NewsService {
     * @time: 10:13
     */
     public DreamNewsComment getCommentInit(String newsId, HttpServletRequest request, String level, String commentId){
+        commentId = StringUtils.equals("''", commentId) ? "" : commentId;
         DreamNewsComment dreamNewsComment = new DreamNewsComment();
         if (StringUtils.isNotBlank(newsId)) {
             DreamUser dreamUser = SecUtil.getLoginUserToSession(request);
@@ -411,8 +538,14 @@ public class NewsServiceImpl implements NewsService {
             dreamNewsComment.setUserName(dreamUser.getUserNickname());
             dreamNewsComment.setUserId(dreamUser.getUserId());
             dreamNewsComment.setNewsId(newsId);
-            dreamNewsComment.setLevel(level);
             dreamNewsComment.setCommentRelId(commentId);
+            DreamNewsComment dreamNewsCommentOrigin = dreamNewsCommentService.getById(commentId);
+            if (dreamNewsCommentOrigin == null){
+                dreamNewsComment.setLevel("1");
+            } else {
+                Integer levelNum = Integer.parseInt(dreamNewsCommentOrigin.getLevel());
+                dreamNewsComment.setLevel(String.valueOf(++levelNum));
+            }
         }
         return dreamNewsComment;
     }

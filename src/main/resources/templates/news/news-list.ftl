@@ -9,7 +9,7 @@
         .layui-table-cell {
             height: auto;
             line-height: 60px;
-            font-size: 16px;
+            font-size: 15px;
         }
         p{
             text-align: right;
@@ -24,6 +24,9 @@
     </style>
 </head>
 <body>
+<script src="../../js/jquery-3.6.3.js"></script>
+<script src="../../layui/layui.js"></script>
+<script src="../../js/public.js"></script>
 <#include "/public/head.ftl"/>
 <script type="text/html" id="toolbarDemo">
     <div class="layui-btn-container">
@@ -64,9 +67,15 @@
                 </div>
             </div>
             <div class="layui-input-inline" style="width: 300px;margin-top: 20px">
+                <label class="layui-form-label">标题</label>
+                <div class="layui-input-block">
+                    <input type="text" name="title" id="title"  placeholder="标题" autocomplete="off" class="layui-input">
+                </div>
+            </div>
+            <div class="layui-input-inline" style="width: 300px;margin-top: 20px">
                 <label class="layui-form-label">作者</label>
                 <div class="layui-input-block">
-                    <input type="text" name="author" id="author"  placeholder="球员姓名" autocomplete="off" class="layui-input">
+                    <input type="text" name="author" id="author"  placeholder="作者" autocomplete="off" class="layui-input">
                 </div>
             </div>
             <div class="layui-input-inline" style="width: 300px;margin-top: 20px">
@@ -91,9 +100,6 @@
 <div style="text-align: left;width: 90%">
     <table class="transparentDataTable " id="newsList" lay-filter="newsList"></table>
 </div>
-<script src="../../js/jquery-3.6.3.js"></script>
-<script src="../../layui/layui.js"></script>
-<script src="../../js/public.js"></script>
 <script>
     layui.use(['layer', 'form', 'element','table'], function(){
         var layer = layui.layer
@@ -132,7 +138,7 @@
                 {type: 'checkbox', width: '2%' <#if !(isManagerOrOver?? && isManagerOrOver != '')>,hide: true</#if>}
                 ,{field: 'title', title: '<div style="font-size: 30px;">D论坛</div>', width:'92%', align: 'left', style:"text-align: left",
                     templet: function (res) {
-                        return '<a href="javascript:void(0);" onclick="openUrl(' + "'" + res.newsId + "'" + ')">' + res.title + '  /  <span style="color: #C2C2C2">' + res.author + '</span>' + '</a>' + cellData(res);
+                        return '<a href="javascript:void(0);" onclick="openUrl(' + "'" + res.newsId + "'" + ')"><span>' + res.title + '</span>  /  <span style="color: #C2C2C2">' + res.author + '</span>' + '</a>' + cellData(res);
                     }}
                 <#if isManagerOrOver?? && isManagerOrOver != ''>,{field: 'newsId', title: 'newsId', hide: true}</#if>
                 <#if isManagerOrOver?? && isManagerOrOver != ''>,{field: 'authorId', title: 'authorId', hide: true}</#if>
@@ -151,7 +157,8 @@
                     newsType: data.field.newsType,
                     content: data.field.content,
                     author: data.field.author,
-                    team: data.field.team
+                    team: data.field.team,
+                    title: data.field.title
                 }
             });
             return false;
@@ -162,9 +169,9 @@
             var str = '';
             var publishDate = formatDateTime(new Date(res.publishDate));
             str += '<div>' +
-                '<div style="text-align: left;width: 50%;display: inline-block"><span style="font-size: 17px">' + publishDate + '</span>&nbsp;&nbsp;<span style="font-size: 17px">/&nbsp;&nbsp;' + res.newsType + '</span>&nbsp;&nbsp;<span style="font-size: 17px">/&nbsp;&nbsp;' + res.team + '</span></div>' +
-                '<div style="text-align: right;width: 50%;display: inline-block"><i class="layui-icon layui-icon-praise" style="font-size: 20px;"><span style="font-size: 15px;">' + res.goodNum + '</span></i>' +
-                '&nbsp;&nbsp;<i class="layui-icon layui-icon-tread" style="font-size: 20px;"><span style="font-size: 15px;">' + res.badNum + '</span></i>&nbsp;&nbsp;<i class="layui-icon layui-icon-form" style="font-size: 20px;"><span style="font-size: 15px;">' + res.commentNum + '</span></i></div>' +
+                '<div style="text-align: left;width: 50%;display: inline-block"><span style="font-size: 14px">' + publishDate + '</span>&nbsp;&nbsp;<span style="font-size: 14px">/&nbsp;&nbsp;' + res.newsType + '</span>&nbsp;&nbsp;<span style="font-size: 14px">/&nbsp;&nbsp;' + res.team + '</span></div>' +
+                '<div style="text-align: right;width: 50%;display: inline-block"><i class="layui-icon layui-icon-praise" style="font-size: 20px;"><span style="font-size: 14px;">' + res.goodNum + '</span></i>' +
+                '&nbsp;&nbsp;<i class="layui-icon layui-icon-tread" style="font-size: 20px;"><span style="font-size: 14px;">' + res.badNum + '</span></i>&nbsp;&nbsp;<i class="layui-icon layui-icon-form" style="font-size: 20px;"><span style="font-size: 14px;">' + res.commentNum + '</span></i></div>' +
                 '</div>';
             return str;
         }

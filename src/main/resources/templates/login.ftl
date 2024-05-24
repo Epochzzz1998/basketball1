@@ -173,7 +173,7 @@
                         layer.confirm(res.msg, {
                             btn: ['确定'] //可以无限个按钮
                             ,btn1: function(index, layero){
-                                window.location.href = '/player/playerList';
+                                window.location.href = '/news/newsList';
                             }
                         });
                     }

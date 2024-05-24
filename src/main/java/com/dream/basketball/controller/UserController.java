@@ -91,7 +91,7 @@ public class UserController extends BaseUtils {
     @RequestMapping("/login")
     @ResponseBody
     public Object login(DreamUserDto dreamUserDto, HttpServletRequest request, HttpServletResponse response, Model model) {
-        String msg = "登陆失败！";
+        String msg = "denglu失败！";
         boolean result = false;
         try {
             List<DreamUserDto> dreamUserDtos = userService.findAllUsers(dreamUserDto);
@@ -102,7 +102,7 @@ public class UserController extends BaseUtils {
                     SecUtil.setLoginUserIdToSession(request, dreamUser);
                     SecUtil.setLoginUserToSession(request, dreamUser);
                     SecUtil.setCookie(response, Constants.TOKEN, UUID.randomUUID().toString(), Constants.EXPIRE);
-                    msg = "登陆成功！";
+                    msg = "登录成功！";
                     result = true;
                     model.addAttribute("user", dreamUser);
                 } else {
@@ -112,7 +112,7 @@ public class UserController extends BaseUtils {
                 msg = "账号不存在！请检查后重新输入！";
             }
         } catch (Exception e) {
-            logger.error("", e);
+            logger.error("{login错误" + e.getMessage(), e);
         }
         return handlerResultJson(result, msg);
     }
@@ -133,7 +133,7 @@ public class UserController extends BaseUtils {
                 SecUtil.logout4Session(request);
             }
         } catch (Exception e) {
-            logger.error("", e);
+            logger.error("{loginOut错误" + e.getMessage(), e);
         }
         return new RedirectView(getAbsContextPath(request));
     }
@@ -148,7 +148,7 @@ public class UserController extends BaseUtils {
     @RequestMapping("/regist")
     @ResponseBody
     public Object regist(DreamUserDto dreamUserDto, HttpServletRequest request, HttpServletResponse response) {
-        String msg = "登陆失败！";
+        String msg = "登录失败！";
         boolean result = false;
         try {
             List<DreamUserDto> dreamUserDtos = userService.findAllUsers(dreamUserDto);
@@ -168,7 +168,7 @@ public class UserController extends BaseUtils {
             msg = "注册成功！";
             result = true;
         } catch (Exception e) {
-            logger.error("", e);
+            logger.error("{regist错误" + e.getMessage(), e);
         }
         return handlerResultJson(result, msg);
     }
@@ -227,6 +227,6 @@ public class UserController extends BaseUtils {
      * @Param [request]
      **/
     public String getAbsContextPath(HttpServletRequest request) {
-        return request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + "/player/playerList";
+        return request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + "/news/newsList";
     }
 }

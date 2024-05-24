@@ -21,7 +21,7 @@
             </div>
         </div>
         <div class="layui-form-item layui-form-text">
-            <label class="layui-form-label">新闻内容</label>
+            <label class="layui-form-label">评论内容</label>
             <div class="layui-input-block">
                 <textarea name="content" id="content" value="${(comment.content)!}" placeholder="请输入内容" class="layui-textarea" style="height: 400px; width: 1000px"></textarea>
             </div>
@@ -63,7 +63,7 @@
                     success: function (data) {
                         layer.close(loadingIndex);
                         if (data.result) {
-                            layer.msg('评论成功！',{time: 3000},function () {
+                            layer.msg('评论成功！',{time: 1500},function () {
                                 var index=parent.layer.getFrameIndex(window.name);
                                 parent.layer.close(index);
                                 parent.location.reload();

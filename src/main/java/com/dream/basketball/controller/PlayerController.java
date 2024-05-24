@@ -133,7 +133,7 @@ public class PlayerController extends BaseUtils {
             count = (int) dreamPlayerPageInfo.getTotal();
             code = 0;
         } catch (Exception e) {
-            logger.error("", e);
+            logger.error("{getPlayerData错误" + e.getMessage(), e);
         }
         return handlerSuccessPageJson(code, "测试", count, rows);
     }
@@ -164,7 +164,7 @@ public class PlayerController extends BaseUtils {
             count = (int) playerStatsDtoPageInfo.getTotal();
             code = 0;
         } catch (Exception e) {
-            logger.error("", e);
+            logger.error("{getPlayerSeasonStatsList错误" + e.getMessage(), e);
         }
         return handlerSuccessPageJson(code, "测试", count, rows);
     }
@@ -191,7 +191,7 @@ public class PlayerController extends BaseUtils {
             count = (int) playerStatsDtoPageInfo.getTotal();
             code = 0;
         } catch (Exception e) {
-            logger.error("", e);
+            logger.error("{getAllPlayersSeasonStatsList错误" + e.getMessage(), e);
         }
         return handlerSuccessPageJson(code, "测试", count, rows);
     }

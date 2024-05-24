@@ -1,5 +1,5 @@
 <ul class="layui-nav" style="padding: 0px 25px" lay-filter="">
-    <li class="layui-nav-item"><a href="/">联盟数据</a></li>
+    <li class="layui-nav-item"><a href="/player/playerList">联盟数据</a></li>
     <li class="layui-nav-item"><a href="/news/newsList">D论坛</a></li>
     <li class="layui-nav-item"><a href="javascript:;" onclick="alertMsg()">战队排行榜</a></li>
     <li class="layui-nav-item">
@@ -42,6 +42,9 @@
         </li>
         <li class="layui-nav-item" style="float: right">
             <a href="javascript:;" onclick="alertMsg()">个人中心<span class="layui-badge-dot"></span></a>
+            <dl class="layui-nav-child">
+                <dd><a href="javascript:;" onclick="openMsg()">消息通知</a></dd>
+            </dl>
         </li>
     <#else>
         <li class="layui-nav-item" style="float: right">
@@ -53,6 +56,24 @@
         </li>
     </#if>
     <script>
+        function openMsg(){
+            $.ajax({
+                url: '/user/checkLogin',
+                type: 'post',
+                dataType: 'json',
+                data: {},
+                success: function (res) {
+                    if (res.result) {
+                        var url = "/userInformation/userInformationList";
+                        layerOpen(url, '', '', '消息通知');
+                    } else {
+                        layerMsg(res.msg);
+                    }
+
+                }
+            });
+        }
+
         window.alertMsg = function (){
             layerMsg("正在开发，敬请期待！");
         }

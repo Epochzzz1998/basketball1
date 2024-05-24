@@ -52,7 +52,7 @@ public class DreamNewsComment extends Model<DreamNewsComment> implements Seriali
     @TableField("NEWS_ID")
     private String newsId;
 
-    @Column(name = "COMMENT_DATE", columnDefinition = "DATE")
+    @Column(name = "COMMENT_DATE", columnDefinition = "DATETIME")
     @Comment("评论时间")
     @TableField("COMMENT_DATE")
     private Date commentDate;

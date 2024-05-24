@@ -1,6 +1,8 @@
 package com.dream.basketball.service;
 
 import cn.hutool.core.date.DateUtil;
+import cn.hutool.core.map.MapUtil;
+import cn.hutool.json.JSONUtil;
 import com.alibaba.fastjson.JSONObject;
 import com.dream.basketball.dto.DreamNewsCommentDto;
 import com.dream.basketball.dto.DreamPlayerDto;
@@ -37,6 +39,7 @@ import java.io.IOException;
 import java.util.*;
 import java.net.InetAddress;
 
+import static com.dream.basketball.utils.Constants.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
@@ -57,6 +60,9 @@ class PlayerServiceTest {
     @Autowired
     StringRedisTemplate stringRedisTemplate;
 
+    @Autowired
+    UserInformationService userInformationService;
+
     @Test
     void findAllPlayers() {
         DreamPlayerDto dreamPlayerDto = new DreamPlayerDto();
@@ -72,6 +78,15 @@ class PlayerServiceTest {
 ////        list.add(new News(UUID.randomUUID().toString(), "杜兰特给比尔点赞", "杜兰特快跑", "epoch", DateUtil.parse("2023-01-09 12:23:22"), "PHX", "交易"));
 ////        list.add(new News(UUID.randomUUID().toString(), "杜兰特想试试回勇士吗", "杜兰特去湖人吧", "epoch", DateUtil.parse("2023-01-09 12:23:22"), "LAL", "交易"));
 //        newsService.saveAll(list);
+//        stringRedisTemplate.opsForSet().add("test","123");
+//        stringRedisTemplate.opsForSet().add("test", "321");
+        Map<String, String > a = new HashMap<>();
+        a.put("goodComment", "点赞评论人id,评论id");
+        stringRedisTemplate.opsForZSet().add("msg", JSONUtil.toJsonStr(a), stringRedisTemplate.opsForZSet().size("msg") + 1);
+        Map<String, String > b = new HashMap<>();
+        b.put("goodNews", "点赞评论人id,新闻id");
+        stringRedisTemplate.opsForZSet().add("msg", JSONUtil.toJsonStr(b), stringRedisTemplate.opsForZSet().size("msg") + 1);
+//        MapUtil.
     }
 
     @Test
@@ -81,6 +96,7 @@ class PlayerServiceTest {
 //        for (News news : newsList) {
 //            System.out.println(news.getContent() + news.getPublishDate() + news.getNewsType());
 //        }
+            userInformationService.removeUserInformation(GOOD_NEWS, "123", "312123");
     }
 
 //    @Test

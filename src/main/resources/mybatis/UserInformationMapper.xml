@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dream.basketball.mapper.UserInformationMapper">
+    <select id="getUserInformationListByParam" parameterType="java.lang.String" resultType="com.dream.basketball.dto.UserInformationDto">
+        select * from user_information
+        <where>
+            <if test="param.receiverId != null and param.receiverId !=''">
+                and RECEIVER_ID = #{param.receiverId}
+            </if>
+        </where>
+        order by msg_date desc
+    </select>
+</mapper>

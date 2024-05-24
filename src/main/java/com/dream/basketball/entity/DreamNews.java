@@ -52,7 +52,7 @@ public class DreamNews extends Model<DreamNews> implements Serializable {
     @TableField("AUTHOR_ID")
     private String authorId;
 
-    @Column(name = "PUBLISH_DATE", columnDefinition = "DATE")
+    @Column(name = "PUBLISH_DATE", columnDefinition = "DATETIME")
     @Comment("发布时间")
     @TableField("PUBLISH_DATE")
     private Date publishDate;

@@ -9,4 +9,6 @@ public class DreamNewsCommentDto extends DreamNewsComment {
 
     private Integer commentNum;
 
+    private String anchorId;
+
 }

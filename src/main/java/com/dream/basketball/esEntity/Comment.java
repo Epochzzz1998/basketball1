@@ -29,7 +29,7 @@ public class Comment {
     @Field(type = FieldType.Text, analyzer = "ik_max_word")
     private String newsId;
 
-    @Field(type = FieldType.Date, name = "publishDate",format = {},
+    @Field(type = FieldType.Date, name = "commentDate",format = {},
             pattern = "yyyy-MM-dd HH:mm:ss || yyyy-MM-dd'T'HH:mm:ss'+08:00' || strict_date_optional_time || epoch_millis")
     private Date commentDate;
 

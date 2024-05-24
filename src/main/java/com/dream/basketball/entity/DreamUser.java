@@ -67,7 +67,7 @@ public class DreamUser extends Model<DreamUser> implements Serializable {
     @TableField("USER_STATUS")
     private Integer userStatus;
 
-    @Column(name = "REGIST_TIME", columnDefinition = "DATE")
+    @Column(name = "REGIST_TIME", columnDefinition = "DATETIME")
     @Comment("注册时间")
     @TableField("REGIST_TIME")
     private Date registTime;

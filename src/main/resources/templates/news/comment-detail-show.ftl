@@ -9,7 +9,7 @@
         .layui-table-cell {
             height: auto;
             line-height: 60px;
-            font-size: 16px;
+            font-size: 13px;
             display:table-cell;
             vertical-align: middle;
             overflow:visible;
@@ -19,7 +19,7 @@
         p{
             text-align: right;
             color: #C2C2C2;
-            font-size: 17px;
+            font-size: 13px;
         }
         .no-scrollbar::-webkit-scrollbar {
             width: 0;
@@ -35,10 +35,11 @@
     </style>
 </head>
 <body>
-<#--style="background-color: #cccccc"-->
-<div class="layui-btn-container" style="width: 100%;text-align: center">
+<div style="text-align: left;width: 90%;margin-top: 40px">
+    <table class="layui-hide" id="commentBefore" lay-filter="commentBefore">
+    </table>
 </div>
-<div style="text-align: left;width: 90%">
+<div style="text-align: left;width: 90%;margin-top: 60px">
     <table class="layui-hide" id="commentList" lay-filter="commentList"></table>
 </div>
 <script src="../../js/jquery-3.6.3.js"></script>
@@ -53,6 +54,56 @@
 
         var newsId = '${news.newsId!}';
         var commentRelId = '${commentRelId!}';
+        var anchorId = '${anchorId!}';
+
+        var active1 = {
+            reload: function (curr) {
+                curr = curr == undefined ? 1 : curr;
+                table.reload('commentBefore', {
+                    url: '/news/CommentListData',
+                    method: 'get',
+                    where: {
+                        commentId: commentRelId
+                    },
+                    height: 'full',
+                    id: "commentBefore",
+                    even: true,
+                    skin: 'nob',
+                    text: {
+                        none: '暂时没有回复捏'
+                    },
+                    page: false,
+                    done: function (res, curr, count) {
+                    }
+                });
+            }
+        };
+        active1.reload();
+
+        table.render({
+            elem: '#commentBefore'
+            ,height: 'full'
+            ,url: '/news/CommentListData' //数据接口
+            ,page: false //开启分页
+            ,where: {
+                commentId: commentRelId
+            }
+            ,id: "commentBefore"
+            ,even: true
+            ,cols: [[ //表头
+                {field: 'title', title: '<div style="font-size: 30px;">回复评论</div>', width:'91%', align: 'left', style:"text-align: left",
+                    templet: function (res) {
+                        return '<span style="font-weight: bold" id=' + '"' + res.commentId + '"' + '>' + res.userName + '</span><span>&nbsp;&nbsp;/&nbsp;&nbsp;</span><span>' + new Date(res.commentDate).Format("yyyy-MM-dd hh:mm:ss") + '</span>&nbsp;&nbsp;/&nbsp;&nbsp;<span>' + res.floor + '楼</span>' +  replayCellData(res);
+                    }}
+            ]]
+            ,skin: 'nob'
+            ,text: {
+                none: '暂时没有回复捏'
+            }
+            ,done: function (res, curr, count) {
+                // $('th').hide()
+            }
+        });
 
         var active = {
             reload: function (curr) {
@@ -62,7 +113,6 @@
                     method: 'get',
                     where: {
                         newsId: newsId,
-                        level: '2',
                         commentRelId: commentRelId
                     },
                     height: 'full',
@@ -90,16 +140,15 @@
             ,limit: 20
             ,where:{
                 newsId: newsId,
-                level: '2',
                 commentRelId: commentRelId
             }
             ,id: "commentList"
             ,even: true
             ,cols: [[ //表头
                 {type: 'checkbox', width: '2%' <#if !(isManagerOrOver?? && isManagerOrOver != '')>,hide: true</#if>}
-                ,{field: 'title', title: '<div style="font-size: 30px;">评论区</div>', width:'92%', align: 'left', style:"text-align: left",
+                ,{field: 'title', title: '<div style="font-size: 30px;">评论区</div>', width:'91.5%', align: 'left', style:"text-align: left",
                     templet: function (res) {
-                        return '<span style="font-weight: bold">' + res.userName + '</span><span>&nbsp;&nbsp;/&nbsp;&nbsp;</span><span>' + new Date(res.commentDate).Format("yyyy-MM-dd hh:mm:ss") + '</span>&nbsp;&nbsp;/&nbsp;&nbsp;<span>' + res.floor + '楼</span>' +  cellData(res);
+                        return '<span style="font-weight: bold" id=' + '"' + res.commentId + '"' + '>' + res.userName + '</span><span>&nbsp;&nbsp;/&nbsp;&nbsp;</span><span>' + new Date(res.commentDate).Format("yyyy-MM-dd hh:mm:ss") + '</span>&nbsp;&nbsp;/&nbsp;&nbsp;<span>' + res.floor + '楼</span>' +  cellData(res);
                     }}
             ]]
             ,skin: 'nob'
@@ -107,7 +156,10 @@
                 none: '暂时没有回复捏'
             }
             ,done: function (res, curr, count) {
-                // $('th').hide()
+                // 定位跳转
+                if (anchorId != 'noAnchor') {
+                    window.location.href = '#' + anchorId;
+                }
             }
         });
 
@@ -125,78 +177,34 @@
         });
 
         // 加载行数据
-        function cellData(res){
+        function replayCellData(res){
             var str = '';
             str += '<div>' +
-                '<div style="text-align: left;width: 100%;"><span style="font-size: 16px">' + res.content + '</span></div>' +
-                '<div style="text-align: left;width: 50%;display: inline-block"><a href="javascript:void(0);" onclick="openCommentList(' + "'" + res.newsId + "'," + "'" + res.commentId + "'" + ')"><span style="font-size: 15px;color: cornflowerblue">查看全部评论</span></a>' +
-                '&nbsp;&nbsp;/&nbsp;&nbsp;<a href="javascript:void(0);" onclick="openCommentRel(' + "'" + res.newsId + "'," + "'" + res.commentId + "'" + ')"><span style="font-size: 15px;color: cornflowerblue">回复</span></a></div>' +
+                '<div style="text-align: left;width: 100%;"><span style="font-size: 14px">' + res.content + '</span></div>' +
+                '<div style="text-align: left;width: 50%;display: inline-block">' +
+                '<a href="javascript:void(0);" onclick="openCommentRel(' + "'" + res.newsId + "'," + "'" + res.commentId + "'" + ')"><span style="font-size: 14px;color: cornflowerblue">回复</span></a></div>' +
                 '<div style="text-align: right;width: 50%;display: inline-block">' +
-                '<a href="javascript:void(0);" onclick="commentGood(' + "'" + res.commentId + "'" + ')"><i class="layui-icon layui-icon-praise" style="font-size: 25px;"></i></a><span style="font-size: 15px;">' + res.goodNum + '</span>' +
-                '&nbsp;&nbsp;<a href="javascript:void(0);" onclick="commentBad(' + "'" + res.commentId + "'" + ')"><i class="layui-icon layui-icon-tread" style="font-size: 25px;"></i></a><span style="font-size: 15px;">' + res.badNum + '</span>' +
+                '<a href="javascript:void(0);" onclick="commentGood(' + "'" + res.commentId + "'" + ')"><i class="layui-icon layui-icon-praise" style="font-size: 25px;"></i>&nbsp;点赞&nbsp;<span style="font-size: 14px;">（' + res.goodNum + '）</span></a>' +
+                '&nbsp;&nbsp;<a href="javascript:void(0);" onclick="commentBad(' + "'" + res.commentId + "'" + ')"><i class="layui-icon layui-icon-tread" style="font-size: 25px;"></i>&nbsp;点踩&nbsp;<span style="font-size: 14px;">（' + res.badNum + '）</span></a>' +
                 '</div>' +
                 '</div>';
             return str;
         }
 
-        // 点赞
-        $("#good").click(function () {
-            $.ajax({
-                url: '/news/good',
-                type: 'post',
-                dataType: 'json',
-                data: {
-                    newsId: '${news.newsId!}'
-                },
-                success: function (res) {
-                    if (res.result) {
-                        layer.msg(res.msg, {icon: 1});
-                    } else {
-                        layerMsg(res.msg);
-                    }
-
-                }
-            });
-        });
-
-        // 点踩
-        $("#bad").click(function () {
-            $.ajax({
-                url: '/news/bad',
-                type: 'post',
-                dataType: 'json',
-                data: {
-                    newsId: '${news.newsId!}'
-                },
-                success: function (res) {
-                    if (res.result) {
-                        layer.msg(res.msg, {icon: 2});
-                    } else {
-                        layerMsg(res.msg);
-                    }
-
-                }
-            });
-        });
-
-        // 评论
-        $("#comment").click(function () {
-            $.ajax({
-                url: '/user/checkLogin',
-                type: 'post',
-                dataType: 'json',
-                data: {},
-                success: function (res) {
-                    if (res.result) {
-                        var url = "/news/commentInput?newsId=" + '${news.newsId!}';
-                        layerOpen(url, '', '', '评论');
-                    } else {
-                        layerMsg(res.msg);
-                    }
-
-                }
-            });
-        });
+        // 加载行数据
+        function cellData(res){
+            var str = '';
+            str += '<div>' +
+                '<div style="text-align: left;width: 100%;"><span style="font-size: 14px">' + res.content + '</span></div>' +
+                '<div style="text-align: left;width: 50%;display: inline-block"><a href="javascript:void(0);" onclick="openCommentList(' + "'" + res.newsId + "'," + "'" + res.commentId + "'" + ')"><span style="font-size: 14px;color: cornflowerblue">查看全部' + res.commentNum + '条评论</span></a>' +
+                '&nbsp;&nbsp;/&nbsp;&nbsp;<a href="javascript:void(0);" onclick="openCommentRel(' + "'" + res.newsId + "'," + "'" + res.commentId + "'" + ')"><span style="font-size: 14px;color: cornflowerblue">回复</span></a></div>' +
+                '<div style="text-align: right;width: 50%;display: inline-block">' +
+                '<a href="javascript:void(0);" onclick="commentGood(' + "'" + res.commentId + "'" + ')"><i class="layui-icon layui-icon-praise" style="font-size: 25px;"></i>&nbsp;点赞&nbsp;<span style="font-size: 14px;">（' + res.goodNum + '）</span></a>' +
+                '&nbsp;&nbsp;<a href="javascript:void(0);" onclick="commentBad(' + "'" + res.commentId + "'" + ')"><i class="layui-icon layui-icon-tread" style="font-size: 25px;"></i>&nbsp;点踩&nbsp;<span style="font-size: 14px;">（' + res.badNum + '）</span></a>' +
+                '</div>' +
+                '</div>';
+            return str;
+        }
 
         // 评论点赞
         window.commentGood = function (commentId){
@@ -212,6 +220,7 @@
                         layer.msg(res.msg, {icon: 1});
                         setTimeout(function() {
                             active.reload();
+                            active1.reload();
                         }, 1500);
                     } else {
                         layerMsg(res.msg);
@@ -235,6 +244,7 @@
                         layer.msg(res.msg, {icon: 1});
                         setTimeout(function() {
                             active.reload();
+                            active1.reload();
                         }, 1500);
                     } else {
                         layerMsg(res.msg);
@@ -247,7 +257,8 @@
         // 打开评论的评论
         window.openCommentList = function (newsId, commentId){
             var url = "/news/commentDetailShow?newsId=" + newsId + "&commentRelId=" + commentId;
-            layerOpen(url, '', '', '回复详情');
+            window.location.href = url;
+            // layerOpen(url, '', '', '回复详情');
         }
 
         // 回复评论

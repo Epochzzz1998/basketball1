@@ -34,4 +34,22 @@ public class Constants {
     public static final String TOPIC_LIKE = "TOPIC_LIKE";
 
     public static final String TOPIC_FOLLOW = "TOPIC_FOLLOW";
+
+    public static final String GOOD_COMMENT = "goodComment";
+
+    public static final String BAD_COMMENT = "badComment";
+
+    public static final String GOOD_NEWS = "goodNews";
+
+    public static final String BAD_NEWS = "badNews";
+
+    public static final String COMMENT_NEWS = "commentNews";
+
+    public static final String COMMENT_COMMENT = "commentComment";
+
+    public static final String TO_READ = "toRead";
+
+    public static final String READ = "read";
+
+    public static final String NO_ANCHOR = "noAnchor";
 }
