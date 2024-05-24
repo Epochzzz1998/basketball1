@@ -67,7 +67,7 @@
         <div class="layui-form-item layui-form-text">
             <label class="layui-form-label">帖子内容</label>
             <div class="layui-input-block">
-                <textarea name="content" id="content" value="${(news.content)!}" placeholder="请输入内容" class="layui-textarea" style="height: 400px; width: 1000px">${(news.content)!}</textarea>
+                <textarea name="content" id="content" value="${(news.content)!}" placeholder="请输入内容" style="display: none;">${(news.content)!}</textarea>
             </div>
         </div>
         <div class="layui-form-item">
@@ -83,12 +83,20 @@
 <script src="../../layui/layui.js"></script>
 <script src="../../js/public.js"></script>
 <script>
-    layui.use(['layer', 'form', 'element','table'], function(){
+    layui.use(['layer', 'form', 'element','table', 'layedit'], function(){
         var layer = layui.layer
             ,form = layui.form
             ,element = layui.element
+            ,layedit = layui.layedit
             ,table = layui.table;
 
+        layedit.set({
+            uploadImage: {
+                url: '/news/upload' //接口url
+                ,type: 'post' //默认post
+            }
+        });
+        layedit.build('content'); //建立编辑器
         layui.use('form', function(){
             var form = layui.form;
 

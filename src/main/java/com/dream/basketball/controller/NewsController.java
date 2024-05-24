@@ -9,6 +9,7 @@ import com.dream.basketball.service.DreamNewsService;
 import com.dream.basketball.service.NewsService;
 import com.dream.basketball.service.UserInformationService;
 import com.dream.basketball.utils.BaseUtils;
+import com.dream.basketball.utils.FileUtils;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import org.apache.commons.lang3.StringUtils;
@@ -20,9 +21,11 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -223,6 +226,19 @@ public class NewsController extends BaseUtils {
             logger.error("{news方法保存异常：}" + e.getMessage(), e);
         }
         return handlerResultJson(false, "操作失败！");
+    }
+
+    @RequestMapping("/upload")
+    public String upload(MultipartFile file) throws IOException {
+        String path = FileUtils.upload(file,"e:/photo/","img/");
+        return "{\n" +
+                "  \"code\": 0 \n" +
+                "  ,\"msg\": \"123123123\" \n" +
+                "  ,\"data\": {\n" +
+                "    \"src\": \"E:\\photo\\img\\微信图片_20240517143433.jpg\"\n" +
+                "    ,\"title\": \"图片名称\" \n" +
+                "  }\n" +
+                "}";
     }
 
     /**

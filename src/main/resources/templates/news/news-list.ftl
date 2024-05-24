@@ -124,16 +124,16 @@
                 });
             }
         };
-        active.reload();
+        // active.reload();
 
         table.render({
             elem: '#newsList'
+            ,id: 'newsList'
             ,height: 'full'
             ,toolbar: '#toolbarDemo'
             ,url: '/news/newsListData' //数据接口
             ,page: true //开启分页
             ,limit: 20
-            ,id: "newsList"
             ,cols: [[ //表头
                 {type: 'checkbox', width: '2%' <#if !(isManagerOrOver?? && isManagerOrOver != '')>,hide: true</#if>}
                 ,{field: 'title', title: '<div style="font-size: 30px;">D论坛</div>', width:'92%', align: 'left', style:"text-align: left",
