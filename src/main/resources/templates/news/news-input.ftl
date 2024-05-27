@@ -92,11 +92,11 @@
 
         layedit.set({
             uploadImage: {
-                url: '/news/upload' //接口url
+                url: '/news/upload?newsId=' + '${(news.newsId)!}' //接口url
                 ,type: 'post' //默认post
             }
         });
-        layedit.build('content'); //建立编辑器
+        var layeditContent = layedit.build('content'); //建立编辑器
         layui.use('form', function(){
             var form = layui.form;
 
@@ -113,7 +113,14 @@
             //监听提交
             form.on('submit(formDemo)', function(data){
                 // layer.msg(JSON.stringify(data.field));
-                var dataJson = data.field;
+                var contentValue = layedit.getContent(layeditContent);
+                console.log(contentValue);
+                // $("#content").text(contentValue);
+                var dataJson1 = JSON.stringify(data.field);
+                // dataJson.put("content", contentValue);
+                var dataJson = JSON.parse(dataJson1);
+                dataJson.content = contentValue;
+                console.log(dataJson);
                 var loadingIndex = layer.msg('正在保存数据...', {
                     icon: 16,
                     shade: 0.3

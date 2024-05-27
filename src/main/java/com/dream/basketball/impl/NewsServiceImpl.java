@@ -23,6 +23,7 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
@@ -211,6 +212,7 @@ public class NewsServiceImpl implements NewsService {
     private NativeSearchQueryBuilder getMatchSearch(NewsDto params) {
         NativeSearchQueryBuilder builder = new NativeSearchQueryBuilder();
         BoolQueryBuilder queryBuilder = new BoolQueryBuilder();
+        builder.withPageable(PageRequest.of(0, 10000));
         if (params != null) {
             if (StringUtils.isNotBlank(params.getNewsId())) {
                 queryBuilder.must(QueryBuilders.matchQuery("newsId", params.getNewsId()).operator(Operator.AND));

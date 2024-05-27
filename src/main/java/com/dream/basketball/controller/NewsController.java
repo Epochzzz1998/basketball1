@@ -1,5 +1,6 @@
 package com.dream.basketball.controller;
 
+import com.alibaba.fastjson.JSONObject;
 import com.dream.basketball.dto.DreamNewsCommentDto;
 import com.dream.basketball.dto.NewsDto;
 import com.dream.basketball.entity.DreamNewsComment;
@@ -16,6 +17,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -29,11 +31,16 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.dream.basketball.utils.Constants.*;
+import static com.dream.basketball.utils.Constants.NO_ANCHOR;
 
 @Controller
 @RequestMapping("/news")
 public class NewsController extends BaseUtils {
+
+    @Value("${picPath.picPath:}")
+    private String picPath;
+    @Value("${picPath.uploadPath:}")
+    private String uploadPath;
 
     private Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -228,17 +235,20 @@ public class NewsController extends BaseUtils {
         return handlerResultJson(false, "操作失败！");
     }
 
+    /**
+    * @Description: 上传图片方法
+    * @param: [file, newsId]
+    * @Author: Epoch
+    * @return: java.lang.String
+    * @Date: 2024/5/27
+    * @time: 16:53
+    */
     @RequestMapping("/upload")
-    public String upload(MultipartFile file) throws IOException {
-        String path = FileUtils.upload(file,"e:/photo/","img/");
-        return "{\n" +
-                "  \"code\": 0 \n" +
-                "  ,\"msg\": \"123123123\" \n" +
-                "  ,\"data\": {\n" +
-                "    \"src\": \"E:\\photo\\img\\微信图片_20240517143433.jpg\"\n" +
-                "    ,\"title\": \"图片名称\" \n" +
-                "  }\n" +
-                "}";
+    @ResponseBody
+    public String upload(MultipartFile file, String newsId) throws IOException {
+        String path = FileUtils.upload(file, uploadPath, newsId + "/");
+        return path;
+
     }
 
     /**

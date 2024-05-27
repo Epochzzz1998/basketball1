@@ -17,9 +17,10 @@
             white-space:normal;
         }
         p{
-            text-align: right;
-            color: #C2C2C2;
-            font-size: 17px;
+            /*text-align: right;*/
+            /*color: #C2C2C2;*/
+            font-size: 19px;
+            letter-spacing: 2px;
         }
         .layui-table-main{
             /*height: 2000px;*/
@@ -75,7 +76,7 @@
         <div class="layui-form-item layui-form-text">
             <label class="layui-form-label"></label>
             <div class="layui-input-block">
-                <div style="width: 100%"><pre style="text-align: left;font-size: 20px;font-weight: bold">${(news.content)!}</pre></div>
+                <div style="width: 100%"><pre style="text-align: left;font-size: 20px">${(news.content)!}</pre></div>
 <#--                <textarea name="content" id="content" value="${(news.content)!}"  placeholder="请输入内容" readonly class="layui-textarea" style="background-color:transparent;border:0;height: 1000px; width: 95%;resize: none">${(news.content)!}</textarea>-->
             </div>
         </div>
