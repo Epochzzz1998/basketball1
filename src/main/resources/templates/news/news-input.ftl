@@ -43,6 +43,7 @@
                         <option value="PHX">PHX</option>
                         <option value="PHI">PHI</option>
                         <option value="GOS">GOS</option>
+                        <option value="BOS">BOS</option>
                     </select>
                 </div>
             </div>

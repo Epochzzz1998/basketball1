@@ -20,7 +20,7 @@
             /*text-align: right;*/
             /*color: #C2C2C2;*/
             font-size: 19px;
-            letter-spacing: 2px;
+            letter-spacing: 1px;
         }
         .layui-table-main{
             /*height: 2000px;*/
