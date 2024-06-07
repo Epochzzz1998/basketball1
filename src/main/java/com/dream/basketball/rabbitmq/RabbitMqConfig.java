@@ -35,7 +35,20 @@ public class RabbitMqConfig {
     }
 
     /**
-    * @Description: 绑定队列
+    * @Description: 新闻点踩
+    * @param: []
+    * @Author: Epoch
+    * @return: org.springframework.amqp.core.Queue
+    * @Date: 2024/6/7
+    * @time: 17:02
+    */
+    @Bean(name = "badNewsQueue")
+    public Queue badNewsQueue() {
+        return  QueueBuilder.durable("bad_news_queue").build();
+    }
+
+    /**
+    * @Description: 绑定新闻/帖子点赞队列
     * @param: [queue, exchange]
     * @Author: Epoch
     * @return: org.springframework.amqp.core.Binding
@@ -46,5 +59,19 @@ public class RabbitMqConfig {
     public Binding goodNewsBinding(@Qualifier("goodNewsQueue") Queue queue, @Qualifier("exchange") TopicExchange exchange) {
         return BindingBuilder.bind(queue).to(exchange).with("good.news");
     }
+
+    /**
+    * @Description: 绑定新闻/帖子点踩队列
+    * @param: [queue, exchange]
+    * @Author: Epoch
+    * @return: org.springframework.amqp.core.Binding
+    * @Date: 2024/6/7
+    * @time: 17:03
+    */
+    @Bean
+    public Binding badNewsBinding(@Qualifier("badNewsQueue") Queue queue, @Qualifier("exchange") TopicExchange exchange) {
+        return BindingBuilder.bind(queue).to(exchange).with("bad.news");
+    }
+
 
 }

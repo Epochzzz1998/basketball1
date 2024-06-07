@@ -15,15 +15,15 @@ public class RabbitMqProducer {
     RabbitMqService rabbitMqService;
 
     /**
-    * @Description: 新闻点赞mq
+    * @Description: 新闻帖子点赞或点踩操作
     * @param: [newsId]
     * @Author: Epoch
     * @return: void
     * @Date: 2024/6/5
     * @time: 15:50
     */
-    public void goodNewsMq(String newsId, String userId, boolean isGood, DreamUser dreamUser, DreamNews dreamNews) {
-        rabbitMqService.goodNewsRmq(newsId, userId, isGood, dreamUser, dreamNews);
+    public void newsActionRmq(String newsId, String userId, boolean whetherClicked, DreamUser dreamUser, DreamNews dreamNews, String action) {
+        rabbitMqService.newsActionRmq(newsId, userId, whetherClicked, dreamUser, dreamNews, action);
     }
 
 }

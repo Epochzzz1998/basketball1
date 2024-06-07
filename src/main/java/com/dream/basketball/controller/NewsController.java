@@ -267,7 +267,6 @@ public class NewsController extends BaseUtils {
     @RequestMapping("/good")
     @ResponseBody
     public Object good(String newsId, HttpServletRequest request) {
-//        rabbitMqProducer.goodNewsMq(newsId, request);
         return newsService.good(newsId, request);
     }
 

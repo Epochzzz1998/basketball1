@@ -7,6 +7,6 @@ import javax.servlet.http.HttpServletRequest;
 
 public interface RabbitMqService {
 
-    public void goodNewsRmq(String newsId, String userId, boolean isGood, DreamUser dreamUser, DreamNews dreamNews);
+    public void newsActionRmq(String newsId, String userId, boolean whetherClicked, DreamUser dreamUser, DreamNews dreamNews, String action);
 
 }

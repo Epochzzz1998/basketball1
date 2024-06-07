@@ -300,26 +300,12 @@ public class NewsServiceImpl implements NewsService {
                 return handlerResultJson(false, "原帖已删除！");
             } else {
                 String userId = dreamUser.getUserId();
-                Boolean isGood = stringRedisTemplate.opsForSet().isMember("good:user:" + userId + ":newsId:" + newsId, userId);
+                Boolean whetherClicked = stringRedisTemplate.opsForSet().isMember("good:user:" + userId + ":newsId:" + newsId, userId);
                 // rabbitmq处理点赞
-                rabbitMqProducer.goodNewsMq(newsId, userId, isGood, dreamUser, dreamNews);
-                if (isGood) {
-                    // 已经点赞了的，点赞数-1，redis移除
-//                    stringRedisTemplate.opsForSet().remove("good:user:" + userId + ":newsId:" + newsId, userId);
-//                    dreamNewsService.good(newsId, -1);
-//                    // 个人消息提示取消 redis
-////                redisUtil.removeMsgFromRedis(dreamNews.getAuthorId(), GOOD_NEWS, newsId, dreamUser.getUserId());
-//                    // 数据库移除点赞信息
-//                    userInformationService.removeUserInformation(GOOD_NEWS, newsId, dreamUser.getUserId());
+                rabbitMqProducer.newsActionRmq(newsId, userId, whetherClicked, dreamUser, dreamNews, "good");
+                if (whetherClicked) {
                     return handlerResultJson(true, "让我再看看这帖子质量怎么样");
                 } else {
-                    // 没点赞的，点赞数+1，redis新增
-//                    stringRedisTemplate.opsForSet().add("good:user:" + userId + ":newsId:" + newsId, userId);
-//                    dreamNewsService.good(newsId, 1);
-//                    // 个人消息提示 redis
-////                redisUtil.addMsgToRedis(dreamNews.getAuthorId(), GOOD_NEWS, newsId, dreamUser.getUserId());
-//                    // 个人消息提示入库
-//                    userInformationService.saveUserInformation(userId, dreamUser.getUserNickname(), dreamNews.getAuthorId(), GOOD_NEWS, newsId, "", "", "", "", "");
                     return handlerResultJson(true, "好帖，顶！");
                 }
             }
@@ -346,24 +332,12 @@ public class NewsServiceImpl implements NewsService {
             return handlerResultJson(false, "原帖已删除！");
         } else {
             String userId = dreamUser.getUserId();
-            Boolean isGood = stringRedisTemplate.opsForSet().isMember("bad:user:" + userId + ":newsId:" + newsId, userId);
-            if (isGood) {
-                // 已经点赞了的，点赞数-1，redis移除
-                stringRedisTemplate.opsForSet().remove("bad:user:" + userId + ":newsId:" + newsId, userId);
-                dreamNewsService.bad(newsId, -1);
-                // 个人消息提示
-//                redisUtil.removeMsgFromRedis(dreamNews.getAuthorId(), BAD_NEWS, newsId, dreamUser.getUserId());
-                // 数据库移除点灭信息
-                userInformationService.removeUserInformation(BAD_NEWS, newsId, dreamUser.getUserId());
+            Boolean whetherClicked = stringRedisTemplate.opsForSet().isMember("bad:user:" + userId + ":newsId:" + newsId, userId);
+            // rabbitmq处理点踩
+            rabbitMqProducer.newsActionRmq(newsId, userId, whetherClicked, dreamUser, dreamNews, "bad");
+            if (whetherClicked) {
                 return handlerResultJson(true, "我觉得还可以再看看");
             } else {
-                // 没点赞的，点赞数+1，redis新增
-                stringRedisTemplate.opsForSet().add("bad:user:" + userId + ":newsId:" + newsId, userId);
-                dreamNewsService.bad(newsId, 1);
-                // 个人消息提示
-//                redisUtil.addMsgToRedis(dreamNews.getAuthorId(), BAD_NEWS, newsId, dreamUser.getUserId());
-                // 个人消息提示入库
-                userInformationService.saveUserInformation(userId, dreamUser.getUserNickname(), dreamNews.getAuthorId(), BAD_NEWS, newsId, "", "","", "", "");
                 return handlerResultJson(true, "什么垃圾帖子，滚！");
             }
         }
