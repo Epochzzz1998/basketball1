@@ -5,6 +5,10 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.extension.activerecord.Model;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.hibernate.annotations.Comment;
 
 import javax.persistence.Column;
@@ -22,6 +26,10 @@ import java.util.Date;
  * @return
  **/
 @Entity
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
 @Table(name = "DREAM_NEWS")
 public class DreamNews extends Model<DreamNews> implements Serializable {
     private static final long serialVersionUID = 1L;
@@ -82,91 +90,4 @@ public class DreamNews extends Model<DreamNews> implements Serializable {
     @TableField("COMMENT_NUM")
     private Integer commentNum;
 
-    public String getNewsId() {
-        return newsId;
-    }
-
-    public void setNewsId(String newsId) {
-        this.newsId = newsId;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public void setTitle(String title) {
-        this.title = title;
-    }
-
-    public String getContent() {
-        return content;
-    }
-
-    public void setContent(String content) {
-        this.content = content;
-    }
-
-    public String getAuthor() {
-        return author;
-    }
-
-    public void setAuthor(String author) {
-        this.author = author;
-    }
-
-    public String getAuthorId() {
-        return authorId;
-    }
-
-    public void setAuthorId(String authorId) {
-        this.authorId = authorId;
-    }
-
-    public Date getPublishDate() {
-        return publishDate;
-    }
-
-    public void setPublishDate(Date publishDate) {
-        this.publishDate = publishDate;
-    }
-
-    public String getTeam() {
-        return team;
-    }
-
-    public void setTeam(String team) {
-        this.team = team;
-    }
-
-    public String getNewsType() {
-        return newsType;
-    }
-
-    public void setNewsType(String newsType) {
-        this.newsType = newsType;
-    }
-
-    public Integer getGoodNum() {
-        return goodNum;
-    }
-
-    public void setGoodNum(Integer goodNum) {
-        this.goodNum = goodNum;
-    }
-
-    public Integer getBadNum() {
-        return badNum;
-    }
-
-    public void setBadNum(Integer badNum) {
-        this.badNum = badNum;
-    }
-
-    public Integer getCommentNum() {
-        return commentNum;
-    }
-
-    public void setCommentNum(Integer commentNum) {
-        this.commentNum = commentNum;
-    }
 }

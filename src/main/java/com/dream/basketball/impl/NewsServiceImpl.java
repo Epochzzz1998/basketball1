@@ -4,18 +4,19 @@ import cn.hutool.json.JSONUtil;
 import com.alibaba.fastjson.JSONObject;
 import com.dream.basketball.dto.DreamNewsCommentDto;
 import com.dream.basketball.dto.NewsDto;
-import com.dream.basketball.dto.UserInformationDto;
 import com.dream.basketball.entity.DreamNews;
 import com.dream.basketball.entity.DreamNewsComment;
 import com.dream.basketball.entity.DreamUser;
 import com.dream.basketball.esEntity.Comment;
 import com.dream.basketball.esEntity.News;
+import com.dream.basketball.rabbitmq.RabbitMqProducer;
 import com.dream.basketball.service.DreamNewsCommentService;
 import com.dream.basketball.service.DreamNewsService;
 import com.dream.basketball.service.NewsService;
 import com.dream.basketball.service.UserInformationService;
 import com.dream.basketball.utils.RedisUtil;
 import com.dream.basketball.utils.SecUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.Operator;
@@ -39,6 +40,7 @@ import java.util.*;
 import static com.dream.basketball.utils.Constants.*;
 
 @Service
+@Slf4j
 public class NewsServiceImpl implements NewsService {
 
     @Autowired
@@ -61,6 +63,9 @@ public class NewsServiceImpl implements NewsService {
 
     @Autowired
     UserInformationService userInformationService;
+
+    @Autowired
+    RabbitMqProducer rabbitMqProducer;
 
     public void create(Class<?> clazz) {
         template.indexOps(clazz);
@@ -286,34 +291,41 @@ public class NewsServiceImpl implements NewsService {
      * @time: 9:24
      */
     public Object good(String newsId, HttpServletRequest request) {
-        DreamUser dreamUser = SecUtil.getLoginUserToSession(request);
-        DreamNews dreamNews = dreamNewsService.getById(newsId);
-        if (dreamUser == null) {
-            return handlerResultJson(false, "请先登录！");
-        } else if (dreamNews == null){
-            return handlerResultJson(false, "原帖已删除！");
-        } else {
-            String userId = dreamUser.getUserId();
-            Boolean isGood = stringRedisTemplate.opsForSet().isMember("good:user:" + userId + ":newsId:" + newsId, userId);
-            if (isGood) {
-                // 已经点赞了的，点赞数-1，redis移除
-                stringRedisTemplate.opsForSet().remove("good:user:" + userId + ":newsId:" + newsId, userId);
-                dreamNewsService.good(newsId, -1);
-                // 个人消息提示取消 redis
-//                redisUtil.removeMsgFromRedis(dreamNews.getAuthorId(), GOOD_NEWS, newsId, dreamUser.getUserId());
-                // 数据库移除点赞信息
-                userInformationService.removeUserInformation(GOOD_NEWS, newsId, dreamUser.getUserId());
-                return handlerResultJson(true, "让我再看看这帖子质量怎么样");
+        try {
+            DreamUser dreamUser = SecUtil.getLoginUserToSession(request);
+            DreamNews dreamNews = dreamNewsService.getById(newsId);
+            if (dreamUser == null) {
+                return handlerResultJson(false, "请先登录！");
+            } else if (dreamNews == null){
+                return handlerResultJson(false, "原帖已删除！");
             } else {
-                // 没点赞的，点赞数+1，redis新增
-                stringRedisTemplate.opsForSet().add("good:user:" + userId + ":newsId:" + newsId, userId);
-                dreamNewsService.good(newsId, 1);
-                // 个人消息提示 redis
-//                redisUtil.addMsgToRedis(dreamNews.getAuthorId(), GOOD_NEWS, newsId, dreamUser.getUserId());
-                // 个人消息提示入库
-                userInformationService.saveUserInformation(userId, dreamUser.getUserNickname(), dreamNews.getAuthorId(), GOOD_NEWS, newsId, "", "", "", "", "");
-                return handlerResultJson(true, "好帖，顶！");
+                String userId = dreamUser.getUserId();
+                Boolean isGood = stringRedisTemplate.opsForSet().isMember("good:user:" + userId + ":newsId:" + newsId, userId);
+                // rabbitmq处理点赞
+                rabbitMqProducer.goodNewsMq(newsId, userId, isGood, dreamUser, dreamNews);
+                if (isGood) {
+                    // 已经点赞了的，点赞数-1，redis移除
+//                    stringRedisTemplate.opsForSet().remove("good:user:" + userId + ":newsId:" + newsId, userId);
+//                    dreamNewsService.good(newsId, -1);
+//                    // 个人消息提示取消 redis
+////                redisUtil.removeMsgFromRedis(dreamNews.getAuthorId(), GOOD_NEWS, newsId, dreamUser.getUserId());
+//                    // 数据库移除点赞信息
+//                    userInformationService.removeUserInformation(GOOD_NEWS, newsId, dreamUser.getUserId());
+                    return handlerResultJson(true, "让我再看看这帖子质量怎么样");
+                } else {
+                    // 没点赞的，点赞数+1，redis新增
+//                    stringRedisTemplate.opsForSet().add("good:user:" + userId + ":newsId:" + newsId, userId);
+//                    dreamNewsService.good(newsId, 1);
+//                    // 个人消息提示 redis
+////                redisUtil.addMsgToRedis(dreamNews.getAuthorId(), GOOD_NEWS, newsId, dreamUser.getUserId());
+//                    // 个人消息提示入库
+//                    userInformationService.saveUserInformation(userId, dreamUser.getUserNickname(), dreamNews.getAuthorId(), GOOD_NEWS, newsId, "", "", "", "", "");
+                    return handlerResultJson(true, "好帖，顶！");
+                }
             }
+        } catch (Exception e){
+            e.printStackTrace();
+            return handlerResultJson(false, "后台出错！<br>" + e.getMessage());
         }
     }
 

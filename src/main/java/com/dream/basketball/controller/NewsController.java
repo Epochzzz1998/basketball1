@@ -5,6 +5,8 @@ import com.dream.basketball.dto.DreamNewsCommentDto;
 import com.dream.basketball.dto.NewsDto;
 import com.dream.basketball.entity.DreamNewsComment;
 import com.dream.basketball.esEntity.News;
+import com.dream.basketball.rabbitmq.RabbitMqConsumer;
+import com.dream.basketball.rabbitmq.RabbitMqProducer;
 import com.dream.basketball.service.DreamNewsCommentService;
 import com.dream.basketball.service.DreamNewsService;
 import com.dream.basketball.service.NewsService;
@@ -55,6 +57,9 @@ public class NewsController extends BaseUtils {
 
     @Autowired
     UserInformationService userInformationService;
+
+    @Autowired
+    RabbitMqProducer rabbitMqProducer;
 
     /**
      * @Description: 新闻列表
@@ -262,6 +267,7 @@ public class NewsController extends BaseUtils {
     @RequestMapping("/good")
     @ResponseBody
     public Object good(String newsId, HttpServletRequest request) {
+//        rabbitMqProducer.goodNewsMq(newsId, request);
         return newsService.good(newsId, request);
     }
 
