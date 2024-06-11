@@ -360,25 +360,12 @@ public class NewsServiceImpl implements NewsService {
             return handlerResultJson(false, "原评论已删除！");
         } else {
             String userId = dreamUser.getUserId();
-            Boolean isGood = stringRedisTemplate.opsForSet().isMember("goodComment:user:" + userId + ":commentId:" + commentId, userId);
-            if (isGood) {
-                // 已经点赞了的，点赞数-1，redis移除
-                stringRedisTemplate.opsForSet().remove("goodComment:user:" + userId + ":commentId:" + commentId, userId);
-                dreamNewsCommentService.goodComment(commentId, -1);
-                // 个人消息提示 redis
-//                redisUtil.removeMsgFromRedis(dreamNewsComment.getUserId(), GOOD_COMMENT, commentId, dreamUser.getUserId());
-                // 数据库移除点赞信息
-                userInformationService.removeUserInformation(GOOD_COMMENT, commentId, dreamUser.getUserId());
+            Boolean whetherClicked = stringRedisTemplate.opsForSet().isMember("goodComment:user:" + userId + ":commentId:" + commentId, userId);
+            // rabbitmq处理评论点赞
+            rabbitMqProducer.commentActionRmq(commentId, userId, whetherClicked, dreamUser, dreamNewsComment, "good");
+            if (whetherClicked) {
                 return handlerResultJson(true, "你的想法尚且需要我三思");
             } else {
-                // 没点赞的，点赞数+1，redis新增
-                stringRedisTemplate.opsForSet().add("goodComment:user:" + userId + ":commentId:" + commentId, userId);
-                dreamNewsCommentService.goodComment(commentId, 1);
-                // 个人消息提示 redis
-//                redisUtil.addMsgToRedis(dreamNewsComment.getUserId(), GOOD_COMMENT, commentId, dreamUser.getUserId());
-                // 个人消息提示入库
-                String level = String.valueOf(Integer.parseInt(dreamNewsComment.getLevel()) + 1);
-                userInformationService.saveUserInformation(userId, dreamUser.getUserNickname(), dreamNewsComment.getUserId(), GOOD_COMMENT, commentId, dreamNewsComment.getNewsId(), "", level, "", StringUtils.equals("2", level) ? "" : dreamNewsComment.getCommentRelId());
                 return handlerResultJson(true, "说得好！");
             }
         }
@@ -401,25 +388,12 @@ public class NewsServiceImpl implements NewsService {
             return handlerResultJson(false, "原评论已删除！");
         } else {
             String userId = dreamUser.getUserId();
-            Boolean isGood = stringRedisTemplate.opsForSet().isMember("badComment:user:" + userId + ":commentId:" + commentId, userId);
-            if (isGood) {
-                // 已经点赞了的，点赞数-1，redis移除
-                stringRedisTemplate.opsForSet().remove("badComment:user:" + userId + ":commentId:" + commentId, userId);
-                dreamNewsCommentService.badComment(commentId, -1);
-                // 个人消息提示redis
-//                redisUtil.removeMsgFromRedis(dreamNewsComment.getUserId(), BAD_COMMENT, commentId, dreamUser.getUserId());
-                // 数据库移除点灭信息
-                userInformationService.removeUserInformation(BAD_COMMENT, commentId, dreamUser.getUserId());
+            Boolean whetherClicked = stringRedisTemplate.opsForSet().isMember("badComment:user:" + userId + ":commentId:" + commentId, userId);
+            // rabbitmq处理评论点踩
+            rabbitMqProducer.commentActionRmq(commentId, userId, whetherClicked, dreamUser, dreamNewsComment, "bad");
+            if (whetherClicked) {
                 return handlerResultJson(true, "好像说的也没那么离谱");
             } else {
-                // 没点赞的，点赞数+1，redis新增
-                stringRedisTemplate.opsForSet().add("badComment:user:" + userId + ":commentId:" + commentId, userId);
-                dreamNewsCommentService.badComment(commentId, 1);
-                // 个人消息提示 redis
-//                redisUtil.addMsgToRedis(dreamNewsComment.getUserId(), BAD_COMMENT, commentId, dreamUser.getUserId());
-                // 个人消息提示入库
-                String level = String.valueOf(Integer.parseInt(dreamNewsComment.getLevel()) + 1);
-                userInformationService.saveUserInformation(userId, dreamUser.getUserNickname(), dreamNewsComment.getUserId(), BAD_COMMENT, commentId, dreamNewsComment.getNewsId(), "", level, "", StringUtils.equals("2", level) ? "" : dreamNewsComment.getCommentRelId());
                 return handlerResultJson(true, "我觉得这完全没道理");
             }
         }

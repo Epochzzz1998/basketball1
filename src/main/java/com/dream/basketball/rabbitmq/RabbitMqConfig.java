@@ -48,6 +48,32 @@ public class RabbitMqConfig {
     }
 
     /**
+    * @Description: 评论点赞
+    * @param: []
+    * @Author: Epoch
+    * @return: org.springframework.amqp.core.Queue
+    * @Date: 2024/6/11
+    * @time: 10:48
+    */
+    @Bean(name = "goodCommentQueue")
+    public Queue goodCommentQueue(){
+        return  QueueBuilder.durable("good_comment_queue").build();
+    }
+
+    /**
+    * @Description: 评论点踩
+    * @param: []
+    * @Author: Epoch
+    * @return: org.springframework.amqp.core.Queue
+    * @Date: 2024/6/11
+    * @time: 10:48
+    */
+    @Bean(name = "badCommentQueue")
+    public Queue badCommentQueue(){
+        return  QueueBuilder.durable("bad_comment_queue").build();
+    }
+
+    /**
     * @Description: 绑定新闻/帖子点赞队列
     * @param: [queue, exchange]
     * @Author: Epoch
@@ -73,5 +99,22 @@ public class RabbitMqConfig {
         return BindingBuilder.bind(queue).to(exchange).with("bad.news");
     }
 
+    /**
+    * @Description: 绑定评论点赞队列
+    * @param: [queue, exchange]
+    * @Author: Epoch
+    * @return: org.springframework.amqp.core.Binding
+    * @Date: 2024/6/11
+    * @time: 10:49
+    */
+    @Bean
+    public Binding goodCommentBiding(@Qualifier("goodCommentQueue") Queue queue, @Qualifier("exchange") TopicExchange exchange){
+        return BindingBuilder.bind(queue).to(exchange).with("good.comment");
+    }
+
+    @Bean
+    public Binding badCommentBiding(@Qualifier("badCommentQueue") Queue queue, @Qualifier("exchange") TopicExchange exchange){
+        return BindingBuilder.bind(queue).to(exchange).with("bad.comment");
+    }
 
 }

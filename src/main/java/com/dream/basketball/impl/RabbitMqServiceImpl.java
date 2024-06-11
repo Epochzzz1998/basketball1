@@ -1,6 +1,7 @@
 package com.dream.basketball.impl;
 
 import com.dream.basketball.entity.DreamNews;
+import com.dream.basketball.entity.DreamNewsComment;
 import com.dream.basketball.entity.DreamUser;
 import com.dream.basketball.service.RabbitMqService;
 import org.apache.commons.lang3.StringUtils;
@@ -38,7 +39,29 @@ public class RabbitMqServiceImpl implements RabbitMqService {
         } else if (StringUtils.equals("bad", action)) {
             amqpTemplate.convertAndSend("exchange", "bad.news", dataMap);
         }
+    }
 
+    /**
+    * @Description: 点赞/点踩评论
+    * @param: [commentId, userId, whetherClicked, dreamUser, dreamNewsComment, action]
+    * @Author: Epoch
+    * @return: void
+    * @Date: 2024/6/11
+    * @time: 11:00
+    */
+    @Override
+    public void commentActionRmq(String commentId, String userId, boolean whetherClicked, DreamUser dreamUser, DreamNewsComment dreamNewsComment, String action) {
+        Map<String, Object> dataMap = new HashMap<>(5, 1);
+        dataMap.put("commentId", commentId);
+        dataMap.put("userId", userId);
+        dataMap.put("whetherClicked", whetherClicked);
+        dataMap.put("dreamUser", dreamUser);
+        dataMap.put("dreamNewsComment", dreamNewsComment);
+        if (StringUtils.equals("good", action)) {
+            amqpTemplate.convertAndSend("exchange", "good.comment", dataMap);
+        } else if (StringUtils.equals("bad", action)) {
+            amqpTemplate.convertAndSend("exchange", "bad.comment", dataMap);
+        }
     }
 
 }
