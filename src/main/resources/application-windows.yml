@@ -1,0 +1,83 @@
+spring:
+  datasource:
+    xa:
+      properties:
+        useInformationSchema: true
+    # MySQL 数据源配置
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # [修改点] Host 改为容器名 mysql
+    url: jdbc:mysql://100.77.48.28:3306/dream?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Australia/Melbourne
+    # [修改点] 暂时用 root，除非你已经新建了 dream_user
+    username: epoch
+    password: lbqlbq1998!@  # <---【请修改】你的 MySQL Root 密码
+
+  rabbitmq:
+    # [保留] 因为你会去网页后台手动创建这个 vhost
+    virtual-host: my_vhost
+    # [修改点] Host 改为容器名 rabbitmq
+    host: 100.77.48.28
+    port: 5672
+    # [修改点] 使用 Admin 用户
+    username: epoch
+    password: lbqlbq1998!@    # <---【请修改】你的 RabbitMQ 密码
+
+  jpa:
+    hibernate.ddl-auto: update
+    show-sql: true
+
+  freemarker:
+    cache: false
+    charset: UTF-8
+    allow-request-override: false
+    check-template-location: true
+    enabled: true
+    content-type: text/html
+    expose-request-attributes: true
+    expose-session-attributes: true
+    suffix: .ftl
+    template_update_delay: 0
+    mvc:
+      static-path-pattern: /static/**
+      date-format: yyyy-MM-dd HH:mm:ss
+
+  redis:
+    # [修改点] Host 改为容器名 redis
+    host: 100.77.48.28
+    port: 6379
+    # [修改点] 必须填写密码
+    password: lbqlbq1998!@       # <---【请修改】你的 Redis 密码
+    database: 0
+    jedis:
+      pool:
+        max-active: 8
+        max-wait: 1ms
+        max-idle: 4
+        min-idle: 0
+
+  elasticsearch:
+    # [修改点] Host 改为容器名 elasticsearch
+    uris: http://100.77.48.28:9200
+    connection-timeout: 3s
+
+server:
+  port: 8088
+
+mybatis-plus:
+  mapper-locations: classpath*:mybatis/*.xml
+  type-aliases-package: com.dream.basketball.entity
+  type-aliases-super-type: java.lang.Object
+
+  configuration:
+    cache-enabled: false
+    call-setters-on-nulls: true
+    jdbc-type-for-null: VARCHAR
+
+  global-config:
+    db-config:
+      update-strategy: IGNORED
+
+picPath:
+  # [修改点] 必须改为 Linux 路径
+  # 确保你已经在 Code-Server 里创建了这个文件夹：mkdir -p /config/workspace/uploads
+  uploadPath: /config/workspace/uploads/
+  picPath: /picImg/
