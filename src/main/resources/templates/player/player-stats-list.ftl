@@ -39,7 +39,7 @@
                         return res.seasonNum;
                     }}
                 ,{fixed : 'left', field: 'playerTeam', title: '球队', width:110, align: 'center'}
-                ,{fixed : 'left', field: 'playerPosition', title: '位置', width:40, align: 'center'}
+                ,{fixed : 'left', field: 'playerPosition', title: '位置', width:60, align: 'center'}
                 ,{field: 'playerNumber', title: '球衣号码', width:90, align: 'center'}
                 ,{field: 'playerFrAppearance', title: '首发', width:80, sort: true, align: 'center'}
                 ,{field: 'playerSrAppearance', title: '替补', width:80, sort: true, align: 'center'}
