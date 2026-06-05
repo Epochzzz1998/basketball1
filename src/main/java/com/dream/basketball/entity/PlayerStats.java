@@ -5,12 +5,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.extension.activerecord.Model;
-import org.hibernate.annotations.Comment;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Id;
-import javax.persistence.Table;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.Date;
@@ -22,159 +17,96 @@ import java.util.Date;
  * @Param
  * @return
  **/
-@Entity
-@Table(name = "PLAYER_STATS")
 public class PlayerStats extends Model<PlayerStats> implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    @Id
-    @Column(name = "STATS_ID", columnDefinition = "VARCHAR2(100)")
-    @Comment("数据ID")
     @TableId(value = "STATS_ID", type = IdType.INPUT)
     private String statsId;
 
-    @Column(name = "PLAYER_ID", columnDefinition = "VARCHAR2(100)")
-    @Comment("球员ID")
     @TableField("PLAYER_ID")
     private String playerId;
 
-    @Column(name = "SEASON", columnDefinition = "NUMBER(2)")
-    @Comment("赛季")
     @TableField("SEASON")
     private Integer season;
 
-    @Column(name = "PLAYING_TIME", columnDefinition = "NUMBER(18,6)")
-    @Comment("上场时间")
     @TableField("PLAYING_TIME")
     private BigDecimal playingTime;
 
-    @Column(name = "PLAYER_AVG_SCORE", columnDefinition = "NUMBER(18,6)")
-    @Comment("场均得分")
     @TableField("PLAYER_AVG_SCORE")
     private BigDecimal playerAvgScore;
 
-    @Column(name = "SEASON_NUM", columnDefinition = "NUMBER(2)")
-    @Comment("第多少个赛季")
     @TableField("SEASON_NUM")
     private Integer seasonNum;
 
-    @Column(name = "PLAYER_TEAM", columnDefinition = "VARCHAR2(32)")
-    @Comment("所在球队")
     @TableField("PLAYER_TEAM")
     private String playerTeam;
 
-    @Column(name = "PLAYER_POSITION", columnDefinition = "VARCHAR2(32)")
-    @Comment("球员位置")
     @TableField("PLAYER_POSITION")
     private String playerPosition;
 
-    @Column(name = "PLAYER_AVG_REB", columnDefinition = "NUMBER(18,6)")
-    @Comment("场均篮板")
     @TableField("PLAYER_AVG_REB")
     private BigDecimal playerAvgReb;
 
-    @Column(name = "PLAYER_AVG_ASS", columnDefinition = "NUMBER(18,6)")
-    @Comment("场均助攻")
     @TableField("PLAYER_AVG_ASS")
     private BigDecimal playerAvgAss;
 
-    @Column(name = "PLAYER_ACCURACY", columnDefinition = "NUMBER(18,6)")
-    @Comment("命中率")
     @TableField("PLAYER_ACCURACY")
     private BigDecimal playerAccuracy;
 
-    @Column(name = "PLAYER_THREE_ACCURACY", columnDefinition = "NUMBER(18,6)")
-    @Comment("三分命中率")
     @TableField("PLAYER_THREE_ACCURACY")
     private BigDecimal playerThreeAccuracy;
 
-    @Column(name = "PLAYER_FREETHROW_ACCURACY", columnDefinition = "NUMBER(18,6)")
-    @Comment("罚球中率")
     @TableField("PLAYER_FREETHROW_ACCURACY")
     private BigDecimal playerFreethrowAccuracy;
 
-    @Column(name = "PLAYER_AVG_BLOCK", columnDefinition = "NUMBER(18,6)")
-    @Comment("场均盖帽")
     @TableField("PLAYER_AVG_BLOCK")
     private BigDecimal playerAvgBlock;
 
-    @Column(name = "PLAYER_AVG_STEAL", columnDefinition = "NUMBER(18,6)")
-    @Comment("场均抢断")
     @TableField("PLAYER_AVG_STEAL")
     private BigDecimal playerAvgSteal;
 
-    @Column(name = "PLAYER_AVG_TURNOVER", columnDefinition = "NUMBER(18,6)")
-    @Comment("场均失误")
     @TableField("PLAYER_AVG_TURNOVER")
     private BigDecimal playerAvgTurnover;
 
-    @Column(name = "PLAYER_PER", columnDefinition = "NUMBER(18,6)")
-    @Comment("PER值")
     @TableField("PLAYER_PER")
     private BigDecimal playerPer;
 
-    @Column(name = "PLAYER_PIE", columnDefinition = "NUMBER(18,6)")
-    @Comment("比赛贡献值")
     @TableField("PLAYER_PIE")
     private BigDecimal playerPie;
 
-    @Column(name = "PLAYER_WS", columnDefinition = "NUMBER(18,6)")
-    @Comment("胜利贡献值")
     @TableField("PLAYER_WS")
     private BigDecimal playerWs;
 
-    @Column(name = "PLAYER_OFF_EFF", columnDefinition = "NUMBER(18,6)")
-    @Comment("球员进攻效率值")
     @TableField("PLAYER_OFF_EFF")
     private BigDecimal playerOffEff;
 
-    @Column(name = "PLAYER_DEF_EFF", columnDefinition = "NUMBER(18,6)")
-    @Comment("球员防守效率值")
     @TableField("PLAYER_DEF_EFF")
     private BigDecimal playerDefEff;
 
-    @Column(name = "PLAYER_NET_EFF", columnDefinition = "NUMBER(18,6)")
-    @Comment("球员净效率值")
     @TableField("PLAYER_NET_EFF")
     private BigDecimal playerNetEff;
 
-    @Column(name = "PLAYER_AVG_PN", columnDefinition = "NUMBER(18,6)")
-    @Comment("球员场均正负值")
     @TableField("PLAYER_AVG_PN")
     private BigDecimal playerAvgPn;
 
-    @Column(name = "MVP_RANK", columnDefinition = "NUMBER(3)")
-    @Comment("MVP排名")
     @TableField("MVP_RANK")
     private Integer mvpRank;
 
-    @Column(name = "DPOY_RANK", columnDefinition = "NUMBER(3)")
-    @Comment("DPOY排名")
     @TableField("DPOY_RANK")
     private Integer dpoyRank;
 
-    @Column(name = "ALL_DBA_TEAM", columnDefinition = "VARCHAR2(32)")
-    @Comment("最佳阵容")
     @TableField("ALL_DBA_TEAM")
     private String allDbaTeam;
 
-    @Column(name = "ALL_DEF_TEAM", columnDefinition = "VARCHAR2(32)")
-    @Comment("最佳防守阵容")
     @TableField("ALL_DEF_TEAM")
     private String allDefTeam;
 
-    @Column(name = "PLAYER_FR_APPEARANCE", columnDefinition = "NUMBER(2)")
-    @Comment("球员首发出场次数")
     @TableField("PLAYER_FR_APPEARANCE")
     private Integer playerFrAppearance;
 
-    @Column(name = "PLAYER_SR_APPEARANCE", columnDefinition = "NUMBER(2)")
-    @Comment("球员替补出场次数")
     @TableField("PLAYER_SR_APPEARANCE")
     private Integer playerSrAppearance;
 
-    @Column(name = "PLAYER_APPEARANCE", columnDefinition = "NUMBER(2)")
-    @Comment("球员总出场次数")
     @TableField("PLAYER_APPEARANCE")
     private Integer playerAppearance;
 

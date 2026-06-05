@@ -5,12 +5,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.extension.activerecord.Model;
-import org.hibernate.annotations.Comment;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Id;
-import javax.persistence.Table;
 import java.io.Serializable;
 import java.util.Date;
 
@@ -21,84 +16,51 @@ import java.util.Date;
  * @Param
  * @return
  **/
-@Entity
-@Table(name = "USER_INFORMATION")
 public class UserInformation extends Model<UserInformation> implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    @Id
-    @Column(name = "USER_INFORMATION_ID", columnDefinition = "VARCHAR(100)")
-    @Comment("主键")
     @TableId(value = "USER_INFORMATION_ID", type = IdType.INPUT)
     private String userInformationId;
 
-    @Column(name = "MSG_TYPE", columnDefinition = "VARCHAR(100)")
-    @Comment("消息类型")
     @TableField("MSG_TYPE")
     private String msgType;
 
-    @Column(name = "MSG_ID", columnDefinition = "VARCHAR(100)")
-    @Comment("消息源ID")
     @TableField("MSG_ID")
     private String msgId;
 
-    @Column(name = "MSG_ID_SECOND", columnDefinition = "VARCHAR(100)")
-    @Comment("消息源ID额外ID2")
     @TableField("MSG_ID_SECOND")
     private String msgIdSecond;
 
-    @Column(name = "MSG_ID_THIRD", columnDefinition = "VARCHAR(100)")
-    @Comment("消息源ID额外ID3")
     @TableField("MSG_ID_THIRD")
     private String msgIdThird;
 
-    @Column(name = "CONTENT", columnDefinition = "VARCHAR(255)")
-    @Comment("原消息内容")
     @TableField("CONTENT")
     private String content;
 
-    @Column(name = "CONTENT_MSG", columnDefinition = "VARCHAR(255)")
-    @Comment("消息所携带的内容")
     @TableField("CONTENT_MSG")
     private String contentMsg;
 
-    @Column(name = "OPERATOR_ID", columnDefinition = "VARCHAR(100)")
-    @Comment("消息制造者ID")
     @TableField("OPERATOR_ID")
     private String operatorId;
 
-    @Column(name = "OPERATOR_NAME", columnDefinition = "VARCHAR(255)")
-    @Comment("消息制造者姓名")
     @TableField("OPERATOR_NAME")
     private String operatorName;
 
-    @Column(name = "RECEIVER_ID", columnDefinition = "VARCHAR(100)")
-    @Comment("消息接收者ID")
     @TableField("RECEIVER_ID")
     private String receiverId;
 
-    @Column(name = "RECEIVER_NAME", columnDefinition = "VARCHAR(255)")
-    @Comment("消息接收者姓名")
     @TableField("RECEIVER_NAME")
     private String receiverName;
 
-    @Column(name = "WHETHER_READ", columnDefinition = "VARCHAR(10)")
-    @Comment("是否已读")
     @TableField("WHETHER_READ")
     private String whetherRead;
 
-    @Column(name = "MSG_DATE", columnDefinition = "DATETIME")
-    @Comment("操作时间")
     @TableField("MSG_DATE")
     private Date msgDate;
 
-    @Column(name = "LEVEL", columnDefinition = "VARCHAR(10)")
-    @Comment("评论的层级")
     @TableField("LEVEL")
     private String level;
 
-    @Column(name = "COMMENT_REL_REL_ID", columnDefinition = "VARCHAR(100)")
-    @Comment("展示原贴的时候需要提供被评论的评论的关联评论id")
     @TableField("COMMENT_REL_REL_ID")
     private String commentRelRelId;
 

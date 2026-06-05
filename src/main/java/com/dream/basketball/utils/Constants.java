@@ -29,12 +29,6 @@ public class Constants {
 
     public static final Integer EXPIRE = 7200;
 
-    public static final String TOPIC_COMMENT = "TOPIC_COMMENT";
-
-    public static final String TOPIC_LIKE = "TOPIC_LIKE";
-
-    public static final String TOPIC_FOLLOW = "TOPIC_FOLLOW";
-
     public static final String GOOD_COMMENT = "goodComment";
 
     public static final String BAD_COMMENT = "badComment";

@@ -21,10 +21,6 @@ spring:
     username: epoch
     password: lbqlbq1998!@    # <---【请修改】你的 RabbitMQ 密码
 
-  jpa:
-    hibernate.ddl-auto: update
-    show-sql: true
-
   freemarker:
     cache: false
     charset: UTF-8
