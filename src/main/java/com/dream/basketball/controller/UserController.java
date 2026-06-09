@@ -94,6 +94,14 @@ public class UserController extends BaseUtils {
         String msg = "denglu失败！";
         boolean result = false;
         try {
+            // P2-2: captcha is mandatory and single-use (consumed regardless of outcome)
+            String inputCode = request.getParameter("code");
+            Object sessionCaptcha = request.getSession().getAttribute("captcha");
+            request.getSession().removeAttribute("captcha");
+            if (sessionCaptcha == null || StringUtils.isBlank(inputCode)
+                    || !StringUtils.equalsIgnoreCase(inputCode.trim(), sessionCaptcha.toString())) {
+                return handlerResultJson(false, "验证码错误！");
+            }
             List<DreamUserDto> dreamUserDtos = userService.findAllUsers(dreamUserDto);
             if (!CollectionUtils.isEmpty(dreamUserDtos)) {
                 if (StringUtils.equals(SaltMD5Util.generateSaltPassword(dreamUserDto.getPassword()), dreamUserDtos.get(0).getPassword())) {
@@ -101,7 +109,6 @@ public class UserController extends BaseUtils {
                     // 设置session信息
                     SecUtil.setLoginUserIdToSession(request, dreamUser);
                     SecUtil.setLoginUserToSession(request, dreamUser);
-                    SecUtil.setCookie(response, Constants.TOKEN, UUID.randomUUID().toString(), Constants.EXPIRE);
                     msg = "登录成功！";
                     result = true;
                     model.addAttribute("user", dreamUser);
@@ -129,7 +136,6 @@ public class UserController extends BaseUtils {
     public RedirectView loginOut(DreamUserDto dreamUserDto, HttpServletRequest request, HttpServletResponse response) {
         try {
             if (SecUtil.isLogin(request)) {
-                SecUtil.deleteCookie(response, Constants.TOKEN);
                 SecUtil.logout4Session(request);
             }
         } catch (Exception e) {
@@ -209,7 +215,6 @@ public class UserController extends BaseUtils {
         response.setHeader("Cache-Control", "no-cache");
         // 三个参数分别为宽、高、位数
         SpecCaptcha specCaptcha = new SpecCaptcha(130, 48, 4);
-        System.out.println(specCaptcha.text());
         specCaptcha.setFont(Captcha.FONT_1);
         // 设置类型，纯数字、纯字母、字母数字混合
         specCaptcha.setCharType(Captcha.TYPE_ONLY_NUMBER);

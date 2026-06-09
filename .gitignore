@@ -35,3 +35,12 @@ build/
 ### macOS ###
 .DS_Store
 **/.DS_Store
+
+### Secrets — externalized config (P2-1) ###
+# Real credentials live in env vars / an untracked .env, never in the repo.
+.env
+.env.*
+!.env.example
+# Optional local-only profile overrides
+application-local.yml
+application-*-local.yml

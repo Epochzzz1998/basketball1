@@ -88,19 +88,15 @@
             </div>
             <!-- <div class="layui-form-mid layui-word-aux">辅助文字</div> -->
         </div>
-<#--        <div class="layui-form-item">-->
-<#--            <label class="layui-form-label">验证码</label>-->
-<#--&lt;#&ndash;            <div class="layui-input-inline">&ndash;&gt;-->
-<#--&lt;#&ndash;                <input type="text" name="title" required  lay-verify="required" placeholder="请输入验证码" autocomplete="off" class="layui-input verity">&ndash;&gt;-->
-<#--&lt;#&ndash;            </div>&ndash;&gt;-->
-<#--            <div class="layui-input-inline" style="width: 178px;">-->
-<#--                <input type="text" id="code" name="code" required lay-verify="required" placeholder="请输入验证码" autocomplete="off" class="layui-input">-->
-<#--                <img id="codeImage" src="/user/captcha" width="120px" height="48px" style="margin-top: -5px"  alt="点我更换" onclick="this.src='/user/captcha?'+Math.random()"/>-->
-<#--            </div>-->
-<#--&lt;#&ndash;            <input type="hidden" id="specCaptchaText" name="specCaptchaText" value="${specCaptchaText!}">&ndash;&gt;-->
-<#--            <!-- <div class="layui-form-mid layui-word-aux">辅助文字</div> &ndash;&gt;-->
-
-<#--        </div>-->
+        <div class="layui-form-item">
+            <label class="layui-form-label">验证码</label>
+            <div class="layui-input-inline" style="width: 178px;">
+                <input type="text" id="code" name="code" required lay-verify="required" placeholder="请输入验证码" autocomplete="off" class="layui-input">
+            </div>
+            <div class="layui-input-inline">
+                <img id="codeImage" src="/user/captcha" width="120px" height="48px" style="cursor:pointer;" alt="点我更换" title="点我更换" onclick="this.src='/user/captcha?'+Math.random()"/>
+            </div>
+        </div>
         <!-- 			  <div class="layui-form-item">
                             <label class="layui-form-label">记住密码</label>
                             <div class="layui-input-block">

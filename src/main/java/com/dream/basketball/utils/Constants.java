@@ -22,13 +22,6 @@ public class Constants {
 
     public static final Integer IDENTIFICATION = 1; // 已认证
 
-    // cookie相关参数
-    public static final String TOKEN = "token"; // token
-
-    public static final String OPENID = "openid"; // openid
-
-    public static final Integer EXPIRE = 7200;
-
     public static final String GOOD_COMMENT = "goodComment";
 
     public static final String BAD_COMMENT = "badComment";

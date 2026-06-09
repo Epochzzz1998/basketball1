@@ -8,8 +8,8 @@ spring:
     # [修改点] Host 改为容器名 mysql
     url: jdbc:mysql://mysql:3306/dream?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Australia/Melbourne
     # [修改点] 暂时用 root，除非你已经新建了 dream_user
-    username: epoch
-    password: lbqlbq1998!@  # <---【请修改】你的 MySQL Root 密码
+    username: ${DB_USERNAME:epoch}
+    password: ${DB_PASSWORD:}   # P2-1: externalized — inject via env (server: dream-app/.env)
 
   rabbitmq:
     # [保留] 因为你会去网页后台手动创建这个 vhost
@@ -18,8 +18,8 @@ spring:
     host: rabbitmq
     port: 5672
     # [修改点] 使用 Admin 用户
-    username: epoch
-    password: lbqlbq1998!@    # <---【请修改】你的 RabbitMQ 密码
+    username: ${RABBITMQ_USERNAME:epoch}
+    password: ${RABBITMQ_PASSWORD:}   # P2-1: externalized — inject via env
 
   freemarker:
     cache: false
@@ -41,7 +41,7 @@ spring:
     host: redis
     port: 6379
     # [修改点] 必须填写密码
-    password: lbqlbq1998!@       # <---【请修改】你的 Redis 密码
+    password: ${REDIS_PASSWORD:}       # P2-1: externalized — inject via env
     database: 0
     jedis:
       pool:
@@ -57,6 +57,11 @@ spring:
 
 server:
   port: 8088
+
+cors:
+  # P2-2: allowed origins for the future React client (Session + credentials).
+  # Add localhost dev origins here too if you run React locally against this server.
+  allowed-origins: https://dream-app.the-epoch.org
 
 mybatis-plus:
   mapper-locations: classpath*:mybatis/*.xml
