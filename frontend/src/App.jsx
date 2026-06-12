@@ -7,6 +7,9 @@ import Home from './pages/Home'
 import Forbidden from './pages/Forbidden'
 import NotFound from './pages/NotFound'
 import Placeholder from './pages/Placeholder'
+import Register from './pages/Register'
+import AllPlayerSeasonStats from './pages/players/AllPlayerSeasonStats'
+import PlayerCareer from './pages/players/PlayerCareer'
 
 /**
  * 路由表（P5-1 骨架）。
@@ -19,13 +22,15 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
       <Route path="/403" element={<Forbidden />} />
 
       <Route path="/" element={<AppLayout />}>
         <Route index element={<Home />} />
 
         {/* 公开浏览 */}
-        <Route path="players" element={<Placeholder title="球员赛季总榜" />} />
+        <Route path="players" element={<AllPlayerSeasonStats />} />
+        <Route path="players/:playerId" element={<PlayerCareer />} />
         <Route path="news" element={<Placeholder title="资讯列表" />} />
 
         {/* 需登录 */}

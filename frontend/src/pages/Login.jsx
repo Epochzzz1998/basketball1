@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Card, Form, Input, Button, Space, message } from 'antd'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { authApi } from '../api/auth'
 
@@ -58,6 +58,9 @@ export default function Login() {
           <Button type="primary" htmlType="submit" block loading={submitting}>
             登录
           </Button>
+          <div style={{ marginTop: 12, textAlign: 'center' }}>
+            没有账号？<Link to="/register">去注册</Link>
+          </div>
         </Form>
       </Card>
     </div>
