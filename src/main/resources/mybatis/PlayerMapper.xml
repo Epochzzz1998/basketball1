@@ -23,8 +23,9 @@
             and s.PLAYER_TEAM like CONCAT('%',#{param.playerTeam},'%')
         </if>
         <choose>
+            <!-- param.field 仅来自 SortUtil 白名单（"列 asc|desc"），故 ${} 拼接安全；见 P3-1 -->
             <when test="param.field != null and param.field !=''">
-                order by #{param.field}
+                order by ${param.field}
             </when>
             <otherwise>
                 order by s.PLAYER_AVG_SCORE desc
@@ -40,8 +41,9 @@
             <include refid="whereConditionPlayer"></include>
         </where>
         <choose>
+            <!-- param.field 仅来自 SortUtil 白名单（"列 asc|desc"），故 ${} 拼接安全；见 P3-1 -->
             <when test="param.field != null and param.field !=''">
-                order by #{param.field}
+                order by ${param.field}
             </when>
             <otherwise>
                 order by s.SEASON_NUM

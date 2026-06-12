@@ -12,7 +12,10 @@ import com.dream.basketball.entity.PlayerStats;
 import com.dream.basketball.service.PlayerService;
 import com.dream.basketball.service.PlayerStatsService;
 import com.dream.basketball.utils.BaseUtils;
+import com.dream.basketball.utils.Constants;
 import com.dream.basketball.utils.SecUtil;
+import com.dream.basketball.utils.SortUtil;
+import com.dream.basketball.utils.StatsMath;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import org.apache.commons.lang3.StringUtils;
@@ -26,7 +29,6 @@ import org.springframework.web.bind.annotation.*;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -157,12 +159,8 @@ public class PlayerController extends BaseUtils {
         int count = 0;
         try {
             PageHelper.startPage(page, limit);
-            // 设置排序
-            if(StringUtils.isNotBlank(param.getField())){
-                if(StringUtils.isNotBlank(param.getOrder())){
-                    param.setField(" " + decamelize(param.getField()) + " " + param.getOrder());
-                }
-            }
+            // 设置排序：白名单校验后再拼接，既真正生效又防注入（P3-1，配合 Mapper 的 ${param.field}）
+            param.setField(SortUtil.safeStatsOrderBy(param.getField(), param.getOrder()));
             rows = playerService.findPlayerStats(param);
             PageInfo<PlayerStatsDto> playerStatsDtoPageInfo = new PageInfo<>(rows);
             count = (int) playerStatsDtoPageInfo.getTotal();
@@ -181,12 +179,8 @@ public class PlayerController extends BaseUtils {
         int count = 0;
         try {
             PageHelper.startPage(page, limit);
-            // 设置排序
-            if(StringUtils.isNotBlank(param.getField())){
-                if(StringUtils.isNotBlank(param.getOrder())){
-                    param.setField(" " + decamelize(param.getField()) + " " + param.getOrder());
-                }
-            }
+            // 设置排序：白名单校验后再拼接，既真正生效又防注入（P3-1，配合 Mapper 的 ${param.field}）
+            param.setField(SortUtil.safeStatsOrderBy(param.getField(), param.getOrder()));
             if(param.getSeasonNum() == null){
                 param.setSeasonNum(1);
             }
@@ -307,41 +301,41 @@ public class PlayerController extends BaseUtils {
         int seasonNum = rows.size() - 1;
         PlayerStats playerStats = null;
         for(PlayerStatsDto playerStatsDto : rows){
-            if(playerStatsDto.getSeason() != null){
-                if(playerStatsDto.getSeason() == 50){
-                    playerStats = playerStatsDto;
-                    continue;
-                }
+            if(playerStatsDto.getSeason() != null && playerStatsDto.getSeason() == Constants.CAREER_SUMMARY_SEASON){
+                playerStats = playerStatsDto;
+                continue;
             }
-            playerFrAppearance += playerStatsDto.getPlayerFrAppearance();
-            playerSrAppearance += playerStatsDto.getPlayerSrAppearance();
-            playerAppearance += playerStatsDto.getPlayerAppearance();
-            playingTime += (playerStatsDto.getPlayingTime().doubleValue() * playerStatsDto.getPlayerAppearance());
-            playerAvgScore += (playerStatsDto.getPlayerAvgScore().doubleValue() * playerStatsDto.getPlayerAppearance());
-            playerAvgReb += (playerStatsDto.getPlayerAvgReb().doubleValue() * playerStatsDto.getPlayerAppearance());
-            playerAvgAss += (playerStatsDto.getPlayerAvgAss().doubleValue() * playerStatsDto.getPlayerAppearance());
-            playerAccuracy += (playerStatsDto.getPlayerAccuracy().doubleValue() * playerStatsDto.getPlayerAppearance());
-            playerThreeAccuracy += (playerStatsDto.getPlayerThreeAccuracy().doubleValue() * playerStatsDto.getPlayerAppearance());
-            playerFreethrowAccuracy += (playerStatsDto.getPlayerFreethrowAccuracy().doubleValue() * playerStatsDto.getPlayerAppearance());
-            playerAvgBlock += (playerStatsDto.getPlayerAvgBlock().doubleValue() * playerStatsDto.getPlayerAppearance());
-            playerAvgSteal += (playerStatsDto.getPlayerAvgSteal().doubleValue() * playerStatsDto.getPlayerAppearance());
-            playerAvgTurnover += (playerStatsDto.getPlayerAvgTurnover().doubleValue() * playerStatsDto.getPlayerAppearance());
-            playerPer += (playerStatsDto.getPlayerPer().doubleValue() * playerStatsDto.getPlayerAppearance());
-            playerPie += (playerStatsDto.getPlayerPie().doubleValue() * playerStatsDto.getPlayerAppearance());
-            playerWs += (playerStatsDto.getPlayerWs().doubleValue() * playerStatsDto.getPlayerAppearance());
-            playerOffEff += (playerStatsDto.getPlayerOffEff().doubleValue() * playerStatsDto.getPlayerAppearance());
-            playerDefEff += (playerStatsDto.getPlayerDefEff().doubleValue() * playerStatsDto.getPlayerAppearance());
-            playerNetEff += (playerStatsDto.getPlayerNetEff().doubleValue() * playerStatsDto.getPlayerAppearance());
-            playerAvgPn += (playerStatsDto.getPlayerAvgPn().doubleValue() * playerStatsDto.getPlayerAppearance());
-            mvpRank += playerStatsDto.getMvpRank() ;
-            dopyRank += playerStatsDto.getDpoyRank();
+            // P3-1: 出场数每行算一次；所有字段用 StatsMath.nz 兜空，避免空行 NPE
+            int appearance = StatsMath.nz(playerStatsDto.getPlayerAppearance());
+            playerFrAppearance += StatsMath.nz(playerStatsDto.getPlayerFrAppearance());
+            playerSrAppearance += StatsMath.nz(playerStatsDto.getPlayerSrAppearance());
+            playerAppearance += appearance;
+            playingTime += StatsMath.nz(playerStatsDto.getPlayingTime()) * appearance;
+            playerAvgScore += StatsMath.nz(playerStatsDto.getPlayerAvgScore()) * appearance;
+            playerAvgReb += StatsMath.nz(playerStatsDto.getPlayerAvgReb()) * appearance;
+            playerAvgAss += StatsMath.nz(playerStatsDto.getPlayerAvgAss()) * appearance;
+            playerAccuracy += StatsMath.nz(playerStatsDto.getPlayerAccuracy()) * appearance;
+            playerThreeAccuracy += StatsMath.nz(playerStatsDto.getPlayerThreeAccuracy()) * appearance;
+            playerFreethrowAccuracy += StatsMath.nz(playerStatsDto.getPlayerFreethrowAccuracy()) * appearance;
+            playerAvgBlock += StatsMath.nz(playerStatsDto.getPlayerAvgBlock()) * appearance;
+            playerAvgSteal += StatsMath.nz(playerStatsDto.getPlayerAvgSteal()) * appearance;
+            playerAvgTurnover += StatsMath.nz(playerStatsDto.getPlayerAvgTurnover()) * appearance;
+            playerPer += StatsMath.nz(playerStatsDto.getPlayerPer()) * appearance;
+            playerPie += StatsMath.nz(playerStatsDto.getPlayerPie()) * appearance;
+            playerWs += StatsMath.nz(playerStatsDto.getPlayerWs()) * appearance;
+            playerOffEff += StatsMath.nz(playerStatsDto.getPlayerOffEff()) * appearance;
+            playerDefEff += StatsMath.nz(playerStatsDto.getPlayerDefEff()) * appearance;
+            playerNetEff += StatsMath.nz(playerStatsDto.getPlayerNetEff()) * appearance;
+            playerAvgPn += StatsMath.nz(playerStatsDto.getPlayerAvgPn()) * appearance;
+            mvpRank += StatsMath.nz(playerStatsDto.getMvpRank());
+            dopyRank += StatsMath.nz(playerStatsDto.getDpoyRank());
         }
         if(playerStats == null){
             playerStats = new PlayerStats();
             playerStats.setStatsId(UUID.randomUUID().toString());
             playerStats.setPlayerId(playerId);
-            playerStats.setSeason(50);
-            playerStats.setSeasonNum(50);
+            playerStats.setSeason(Constants.CAREER_SUMMARY_SEASON);
+            playerStats.setSeasonNum(Constants.CAREER_SUMMARY_SEASON);
             playerStats.setAllDbaTeam("/");
             playerStats.setAllDefTeam("/");
             playerStats.setPlayerPosition("/");
@@ -351,25 +345,26 @@ public class PlayerController extends BaseUtils {
         playerStats.setPlayerFrAppearance(playerFrAppearance);
         playerStats.setPlayerSrAppearance(playerSrAppearance);
         playerStats.setPlayerAppearance(playerAppearance);
-        playerStats.setPlayingTime(BigDecimal.valueOf(playingTime/playerAppearance).setScale(1,BigDecimal.ROUND_HALF_UP));
-        playerStats.setPlayerAvgScore(BigDecimal.valueOf(playerAvgScore/playerAppearance).setScale(1,BigDecimal.ROUND_HALF_UP));
-        playerStats.setPlayerAvgReb(BigDecimal.valueOf(playerAvgReb/playerAppearance).setScale(1,BigDecimal.ROUND_HALF_UP));
-        playerStats.setPlayerAvgAss(BigDecimal.valueOf(playerAvgAss/playerAppearance).setScale(1,BigDecimal.ROUND_HALF_UP));
-        playerStats.setPlayerAccuracy(BigDecimal.valueOf(playerAccuracy/playerAppearance).setScale(3,BigDecimal.ROUND_HALF_UP));
-        playerStats.setPlayerThreeAccuracy(BigDecimal.valueOf(playerThreeAccuracy/playerAppearance).setScale(3,BigDecimal.ROUND_HALF_UP));
-        playerStats.setPlayerFreethrowAccuracy(BigDecimal.valueOf(playerFreethrowAccuracy/playerAppearance).setScale(3,BigDecimal.ROUND_HALF_UP));
-        playerStats.setPlayerAvgBlock(BigDecimal.valueOf(playerAvgBlock/playerAppearance).setScale(1,BigDecimal.ROUND_HALF_UP));
-        playerStats.setPlayerAvgSteal(BigDecimal.valueOf(playerAvgSteal/playerAppearance).setScale(1,BigDecimal.ROUND_HALF_UP));
-        playerStats.setPlayerAvgTurnover(BigDecimal.valueOf(playerAvgTurnover/playerAppearance).setScale(1,BigDecimal.ROUND_HALF_UP));
-        playerStats.setPlayerPer(BigDecimal.valueOf(playerPer/playerAppearance).setScale(1,BigDecimal.ROUND_HALF_UP));
-        playerStats.setPlayerPie(BigDecimal.valueOf(playerPie/playerAppearance).setScale(1,BigDecimal.ROUND_HALF_UP));
-        playerStats.setPlayerWs(BigDecimal.valueOf(playerWs/playerAppearance).setScale(1,BigDecimal.ROUND_HALF_UP));
-        playerStats.setPlayerOffEff(BigDecimal.valueOf(playerOffEff/playerAppearance).setScale(1,BigDecimal.ROUND_HALF_UP));
-        playerStats.setPlayerDefEff(BigDecimal.valueOf(playerDefEff/playerAppearance).setScale(1,BigDecimal.ROUND_HALF_UP));
-        playerStats.setPlayerNetEff(BigDecimal.valueOf(playerNetEff/playerAppearance).setScale(1,BigDecimal.ROUND_HALF_UP));
-        playerStats.setPlayerAvgPn(BigDecimal.valueOf(playerAvgPn/playerAppearance).setScale(1,BigDecimal.ROUND_HALF_UP));
-        playerStats.setMvpRank(Integer.valueOf(mvpRank/seasonNum));
-        playerStats.setDpoyRank(Integer.valueOf(dopyRank/seasonNum));
+        // P3-1: 用 StatsMath.avg/avgInt 计算，分母为 0 时返回 0 而非 NaN（修复 line 346 的 500）
+        playerStats.setPlayingTime(StatsMath.avg(playingTime, playerAppearance, 1));
+        playerStats.setPlayerAvgScore(StatsMath.avg(playerAvgScore, playerAppearance, 1));
+        playerStats.setPlayerAvgReb(StatsMath.avg(playerAvgReb, playerAppearance, 1));
+        playerStats.setPlayerAvgAss(StatsMath.avg(playerAvgAss, playerAppearance, 1));
+        playerStats.setPlayerAccuracy(StatsMath.avg(playerAccuracy, playerAppearance, 3));
+        playerStats.setPlayerThreeAccuracy(StatsMath.avg(playerThreeAccuracy, playerAppearance, 3));
+        playerStats.setPlayerFreethrowAccuracy(StatsMath.avg(playerFreethrowAccuracy, playerAppearance, 3));
+        playerStats.setPlayerAvgBlock(StatsMath.avg(playerAvgBlock, playerAppearance, 1));
+        playerStats.setPlayerAvgSteal(StatsMath.avg(playerAvgSteal, playerAppearance, 1));
+        playerStats.setPlayerAvgTurnover(StatsMath.avg(playerAvgTurnover, playerAppearance, 1));
+        playerStats.setPlayerPer(StatsMath.avg(playerPer, playerAppearance, 1));
+        playerStats.setPlayerPie(StatsMath.avg(playerPie, playerAppearance, 1));
+        playerStats.setPlayerWs(StatsMath.avg(playerWs, playerAppearance, 1));
+        playerStats.setPlayerOffEff(StatsMath.avg(playerOffEff, playerAppearance, 1));
+        playerStats.setPlayerDefEff(StatsMath.avg(playerDefEff, playerAppearance, 1));
+        playerStats.setPlayerNetEff(StatsMath.avg(playerNetEff, playerAppearance, 1));
+        playerStats.setPlayerAvgPn(StatsMath.avg(playerAvgPn, playerAppearance, 1));
+        playerStats.setMvpRank(StatsMath.avgInt(mvpRank, seasonNum));
+        playerStats.setDpoyRank(StatsMath.avgInt(dopyRank, seasonNum));
         playerStatsService.saveOrUpdate(playerStats);
     }
 

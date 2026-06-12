@@ -39,4 +39,7 @@ public class Constants {
     public static final String READ = "read";
 
     public static final String NO_ANCHOR = "noAnchor";
+
+    // 球员生涯汇总行的 season / season_num 取值（原代码散落的魔法数 50）
+    public static final int CAREER_SUMMARY_SEASON = 50;
 }

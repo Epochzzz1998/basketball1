@@ -167,12 +167,14 @@ public class UserController extends BaseUtils {
     @RequestMapping("/regist")
     @ResponseBody
     public Object regist(DreamUserDto dreamUserDto, HttpServletRequest request, HttpServletResponse response) {
-        String msg = "登录失败！";
+        String msg = "注册失败！";
         boolean result = false;
         try {
-            List<DreamUserDto> dreamUserDtos = userService.findAllUsers(dreamUserDto);
-            if (!CollectionUtils.isEmpty(dreamUserDtos)) {
-                msg = "该用户已存在！";
+            // P3-1: 昵称唯一性检查——命中即 return，修复原来漏 return 仍继续创建重复账号的 BUG
+            DreamUserDto existQuery = new DreamUserDto();
+            existQuery.setUserNickname(dreamUserDto.getUserNickname());
+            if (!CollectionUtils.isEmpty(userService.findAllUsers(existQuery))) {
+                return handlerResultJson(false, "该用户已存在！");
             }
             DreamUser dreamUser = new DreamUser();
             dreamUser.setUserId(UUID.randomUUID().toString());
