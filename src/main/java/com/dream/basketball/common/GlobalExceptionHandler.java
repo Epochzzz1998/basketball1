@@ -8,6 +8,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 /**
  * Global exception handling (P4-2): turns uncaught exceptions into the unified
@@ -32,6 +33,20 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Result<Void> handleMissingParam(MissingServletRequestParameterException e) {
         return Result.fail(400, "缺少必要参数：" + e.getParameterName());
+    }
+
+    /** Invalid argument (e.g. disallowed/oversize upload from FileUtils, P2-4) -> 400. */
+    @ExceptionHandler(IllegalArgumentException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Result<Void> handleIllegalArgument(IllegalArgumentException e) {
+        return Result.fail(400, e.getMessage());
+    }
+
+    /** Upload exceeds the configured multipart size -> 400. */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public Result<Void> handleMaxUpload(MaxUploadSizeExceededException e) {
+        return Result.fail(400, "文件过大");
     }
 
     /** Catch-all: log with stack trace, return a generic 500 body (no internals leaked). */

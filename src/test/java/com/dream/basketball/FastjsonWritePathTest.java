@@ -4,7 +4,6 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.dream.basketball.entity.DreamPlayer;
 import com.dream.basketball.entity.PlayerStats;
-import com.dream.basketball.utils.FileUtils;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -18,7 +17,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * write-path JSON behavior identical. Covers the exact call sites used in production:
  * <ul>
  *   <li>PlayerController#savePlayer / savePlayerStats: {@code JSON.parseArray(data, X.class)}</li>
- *   <li>FileUtils#getReturnStr: {@code JSONObject.put(...).toJSONString()}</li>
  *   <li>NewsServiceImpl: {@code JSONObject.parseObject(JSONObject.toJSONString(x), Y.class)}</li>
  * </ul>
  * Plain JUnit (no Spring context) so it runs without MySQL/Redis/ES.
@@ -94,20 +92,6 @@ class FastjsonWritePathTest {
         List<PlayerStats> list = JSON.parseArray("[]", PlayerStats.class);
         assertNotNull(list);
         assertTrue(list.isEmpty());
-    }
-
-    /** FileUtils#getReturnStr: JSONObject.put(...).toJSONString() shape consumed by the layui editor. */
-    @Test
-    void getReturnStr_producesLayuiUploadShape() {
-        String json = FileUtils.getReturnStr("/picImg/", "123.jpg", "上传成功", 0);
-
-        JSONObject o = JSON.parseObject(json);
-        assertEquals(0, o.getIntValue("code"));
-        assertEquals("上传成功", o.getString("msg"));
-        JSONObject dataObj = o.getJSONObject("data");
-        assertNotNull(dataObj);
-        assertEquals("/picImg/123.jpg", dataObj.getString("src"));
-        assertEquals("123.jpg", dataObj.getString("title"));
     }
 
     /** NewsServiceImpl pattern: JSONObject.parseObject(JSONObject.toJSONString(obj), Class) round-trip. */

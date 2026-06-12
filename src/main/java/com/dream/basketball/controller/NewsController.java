@@ -120,11 +120,14 @@ public class NewsController extends BaseUtils {
         return handlerResultJson(true, "操作成功！");
     }
 
-    /** 富文本图片上传（P2-4/P4-3 将加固类型/大小校验与安全文件名，并改统一返回） */
+    /** 富文本图片上传（P2-4 安全校验 + P4-3 统一返回）：返回可访问 URL */
     @RequiresRole(Role.MANAGER)
     @PostMapping("/upload")
-    public String upload(MultipartFile file, String newsId) throws IOException {
-        return FileUtils.upload(file, uploadPath, newsId + "/");
+    public Object upload(MultipartFile file, String newsId) throws IOException {
+        String url = FileUtils.upload(file, uploadPath, newsId);
+        Map<String, Object> data = new HashMap<>();
+        data.put("url", url);
+        return new Result<>(0, "上传成功", data);
     }
 
     // ===== 会员互动：登录即可（P2-5） =====
