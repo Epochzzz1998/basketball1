@@ -1,24 +1,45 @@
-import { useEffect, useState } from "react";
+import { Routes, Route } from 'react-router-dom'
+import AppLayout from './layout/AppLayout'
+import ProtectedRoute from './router/ProtectedRoute'
+import RoleRoute from './router/RoleRoute'
+import Login from './pages/Login'
+import Home from './pages/Home'
+import Forbidden from './pages/Forbidden'
+import NotFound from './pages/NotFound'
+import Placeholder from './pages/Placeholder'
 
-function App() {
-  const [message, setMessage] = useState("");
-
-  useEffect(() => {
-    fetch("/api/hello")
-      .then((res) => res.text())
-      .then((data) => setMessage(data))
-      .catch((error) => {
-        console.error("request failed:", error);
-        setMessage("request failed");
-      });
-  }, []);
-
+/**
+ * 路由表（P5-1 骨架）。
+ * - /login、/403 是独立页（不套外壳）。
+ * - "/" 套 AppLayout 外壳，子页面渲染进它的 <Outlet/>。
+ * - 公开页直接放；需登录的用 <ProtectedRoute>；需角色的用 <RoleRoute>。
+ * 业务页现用 <Placeholder> 占位，P5-2 逐屏替换为真实页面。
+ */
+export default function App() {
   return (
-    <div>
-      <h1>React in Basketball1</h1>
-      <p>{message}</p>
-    </div>
-  );
-}
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/403" element={<Forbidden />} />
 
-export default App;
+      <Route path="/" element={<AppLayout />}>
+        <Route index element={<Home />} />
+
+        {/* 公开浏览 */}
+        <Route path="players" element={<Placeholder title="球员赛季总榜" />} />
+        <Route path="news" element={<Placeholder title="资讯列表" />} />
+
+        {/* 需登录 */}
+        <Route path="me" element={<ProtectedRoute><Placeholder title="我的消息" /></ProtectedRoute>} />
+
+        {/* 需 manager 及以上 */}
+        <Route path="admin/news" element={<RoleRoute role="manager"><Placeholder title="资讯管理" /></RoleRoute>} />
+
+        {/* 需 superManager */}
+        <Route path="admin/players" element={<RoleRoute role="superManager"><Placeholder title="球员管理" /></RoleRoute>} />
+        <Route path="admin/users" element={<RoleRoute role="superManager"><Placeholder title="用户管理" /></RoleRoute>} />
+
+        <Route path="*" element={<NotFound />} />
+      </Route>
+    </Routes>
+  )
+}
