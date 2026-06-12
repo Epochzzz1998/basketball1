@@ -1,5 +1,7 @@
 package com.dream.basketball.controller;
 
+import com.dream.basketball.config.RequiresRole;
+import com.dream.basketball.config.Role;
 import com.dream.basketball.dto.DreamUserDto;
 import com.dream.basketball.entity.DreamNewsComment;
 import com.dream.basketball.entity.DreamUser;
@@ -75,6 +77,7 @@ public class UserController extends BaseUtils {
      * @Date: 2024/1/16
      * @time: 17:33
      */
+    @RequiresRole(Role.SUPER_MANAGER)
     @RequestMapping("userList")
     public String userList(HttpServletRequest request, Model model) {
         menuPower(model, request);
@@ -131,6 +134,7 @@ public class UserController extends BaseUtils {
      * @Date 2023/2/2 17:44
      * @Param [dreamUserDto, request, response]
      **/
+    @RequiresRole(Role.USER)
     @RequestMapping("/loginOut")
     @ResponseBody
     public RedirectView loginOut(DreamUserDto dreamUserDto, HttpServletRequest request, HttpServletResponse response) {

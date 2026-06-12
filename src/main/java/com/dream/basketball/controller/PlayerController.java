@@ -2,6 +2,8 @@ package com.dream.basketball.controller;
 
 import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
+import com.dream.basketball.config.RequiresRole;
+import com.dream.basketball.config.Role;
 import com.dream.basketball.dto.DreamPlayerDto;
 import com.dream.basketball.dto.DreamUserDto;
 import com.dream.basketball.dto.PlayerStatsDto;
@@ -74,6 +76,7 @@ public class PlayerController extends BaseUtils {
         return "player/player-stats-list";
     }
 
+    @RequiresRole(Role.SUPER_MANAGER)
     @RequestMapping("/playerStatsManagerList")
     public String playerStatsManagerList(Model model, String playerId, HttpServletRequest request, HttpSession session){
         if(isLogin(model, request)){
@@ -94,6 +97,7 @@ public class PlayerController extends BaseUtils {
         }
     }
 
+    @RequiresRole(Role.SUPER_MANAGER)
     @RequestMapping("/playerManage")
     public String playerManage(Model model, HttpServletRequest request){
         if(isLogin(model, request)){
@@ -196,7 +200,8 @@ public class PlayerController extends BaseUtils {
         return handlerSuccessPageJson(code, "测试", count, rows);
     }
 
-    @RequestMapping("/insertAndSavePlayer")
+    @RequiresRole(Role.SUPER_MANAGER)
+    @PostMapping("/insertAndSavePlayer")
     @ResponseBody
     public void insertAndSavePlayer(String data){
         // 先将表格数据进行保存修改
@@ -210,7 +215,8 @@ public class PlayerController extends BaseUtils {
         playerService.save(dreamPlayer);
     }
 
-    @RequestMapping("/savePlayer")
+    @RequiresRole(Role.SUPER_MANAGER)
+    @PostMapping("/savePlayer")
     @ResponseBody
     public void savePlayer(String data){
         // 将表格数据进行保存修改
@@ -220,7 +226,8 @@ public class PlayerController extends BaseUtils {
         }
     }
 
-    @RequestMapping("/insertAndSavePlayerStats")
+    @RequiresRole(Role.SUPER_MANAGER)
+    @PostMapping("/insertAndSavePlayerStats")
     @ResponseBody
     public void insertAndSavePlayerStats(String data, String playerId){
         // 先将表格数据进行保存修改
@@ -259,7 +266,8 @@ public class PlayerController extends BaseUtils {
         }
     }
 
-    @RequestMapping("/savePlayerStats")
+    @RequiresRole(Role.SUPER_MANAGER)
+    @PostMapping("/savePlayerStats")
     @ResponseBody
     public void savePlayerStats(String data, String playerId){
         // 先将表格数据进行保存修改
@@ -365,7 +373,8 @@ public class PlayerController extends BaseUtils {
         playerStatsService.saveOrUpdate(playerStats);
     }
 
-    @RequestMapping("/deletePlayer")
+    @RequiresRole(Role.SUPER_MANAGER)
+    @PostMapping("/deletePlayer")
     @ResponseBody
     public void deletePlayer(String playerId){
         DreamPlayer dreamPlayer = playerService.getById(playerId);

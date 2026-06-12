@@ -7,8 +7,8 @@ import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
- * MVC config (P2-2): registers the authentication gate and configures CORS for the
- * future front/back-separated React client (Session cookie + credentials).
+ * MVC config: registers the annotation-driven auth gate (P2-2/P2-5) and configures
+ * CORS for the future front/back-separated React client (Session cookie + credentials).
  */
 @Configuration
 public class BeanResolveConfiguration implements WebMvcConfigurer {
@@ -18,37 +18,12 @@ public class BeanResolveConfiguration implements WebMvcConfigurer {
     private String[] allowedOrigins;
 
     /**
-     * Protected paths requiring an authenticated session. Public browsing
-     * (player/news read endpoints, login/regist/captcha, static assets) stays open.
-     * Role-based authorization on these writes is added in P2-5.
+     * One interceptor over everything; access rules are declared per endpoint
+     * with @RequiresRole (P2-5). Un-annotated handlers remain public.
      */
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(new LoginInterceptor())
-                .addPathPatterns(
-                        // player writes + admin pages
-                        "/player/insertAndSavePlayer",
-                        "/player/savePlayer",
-                        "/player/insertAndSavePlayerStats",
-                        "/player/savePlayerStats",
-                        "/player/deletePlayer",
-                        "/player/playerManage",
-                        "/player/playerStatsManagerList",
-                        // news writes + admin pages + member interactions
-                        "/news/save",
-                        "/news/delete",
-                        "/news/upload",
-                        "/news/newsInput",
-                        "/news/commentInput",
-                        "/news/comment",
-                        "/news/good",
-                        "/news/bad",
-                        "/news/goodComment",
-                        "/news/badComment",
-                        // user admin / session
-                        "/user/userList",
-                        "/user/loginOut"
-                );
+        registry.addInterceptor(new AuthInterceptor()).addPathPatterns("/**");
     }
 
     @Override

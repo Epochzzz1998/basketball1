@@ -1,6 +1,8 @@
 package com.dream.basketball.controller;
 
 import com.alibaba.fastjson.JSONObject;
+import com.dream.basketball.config.RequiresRole;
+import com.dream.basketball.config.Role;
 import com.dream.basketball.dto.DreamNewsCommentDto;
 import com.dream.basketball.dto.NewsDto;
 import com.dream.basketball.entity.DreamNewsComment;
@@ -23,6 +25,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
@@ -141,6 +144,7 @@ public class NewsController extends BaseUtils {
      * @Date: 2024/1/10
      * @time: 14:54
      */
+    @RequiresRole(Role.MANAGER)
     @ResponseBody
     @DeleteMapping("/delete")
     public Object delete(String newsIds) {
@@ -166,12 +170,14 @@ public class NewsController extends BaseUtils {
      * @Date: 2024/1/10
      * @time: 16:21
      */
+    @RequiresRole(Role.MANAGER)
     @RequestMapping("/newsInput")
     public String newsInput(Model model, String newsId, HttpServletRequest request) {
         model.addAttribute("news", newsService.getInputAndEditNews(newsId, request));
         return "news/news-input";
     }
 
+    @RequiresRole(Role.USER)
     @RequestMapping("/commentInput")
     public String commentInput(Model model, String newsId, HttpServletRequest request, String level, String commentId) {
         model.addAttribute("comment", newsService.getCommentInit(newsId, request, level, commentId));
@@ -225,7 +231,8 @@ public class NewsController extends BaseUtils {
      * @Date: 2024/1/10
      * @time: 17:14
      */
-    @RequestMapping("/save")
+    @RequiresRole(Role.MANAGER)
+    @PostMapping("/save")
     @ResponseBody
     public Object save(News news) {
         try {
@@ -248,7 +255,8 @@ public class NewsController extends BaseUtils {
     * @Date: 2024/5/27
     * @time: 16:53
     */
-    @RequestMapping("/upload")
+    @RequiresRole(Role.MANAGER)
+    @PostMapping("/upload")
     @ResponseBody
     public String upload(MultipartFile file, String newsId) throws IOException {
         String path = FileUtils.upload(file, uploadPath, newsId + "/");
@@ -264,7 +272,8 @@ public class NewsController extends BaseUtils {
      * @Date: 2024/1/18
      * @time: 9:21
      */
-    @RequestMapping("/good")
+    @RequiresRole(Role.USER)
+    @PostMapping("/good")
     @ResponseBody
     public Object good(String newsId, HttpServletRequest request) {
         return newsService.good(newsId, request);
@@ -278,7 +287,8 @@ public class NewsController extends BaseUtils {
      * @Date: 2024/1/18
      * @time: 12:50
      */
-    @RequestMapping("/bad")
+    @RequiresRole(Role.USER)
+    @PostMapping("/bad")
     @ResponseBody
     public Object bad(String newsId, HttpServletRequest request) {
         return newsService.bad(newsId, request);
@@ -292,7 +302,8 @@ public class NewsController extends BaseUtils {
     * @Date: 2024/1/19
     * @time: 16:22
     */
-    @RequestMapping("/goodComment")
+    @RequiresRole(Role.USER)
+    @PostMapping("/goodComment")
     @ResponseBody
     public Object goodComment(String commentId, HttpServletRequest request) {
         return newsService.goodComment(commentId, request);
@@ -306,7 +317,8 @@ public class NewsController extends BaseUtils {
     * @Date: 2024/1/19
     * @time: 16:26
     */
-    @RequestMapping("/badComment")
+    @RequiresRole(Role.USER)
+    @PostMapping("/badComment")
     @ResponseBody
     public Object badComment(String commentId, HttpServletRequest request) {
         return newsService.badComment(commentId, request);
@@ -320,7 +332,8 @@ public class NewsController extends BaseUtils {
     * @Date: 2024/1/25
     * @time: 9:22
     */
-    @RequestMapping("/comment")
+    @RequiresRole(Role.USER)
+    @PostMapping("/comment")
     @ResponseBody
     public Object comment(DreamNewsComment dreamNewsComment, HttpServletRequest request){
         return newsService.comment(dreamNewsComment, request);

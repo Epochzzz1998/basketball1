@@ -1,5 +1,7 @@
 package com.dream.basketball.controller;
 
+import com.dream.basketball.config.RequiresRole;
+import com.dream.basketball.config.Role;
 import com.dream.basketball.dto.DreamNewsCommentDto;
 import com.dream.basketball.dto.NewsDto;
 import com.dream.basketball.dto.UserInformationDto;
@@ -57,6 +59,7 @@ public class UserInformationController extends BaseUtils {
     * @Date: 2024/2/1
     * @time: 15:55
     */
+    @RequiresRole(Role.USER)
     @RequestMapping("/userInformationList")
     public String userInformationList(Model model, HttpServletRequest request) {
         menuPower(model, request);
@@ -71,6 +74,7 @@ public class UserInformationController extends BaseUtils {
     * @Date: 2024/2/1
     * @time: 15:55
     */
+    @RequiresRole(Role.USER)
     @RequestMapping("/userInformationListData")
     @ResponseBody
     public Object userInformationListData(UserInformationDto param, Integer page, Integer limit, HttpServletRequest request) throws Exception {
