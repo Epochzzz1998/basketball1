@@ -1,5 +1,6 @@
 package com.dream.basketball.controller;
 
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.dream.basketball.config.RequiresRole;
 import com.dream.basketball.config.Role;
 import com.dream.basketball.dto.DreamUserDto;
@@ -8,7 +9,7 @@ import com.dream.basketball.entity.DreamUser;
 import com.dream.basketball.service.UserService;
 import com.dream.basketball.utils.BaseUtils;
 import com.dream.basketball.utils.Constants;
-import com.dream.basketball.utils.SaltMD5Util;
+import com.dream.basketball.utils.PasswordUtil;
 import com.dream.basketball.utils.SecUtil;
 import com.wf.captcha.SpecCaptcha;
 import com.wf.captcha.base.Captcha;
@@ -107,8 +108,16 @@ public class UserController extends BaseUtils {
             }
             List<DreamUserDto> dreamUserDtos = userService.findAllUsers(dreamUserDto);
             if (!CollectionUtils.isEmpty(dreamUserDtos)) {
-                if (StringUtils.equals(SaltMD5Util.generateSaltPassword(dreamUserDto.getPassword()), dreamUserDtos.get(0).getPassword())) {
+                if (PasswordUtil.matches(dreamUserDto.getPassword(), dreamUserDtos.get(0).getPassword())) {
                     DreamUser dreamUser = dreamUserDtos.get(0);
+                    // P2-3: transparently upgrade legacy salted-MD5 hashes to BCrypt on successful login
+                    if (PasswordUtil.needsUpgrade(dreamUser.getPassword())) {
+                        String upgraded = PasswordUtil.hash(dreamUserDto.getPassword());
+                        userService.update(new UpdateWrapper<DreamUser>()
+                                .eq("USER_ID", dreamUser.getUserId())
+                                .set("PASSWORD", upgraded));
+                        dreamUser.setPassword(upgraded);
+                    }
                     // 设置session信息
                     SecUtil.setLoginUserIdToSession(request, dreamUser);
                     SecUtil.setLoginUserToSession(request, dreamUser);
@@ -169,7 +178,7 @@ public class UserController extends BaseUtils {
             dreamUser.setUserId(UUID.randomUUID().toString());
             dreamUser.setRegistTime(new Date());
             dreamUser.setUserNickname(dreamUserDto.getUserNickname());
-            dreamUser.setPassword(SaltMD5Util.generateSaltPassword(dreamUserDto.getPassword()));
+            dreamUser.setPassword(PasswordUtil.hash(dreamUserDto.getPassword()));
             dreamUser.setUserStatus(Constants.USABLE);
             dreamUser.setUserName(dreamUserDto.getUserName());
             dreamUser.setUserRole(Constants.NORMAL_USER);
