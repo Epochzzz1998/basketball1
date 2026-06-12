@@ -1,5 +1,7 @@
 package com.dream.basketball.utils;
 
+import com.dream.basketball.common.PageResult;
+import com.dream.basketball.common.Result;
 import com.dream.basketball.entity.DreamUser;
 import com.dream.basketball.service.UserService;
 import org.apache.commons.lang3.StringUtils;
@@ -7,8 +9,6 @@ import org.springframework.ui.Model;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -28,12 +28,8 @@ public class BaseUtils {
      * @return java.lang.Object
      **/
     public Object handlerSuccessPageJson(int code, String msg, int count, Object data) {
-        Map<String, Object> map = new HashMap<String, Object>();
-        map.put("code", code);
-        map.put("msg", msg);
-        map.put("count", count);
-        map.put("data", data);
-        return map;
+        // P4-2: unified body — Result{code,msg,data:{total,records}}
+        return new Result<>(code, msg, new PageResult(count, data));
     }
 
     /**
@@ -44,10 +40,8 @@ public class BaseUtils {
      * @return java.lang.Object
      **/
     public Object handlerResultJson(boolean result, String msg) {
-        Map<String, Object> map = new HashMap<String, Object>();
-        map.put("msg", msg);
-        map.put("result", result);
-        return map;
+        // P4-2: unified body — Result{code,msg,data}
+        return new Result<>(result ? 0 : -1, msg, null);
     }
 
     /**
