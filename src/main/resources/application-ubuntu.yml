@@ -21,21 +21,6 @@ spring:
     username: ${RABBITMQ_USERNAME:epoch}
     password: ${RABBITMQ_PASSWORD:}   # P2-1: externalized — inject via env
 
-  freemarker:
-    cache: false
-    charset: UTF-8
-    allow-request-override: false
-    check-template-location: true
-    enabled: true
-    content-type: text/html
-    expose-request-attributes: true
-    expose-session-attributes: true
-    suffix: .ftl
-    template_update_delay: 0
-    mvc:
-      static-path-pattern: /static/**
-      date-format: yyyy-MM-dd HH:mm:ss
-
   redis:
     # [修改点] Host 改为容器名 redis
     host: redis

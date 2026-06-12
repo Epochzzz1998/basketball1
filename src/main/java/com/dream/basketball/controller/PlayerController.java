@@ -13,213 +13,94 @@ import com.dream.basketball.utils.BaseUtils;
 import com.dream.basketball.utils.SortUtil;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
- * @Author Epoch
- * @Description 球员controller
- * @Date 2023/2/1 10:02
- **/
-@Controller
+ * 球员相关 JSON 接口（P4-1 REST 化）。读接口公开，写接口需 superManager（P2-5）。
+ * 异常交由 GlobalExceptionHandler 统一处理（P4-2），不再逐方法 try/catch。
+ */
+@RestController
 @RequestMapping("/player")
 public class PlayerController extends BaseUtils {
-    private Logger logger = LoggerFactory.getLogger(getClass());
+
     @Autowired
     private PlayerService playerService;
     @Autowired
     private PlayerStatsService playerStatsService;
 
-    /**
-     * @Author Epoch
-     * @Description 首页
-     * @Date 2023/2/1 10:02
-     * @Param [model]
-     * @return java.lang.String
-     **/
-    @RequestMapping("/playerList")
-    public String toPlayerListPage(Model model, HttpServletRequest request){
-        menuPower(model, request);
-        return "player/all-player-season-stats";
+    /** 球员列表数据（按赛季） */
+    @GetMapping("/getPlayerData")
+    public Object getData(DreamPlayerDto param, int page, int limit) {
+        PageHelper.startPage(page, limit);
+        if (param.getSeasonNum() == null) {
+            param.setSeasonNum(1);
+        }
+        List<DreamPlayerDto> rows = playerService.findAllPlayers(param);
+        return handlerSuccessPageJson(0, "成功", (int) new PageInfo<>(rows).getTotal(), rows);
     }
 
-    /**
-     * @Author Epoch
-     * @Description 返回球员数据统计列表页
-     * @Date 2023/2/1 15:15
-     * @Param [model]
-     * @return java.lang.String
-     **/
-    @RequestMapping("/playerStatsList")
-    public String playerStatsList(Model model, String playerId, HttpServletRequest request, HttpSession session){
-        model.addAttribute("playerId", playerId);
-        // 获取当前球员姓名
-        DreamPlayer dreamPlayer = playerService.getById(playerId);
-        model.addAttribute("playerName", dreamPlayer == null? "" : dreamPlayer.getPlayerName());
-        menuPower(model, request);
-        return "player/player-stats-list";
+    /** 单个球员生涯逐季数据 */
+    @GetMapping("/getPlayerSeasonStatsList")
+    public Object getPlayerSeasonStatsList(PlayerStatsDto param, int page, int limit) {
+        PageHelper.startPage(page, limit);
+        // 排序：白名单校验后再拼接，既真正生效又防注入（P3-1）
+        param.setField(SortUtil.safeStatsOrderBy(param.getField(), param.getOrder()));
+        List<PlayerStatsDto> rows = playerService.findPlayerStats(param);
+        return handlerSuccessPageJson(0, "成功", (int) new PageInfo<>(rows).getTotal(), rows);
     }
 
-    @RequiresRole(Role.SUPER_MANAGER)
-    @RequestMapping("/playerStatsManagerList")
-    public String playerStatsManagerList(Model model, String playerId, HttpServletRequest request, HttpSession session){
-        if(isLogin(model, request)){
-            if(isSuperManager(model, request)){
-                model.addAttribute("playerId", playerId);
-                // 获取当前球员姓名
-                DreamPlayer dreamPlayer = playerService.getById(playerId);
-                model.addAttribute("playerName", dreamPlayer.getPlayerName());
-                menuPower(model, request);
-                return "player/player-stats-manager-list";
-            }
-            else {
-                return "error";
-            }
+    /** 全体球员某赛季数据榜 */
+    @GetMapping("/getAllPlayersSeasonStatsList")
+    public Object getAllPlayersSeasonStatsList(PlayerStatsDto param, int page, int limit) {
+        PageHelper.startPage(page, limit);
+        param.setField(SortUtil.safeStatsOrderBy(param.getField(), param.getOrder()));
+        if (param.getSeasonNum() == null) {
+            param.setSeasonNum(1);
         }
-        else {
-            return "login";
-        }
+        List<PlayerStatsDto> rows = playerService.findPlayersSeasonStats(param);
+        return handlerSuccessPageJson(0, "成功", (int) new PageInfo<>(rows).getTotal(), rows);
     }
 
-    @RequiresRole(Role.SUPER_MANAGER)
-    @RequestMapping("/playerManage")
-    public String playerManage(Model model, HttpServletRequest request){
-        if(isLogin(model, request)){
-            if(isSuperManager(model, request)){
-                return "player/player-list";
-            }
-            else {
-                return "error";
-            }
-        }
-        else {
-            return "login";
-        }
-    }
-
-    /**
-     * @Author Epoch
-     * @Description 获取球员列表数据
-     * @Date 2023/2/1 10:01
-     * @Param [param, page, limit, response]
-     * @return java.lang.Object
-     **/
-    @RequestMapping("/getPlayerData")
-    @ResponseBody
-    public Object getData(DreamPlayerDto param, int page, int limit, HttpServletResponse response) throws Exception{
-        int code = -1;
-        List<DreamPlayerDto> rows = new ArrayList<DreamPlayerDto>();
-        int count = 0;
-        try {
-            PageHelper.startPage(page, limit);
-            // 设置初始加载赛季
-            if(param.getSeasonNum() == null){
-                param.setSeasonNum(1);
-            }
-            rows = playerService.findAllPlayers(param);
-            PageInfo<DreamPlayerDto> dreamPlayerPageInfo = new PageInfo<>(rows);
-            count = (int) dreamPlayerPageInfo.getTotal();
-            code = 0;
-        } catch (Exception e) {
-            logger.error("{getPlayerData错误" + e.getMessage(), e);
-        }
-        return handlerSuccessPageJson(code, "测试", count, rows);
-    }
-
-    /**
-     * @Author Epoch
-     * @Description 获取球员生涯数据列表
-     * @Date 2023/2/1 14:37
-     * @Param [param, page, limit, response]
-     * @return java.lang.Object
-     **/
-    @RequestMapping("/getPlayerSeasonStatsList")
-    @ResponseBody
-    public Object getPlayerSeasonStatsList(PlayerStatsDto param, int page, int limit, HttpServletResponse response) throws Exception{
-        int code = -1;
-        List<PlayerStatsDto> rows = new ArrayList<>();
-        int count = 0;
-        try {
-            PageHelper.startPage(page, limit);
-            // 设置排序：白名单校验后再拼接，既真正生效又防注入（P3-1，配合 Mapper 的 ${param.field}）
-            param.setField(SortUtil.safeStatsOrderBy(param.getField(), param.getOrder()));
-            rows = playerService.findPlayerStats(param);
-            PageInfo<PlayerStatsDto> playerStatsDtoPageInfo = new PageInfo<>(rows);
-            count = (int) playerStatsDtoPageInfo.getTotal();
-            code = 0;
-        } catch (Exception e) {
-            logger.error("{getPlayerSeasonStatsList错误" + e.getMessage(), e);
-        }
-        return handlerSuccessPageJson(code, "测试", count, rows);
-    }
-
-    @RequestMapping("/getAllPlayersSeasonStatsList")
-    @ResponseBody
-    public Object getAllPlayersSeasonStatsList(PlayerStatsDto param, int page, int limit, HttpServletResponse response) throws Exception{
-        int code = -1;
-        List<PlayerStatsDto> rows = new ArrayList<>();
-        int count = 0;
-        try {
-            PageHelper.startPage(page, limit);
-            // 设置排序：白名单校验后再拼接，既真正生效又防注入（P3-1，配合 Mapper 的 ${param.field}）
-            param.setField(SortUtil.safeStatsOrderBy(param.getField(), param.getOrder()));
-            if(param.getSeasonNum() == null){
-                param.setSeasonNum(1);
-            }
-            rows = playerService.findPlayersSeasonStats(param);
-            PageInfo<PlayerStatsDto> playerStatsDtoPageInfo = new PageInfo<>(rows);
-            count = (int) playerStatsDtoPageInfo.getTotal();
-            code = 0;
-        } catch (Exception e) {
-            logger.error("{getAllPlayersSeasonStatsList错误" + e.getMessage(), e);
-        }
-        return handlerSuccessPageJson(code, "测试", count, rows);
-    }
-
-    // P3-2: 多步写编排已下沉到 @Transactional 的 Service 方法，Controller 只解析入参并委托
+    // ===== 写接口：superManager 专属（P2-5），多步写已下沉为 @Transactional 服务方法（P3-2） =====
 
     @RequiresRole(Role.SUPER_MANAGER)
     @PostMapping("/insertAndSavePlayer")
-    @ResponseBody
-    public void insertAndSavePlayer(String data){
+    public Object insertAndSavePlayer(String data) {
         playerService.insertPlayersWithBlankRow(JSON.parseArray(data, DreamPlayer.class));
+        return handlerResultJson(true, "操作成功！");
     }
 
     @RequiresRole(Role.SUPER_MANAGER)
     @PostMapping("/savePlayer")
-    @ResponseBody
-    public void savePlayer(String data){
+    public Object savePlayer(String data) {
         playerService.savePlayers(JSON.parseArray(data, DreamPlayer.class));
+        return handlerResultJson(true, "操作成功！");
     }
 
     @RequiresRole(Role.SUPER_MANAGER)
     @PostMapping("/insertAndSavePlayerStats")
-    @ResponseBody
-    public void insertAndSavePlayerStats(String data, String playerId){
+    public Object insertAndSavePlayerStats(String data, String playerId) {
         playerStatsService.insertStatsWithBlankRow(JSON.parseArray(data, PlayerStats.class), playerId);
+        return handlerResultJson(true, "操作成功！");
     }
 
     @RequiresRole(Role.SUPER_MANAGER)
     @PostMapping("/savePlayerStats")
-    @ResponseBody
-    public void savePlayerStats(String data, String playerId){
+    public Object savePlayerStats(String data, String playerId) {
         playerStatsService.saveStatsAndRecomputeSummary(JSON.parseArray(data, PlayerStats.class), playerId);
+        return handlerResultJson(true, "操作成功！");
     }
 
     @RequiresRole(Role.SUPER_MANAGER)
     @PostMapping("/deletePlayer")
-    @ResponseBody
-    public void deletePlayer(String playerId){
+    public Object deletePlayer(String playerId) {
         playerService.deletePlayerCascade(playerId);
+        return handlerResultJson(true, "删除成功！");
     }
 }

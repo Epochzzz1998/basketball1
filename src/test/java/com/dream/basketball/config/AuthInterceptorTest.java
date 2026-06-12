@@ -96,16 +96,17 @@ class AuthInterceptorTest {
         assertFalse(interceptor.preHandle(ajaxRequest(), response,
                 handler(DummyController.class, "userEndpoint")));
         assertEquals(401, response.getStatus());
-        assertTrue(response.getContentAsString().contains("\"result\":false"));
+        assertTrue(response.getContentAsString().contains("\"code\":401"));
     }
 
     @Test
-    void anonymousPageNav_redirectsToLogin() throws Exception {
+    void anonymousPageNav_alsoGets401Json() throws Exception {
+        // P4-1: pure JSON API — no login page to redirect to, so page navigation also gets 401 JSON
         MockHttpServletResponse response = new MockHttpServletResponse();
         assertFalse(interceptor.preHandle(pageRequest(), response,
                 handler(DummyController.class, "userEndpoint")));
-        assertEquals(302, response.getStatus());
-        assertEquals("/user/loginPage", response.getRedirectedUrl());
+        assertEquals(401, response.getStatus());
+        assertTrue(response.getContentAsString().contains("\"code\":401"));
     }
 
     // ---------- authorization (403) ----------

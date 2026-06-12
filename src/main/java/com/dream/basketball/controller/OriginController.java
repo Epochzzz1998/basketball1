@@ -1,19 +1,18 @@
 package com.dream.basketball.controller;
 
-import com.dream.basketball.utils.BaseUtils;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.RequestMapping;
+import com.dream.basketball.common.Result;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-import javax.servlet.http.HttpServletRequest;
-import java.io.IOException;
+/**
+ * Root endpoint. P4-1: the backend is now a pure JSON API (no server-rendered home
+ * page), so "/" just reports liveness instead of forwarding to a FreeMarker view.
+ */
+@RestController
+public class OriginController {
 
-@Controller
-@RequestMapping("/")
-public class OriginController extends BaseUtils {
-    @RequestMapping("/")
-    public String index(Model model, HttpServletRequest request) throws IOException {
-        menuPower(model, request);
-        return "news/news-list";
+    @GetMapping("/")
+    public Result<String> index() {
+        return Result.ok("dream-app API is running");
     }
 }

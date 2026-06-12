@@ -1,14 +1,12 @@
 package com.dream.basketball.controller;
 
-import com.alibaba.fastjson.JSONObject;
+import com.dream.basketball.common.Result;
 import com.dream.basketball.config.RequiresRole;
 import com.dream.basketball.config.Role;
 import com.dream.basketball.dto.DreamNewsCommentDto;
 import com.dream.basketball.dto.NewsDto;
 import com.dream.basketball.entity.DreamNewsComment;
 import com.dream.basketball.esEntity.News;
-import com.dream.basketball.rabbitmq.RabbitMqConsumer;
-import com.dream.basketball.rabbitmq.RabbitMqProducer;
 import com.dream.basketball.service.DreamNewsCommentService;
 import com.dream.basketball.service.DreamNewsService;
 import com.dream.basketball.service.NewsService;
@@ -18,325 +16,146 @@ import com.dream.basketball.utils.FileUtils;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static com.dream.basketball.utils.Constants.NO_ANCHOR;
 
-@Controller
+/**
+ * 资讯/评论 JSON 接口（P4-1 REST 化）。浏览/读取公开；发布/删除需 manager；评论/点赞需登录（P2-5）。
+ */
+@RestController
 @RequestMapping("/news")
 public class NewsController extends BaseUtils {
 
-    @Value("${picPath.picPath:}")
-    private String picPath;
     @Value("${picPath.uploadPath:}")
     private String uploadPath;
 
-    private Logger logger = LoggerFactory.getLogger(getClass());
-
     @Autowired
-    NewsService newsService;
-
+    private NewsService newsService;
     @Autowired
-    DreamNewsService dreamNewsService;
-
+    private DreamNewsService dreamNewsService;
     @Autowired
-    DreamNewsCommentService dreamNewsCommentService;
-
+    private DreamNewsCommentService dreamNewsCommentService;
     @Autowired
-    UserInformationService userInformationService;
+    private UserInformationService userInformationService;
 
-    @Autowired
-    RabbitMqProducer rabbitMqProducer;
-
-    /**
-     * @Description: 新闻列表
-     * @param: [model, request]
-     * @Author: Epoch
-     * @return: java.lang.String
-     * @Date: 2024/1/10
-     * @time: 13:39
-     */
-    @RequestMapping("/newsList")
-    public String newsList(Model model, HttpServletRequest request) {
-        isManagerOrOver(model, request);
-        menuPower(model, request);
-        return "news/news-list";
+    /** 资讯列表数据（公开） */
+    @GetMapping("/newsListData")
+    public Object newsListData(NewsDto param, Integer page, Integer limit) throws Exception {
+        PageHelper.startPage(page, limit);
+        List<NewsDto> rows = newsService.getNewsByParams(param);
+        return handlerSuccessPageJson(0, "成功", (int) new PageInfo<>(rows).getTotal(), rows);
     }
 
-    /**
-     * @Description: 新闻数据
-     * @param: [param, page, limit, response]
-     * @Author: Epoch
-     * @return: java.lang.Object
-     * @Date: 2024/1/10
-     * @time: 13:39
-     */
-    @RequestMapping("/newsListData")
-    @ResponseBody
-    public Object newsListData(NewsDto param, Integer page, Integer limit, HttpServletResponse response) throws Exception {
-        int code = -1;
-        List<NewsDto> rows = new ArrayList<>();
-        int count = 0;
-        try {
-            PageHelper.startPage(page, limit);
-            rows = newsService.getNewsByParams(param);
-            PageInfo<NewsDto> playerStatsDtoPageInfo = new PageInfo<>(rows);
-            count = (int) playerStatsDtoPageInfo.getTotal();
-            code = 0;
-        } catch (Exception e) {
-            logger.error("{newsListData}错误" + e.getMessage(), e);
-        }
-        return handlerSuccessPageJson(code, "成功获取", count, rows);
+    /** 评论列表数据（公开） */
+    @GetMapping("/CommentListData")
+    public Object commentListData(String newsId, String level, String commentRelId, String commentId,
+                                  Integer page, Integer limit) throws Exception {
+        PageHelper.startPage(page, limit);
+        DreamNewsCommentDto param = new DreamNewsCommentDto();
+        param.setNewsId(newsId);
+        param.setLevel(level);
+        param.setCommentId(commentId);
+        param.setCommentRelId(commentRelId);
+        List<DreamNewsCommentDto> rows = newsService.getCommentListByParams(param);
+        return handlerSuccessPageJson(0, "成功", (int) new PageInfo<>(rows).getTotal(), rows);
     }
 
-    /**
-    * @Description: 获取评论
-    * @param: [newsId, page, limit, response]
-    * @Author: Epoch
-    * @return: java.lang.Object
-    * @Date: 2024/1/19
-    * @time: 14:21
-    */
-    @RequestMapping("/CommentListData")
-    @ResponseBody
-    public Object CommentListData(String newsId, String level, String commentRelId, String commentId, Integer page, Integer limit, HttpServletResponse response) throws Exception {
-        int code = -1;
-        List<DreamNewsCommentDto> rows = new ArrayList<>();
-        int count = 0;
-        try {
-            PageHelper.startPage(page, limit);
-            DreamNewsCommentDto param = new DreamNewsCommentDto();
-            param.setNewsId(newsId);
-            param.setLevel(level);
-            param.setCommentId(commentId);
-            param.setCommentRelId(commentRelId);
-            rows = newsService.getCommentListByParams(param);
-            PageInfo<DreamNewsCommentDto> playerStatsDtoPageInfo = new PageInfo<>(rows);
-            count = (int) playerStatsDtoPageInfo.getTotal();
-            code = 0;
-        } catch (Exception e) {
-            logger.error("{CommentListData}错误" + e.getMessage(), e);
-        }
-        return handlerSuccessPageJson(code, "成功获取", count, rows);
+    /** 资讯详情（公开）；附带把对应消息通知标记为已读 */
+    @GetMapping("/newsShow")
+    public Object newsShow(String newsId, String level, String userInformationId, String anchorId) {
+        userInformationService.updateInformationRead(userInformationId);
+        Map<String, Object> data = new HashMap<>();
+        data.put("news", newsService.getNewsShow(newsId));
+        data.put("level", level);
+        data.put("anchorId", StringUtils.isNotBlank(anchorId) ? anchorId : NO_ANCHOR);
+        return new Result<>(0, "成功", data);
     }
 
-    /**
-     * @Description: 删除方法
-     * @param: [newsIds]
-     * @Author: Epoch
-     * @return: java.lang.Object
-     * @Date: 2024/1/10
-     * @time: 14:54
-     */
+    /** 评论详情（公开）；附带标记已读 */
+    @GetMapping("/commentDetailShow")
+    public Object commentDetailShow(String newsId, String commentRelId, String userInformationId, String anchorId) {
+        userInformationService.updateInformationRead(userInformationId);
+        Map<String, Object> data = new HashMap<>();
+        data.put("news", newsService.getNewsShow(newsId));
+        data.put("commentRelId", commentRelId);
+        data.put("comment", dreamNewsCommentService.getById(commentRelId));
+        data.put("anchorId", StringUtils.isNotBlank(anchorId) ? anchorId : NO_ANCHOR);
+        return new Result<>(0, "成功", data);
+    }
+
+    // ===== 写/管理：manager 及以上（P2-5） =====
+
+    /** 删除资讯（ES + DB） */
     @RequiresRole(Role.MANAGER)
-    @ResponseBody
     @DeleteMapping("/delete")
     public Object delete(String newsIds) {
-        if (StringUtils.isNotBlank(newsIds)) {
-            try {
-                // 删除es数据
-                newsService.deleteNewsListByIds(newsIds, News.class);
-                // 同步删除数据库
-                dreamNewsService.deleteSyncEs(newsIds);
-                return handlerResultJson(true, "删除成功！");
-            } catch (Exception e) {
-                logger.error("{news[delete]错误" + e.getMessage(), e);
-            }
+        if (StringUtils.isBlank(newsIds)) {
+            return handlerResultJson(false, "删除失败！");
         }
-        return handlerResultJson(false, "删除失败！");
+        newsService.deleteNewsListByIds(newsIds, News.class);
+        dreamNewsService.deleteSyncEs(newsIds);
+        return handlerResultJson(true, "删除成功！");
     }
 
-    /**
-     * @Description: 新增新闻
-     * @param: [model]
-     * @Author: Epoch
-     * @return: java.lang.String
-     * @Date: 2024/1/10
-     * @time: 16:21
-     */
-    @RequiresRole(Role.MANAGER)
-    @RequestMapping("/newsInput")
-    public String newsInput(Model model, String newsId, HttpServletRequest request) {
-        model.addAttribute("news", newsService.getInputAndEditNews(newsId, request));
-        return "news/news-input";
-    }
-
-    @RequiresRole(Role.USER)
-    @RequestMapping("/commentInput")
-    public String commentInput(Model model, String newsId, HttpServletRequest request, String level, String commentId) {
-        model.addAttribute("comment", newsService.getCommentInit(newsId, request, level, commentId));
-        return "news/comment-input";
-    }
-
-    /**
-     * @Description: 新闻预览
-     * @param: [model, newsId]
-     * @Author: Epoch
-     * @return: java.lang.String
-     * @Date: 2024/1/11
-     * @time: 15:59
-     */
-    @RequestMapping("/newsShow")
-    public String newsShow(Model model, String newsId, String level, String userInformationId, String anchorId) {
-        model.addAttribute("news", newsService.getNewsShow(newsId));
-        model.addAttribute("level", level);
-        // 定位锚点
-        model.addAttribute("anchorId", StringUtils.isNotBlank(anchorId) ? anchorId : NO_ANCHOR);
-        // 更新消息状态
-        userInformationService.updateInformationRead(userInformationId);
-        return "news/news-show";
-    }
-
-    /**
-    * @Description: 获取评论的评论
-    * @param: [model, newsId]
-    * @Author: Epoch
-    * @return: java.lang.String
-    * @Date: 2024/1/22
-    * @time: 17:50
-    */
-    @RequestMapping("/commentDetailShow")
-    public String commentDetailShow(Model model, String newsId, String commentRelId, String userInformationId, String anchorId) {
-        model.addAttribute("news", newsService.getNewsShow(newsId));
-        model.addAttribute("commentRelId", commentRelId);
-        model.addAttribute("comment", dreamNewsCommentService.getById(commentRelId));
-        // 定位锚点
-        model.addAttribute("anchorId", StringUtils.isNotBlank(anchorId) ? anchorId : NO_ANCHOR);
-        // 更新消息状态
-        userInformationService.updateInformationRead(userInformationId);
-        return "news/comment-detail-show";
-    }
-
-    /**
-     * @Description: 保存新增
-     * @param: [news]
-     * @Author: Epoch
-     * @return: void
-     * @Date: 2024/1/10
-     * @time: 17:14
-     */
+    /** 新增/保存资讯（ES + DB） */
     @RequiresRole(Role.MANAGER)
     @PostMapping("/save")
-    @ResponseBody
     public Object save(News news) {
-        try {
-            // es保存
-            newsService.save(news);
-            // 数据库同步保存
-            dreamNewsService.saveSyncEs(news);
-            return handlerResultJson(true, "操作成功！");
-        } catch (Exception e) {
-            logger.error("{news方法保存异常：}" + e.getMessage(), e);
-        }
-        return handlerResultJson(false, "操作失败！");
+        newsService.save(news);
+        dreamNewsService.saveSyncEs(news);
+        return handlerResultJson(true, "操作成功！");
     }
 
-    /**
-    * @Description: 上传图片方法
-    * @param: [file, newsId]
-    * @Author: Epoch
-    * @return: java.lang.String
-    * @Date: 2024/5/27
-    * @time: 16:53
-    */
+    /** 富文本图片上传（P2-4/P4-3 将加固类型/大小校验与安全文件名，并改统一返回） */
     @RequiresRole(Role.MANAGER)
     @PostMapping("/upload")
-    @ResponseBody
     public String upload(MultipartFile file, String newsId) throws IOException {
-        String path = FileUtils.upload(file, uploadPath, newsId + "/");
-        return path;
-
+        return FileUtils.upload(file, uploadPath, newsId + "/");
     }
 
-    /**
-     * @Description: 点赞
-     * @param: [newsId]
-     * @Author: Epoch
-     * @return: java.lang.Object
-     * @Date: 2024/1/18
-     * @time: 9:21
-     */
+    // ===== 会员互动：登录即可（P2-5） =====
+
     @RequiresRole(Role.USER)
     @PostMapping("/good")
-    @ResponseBody
     public Object good(String newsId, HttpServletRequest request) {
         return newsService.good(newsId, request);
     }
 
-    /**
-     * @Description: 点踩
-     * @param: [newsId, request]
-     * @Author: Epoch
-     * @return: java.lang.Object
-     * @Date: 2024/1/18
-     * @time: 12:50
-     */
     @RequiresRole(Role.USER)
     @PostMapping("/bad")
-    @ResponseBody
     public Object bad(String newsId, HttpServletRequest request) {
         return newsService.bad(newsId, request);
     }
 
-    /**
-    * @Description: 评论点赞
-    * @param: [newsId, request]
-    * @Author: Epoch
-    * @return: java.lang.Object
-    * @Date: 2024/1/19
-    * @time: 16:22
-    */
     @RequiresRole(Role.USER)
     @PostMapping("/goodComment")
-    @ResponseBody
     public Object goodComment(String commentId, HttpServletRequest request) {
         return newsService.goodComment(commentId, request);
     }
 
-    /**
-    * @Description: 评论点踩
-    * @param: [newsId, request]
-    * @Author: Epoch
-    * @return: java.lang.Object
-    * @Date: 2024/1/19
-    * @time: 16:26
-    */
     @RequiresRole(Role.USER)
     @PostMapping("/badComment")
-    @ResponseBody
     public Object badComment(String commentId, HttpServletRequest request) {
         return newsService.badComment(commentId, request);
     }
 
-    /**
-    * @Description: 评论方法
-    * @param: [dreamNewsComment, request]
-    * @Author: Epoch
-    * @return: java.lang.Object
-    * @Date: 2024/1/25
-    * @time: 9:22
-    */
     @RequiresRole(Role.USER)
     @PostMapping("/comment")
-    @ResponseBody
-    public Object comment(DreamNewsComment dreamNewsComment, HttpServletRequest request){
+    public Object comment(DreamNewsComment dreamNewsComment, HttpServletRequest request) {
         return newsService.comment(dreamNewsComment, request);
     }
-
 }

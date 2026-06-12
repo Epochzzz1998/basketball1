@@ -1,10 +1,10 @@
 package com.dream.basketball.controller;
 
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
+import com.dream.basketball.common.Result;
 import com.dream.basketball.config.RequiresRole;
 import com.dream.basketball.config.Role;
 import com.dream.basketball.dto.DreamUserDto;
-import com.dream.basketball.entity.DreamNewsComment;
 import com.dream.basketball.entity.DreamUser;
 import com.dream.basketball.service.UserService;
 import com.dream.basketball.utils.BaseUtils;
@@ -14,239 +14,130 @@ import com.dream.basketball.utils.SecUtil;
 import com.wf.captcha.SpecCaptcha;
 import com.wf.captcha.base.Captcha;
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.util.CollectionUtils;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
-import org.springframework.web.servlet.view.RedirectView;
+import org.springframework.web.bind.annotation.RestController;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
- * @Author Epoch
- * @Description 用户及登录的controller
- * @Date 2023/2/2 11:06
- * @Param
- * @return
- **/
-@Controller
+ * 用户与登录 JSON 接口（P4-1 REST 化）。登录/注册/验证码公开；登出与「当前用户」需登录。
+ */
+@RestController
 @RequestMapping("/user")
 public class UserController extends BaseUtils {
-    private Logger logger = LoggerFactory.getLogger(getClass());
 
     @Autowired
     private UserService userService;
 
     /**
-     * @return java.lang.String
-     * @Author Epoch
-     * @Description 跳转登录页
-     * @Date 2023/2/2 13:53
-     * @Param [model]
-     **/
-    @RequestMapping("/loginPage")
-    public String loginPage(Model model) {
-        return "login";
-    }
-
-    /**
-     * @return java.lang.String
-     * @Author Epoch
-     * @Description 注册页面
-     * @Date 2023/2/2 16:19
-     * @Param [model]
-     **/
-    @RequestMapping("/registPage")
-    public String registPage(Model model) {
-        return "regist";
-    }
-
-    /**
-     * @Description: 用户列表
-     * @param: [model]
-     * @Author: Epoch
-     * @return: java.lang.String
-     * @Date: 2024/1/16
-     * @time: 17:33
+     * 登录：先校验单次验证码（P2-2），再核对账号/密码（BCrypt，旧 MD5 透明升级，P2-3）。
      */
-    @RequiresRole(Role.SUPER_MANAGER)
-    @RequestMapping("userList")
-    public String userList(HttpServletRequest request, Model model) {
-        menuPower(model, request);
-        return "/user/user-list";
-    }
-
-    /**
-     * @return java.lang.Object
-     * @Author Epoch
-     * @Description 处理用户登录
-     * @Date 2023/2/2 14:44
-     * @Param [userNickname, password, request, response]
-     **/
-    @RequestMapping("/login")
-    @ResponseBody
-    public Object login(DreamUserDto dreamUserDto, HttpServletRequest request, HttpServletResponse response, Model model) {
-        String msg = "denglu失败！";
-        boolean result = false;
-        try {
-            // P2-2: captcha is mandatory and single-use (consumed regardless of outcome)
-            String inputCode = request.getParameter("code");
-            Object sessionCaptcha = request.getSession().getAttribute("captcha");
-            request.getSession().removeAttribute("captcha");
-            if (sessionCaptcha == null || StringUtils.isBlank(inputCode)
-                    || !StringUtils.equalsIgnoreCase(inputCode.trim(), sessionCaptcha.toString())) {
-                return handlerResultJson(false, "验证码错误！");
-            }
-            List<DreamUserDto> dreamUserDtos = userService.findAllUsers(dreamUserDto);
-            if (!CollectionUtils.isEmpty(dreamUserDtos)) {
-                if (PasswordUtil.matches(dreamUserDto.getPassword(), dreamUserDtos.get(0).getPassword())) {
-                    DreamUser dreamUser = dreamUserDtos.get(0);
-                    // P2-3: transparently upgrade legacy salted-MD5 hashes to BCrypt on successful login
-                    if (PasswordUtil.needsUpgrade(dreamUser.getPassword())) {
-                        String upgraded = PasswordUtil.hash(dreamUserDto.getPassword());
-                        userService.update(new UpdateWrapper<DreamUser>()
-                                .eq("USER_ID", dreamUser.getUserId())
-                                .set("PASSWORD", upgraded));
-                        dreamUser.setPassword(upgraded);
-                    }
-                    // 设置session信息
-                    SecUtil.setLoginUserIdToSession(request, dreamUser);
-                    SecUtil.setLoginUserToSession(request, dreamUser);
-                    msg = "登录成功！";
-                    result = true;
-                    model.addAttribute("user", dreamUser);
-                } else {
-                    msg = "密码错误，请检查后重新输入！";
-                }
-            } else {
-                msg = "账号不存在！请检查后重新输入！";
-            }
-        } catch (Exception e) {
-            logger.error("{login错误" + e.getMessage(), e);
+    @PostMapping("/login")
+    public Object login(DreamUserDto dreamUserDto, HttpServletRequest request) {
+        // P2-2: 验证码强制校验，单次消费
+        String inputCode = request.getParameter("code");
+        Object sessionCaptcha = request.getSession().getAttribute("captcha");
+        request.getSession().removeAttribute("captcha");
+        if (sessionCaptcha == null || StringUtils.isBlank(inputCode)
+                || !StringUtils.equalsIgnoreCase(inputCode.trim(), sessionCaptcha.toString())) {
+            return handlerResultJson(false, "验证码错误！");
         }
-        return handlerResultJson(result, msg);
-    }
-
-    /**
-     * @return java.lang.Object
-     * @Author Epoch
-     * @Description 登出
-     * @Date 2023/2/2 17:44
-     * @Param [dreamUserDto, request, response]
-     **/
-    @RequiresRole(Role.USER)
-    @RequestMapping("/loginOut")
-    @ResponseBody
-    public RedirectView loginOut(DreamUserDto dreamUserDto, HttpServletRequest request, HttpServletResponse response) {
-        try {
-            if (SecUtil.isLogin(request)) {
-                SecUtil.logout4Session(request);
-            }
-        } catch (Exception e) {
-            logger.error("{loginOut错误" + e.getMessage(), e);
+        List<DreamUserDto> users = userService.findAllUsers(dreamUserDto);
+        if (CollectionUtils.isEmpty(users)) {
+            return handlerResultJson(false, "账号不存在！请检查后重新输入！");
         }
-        return new RedirectView(getAbsContextPath(request));
-    }
-
-    /**
-     * @return java.lang.Object
-     * @Author Epoch
-     * @Description 用户注册
-     * @Date 2023/2/2 16:19
-     * @Param [dreamUserDto, request, response]
-     **/
-    @RequestMapping("/regist")
-    @ResponseBody
-    public Object regist(DreamUserDto dreamUserDto, HttpServletRequest request, HttpServletResponse response) {
-        String msg = "注册失败！";
-        boolean result = false;
-        try {
-            // P3-1: 昵称唯一性检查——命中即 return，修复原来漏 return 仍继续创建重复账号的 BUG
-            DreamUserDto existQuery = new DreamUserDto();
-            existQuery.setUserNickname(dreamUserDto.getUserNickname());
-            if (!CollectionUtils.isEmpty(userService.findAllUsers(existQuery))) {
-                return handlerResultJson(false, "该用户已存在！");
-            }
-            DreamUser dreamUser = new DreamUser();
-            dreamUser.setUserId(UUID.randomUUID().toString());
-            dreamUser.setRegistTime(new Date());
-            dreamUser.setUserNickname(dreamUserDto.getUserNickname());
-            dreamUser.setPassword(PasswordUtil.hash(dreamUserDto.getPassword()));
-            dreamUser.setUserStatus(Constants.USABLE);
-            dreamUser.setUserName(dreamUserDto.getUserName());
-            dreamUser.setUserRole(Constants.NORMAL_USER);
-            dreamUser.setPlayerIdentification(Constants.UNIDENTIFICATION);
-            userService.save(dreamUser);
-            msg = "注册成功！";
-            result = true;
-        } catch (Exception e) {
-            logger.error("{regist错误" + e.getMessage(), e);
+        DreamUser dreamUser = users.get(0);
+        if (!PasswordUtil.matches(dreamUserDto.getPassword(), dreamUser.getPassword())) {
+            return handlerResultJson(false, "密码错误，请检查后重新输入！");
         }
-        return handlerResultJson(result, msg);
+        // P2-3: 旧 MD5 校验通过即透明升级为 BCrypt（只更新 PASSWORD 一列）
+        if (PasswordUtil.needsUpgrade(dreamUser.getPassword())) {
+            String upgraded = PasswordUtil.hash(dreamUserDto.getPassword());
+            userService.update(new UpdateWrapper<DreamUser>()
+                    .eq("USER_ID", dreamUser.getUserId())
+                    .set("PASSWORD", upgraded));
+            dreamUser.setPassword(upgraded);
+        }
+        SecUtil.setLoginUserIdToSession(request, dreamUser);
+        SecUtil.setLoginUserToSession(request, dreamUser);
+        return handlerResultJson(true, "登录成功！");
     }
 
     /**
-     * @Description: 检测登陆状态
-     * @param: [request]
-     * @Author: Epoch
-     * @return: java.lang.Object
-     * @Date: 2024/1/19
-     * @time: 10:51
+     * 注册：昵称查重（P3-1，命中即拒）；DB 唯一索引兜并发，重复键由 GlobalExceptionHandler 友好化。
      */
-    @RequestMapping("/checkLogin")
-    @ResponseBody
+    @PostMapping("/regist")
+    public Object regist(DreamUserDto dreamUserDto) {
+        DreamUserDto existQuery = new DreamUserDto();
+        existQuery.setUserNickname(dreamUserDto.getUserNickname());
+        if (!CollectionUtils.isEmpty(userService.findAllUsers(existQuery))) {
+            return handlerResultJson(false, "该用户已存在！");
+        }
+        DreamUser dreamUser = new DreamUser();
+        dreamUser.setUserId(UUID.randomUUID().toString());
+        dreamUser.setRegistTime(new Date());
+        dreamUser.setUserNickname(dreamUserDto.getUserNickname());
+        dreamUser.setPassword(PasswordUtil.hash(dreamUserDto.getPassword()));
+        dreamUser.setUserStatus(Constants.USABLE);
+        dreamUser.setUserName(dreamUserDto.getUserName());
+        dreamUser.setUserRole(Constants.NORMAL_USER);
+        dreamUser.setPlayerIdentification(Constants.UNIDENTIFICATION);
+        userService.save(dreamUser);
+        return handlerResultJson(true, "注册成功！");
+    }
+
+    /** 检测登录状态 */
+    @GetMapping("/checkLogin")
     public Object checkLogin(HttpServletRequest request) {
         DreamUser dreamUser = SecUtil.getLoginUserToSession(request);
-        if (dreamUser == null) {
-            return handlerResultJson(false, "请先登录！");
-        } else {
-            return handlerResultJson(true, "已登录！");
-        }
+        return dreamUser == null ? handlerResultJson(false, "请先登录！") : handlerResultJson(true, "已登录！");
     }
 
-    /**
-     * @return void
-     * @Author Epoch
-     * @Description 验证码
-     * @Date 2023/2/2 13:53
-     * @Param [request, response]
-     **/
-    @RequestMapping("/captcha")
-    @ResponseBody
-    public void captcha(Model model, HttpServletRequest request, HttpServletResponse response) throws Exception {
-        // 设置请求头为输出图片类型
+    /** 当前登录用户信息 + 角色标识（供前端渲染菜单/权限，P4-1） */
+    @RequiresRole(Role.USER)
+    @GetMapping("/current")
+    public Object current(HttpServletRequest request) {
+        DreamUser u = SecUtil.getLoginUserToSession(request);
+        Role role = Role.fromUserRole(u.getUserRole());
+        Map<String, Object> data = new HashMap<>();
+        data.put("userId", u.getUserId());
+        data.put("userNickname", u.getUserNickname());
+        data.put("userName", u.getUserName());
+        data.put("userRole", u.getUserRole());
+        data.put("isSuperManager", role == Role.SUPER_MANAGER);
+        data.put("isManagerOrOver", role.covers(Role.MANAGER));
+        return new Result<>(0, "成功", data);
+    }
+
+    /** 登出 */
+    @RequiresRole(Role.USER)
+    @PostMapping("/loginOut")
+    public Object loginOut(HttpServletRequest request) {
+        SecUtil.logout4Session(request);
+        return handlerResultJson(true, "已登出");
+    }
+
+    /** 验证码图片（前端以 <img src> 加载；答案存 session 供 /login 校验，不再打印到控制台） */
+    @GetMapping("/captcha")
+    public void captcha(HttpServletRequest request, HttpServletResponse response) throws Exception {
         response.setHeader("Pragma", "No-cache");
         response.setContentType("image/gif");
         response.setDateHeader("Expires", 0);
         response.setHeader("Cache-Control", "no-cache");
-        // 三个参数分别为宽、高、位数
         SpecCaptcha specCaptcha = new SpecCaptcha(130, 48, 4);
         specCaptcha.setFont(Captcha.FONT_1);
-        // 设置类型，纯数字、纯字母、字母数字混合
         specCaptcha.setCharType(Captcha.TYPE_ONLY_NUMBER);
-        // 验证码存入session
         request.getSession().setAttribute("captcha", specCaptcha.text().toLowerCase());
-        // 输出图片流
         specCaptcha.out(response.getOutputStream());
-    }
-
-    /**
-     * @return java.lang.String
-     * @Author Epoch
-     * @Description 获取绝对路径
-     * @Date 2023/2/2 17:47
-     * @Param [request]
-     **/
-    public String getAbsContextPath(HttpServletRequest request) {
-        return request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + "/news/newsList";
     }
 }

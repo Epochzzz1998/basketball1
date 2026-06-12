@@ -17,11 +17,7 @@
         <java.version>17</java.version>
     </properties>
     <dependencies>
-        <!--freemarker-->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-freemarker</artifactId>
-        </dependency>
+        <!-- P4-1: removed spring-boot-starter-freemarker — backend is now a pure JSON API -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
