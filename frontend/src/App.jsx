@@ -14,6 +14,8 @@ import PlayerManage from './pages/players/PlayerManage'
 import PlayerStatsManage from './pages/players/PlayerStatsManage'
 import NewsList from './pages/news/NewsList'
 import NewsDetail from './pages/news/NewsDetail'
+import NewsManage from './pages/news/NewsManage'
+import NewsEdit from './pages/news/NewsEdit'
 
 /**
  * 路由表（P5-1 骨架）。
@@ -36,13 +38,16 @@ export default function App() {
         <Route path="players" element={<AllPlayerSeasonStats />} />
         <Route path="players/:playerId" element={<PlayerCareer />} />
         <Route path="news" element={<NewsList />} />
+        {/* 发帖/编辑：登录即可（恢复原论坛发帖；后端 /news/save 限制作者本人或 manager） */}
+        <Route path="news/new" element={<ProtectedRoute><NewsEdit /></ProtectedRoute>} />
+        <Route path="news/edit/:newsId" element={<ProtectedRoute><NewsEdit /></ProtectedRoute>} />
         <Route path="news/:newsId" element={<NewsDetail />} />
 
         {/* 需登录 */}
         <Route path="me" element={<ProtectedRoute><Placeholder title="我的消息" /></ProtectedRoute>} />
 
         {/* 需 manager 及以上 */}
-        <Route path="admin/news" element={<RoleRoute role="manager"><Placeholder title="资讯管理" /></RoleRoute>} />
+        <Route path="admin/news" element={<RoleRoute role="manager"><NewsManage /></RoleRoute>} />
 
         {/* 需 superManager */}
         <Route path="admin/players" element={<RoleRoute role="superManager"><PlayerManage /></RoleRoute>} />

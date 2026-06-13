@@ -6,6 +6,7 @@ import com.dream.basketball.config.Role;
 import com.dream.basketball.dto.DreamNewsCommentDto;
 import com.dream.basketball.dto.NewsDto;
 import com.dream.basketball.entity.DreamNewsComment;
+import com.dream.basketball.entity.DreamUser;
 import com.dream.basketball.esEntity.News;
 import com.dream.basketball.service.DreamNewsCommentService;
 import com.dream.basketball.service.DreamNewsService;
@@ -13,6 +14,7 @@ import com.dream.basketball.service.NewsService;
 import com.dream.basketball.service.UserInformationService;
 import com.dream.basketball.utils.BaseUtils;
 import com.dream.basketball.utils.FileUtils;
+import com.dream.basketball.utils.SecUtil;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import org.apache.commons.lang3.StringUtils;
@@ -111,10 +113,32 @@ public class NewsController extends BaseUtils {
         return handlerResultJson(true, "删除成功！");
     }
 
-    /** 新增/保存资讯（ES + DB） */
-    @RequiresRole(Role.MANAGER)
+    /**
+     * 新增/保存资讯（论坛发帖）。任何登录用户可发帖（恢复原 D 论坛行为，P2-5 曾误收紧为 manager）。
+     * 安全：作者强制为当前登录用户（忽略客户端传入）；编辑已存在帖子仅限原作者或 manager，
+     * 防止越权改写他人帖子（IDOR）。
+     */
+    @RequiresRole(Role.USER)
     @PostMapping("/save")
-    public Object save(News news) {
+    public Object save(News news, HttpServletRequest request) {
+        DreamUser me = SecUtil.getLoginUserToSession(request);
+        boolean isManager = Role.fromUserRole(me.getUserRole()).covers(Role.MANAGER);
+        News existing = StringUtils.isNotBlank(news.getNewsId()) ? newsService.getNewsShow(news.getNewsId()) : null;
+        boolean isExisting = existing != null && StringUtils.isNotBlank(existing.getNewsId());
+        if (isExisting) {
+            // Editing: only the original author or a manager may edit; preserve original
+            // authorship and publish time (don't let the client reassign or reset them).
+            if (!isManager && !StringUtils.equals(existing.getAuthorId(), me.getUserId())) {
+                return handlerResultJson(false, "无权编辑他人的帖子");
+            }
+            news.setAuthor(existing.getAuthor());
+            news.setAuthorId(existing.getAuthorId());
+            news.setPublishDate(existing.getPublishDate());
+        } else {
+            // New post: force author to the current user (ignore any client-sent value).
+            news.setAuthor(me.getUserNickname());
+            news.setAuthorId(me.getUserId());
+        }
         newsService.save(news);
         dreamNewsService.saveSyncEs(news);
         return handlerResultJson(true, "操作成功！");

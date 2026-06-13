@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Button, Card, Skeleton, Space, Tag, Typography } from 'antd'
 import dayjs from 'dayjs'
+import DOMPurify from 'dompurify'
 import { newsApi } from '../../api/news'
 
 const fmt = (v) => (v ? dayjs(v).format('YYYY-MM-DD HH:mm') : '')
@@ -39,7 +40,8 @@ export default function NewsDetail() {
               {news.team && <Tag>{news.team}</Tag>}
               {news.newsType && <Tag color="blue">{news.newsType}</Tag>}
             </Space>
-            <div dangerouslySetInnerHTML={{ __html: news.content || '' }} />
+            {/* 正文是用户发帖的 HTML：发帖已对所有登录用户开放（不可信），渲染前必须用 DOMPurify 净化，防存储型 XSS */}
+            <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(news.content || '') }} />
           </>
         ) : (
           <Typography.Text type="secondary">资讯不存在或已删除。</Typography.Text>

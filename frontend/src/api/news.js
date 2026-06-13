@@ -9,4 +9,23 @@ export const newsApi = {
   listNews: (params) => http.get('/news/newsListData', { params }),
   // 资讯详情（只传 newsId；userInformationId/anchorId 是“从站内信进入并标记已读”用的，公开浏览不传）
   getNews: (newsId) => http.get('/news/newsShow', { params: { newsId } }),
+
+  // ===== 写/管理（manager） =====
+  // 新增/编辑资讯：后端 `News news` 绑表单参数，故用 URLSearchParams（过滤掉 null/undefined）。
+  // publishDate 不传——后端 save() 见为空会自动设当前时间。
+  saveNews: (news) => {
+    const body = new URLSearchParams()
+    Object.entries(news).forEach(([k, v]) => { if (v != null) body.append(k, v) })
+    return http.post('/news/save', body)
+  },
+  // 删除资讯（后端 @DeleteMapping，支持逗号分隔多个 id）
+  deleteNews: (newsIds) => http.delete('/news/delete', { params: { newsIds } }),
+  // 富文本插图上传：multipart 传文件 + 所属 newsId，返回可访问 URL 供编辑器插入 <img>
+  uploadNewsImage: async (file, newsId) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    if (newsId) fd.append('newsId', newsId)
+    const data = await http.post('/news/upload', fd)
+    return data?.url
+  },
 }
