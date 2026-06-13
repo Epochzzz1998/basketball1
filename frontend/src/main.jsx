@@ -1,3 +1,7 @@
+// React 19 兼容补丁：antd v5 的静态 message/notification/Modal 原本依赖 React 18 的
+// ReactDOM.render（React 19 已移除），不打这个补丁这些静态提示会静默失效（toast 不弹）。
+// 必须在任何 antd 静态方法被调用前最先导入。
+import '@ant-design/v5-patch-for-react-19'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
