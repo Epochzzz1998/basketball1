@@ -10,6 +10,8 @@ import Placeholder from './pages/Placeholder'
 import Register from './pages/Register'
 import AllPlayerSeasonStats from './pages/players/AllPlayerSeasonStats'
 import PlayerCareer from './pages/players/PlayerCareer'
+import PlayerManage from './pages/players/PlayerManage'
+import PlayerStatsManage from './pages/players/PlayerStatsManage'
 
 /**
  * 路由表（P5-1 骨架）。
@@ -40,7 +42,8 @@ export default function App() {
         <Route path="admin/news" element={<RoleRoute role="manager"><Placeholder title="资讯管理" /></RoleRoute>} />
 
         {/* 需 superManager */}
-        <Route path="admin/players" element={<RoleRoute role="superManager"><Placeholder title="球员管理" /></RoleRoute>} />
+        <Route path="admin/players" element={<RoleRoute role="superManager"><PlayerManage /></RoleRoute>} />
+        <Route path="admin/players/:playerId/stats" element={<RoleRoute role="superManager"><PlayerStatsManage /></RoleRoute>} />
         <Route path="admin/users" element={<RoleRoute role="superManager"><Placeholder title="用户管理" /></RoleRoute>} />
 
         <Route path="*" element={<NotFound />} />
