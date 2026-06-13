@@ -88,6 +88,9 @@ public class NewsServiceImpl implements NewsService {
             news.setPublishDate(new Date());
         }
         template.save(news);
+        // ES refreshes for search only ~1s after a write by default; force it so the admin list
+        // and detail reflect a new/edited article immediately (read-after-write consistency).
+        template.indexOps(News.class).refresh();
     }
 
     /**
@@ -127,6 +130,9 @@ public class NewsServiceImpl implements NewsService {
         for (String newsId : newsIdList) {
             deleteNewsById(newsId, clazz);
         }
+        // Force an index refresh so a reload right after delete no longer shows the removed rows.
+        // Without this, ES's ~1s refresh delay made the UI need a second delete to "take".
+        template.indexOps(clazz).refresh();
     }
 
     /**
