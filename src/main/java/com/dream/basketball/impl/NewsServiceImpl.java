@@ -306,14 +306,10 @@ public class NewsServiceImpl implements NewsService {
                 return handlerResultJson(false, "原帖已删除！");
             } else {
                 String userId = dreamUser.getUserId();
-                Boolean whetherClicked = stringRedisTemplate.opsForSet().isMember("good:user:" + userId + ":newsId:" + newsId, userId);
+                boolean whetherClicked = Boolean.TRUE.equals(stringRedisTemplate.opsForSet().isMember("good:user:" + userId + ":newsId:" + newsId, userId));
                 // rabbitmq处理点赞
                 rabbitMqProducer.newsActionRmq(newsId, userId, whetherClicked, dreamUser, dreamNews, "good");
-                if (whetherClicked) {
-                    return handlerResultJson(true, "让我再看看这帖子质量怎么样");
-                } else {
-                    return handlerResultJson(true, "好帖，顶！");
-                }
+                return likeResult(whetherClicked, whetherClicked ? "让我再看看这帖子质量怎么样" : "好帖，顶！");
             }
         } catch (Exception e){
             e.printStackTrace();
@@ -338,14 +334,10 @@ public class NewsServiceImpl implements NewsService {
             return handlerResultJson(false, "原帖已删除！");
         } else {
             String userId = dreamUser.getUserId();
-            Boolean whetherClicked = stringRedisTemplate.opsForSet().isMember("bad:user:" + userId + ":newsId:" + newsId, userId);
+            boolean whetherClicked = Boolean.TRUE.equals(stringRedisTemplate.opsForSet().isMember("bad:user:" + userId + ":newsId:" + newsId, userId));
             // rabbitmq处理点踩
             rabbitMqProducer.newsActionRmq(newsId, userId, whetherClicked, dreamUser, dreamNews, "bad");
-            if (whetherClicked) {
-                return handlerResultJson(true, "我觉得还可以再看看");
-            } else {
-                return handlerResultJson(true, "什么垃圾帖子，滚！");
-            }
+            return likeResult(whetherClicked, whetherClicked ? "我觉得还可以再看看" : "什么垃圾帖子，滚！");
         }
     }
 
@@ -366,14 +358,10 @@ public class NewsServiceImpl implements NewsService {
             return handlerResultJson(false, "原评论已删除！");
         } else {
             String userId = dreamUser.getUserId();
-            Boolean whetherClicked = stringRedisTemplate.opsForSet().isMember("goodComment:user:" + userId + ":commentId:" + commentId, userId);
+            boolean whetherClicked = Boolean.TRUE.equals(stringRedisTemplate.opsForSet().isMember("goodComment:user:" + userId + ":commentId:" + commentId, userId));
             // rabbitmq处理评论点赞
             rabbitMqProducer.commentActionRmq(commentId, userId, whetherClicked, dreamUser, dreamNewsComment, "good");
-            if (whetherClicked) {
-                return handlerResultJson(true, "你的想法尚且需要我三思");
-            } else {
-                return handlerResultJson(true, "说得好！");
-            }
+            return likeResult(whetherClicked, whetherClicked ? "你的想法尚且需要我三思" : "说得好！");
         }
     }
 
@@ -394,14 +382,10 @@ public class NewsServiceImpl implements NewsService {
             return handlerResultJson(false, "原评论已删除！");
         } else {
             String userId = dreamUser.getUserId();
-            Boolean whetherClicked = stringRedisTemplate.opsForSet().isMember("badComment:user:" + userId + ":commentId:" + commentId, userId);
+            boolean whetherClicked = Boolean.TRUE.equals(stringRedisTemplate.opsForSet().isMember("badComment:user:" + userId + ":commentId:" + commentId, userId));
             // rabbitmq处理评论点踩
             rabbitMqProducer.commentActionRmq(commentId, userId, whetherClicked, dreamUser, dreamNewsComment, "bad");
-            if (whetherClicked) {
-                return handlerResultJson(true, "好像说的也没那么离谱");
-            } else {
-                return handlerResultJson(true, "我觉得这完全没道理");
-            }
+            return likeResult(whetherClicked, whetherClicked ? "好像说的也没那么离谱" : "我觉得这完全没道理");
         }
     }
 
@@ -484,6 +468,20 @@ public class NewsServiceImpl implements NewsService {
         Map<String, Object> map = new HashMap<String, Object>();
         map.put("msg", msg);
         map.put("result", result);
+        return map;
+    }
+
+    /**
+     * 点赞/点踩响应。点赞是切换：whetherClicked=该用户此前是否已点过。
+     * 附带 delta（本次计数增量：已点过→取消=-1，未点过→点亮=+1）与 liked（点击后状态），
+     * 供前端即时更新数字——计数本身经 MQ 异步落库，前端据 delta 乐观更新即可与之一致。
+     */
+    private Map<String, Object> likeResult(boolean whetherClicked, String msg) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("result", true);
+        map.put("msg", msg);
+        map.put("liked", !whetherClicked);
+        map.put("delta", whetherClicked ? -1 : 1);
         return map;
     }
 

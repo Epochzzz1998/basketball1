@@ -28,4 +28,20 @@ export const newsApi = {
     const data = await http.post('/news/upload', fd)
     return data?.url
   },
+
+  // ===== 评论 / 点赞（评论列表公开；发评论与点赞需登录） =====
+  // 评论列表：顶层评论传 level:'1'；某条评论的回复传 commentRelId=该评论 id。返回 {total, records}。
+  listComments: (params) => http.get('/news/CommentListData', { params }),
+  // 发评论：顶层 {newsId, content, level:'1'}；回复另传 commentRelId + 递增的 level。
+  // 注意：该接口仍返回旧版 {result, msg}（未并入统一 Result），调用方据 res.result 判断。
+  postComment: (payload) => {
+    const body = new URLSearchParams()
+    Object.entries(payload).forEach(([k, v]) => { if (v != null) body.append(k, v) })
+    return http.post('/news/comment', body)
+  },
+  // 帖子/评论 点赞点踩：均返回旧版 {result, msg}；计数经 RabbitMQ 异步更新（不会立刻变）。
+  goodPost: (newsId) => http.post('/news/good', new URLSearchParams({ newsId })),
+  badPost: (newsId) => http.post('/news/bad', new URLSearchParams({ newsId })),
+  goodComment: (commentId) => http.post('/news/goodComment', new URLSearchParams({ commentId })),
+  badComment: (commentId) => http.post('/news/badComment', new URLSearchParams({ commentId })),
 }
