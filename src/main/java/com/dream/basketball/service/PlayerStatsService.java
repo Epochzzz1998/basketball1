@@ -14,4 +14,7 @@ public interface PlayerStatsService extends IService<PlayerStats> {
 
     /** Insert stat rows (assigning ids) plus a trailing blank row, atomically. */
     void insertStatsWithBlankRow(List<PlayerStats> statsList, String playerId);
+
+    /** Delete one stat row by id, then recompute and persist the career-summary row, atomically. */
+    void deleteStatsAndRecomputeSummary(String statsId, String playerId);
 }

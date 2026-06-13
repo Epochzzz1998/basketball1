@@ -13,9 +13,9 @@ export const playerApi = {
   listPlayerCareer: (params) => http.get('/player/getPlayerSeasonStatsList', { params }),
 
   // ===== 写（superManager） =====
+  // 新增行只在前端本地加（带 new- 临时 id），保存时把临时 id 清空交后端补 UUID，故不再用 insertAndSave* 接口。
   savePlayers: (rows) => http.post('/player/savePlayer', new URLSearchParams({ data: JSON.stringify(rows) })),
-  insertAndSavePlayers: (rows) => http.post('/player/insertAndSavePlayer', new URLSearchParams({ data: JSON.stringify(rows) })),
   savePlayerStats: (rows, playerId) => http.post('/player/savePlayerStats', new URLSearchParams({ data: JSON.stringify(rows), playerId })),
-  insertAndSavePlayerStats: (rows, playerId) => http.post('/player/insertAndSavePlayerStats', new URLSearchParams({ data: JSON.stringify(rows), playerId })),
   deletePlayer: (playerId) => http.post('/player/deletePlayer', new URLSearchParams({ playerId })),
+  deletePlayerStats: (statsId, playerId) => http.post('/player/deletePlayerStats', new URLSearchParams({ statsId, playerId })),
 }

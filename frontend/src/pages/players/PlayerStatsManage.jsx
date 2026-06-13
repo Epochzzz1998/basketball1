@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { EditableProTable } from '@ant-design/pro-components'
-import { Button, message } from 'antd'
+import { Button, Popconfirm, message } from 'antd'
 import { useParams, Link } from 'react-router-dom'
 import { playerApi } from '../../api/player'
 
@@ -18,15 +18,20 @@ const STAT_FIELDS = [
   ['allDbaTeam', '最佳阵容', 'text'], ['allDefTeam', '最佳防守', 'text'],
 ]
 
+const SUMMARY_SEASON = 50 // 生涯汇总行（season/seasonNum=50），由后端重算，不可删
+const isTemp = (id) => typeof id === 'string' && id.startsWith('new-')
+
 /**
  * 某球员生涯逐季数据管理（superManager）。替代 player-stats-manager-list.ftl。
- * "保存全部"调 savePlayerStats → 后端会按各赛季行重算生涯汇总行(seasonNum=50)。
+ * "新增一行赛季"只在前端本地追加（带 new- 临时 id），点"保存全部"才入库——
+ * savePlayerStats 对空 statsId 会补 UUID 再保存，并重算生涯汇总行(seasonNum=50)。
  */
 export default function PlayerStatsManage() {
   const { playerId } = useParams()
   const [rows, setRows] = useState([])
   const [editableKeys, setEditableKeys] = useState([])
   const [loading, setLoading] = useState(false)
+  const tmpSeq = useRef(0) // 递增计数器，保证本地新行的 rowKey 唯一
 
   const reload = async () => {
     setLoading(true)
@@ -41,18 +46,49 @@ export default function PlayerStatsManage() {
   }
   useEffect(() => { reload() }, [playerId])
 
+  // 本地新增一行：不落库，给个 new- 临时 id 占 rowKey，序号自动取最大季+1
+  const onAddRow = () => {
+    const tmpId = `new-${tmpSeq.current++}`
+    const maxNum = rows
+      .filter((r) => r.seasonNum !== SUMMARY_SEASON)
+      .reduce((m, r) => Math.max(m, Number(r.seasonNum) || 0), 0)
+    setRows([...rows, { statsId: tmpId, playerId, seasonNum: maxNum + 1 }])
+    setEditableKeys([...editableKeys, tmpId])
+  }
+
   const onSaveAll = async () => {
-    await playerApi.savePlayerStats(rows, playerId)
+    // 临时行清空 statsId（让后端补 UUID）并带上 playerId
+    const payload = rows.map((r) => (isTemp(r.statsId) ? { ...r, statsId: '', playerId } : r))
+    await playerApi.savePlayerStats(payload, playerId)
     message.success('已保存，生涯汇总已重算')
     reload()
   }
-  const onAddRow = async () => {
-    await playerApi.insertAndSavePlayerStats(rows, playerId)
-    message.success('已保存并新增一行赛季')
+
+  const onDelete = async (row) => {
+    if (isTemp(row.statsId)) { // 还没入库，本地删掉即可
+      setRows(rows.filter((r) => r.statsId !== row.statsId))
+      setEditableKeys(editableKeys.filter((k) => k !== row.statsId))
+      return
+    }
+    await playerApi.deletePlayerStats(row.statsId, playerId)
+    message.success('已删除，生涯汇总已重算')
     reload()
   }
 
-  const columns = STAT_FIELDS.map(([dataIndex, title, valueType]) => ({ title, dataIndex, valueType, width: 92 }))
+  const columns = [
+    ...STAT_FIELDS.map(([dataIndex, title, valueType]) => ({ title, dataIndex, valueType, width: 92 })),
+    {
+      title: '操作', valueType: 'option', fixed: 'right', width: 80, editable: false,
+      render: (_, row) =>
+        row.seasonNum === SUMMARY_SEASON
+          ? [<span key="s" style={{ color: '#999' }}>汇总行</span>]
+          : [
+              <Popconfirm key="del" title="删除该赛季数据？" onConfirm={() => onDelete(row)}>
+                <a style={{ color: '#ff4d4f' }}>删除</a>
+              </Popconfirm>,
+            ],
+    },
+  ]
 
   return (
     <>
@@ -66,9 +102,9 @@ export default function PlayerStatsManage() {
         recordCreatorProps={false}
         editable={{ type: 'multiple', editableKeys, onChange: setEditableKeys, actionRender: () => [] }}
         columns={columns}
-        scroll={{ x: 2400 }}
+        scroll={{ x: 2500 }}
         toolBarRender={() => [
-          <Button key="add" onClick={onAddRow}>保存并新增赛季</Button>,
+          <Button key="add" onClick={onAddRow}>新增一行赛季</Button>,
           <Button key="save" type="primary" onClick={onSaveAll}>保存全部（重算汇总）</Button>,
         ]}
       />

@@ -103,4 +103,11 @@ public class PlayerController extends BaseUtils {
         playerService.deletePlayerCascade(playerId);
         return handlerResultJson(true, "删除成功！");
     }
+
+    @RequiresRole(Role.SUPER_MANAGER)
+    @PostMapping("/deletePlayerStats")
+    public Object deletePlayerStats(String statsId, String playerId) {
+        playerStatsService.deleteStatsAndRecomputeSummary(statsId, playerId);
+        return handlerResultJson(true, "删除成功！");
+    }
 }

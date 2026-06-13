@@ -72,6 +72,13 @@ public class PlayerStatsServiceImpl extends ServiceImpl<PlayerStatsMapper, Playe
         }
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteStatsAndRecomputeSummary(String statsId, String playerId) {
+        this.removeById(statsId);
+        recomputeCareerSummary(playerId);
+    }
+
     /**
      * Recompute the games-weighted career summary row (season = CAREER_SUMMARY_SEASON).
      * Moved here from PlayerController in P3-2; the P3-1 divide-by-zero / null guards

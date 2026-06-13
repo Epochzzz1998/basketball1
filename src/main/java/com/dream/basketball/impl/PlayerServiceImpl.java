@@ -9,6 +9,7 @@ import com.dream.basketball.entity.PlayerStats;
 import com.dream.basketball.mapper.PlayerMapper;
 import com.dream.basketball.mapper.PlayerStatsMapper;
 import com.dream.basketball.service.PlayerService;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,6 +45,11 @@ public class PlayerServiceImpl extends ServiceImpl<PlayerMapper, DreamPlayer> im
             return;
         }
         for (DreamPlayer player : players) {
+            // New rows from the UI arrive with a blank id; assign one here because the entity is
+            // IdType.INPUT (MyBatis-Plus will not generate it). Existing rows keep their id and update.
+            if (StringUtils.isBlank(player.getPlayerId())) {
+                player.setPlayerId(UUID.randomUUID().toString());
+            }
             this.saveOrUpdate(player);
         }
     }
