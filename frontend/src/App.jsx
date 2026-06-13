@@ -12,6 +12,8 @@ import AllPlayerSeasonStats from './pages/players/AllPlayerSeasonStats'
 import PlayerCareer from './pages/players/PlayerCareer'
 import PlayerManage from './pages/players/PlayerManage'
 import PlayerStatsManage from './pages/players/PlayerStatsManage'
+import NewsList from './pages/news/NewsList'
+import NewsDetail from './pages/news/NewsDetail'
 
 /**
  * 路由表（P5-1 骨架）。
@@ -33,7 +35,8 @@ export default function App() {
         {/* 公开浏览 */}
         <Route path="players" element={<AllPlayerSeasonStats />} />
         <Route path="players/:playerId" element={<PlayerCareer />} />
-        <Route path="news" element={<Placeholder title="资讯列表" />} />
+        <Route path="news" element={<NewsList />} />
+        <Route path="news/:newsId" element={<NewsDetail />} />
 
         {/* 需登录 */}
         <Route path="me" element={<ProtectedRoute><Placeholder title="我的消息" /></ProtectedRoute>} />
