@@ -1,18 +1,23 @@
 import { useState } from 'react'
 import { ProTable } from '@ant-design/pro-components'
 import { Button, Select, Space } from 'antd'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { playerApi } from '../../api/player'
 import { RANKING_STATS, fmtNum, seasonOptions } from './rankConfig'
+import { buildFullStatColumns, FULL_COLUMNS_SCROLL_X } from './statColumns'
 
 const MEDAL = ['#f5b301', '#9aa0a6', '#b87333']
 
-/** 某数据项的完整排行（/rankings/:field），按该项降序，不分页一滚到底 */
+/**
+ * 某数据项的完整排行（/rankings/:field）：按该项降序、不分页一滚到底，
+ * 展示球员的全量数据列（排行项高亮为橙色）。
+ */
 export default function RankingDetail() {
   const { field } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const stat = RANKING_STATS.find((s) => s.field === field) || { field, label: '数据', digits: 1 }
+  const stage = searchParams.get('stage') === 'po' ? 'po' : 'reg' // 跟随联盟排行的赛段切换
   const [seasonNum, setSeasonNum] = useState(Number(searchParams.get('seasonNum')) || 1)
 
   const columns = [
@@ -27,30 +32,24 @@ export default function RankingDetail() {
         )
       },
     },
-    {
-      title: '球员', dataIndex: 'playerName', width: 110,
-      render: (text, row) => <Link to={`/players/${row.playerId}`}>{text}</Link>,
-    },
-    { title: '球队', dataIndex: 'playerTeam', width: 100 },
-    { title: '位置', dataIndex: 'playerPosition', width: 70 },
-    { title: '出场', dataIndex: 'playerAppearance', width: 70 },
-    {
-      title: stat.label, dataIndex: stat.field, width: 90,
-      render: (v) => <span style={{ fontWeight: 700, color: '#fa541c' }}>{fmtNum(v, stat.digits)}</span>,
-    },
+    // 全量数据列；排行所依据的那一列高亮（表序即该列排序，故关闭表头排序避免破坏名次）
+    ...buildFullStatColumns({ serverSort: false }).map((c) =>
+      c.dataIndex === stat.field
+        ? { ...c, render: (v) => <span style={{ fontWeight: 700, color: '#fa541c' }}>{fmtNum(v, stat.digits)}</span> }
+        : c,
+    ),
   ]
 
   return (
     <>
       <Button style={{ marginBottom: 12 }} onClick={() => navigate(-1)}>← 返回排行</Button>
       <ProTable
-        headerTitle={`${stat.label}榜 · 完整排行`}
+        headerTitle={`${stage === 'po' ? '季后赛 · ' : ''}${stat.label}榜 · 完整排行`}
         rowKey="statsId"
         columns={columns}
-        params={{ seasonNum }}
         search={false}
         options={false}
-        scroll={{ x: 620 }}
+        scroll={{ x: FULL_COLUMNS_SCROLL_X + 70 }}
         toolBarRender={() => [
           <Space key="season">
             赛季：
@@ -58,8 +57,10 @@ export default function RankingDetail() {
           </Space>,
         ]}
         pagination={false} /* 不分页，一滚到底 */
+        params={{ seasonNum, stage }}
         request={async (params) => {
-          const res = await playerApi.listSeasonStats({
+          const api = stage === 'po' ? playerApi.listPlayoffSeasonStats : playerApi.listSeasonStats
+          const res = await api({
             page: 1,
             limit: 2000,
             seasonNum: params.seasonNum,
