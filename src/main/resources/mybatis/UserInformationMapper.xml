@@ -2,12 +2,20 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.dream.basketball.mapper.UserInformationMapper">
     <select id="getUserInformationListByParam" parameterType="java.lang.String" resultType="com.dream.basketball.dto.UserInformationDto">
-        select * from user_information
+        <!-- Join the news title at read time (messages don't store it): for comment-type
+             messages the news id lives in MSG_ID_SECOND, otherwise in MSG_ID. -->
+        select u.*, n.TITLE as newsTitle
+        from user_information u
+        left join dream_news n
+            on n.NEWS_ID = (case
+                when u.MSG_TYPE in ('goodComment', 'badComment', 'commentComment') then u.MSG_ID_SECOND
+                else u.MSG_ID
+            end)
         <where>
             <if test="param.receiverId != null and param.receiverId !=''">
-                and RECEIVER_ID = #{param.receiverId}
+                and u.RECEIVER_ID = #{param.receiverId}
             </if>
         </where>
-        order by msg_date desc
+        order by u.msg_date desc
     </select>
 </mapper>
