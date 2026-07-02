@@ -60,4 +60,8 @@ public class DreamNews extends Model<DreamNews> implements Serializable {
     @TableField("COMMENT_NUM")
     private Integer commentNum;
 
+    /** official = manager-published news zone; forum = user posts (null on legacy rows = forum). */
+    @TableField("NEWS_CHANNEL")
+    private String newsChannel;
+
 }

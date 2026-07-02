@@ -7,8 +7,8 @@ import http from './http'
 export const newsApi = {
   // 资讯列表（分页）
   listNews: (params) => http.get('/news/newsListData', { params }),
-  // 资讯详情（只传 newsId；userInformationId/anchorId 是“从站内信进入并标记已读”用的，公开浏览不传）
-  getNews: (newsId) => http.get('/news/newsShow', { params: { newsId } }),
+  // 资讯详情。userInformationId 可选：从“我的消息”点进来时带上，后端顺便把该条消息标记已读
+  getNews: (newsId, userInformationId) => http.get('/news/newsShow', { params: { newsId, userInformationId } }),
 
   // ===== 写/管理（manager） =====
   // 新增/编辑资讯：后端 `News news` 绑表单参数，故用 URLSearchParams（过滤掉 null/undefined）。

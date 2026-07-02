@@ -67,7 +67,7 @@ mybatis-plus:
       update-strategy: IGNORED
 
 picPath:
-  # [修改点] 必须改为 Linux 路径
-  # 确保你已经在 Code-Server 里创建了这个文件夹：mkdir -p /config/workspace/uploads
-  uploadPath: /config/workspace/uploads/
+  # local = Mac 本地开发：上传写到本机目录（FileUtils 会自动建子目录），
+  # /picImg/** 由 ImgConfigurer 映射到同一目录提供访问。服务器用 ubuntu profile 的 Linux 路径。
+  uploadPath: /Users/epoch/basketball-uploads/
   picPath: /picImg/

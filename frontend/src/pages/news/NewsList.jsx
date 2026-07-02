@@ -8,26 +8,43 @@ import { useAuth } from '../../auth/AuthContext'
 const fmt = (v) => (v ? dayjs(v).format('YYYY-MM-DD HH:mm') : '')
 
 /**
- * 资讯列表（公开）。替代 news-list.ftl。
- * ProList 是 ProTable 的“列表/信息流”版，request 契约一样（返回 {data,total,success}），
- * 只是渲染成一条条卡片而非表格——更适合资讯。标题点进详情页。
+ * 帖子列表（公开），按频道复用：
+ * - channel="forum"（默认）：资讯论坛，登录用户皆可发帖；
+ * - channel="official"：官方新闻区，只有 manager+ 能看到"发布新闻"按钮（后端 /news/save 兜底校验）。
+ * 两区详情/评论/点赞共用同一套页面与权限。channel 放进 params，切换菜单时 ProList 自动重新请求。
  */
-export default function NewsList() {
+export default function NewsList({ channel = 'forum' }) {
   const navigate = useNavigate()
   const { user } = useAuth()
-  return (
-    <ProList
-      rowKey="newsId"
-      headerTitle="篮球资讯"
-      toolBarRender={() => [
-        // 发帖：登录用户去录入页，未登录先去登录（对应原 D 论坛"发帖"先 checkLogin 的行为）
+  const official = channel === 'official'
+
+  const postButton = official
+    ? user?.isManagerOrOver
+      ? [
+          <Button key="post" type="primary" onClick={() => navigate('/news/new?channel=official')}>
+            发布新闻
+          </Button>,
+        ]
+      : []
+    : [
         <Button key="post" type="primary" onClick={() => (user ? navigate('/news/new') : navigate('/login'))}>
           发帖
         </Button>,
-      ]}
+      ]
+
+  return (
+    <ProList
+      rowKey="newsId"
+      headerTitle={official ? '官方新闻' : '资讯论坛'}
+      toolBarRender={() => postButton}
       pagination={{ pageSize: 10 }}
+      params={{ newsChannel: channel }}
       request={async (params) => {
-        const res = await newsApi.listNews({ page: params.current, limit: params.pageSize })
+        const res = await newsApi.listNews({
+          page: params.current,
+          limit: params.pageSize,
+          newsChannel: params.newsChannel,
+        })
         return { data: res.records || [], total: res.total || 0, success: true }
       }}
       metas={{

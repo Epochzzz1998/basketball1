@@ -165,6 +165,10 @@ public class NewsServiceImpl implements NewsService {
             }
             newsList.add(newsDto);
         }
+        // Newest first (admin/list views). Sorted in memory: the query already pulls the whole
+        // index (<=10000), and this avoids depending on the ES date-mapping being sortable.
+        newsList.sort(java.util.Comparator.comparing(News::getPublishDate,
+                java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder())));
         return newsList;
     }
 
@@ -242,6 +246,18 @@ public class NewsServiceImpl implements NewsService {
             }
             if (StringUtils.isNotBlank(params.getTitle())) {
                 queryBuilder.must(QueryBuilders.matchQuery("title", params.getTitle()).operator(Operator.AND));
+            }
+            if (StringUtils.isNotBlank(params.getNewsChannel())) {
+                if (StringUtils.equals(NEWS_CHANNEL_FORUM, params.getNewsChannel())) {
+                    // Legacy docs predate the channel field: treat a missing channel as forum,
+                    // so old user posts keep showing without a data migration.
+                    BoolQueryBuilder channel = new BoolQueryBuilder();
+                    channel.should(QueryBuilders.matchQuery("newsChannel", NEWS_CHANNEL_FORUM));
+                    channel.should(new BoolQueryBuilder().mustNot(QueryBuilders.existsQuery("newsChannel")));
+                    queryBuilder.must(channel);
+                } else {
+                    queryBuilder.must(QueryBuilders.matchQuery("newsChannel", params.getNewsChannel()));
+                }
             }
         }
         return builder.withQuery(queryBuilder);

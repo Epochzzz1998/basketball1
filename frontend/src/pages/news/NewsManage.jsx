@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { ProTable } from '@ant-design/pro-components'
-import { Button, Popconfirm, message } from 'antd'
+import { Button, Popconfirm, Tag, message } from 'antd'
 import { Link, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { newsApi } from '../../api/news'
@@ -26,6 +26,10 @@ export default function NewsManage() {
     {
       title: '标题', dataIndex: 'title', ellipsis: true,
       render: (_, r) => <Link to={`/news/${r.newsId}`}>{r.title || '(无标题)'}</Link>,
+    },
+    {
+      title: '频道', dataIndex: 'newsChannel', width: 90,
+      render: (_, r) => (r.newsChannel === 'official' ? <Tag color="orange">官方</Tag> : <Tag>论坛</Tag>),
     },
     { title: '作者', dataIndex: 'author', width: 120 },
     { title: '球队', dataIndex: 'team', width: 110 },

@@ -70,6 +70,27 @@ public class FileUtils {
     }
 
     /**
+     * Delete one upload folder (e.g. a deleted post's images at {uploadPath}/{folderKey}).
+     * The folder segment is sanitized exactly like upload(), and a blank key is refused,
+     * so this can never escape or wipe the upload root. Best-effort: quietly no-ops when
+     * the folder does not exist.
+     */
+    public static void deleteUploadFolder(String uploadPath, String folderKey) {
+        String safeFolder = folderKey == null ? "" : folderKey.replaceAll("[^a-zA-Z0-9_\\-]", "");
+        if (safeFolder.isEmpty() || uploadPath == null || uploadPath.isEmpty()) {
+            return;
+        }
+        File dir = new File(uploadPath, safeFolder);
+        File[] children = dir.listFiles();
+        if (children != null) {
+            for (File child : children) {
+                child.delete();
+            }
+        }
+        dir.delete();
+    }
+
+    /**
      * Lowercased extension (no dot) of a filename — robust to no extension, a
      * trailing dot, or an embedded path. Returns "" when there is no usable extension.
      */

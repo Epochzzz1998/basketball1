@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button, Card, Skeleton, Space, Tag, Typography, message } from 'antd'
 import { DislikeOutlined, LikeOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
@@ -17,6 +17,9 @@ const fmt = (v) => (v ? dayjs(v).format('YYYY-MM-DD HH:mm') : '')
  */
 export default function NewsDetail() {
   const { newsId } = useParams()
+  const [searchParams] = useSearchParams()
+  // 从"我的消息"深链进来时带 userInformationId，请求详情即顺便标记该消息已读
+  const userInformationId = searchParams.get('userInformationId') || undefined
   const navigate = useNavigate()
   const { user } = useAuth()
   const [news, setNews] = useState(null)
@@ -43,27 +46,32 @@ export default function NewsDetail() {
     let alive = true // 防止请求回来时组件已卸载还 setState
     setLoading(true)
     newsApi
-      .getNews(newsId)
+      .getNews(newsId, userInformationId)
       .then((data) => { if (alive) setNews(data?.news || null) })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
-  }, [newsId])
+  }, [newsId, userInformationId])
 
   return (
     <Card>
-      <Link to="/news"><Button style={{ marginBottom: 16 }}>← 返回资讯</Button></Link>
+      <Button style={{ marginBottom: 16 }} onClick={() => navigate(-1)}>← 返回</Button>
       <Skeleton loading={loading} active paragraph={{ rows: 8 }}>
         {news ? (
           <>
             <Typography.Title level={3} style={{ marginBottom: 8 }}>{news.title}</Typography.Title>
             <Space size={[8, 4]} wrap style={{ color: '#888', marginBottom: 16 }}>
+              {news.newsChannel === 'official' && <Tag color="orange">官方</Tag>}
               {news.author && <span>{news.author}</span>}
               {news.publishDate && <span>{fmt(news.publishDate)}</span>}
               {news.team && <Tag>{news.team}</Tag>}
               {news.newsType && <Tag color="blue">{news.newsType}</Tag>}
             </Space>
             {/* 正文是用户发帖的 HTML：发帖已对所有登录用户开放（不可信），渲染前必须用 DOMPurify 净化，防存储型 XSS */}
-            <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(news.content || '') }} />
+            <div
+              className="rich-content"
+              style={{ fontSize: 15, lineHeight: 1.8, wordBreak: 'break-word' }}
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(news.content || '') }}
+            />
             <Space style={{ marginTop: 16 }}>
               <Button icon={<LikeOutlined />} onClick={() => likePost('good')}>顶 {news.goodNum ?? 0}</Button>
               <Button icon={<DislikeOutlined />} onClick={() => likePost('bad')}>踩 {news.badNum ?? 0}</Button>

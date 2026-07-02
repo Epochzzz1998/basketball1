@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button, Card, Form, Input, Select, Space, message } from 'antd'
 import RichTextEditor from '../../components/RichTextEditor'
 import { newsApi } from '../../api/news'
@@ -24,6 +24,9 @@ const NEWS_TYPES = ['赛事', '转会', '伤病', '选秀', '数据分析', '花
 export default function NewsEdit() {
   const { newsId: routeId } = useParams()
   const isEdit = !!routeId
+  // 频道：从官方新闻区点"发布新闻"带 ?channel=official；后端只对新帖校验（official 需 manager+），编辑保留原频道
+  const [searchParams] = useSearchParams()
+  const official = searchParams.get('channel') === 'official'
   const navigate = useNavigate()
   const { user } = useAuth()
   const [form] = Form.useForm()
@@ -68,6 +71,7 @@ export default function NewsEdit() {
         authorId,
         team: values.team,
         newsType: values.newsType,
+        newsChannel: official ? 'official' : 'forum',
         content,
       })
       message.success('已保存')
@@ -78,7 +82,7 @@ export default function NewsEdit() {
   }
 
   return (
-    <Card title={isEdit ? '编辑资讯' : '新建资讯'} loading={loading}>
+    <Card title={isEdit ? '编辑帖子' : official ? '发布官方新闻' : '发帖'} loading={loading}>
       <Form form={form} layout="vertical" onFinish={onFinish}>
         <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入标题' }]}>
           <Input placeholder="资讯标题" maxLength={100} showCount />

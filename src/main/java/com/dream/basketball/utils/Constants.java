@@ -42,4 +42,10 @@ public class Constants {
 
     // 球员生涯汇总行的 season / season_num 取值（原代码散落的魔法数 50）
     public static final int CAREER_SUMMARY_SEASON = 50;
+
+    // News channel: official zone is manager-published; user posts land in the forum.
+    // Legacy documents saved before this field existed count as forum (see getMatchSearch).
+    public static final String NEWS_CHANNEL_OFFICIAL = "official";
+
+    public static final String NEWS_CHANNEL_FORUM = "forum";
 }

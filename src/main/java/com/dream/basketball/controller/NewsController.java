@@ -33,6 +33,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.dream.basketball.utils.Constants.NEWS_CHANNEL_FORUM;
+import static com.dream.basketball.utils.Constants.NEWS_CHANNEL_OFFICIAL;
 import static com.dream.basketball.utils.Constants.NO_ANCHOR;
 
 /**
@@ -101,7 +103,7 @@ public class NewsController extends BaseUtils {
 
     // ===== 写/管理：manager 及以上（P2-5） =====
 
-    /** 删除资讯（ES + DB） */
+    /** 删除资讯（ES + DB），并连带清理该帖上传的图片目录 */
     @RequiresRole(Role.MANAGER)
     @DeleteMapping("/delete")
     public Object delete(String newsIds) {
@@ -110,6 +112,10 @@ public class NewsController extends BaseUtils {
         }
         newsService.deleteNewsListByIds(newsIds, News.class);
         dreamNewsService.deleteSyncEs(newsIds);
+        // Images are filed per post at {uploadPath}/{newsId}/ — remove them with the post
+        for (String newsId : newsIds.split(",")) {
+            FileUtils.deleteUploadFolder(uploadPath, newsId.trim());
+        }
         return handlerResultJson(true, "删除成功！");
     }
 
@@ -134,18 +140,28 @@ public class NewsController extends BaseUtils {
             news.setAuthor(existing.getAuthor());
             news.setAuthorId(existing.getAuthorId());
             news.setPublishDate(existing.getPublishDate());
+            news.setNewsChannel(existing.getNewsChannel());
         } else {
             // New post: force author to the current user (ignore any client-sent value).
             news.setAuthor(me.getUserNickname());
             news.setAuthorId(me.getUserId());
+            // Channel: the official news zone is manager-only; everything else lands in the forum.
+            boolean official = StringUtils.equals(NEWS_CHANNEL_OFFICIAL, news.getNewsChannel());
+            if (official && !isManager) {
+                return handlerResultJson(false, "只有管理员可以发布官方新闻！");
+            }
+            news.setNewsChannel(official ? NEWS_CHANNEL_OFFICIAL : NEWS_CHANNEL_FORUM);
         }
         newsService.save(news);
         dreamNewsService.saveSyncEs(news);
         return handlerResultJson(true, "操作成功！");
     }
 
-    /** 富文本图片上传（P2-4 安全校验 + P4-3 统一返回）：返回可访问 URL */
-    @RequiresRole(Role.MANAGER)
+    /**
+     * 富文本图片上传（P2-4 安全校验 + P4-3 统一返回）：返回可访问 URL。
+     * 论坛发帖已开放给登录用户，插图随发帖同级放开（曾遗留 MANAGER 门槛导致普通用户 403）。
+     */
+    @RequiresRole(Role.USER)
     @PostMapping("/upload")
     public Object upload(MultipartFile file, String newsId) throws IOException {
         String url = FileUtils.upload(file, uploadPath, newsId);

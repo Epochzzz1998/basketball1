@@ -39,6 +39,10 @@ public class News {
     @Field(type = FieldType.Text, analyzer = "ik_max_word")
     private String newsType;
 
+    /** official = manager-published news zone; forum = user posts. Missing on legacy docs (= forum). */
+    @Field(type = FieldType.Keyword)
+    private String newsChannel;
+
 }
 
 
