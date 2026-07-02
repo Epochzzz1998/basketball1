@@ -13,6 +13,7 @@ export default defineConfig({
       "/api": { target: "http://localhost:8088", changeOrigin: true },
       "/user": { target: "http://localhost:8088", changeOrigin: true },
       "/player": { target: "http://localhost:8088", changeOrigin: true },
+      "/team": { target: "http://localhost:8088", changeOrigin: true },
       "/news": { target: "http://localhost:8088", changeOrigin: true },
       "/userInformation": { target: "http://localhost:8088", changeOrigin: true },
       "/picImg": { target: "http://localhost:8088", changeOrigin: true }

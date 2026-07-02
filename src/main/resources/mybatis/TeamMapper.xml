@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dream.basketball.mapper.TeamMapper">
+    <select id="findTeamRankings" resultType="com.dream.basketball.dto.TeamSeasonDto">
+        <!-- Roster totals attribute a mid-season transfer row ("A->B") to the destination team -->
+        select ts.TEAM_CODE       as teamCode,
+               ts.WINS            as wins,
+               ts.LOSSES          as losses,
+               ts.PLAYOFF_RESULT  as playoffResult,
+               IFNULL(agg.pts, 0) as pts,
+               IFNULL(agg.reb, 0) as reb,
+               IFNULL(agg.ast, 0) as ast,
+               IFNULL(agg.stl, 0) as stl,
+               IFNULL(agg.blk, 0) as blk,
+               IFNULL(agg.tov, 0) as tov
+        from team_season ts
+        left join (
+            select SUBSTRING_INDEX(PLAYER_TEAM, '->', -1) as team,
+                   SUM(PLAYER_AVG_SCORE)    as pts,
+                   SUM(PLAYER_AVG_REB)      as reb,
+                   SUM(PLAYER_AVG_ASS)      as ast,
+                   SUM(PLAYER_AVG_STEAL)    as stl,
+                   SUM(PLAYER_AVG_BLOCK)    as blk,
+                   SUM(PLAYER_AVG_TURNOVER) as tov
+            from player_stats
+            where SEASON_NUM = #{seasonNum} and PLAYER_TEAM is not null and PLAYER_TEAM &lt;&gt; '/'
+            group by SUBSTRING_INDEX(PLAYER_TEAM, '->', -1)
+        ) agg on agg.team = ts.TEAM_CODE
+        where ts.SEASON_NUM = #{seasonNum}
+        order by ts.WINS desc
+    </select>
+</mapper>

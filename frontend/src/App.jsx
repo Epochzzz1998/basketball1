@@ -6,9 +6,12 @@ import Login from './pages/Login'
 import Home from './pages/Home'
 import Forbidden from './pages/Forbidden'
 import NotFound from './pages/NotFound'
-import Placeholder from './pages/Placeholder'
 import Register from './pages/Register'
-import AllPlayerSeasonStats from './pages/players/AllPlayerSeasonStats'
+import PlayersHome from './pages/players/PlayersHome'
+import TeamPlayers from './pages/players/TeamPlayers'
+import LeagueRankings from './pages/players/LeagueRankings'
+import RankingDetail from './pages/players/RankingDetail'
+import HonorDetail from './pages/players/HonorDetail'
 import PlayerCareer from './pages/players/PlayerCareer'
 import PlayerManage from './pages/players/PlayerManage'
 import PlayerStatsManage from './pages/players/PlayerStatsManage'
@@ -16,6 +19,7 @@ import NewsList from './pages/news/NewsList'
 import NewsDetail from './pages/news/NewsDetail'
 import NewsManage from './pages/news/NewsManage'
 import NewsEdit from './pages/news/NewsEdit'
+import MyMessages from './pages/user/MyMessages'
 
 /**
  * 路由表（P5-1 骨架）。
@@ -35,24 +39,30 @@ export default function App() {
         <Route index element={<Home />} />
 
         {/* 公开浏览 */}
-        <Route path="players" element={<AllPlayerSeasonStats />} />
+        <Route path="players" element={<PlayersHome />} />
+        <Route path="players/team/:teamCode" element={<TeamPlayers />} />
         <Route path="players/:playerId" element={<PlayerCareer />} />
-        <Route path="news" element={<NewsList />} />
+        <Route path="rankings" element={<LeagueRankings />} />
+        <Route path="rankings/honors/:group" element={<HonorDetail />} />
+        <Route path="rankings/:field" element={<RankingDetail />} />
+        <Route path="official" element={<NewsList channel="official" />} />
+        <Route path="news" element={<NewsList channel="forum" />} />
         {/* 发帖/编辑：登录即可（恢复原论坛发帖；后端 /news/save 限制作者本人或 manager） */}
         <Route path="news/new" element={<ProtectedRoute><NewsEdit /></ProtectedRoute>} />
         <Route path="news/edit/:newsId" element={<ProtectedRoute><NewsEdit /></ProtectedRoute>} />
         <Route path="news/:newsId" element={<NewsDetail />} />
 
         {/* 需登录 */}
-        <Route path="me" element={<ProtectedRoute><Placeholder title="我的消息" /></ProtectedRoute>} />
+        <Route path="me" element={<ProtectedRoute><MyMessages /></ProtectedRoute>} />
 
         {/* 需 manager 及以上 */}
         <Route path="admin/news" element={<RoleRoute role="manager"><NewsManage /></RoleRoute>} />
 
         {/* 需 superManager */}
+        {/* 原“用户管理”下架：老 user-list.ftl 名不副实，实为资讯管理（已由 /admin/news 覆盖），
+            后端本就没有用户账号管理接口 */}
         <Route path="admin/players" element={<RoleRoute role="superManager"><PlayerManage /></RoleRoute>} />
         <Route path="admin/players/:playerId/stats" element={<RoleRoute role="superManager"><PlayerStatsManage /></RoleRoute>} />
-        <Route path="admin/users" element={<RoleRoute role="superManager"><Placeholder title="用户管理" /></RoleRoute>} />
 
         <Route path="*" element={<NotFound />} />
       </Route>
