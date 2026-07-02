@@ -11,6 +11,7 @@ import 'antd/dist/reset.css'
 import './index.css'
 import App from './App.jsx'
 import { AuthProvider } from './auth/AuthContext'
+import { themeConfig } from './theme'
 
 /**
  * 应用入口，自外向内包了三层"环境"：
@@ -20,7 +21,7 @@ import { AuthProvider } from './auth/AuthContext'
  */
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <ConfigProvider locale={zhCN}>
+    <ConfigProvider locale={zhCN} theme={themeConfig}>
       <BrowserRouter>
         <AuthProvider>
           <App />

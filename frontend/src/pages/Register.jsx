@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { Card, Form, Input, Button, message } from 'antd'
+import { Form, Input, Button, message } from 'antd'
+import { IdcardOutlined, LockOutlined, UserOutlined } from '@ant-design/icons'
 import { useNavigate, Link } from 'react-router-dom'
 import { authApi } from '../api/auth'
+import AuthShell from '../components/AuthShell'
 
 /**
  * 注册页（公开）。字段与后端一致：userNickname / userName / password。
@@ -30,40 +32,37 @@ export default function Register() {
   }
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: '#f0f2f5' }}>
-      <Card title="注册 Dream 篮球" style={{ width: 380 }}>
-        <Form onFinish={onFinish} layout="vertical">
-          <Form.Item name="userNickname" label="用户名（登录用）" rules={[{ required: true, message: '请输入用户名' }]}>
-            <Input autoComplete="off" />
-          </Form.Item>
-          <Form.Item name="userName" label="昵称/姓名" rules={[{ required: true, message: '请输入昵称' }]}>
-            <Input autoComplete="off" />
-          </Form.Item>
-          <Form.Item name="password" label="密码" rules={[{ required: true, message: '请输入密码' }]}>
-            <Input.Password autoComplete="off" />
-          </Form.Item>
-          <Form.Item
-            name="confirm"
-            label="确认密码"
-            dependencies={['password']}
-            rules={[
-              { required: true, message: '请再次输入密码' },
-              ({ getFieldValue }) => ({
-                validator: (_, value) =>
-                  !value || getFieldValue('password') === value
-                    ? Promise.resolve()
-                    : Promise.reject(new Error('两次密码不一致')),
-              }),
-            ]}
-          >
-            <Input.Password autoComplete="off" />
-          </Form.Item>
-          <Button type="primary" htmlType="submit" block loading={submitting}>注册</Button>
-          <div style={{ marginTop: 12, textAlign: 'center' }}>
-            已有账号？<Link to="/login">去登录</Link>
-          </div>
-        </Form>
-      </Card>
-    </div>
+    <AuthShell subtitle="注册一个账号，加入讨论">
+      <Form onFinish={onFinish} size="large">
+        <Form.Item name="userNickname" rules={[{ required: true, message: '请输入用户名' }]}>
+          <Input prefix={<UserOutlined />} placeholder="用户名（登录用）" autoComplete="off" />
+        </Form.Item>
+        <Form.Item name="userName" rules={[{ required: true, message: '请输入昵称' }]}>
+          <Input prefix={<IdcardOutlined />} placeholder="昵称/姓名" autoComplete="off" />
+        </Form.Item>
+        <Form.Item name="password" rules={[{ required: true, message: '请输入密码' }]}>
+          <Input.Password prefix={<LockOutlined />} placeholder="密码" autoComplete="off" />
+        </Form.Item>
+        <Form.Item
+          name="confirm"
+          dependencies={['password']}
+          rules={[
+            { required: true, message: '请再次输入密码' },
+            ({ getFieldValue }) => ({
+              validator: (_, value) =>
+                !value || getFieldValue('password') === value
+                  ? Promise.resolve()
+                  : Promise.reject(new Error('两次密码不一致')),
+            }),
+          ]}
+        >
+          <Input.Password prefix={<LockOutlined />} placeholder="确认密码" autoComplete="off" />
+        </Form.Item>
+        <Button type="primary" htmlType="submit" block size="large" loading={submitting}>注册</Button>
+        <div style={{ marginTop: 16, textAlign: 'center' }}>
+          已有账号？<Link to="/login">去登录</Link>
+        </div>
+      </Form>
+    </AuthShell>
   )
 }
