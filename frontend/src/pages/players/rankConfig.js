@@ -20,6 +20,32 @@ export const fmtPair = (made, att, d = 1) =>
 export const fmtReb = (total, off, def) =>
   off == null && def == null ? fmtNum(total) : `${fmtNum(total)}（${fmtNum(off)}/${fmtNum(def)}）`
 
+// 季后赛成绩 → Tag 颜色（球队排行/球队页共用）
+export const PLAYOFF_TAG = {
+  总冠军: 'gold', 总决赛: 'volcano', 分区决赛: 'purple', 半决赛: 'geekblue', 首轮: 'cyan', 未进季后赛: 'default',
+}
+
+// 由「轮次 + 出战场次」反推季后赛胜负：每赢一轮 +4 胜（夺冠=16 胜），
+// 剩余场次先记为止步轮的胜场（最多 3），其余是此前各轮输掉的场次。
+export const playoffRecord = (result, games) => {
+  const roundsWon = { 首轮: 0, 半决赛: 1, 分区决赛: 2, 总决赛: 3, 总冠军: 4 }[result]
+  if (roundsWon == null || !games) return null
+  if (result === '总冠军') return { wins: 16, losses: games - 16 }
+  const rem = Math.max(0, games - 4 * roundsWon - 4)
+  const wins = 4 * roundsWon + Math.min(3, rem)
+  return { wins, losses: games - wins }
+}
+
+// 查某队所属的东西部与分区
+export const teamRegion = (code) => {
+  for (const [conf, divs] of Object.entries(NBA_STRUCTURE)) {
+    for (const [div, teams] of Object.entries(divs)) {
+      if (teams.includes(code)) return { conf, div }
+    }
+  }
+  return {}
+}
+
 // 东西部与分区（球队排行的范围筛选用）
 export const NBA_STRUCTURE = {
   东部: {

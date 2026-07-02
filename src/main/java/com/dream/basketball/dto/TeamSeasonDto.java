@@ -11,6 +11,8 @@ import java.math.BigDecimal;
 @Data
 public class TeamSeasonDto {
 
+    private Integer seasonNum;
+
     private String teamCode;
 
     private Integer wins;
@@ -18,6 +20,12 @@ public class TeamSeasonDto {
     private Integer losses;
 
     private String playoffResult;
+
+    /** Simulated per-game points allowed (kept consistent with the record). */
+    private BigDecimal ptsAllowed;
+
+    /** Playoff games played that season (max roster GP; playoff queries only). */
+    private Integer games;
 
     /** Roster per-game totals for the season. */
     private BigDecimal pts;
