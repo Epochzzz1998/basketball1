@@ -59,6 +59,34 @@ public class PlayerStats extends Model<PlayerStats> implements Serializable {
     @TableField("PLAYER_FREETHROW_ACCURACY")
     private BigDecimal playerFreethrowAccuracy;
 
+    /** Per-game field goals made / attempted (投篮命中/出手). */
+    @TableField("PLAYER_AVG_FGM")
+    private BigDecimal playerAvgFgm;
+
+    @TableField("PLAYER_AVG_FGA")
+    private BigDecimal playerAvgFga;
+
+    /** Per-game three-pointers made / attempted (三分命中/出手). */
+    @TableField("PLAYER_AVG_TPM")
+    private BigDecimal playerAvgTpm;
+
+    @TableField("PLAYER_AVG_TPA")
+    private BigDecimal playerAvgTpa;
+
+    /** Per-game free throws made / attempted (罚球命中/出手). */
+    @TableField("PLAYER_AVG_FTM")
+    private BigDecimal playerAvgFtm;
+
+    @TableField("PLAYER_AVG_FTA")
+    private BigDecimal playerAvgFta;
+
+    /** Per-game offensive / defensive rebounds (前场/后场篮板). */
+    @TableField("PLAYER_AVG_OFF_REB")
+    private BigDecimal playerAvgOffReb;
+
+    @TableField("PLAYER_AVG_DEF_REB")
+    private BigDecimal playerAvgDefReb;
+
     @TableField("PLAYER_AVG_BLOCK")
     private BigDecimal playerAvgBlock;
 
@@ -383,5 +411,69 @@ public class PlayerStats extends Model<PlayerStats> implements Serializable {
 
     public void setPlayerFreethrowAccuracy(BigDecimal playerFreethrowAccuracy) {
         this.playerFreethrowAccuracy = playerFreethrowAccuracy;
+    }
+
+    public BigDecimal getPlayerAvgFgm() {
+        return playerAvgFgm;
+    }
+
+    public void setPlayerAvgFgm(BigDecimal playerAvgFgm) {
+        this.playerAvgFgm = playerAvgFgm;
+    }
+
+    public BigDecimal getPlayerAvgFga() {
+        return playerAvgFga;
+    }
+
+    public void setPlayerAvgFga(BigDecimal playerAvgFga) {
+        this.playerAvgFga = playerAvgFga;
+    }
+
+    public BigDecimal getPlayerAvgTpm() {
+        return playerAvgTpm;
+    }
+
+    public void setPlayerAvgTpm(BigDecimal playerAvgTpm) {
+        this.playerAvgTpm = playerAvgTpm;
+    }
+
+    public BigDecimal getPlayerAvgTpa() {
+        return playerAvgTpa;
+    }
+
+    public void setPlayerAvgTpa(BigDecimal playerAvgTpa) {
+        this.playerAvgTpa = playerAvgTpa;
+    }
+
+    public BigDecimal getPlayerAvgFtm() {
+        return playerAvgFtm;
+    }
+
+    public void setPlayerAvgFtm(BigDecimal playerAvgFtm) {
+        this.playerAvgFtm = playerAvgFtm;
+    }
+
+    public BigDecimal getPlayerAvgFta() {
+        return playerAvgFta;
+    }
+
+    public void setPlayerAvgFta(BigDecimal playerAvgFta) {
+        this.playerAvgFta = playerAvgFta;
+    }
+
+    public BigDecimal getPlayerAvgOffReb() {
+        return playerAvgOffReb;
+    }
+
+    public void setPlayerAvgOffReb(BigDecimal playerAvgOffReb) {
+        this.playerAvgOffReb = playerAvgOffReb;
+    }
+
+    public BigDecimal getPlayerAvgDefReb() {
+        return playerAvgDefReb;
+    }
+
+    public void setPlayerAvgDefReb(BigDecimal playerAvgDefReb) {
+        this.playerAvgDefReb = playerAvgDefReb;
     }
 }

@@ -1,6 +1,8 @@
 package com.dream.basketball.controller;
 
 import com.alibaba.fastjson.JSON;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.dream.basketball.common.Result;
 import com.dream.basketball.config.RequiresRole;
 import com.dream.basketball.config.Role;
 import com.dream.basketball.dto.DreamPlayerDto;
@@ -20,6 +22,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * 球员相关 JSON 接口（P4-1 REST 化）。读接口公开，写接口需 superManager（P2-5）。
@@ -65,6 +69,26 @@ public class PlayerController extends BaseUtils {
         }
         List<PlayerStatsDto> rows = playerService.findPlayersSeasonStats(param);
         return handlerSuccessPageJson(0, "成功", (int) new PageInfo<>(rows).getTotal(), rows);
+    }
+
+    /**
+     * 联盟现有球队代码（公开）。取自 player_stats 的 PLAYER_TEAM 去重：
+     * 排除占位符 "/"（生涯汇总行），转会写法 "A->B" 拆成两队，排序返回。
+     */
+    @GetMapping("/teams")
+    public Object teams() {
+        List<Object> raw = playerStatsService.listObjs(
+                new QueryWrapper<PlayerStats>().select("distinct PLAYER_TEAM").isNotNull("PLAYER_TEAM"));
+        Set<String> teams = new TreeSet<>();
+        for (Object o : raw) {
+            for (String part : String.valueOf(o).split("->")) {
+                String t = part.trim();
+                if (!t.isEmpty() && !"/".equals(t) && !"null".equals(t)) {
+                    teams.add(t);
+                }
+            }
+        }
+        return new Result<>(0, "成功", teams);
     }
 
     // ===== 写接口：superManager 专属（P2-5），多步写已下沉为 @Transactional 服务方法（P3-2） =====

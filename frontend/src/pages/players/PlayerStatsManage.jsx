@@ -9,8 +9,12 @@ const STAT_FIELDS = [
   ['season', '赛季', 'digit'], ['seasonNum', '序号', 'digit'],
   ['playerTeam', '球队', 'text'], ['playerPosition', '位置', 'text'],
   ['playerAppearance', '出场', 'digit'], ['playerFrAppearance', '先发', 'digit'], ['playerSrAppearance', '替补', 'digit'],
-  ['playingTime', '时间', 'digit'], ['playerAvgScore', '得分', 'digit'], ['playerAvgReb', '篮板', 'digit'], ['playerAvgAss', '助攻', 'digit'],
-  ['playerAccuracy', '命中率', 'digit'], ['playerThreeAccuracy', '三分%', 'digit'], ['playerFreethrowAccuracy', '罚球%', 'digit'],
+  ['playingTime', '时间', 'digit'], ['playerAvgScore', '得分', 'digit'],
+  ['playerAvgReb', '篮板', 'digit'], ['playerAvgOffReb', '前场篮板', 'digit'], ['playerAvgDefReb', '后场篮板', 'digit'],
+  ['playerAvgAss', '助攻', 'digit'],
+  ['playerAvgFgm', '投篮命中', 'digit'], ['playerAvgFga', '投篮出手', 'digit'], ['playerAccuracy', '投篮%', 'digit'],
+  ['playerAvgTpm', '三分命中', 'digit'], ['playerAvgTpa', '三分出手', 'digit'], ['playerThreeAccuracy', '三分%', 'digit'],
+  ['playerAvgFtm', '罚球命中', 'digit'], ['playerAvgFta', '罚球出手', 'digit'], ['playerFreethrowAccuracy', '罚球%', 'digit'],
   ['playerAvgBlock', '盖帽', 'digit'], ['playerAvgSteal', '抢断', 'digit'], ['playerAvgTurnover', '失误', 'digit'],
   ['playerPer', 'PER', 'digit'], ['playerPie', 'PIE', 'digit'], ['playerWs', 'WS', 'digit'],
   ['playerOffEff', '进攻效率', 'digit'], ['playerDefEff', '防守效率', 'digit'], ['playerNetEff', '净效率', 'digit'], ['playerAvgPn', '正负值', 'digit'],
@@ -102,7 +106,7 @@ export default function PlayerStatsManage() {
         recordCreatorProps={false}
         editable={{ type: 'multiple', editableKeys, onChange: setEditableKeys, actionRender: () => [] }}
         columns={columns}
-        scroll={{ x: 2500 }}
+        scroll={{ x: 3300 }}
         toolBarRender={() => [
           <Button key="add" onClick={onAddRow}>新增一行赛季</Button>,
           <Button key="save" type="primary" onClick={onSaveAll}>保存全部（重算汇总）</Button>,

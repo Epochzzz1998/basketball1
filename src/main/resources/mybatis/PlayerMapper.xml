@@ -53,8 +53,9 @@
 
     <sql id="whereConditionPlayer">
         1=1
+        <!-- fuzzy name search (player search box); #{} binding keeps it injection-safe -->
         <if test="param.playerName != null and param.playerName !=''">
-             and t.PLAYER_NAME  = #{param.playerName}
+             and t.PLAYER_NAME like CONCAT('%', #{param.playerName}, '%')
         </if>
         <if test="param.playerId != null and param.playerId !=''">
             and t.PLAYER_ID = #{param.playerId}

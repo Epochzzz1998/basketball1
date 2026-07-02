@@ -1,68 +1,51 @@
 import { useState } from 'react'
 import { ProTable } from '@ant-design/pro-components'
-import { Select, Space } from 'antd'
-import { Link } from 'react-router-dom'
+import { Input, Select, Space } from 'antd'
 import { playerApi } from '../../api/player'
-
-// 把后端的数字（BigDecimal 序列化成 20.100000 这样）格式化显示
-const num = (v, d = 1) => (v == null ? '-' : Number(v).toFixed(d))
-
-const seasonOptions = [
-  ...Array.from({ length: 16 }, (_, i) => ({ value: i + 1, label: `第 ${i + 1} 赛季` })),
-  { value: 50, label: '生涯场均' },
-]
+import { seasonOptions } from './rankConfig'
+import { buildFullStatColumns, FULL_COLUMNS_SCROLL_X } from './statColumns'
 
 /**
  * 全体球员某赛季数据榜（公开）。替代原 all-player-season-stats.ftl。
- * 用 ProTable：它的 request 回调把"分页/排序"翻译成后端参数（page/limit/field/order），
- * 排序直连 P3-1 的白名单排序（dataIndex 即驼峰列名）。
+ * 用 ProTable：它的 request 回调把"排序/筛选"翻译成后端参数，排序直连 P3-1 白名单。
+ * 传 team 时只显示该队球员（后端 PLAYER_TEAM LIKE 过滤，转会行如 "LAC->MIA" 两队都算）。
+ * 不分页：一次拉全该赛季（联盟 ~300 人/季），滚动到底。
  */
-export default function AllPlayerSeasonStats() {
+export default function AllPlayerSeasonStats({ team }) {
   const [seasonNum, setSeasonNum] = useState(1)
-
-  const columns = [
-    {
-      title: '球员', dataIndex: 'playerName', fixed: 'left', width: 110,
-      render: (text, row) => <Link to={`/players/${row.playerId}`}>{text}</Link>,
-    },
-    { title: '球队', dataIndex: 'playerTeam', width: 100 },
-    { title: '位置', dataIndex: 'playerPosition', width: 70 },
-    { title: '出场', dataIndex: 'playerAppearance', width: 70, sorter: true },
-    { title: '得分', dataIndex: 'playerAvgScore', width: 80, sorter: true, render: (v) => num(v) },
-    { title: '篮板', dataIndex: 'playerAvgReb', width: 80, sorter: true, render: (v) => num(v) },
-    { title: '助攻', dataIndex: 'playerAvgAss', width: 80, sorter: true, render: (v) => num(v) },
-    { title: '命中率', dataIndex: 'playerAccuracy', width: 90, sorter: true, render: (v) => num(v, 3) },
-    { title: '三分%', dataIndex: 'playerThreeAccuracy', width: 90, render: (v) => num(v, 3) },
-    { title: '盖帽', dataIndex: 'playerAvgBlock', width: 70, sorter: true, render: (v) => num(v) },
-    { title: '抢断', dataIndex: 'playerAvgSteal', width: 70, render: (v) => num(v) },
-    { title: 'PER', dataIndex: 'playerPer', width: 70, sorter: true, render: (v) => num(v) },
-    { title: 'WS', dataIndex: 'playerWs', width: 70, sorter: true, render: (v) => num(v) },
-    { title: 'MVP', dataIndex: 'mvpRank', width: 70 },
-    { title: '最佳阵容', dataIndex: 'allDbaTeam', width: 90 },
-  ]
+  const [playerName, setPlayerName] = useState() // 球员名模糊搜索（后端 LIKE）
 
   return (
     <ProTable
-      headerTitle="球员赛季数据榜"
+      headerTitle={team ? `${team} · 球员数据` : '球员赛季数据榜'}
       rowKey="statsId"
-      columns={columns}
-      params={{ seasonNum }}        /* 改变它会自动重新请求 */
+      columns={buildFullStatColumns()}
+      params={{ seasonNum, playerTeam: team, playerName }} /* 任一变化都会自动重新请求 */
       search={false}
-      scroll={{ x: 1180 }}
+      scroll={{ x: FULL_COLUMNS_SCROLL_X }}
       options={false}
       toolBarRender={() => [
+        <Input.Search
+          key="search"
+          allowClear
+          placeholder="搜索球员名"
+          style={{ width: 200 }}
+          onSearch={(v) => setPlayerName(v.trim() || undefined)}
+        />,
         <Space key="season">
           赛季：
-          <Select value={seasonNum} onChange={setSeasonNum} options={seasonOptions} style={{ width: 130 }} />
+          <Select value={seasonNum} onChange={setSeasonNum} options={seasonOptions} style={{ width: 170 }} />
         </Space>,
       ]}
-      pagination={{ pageSize: 10 }}
+      pagination={false} /* 不分页，一滚到底 */
       request={async (params, sort) => {
         const sortKey = Object.keys(sort || {})[0] // 当前排序列（驼峰名）
         const res = await playerApi.listSeasonStats({
-          page: params.current,
-          limit: params.pageSize,
+          page: 1,
+          limit: 2000,
           seasonNum: params.seasonNum,
+          playerTeam: params.playerTeam,
+          playerName: params.playerName,
           field: sortKey,
           order: sortKey ? (sort[sortKey] === 'ascend' ? 'asc' : 'desc') : undefined,
         })

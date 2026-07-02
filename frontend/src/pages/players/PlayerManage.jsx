@@ -1,41 +1,48 @@
 import { useEffect, useRef, useState } from 'react'
 import { EditableProTable } from '@ant-design/pro-components'
-import { Button, Popconfirm, message } from 'antd'
+import { Button, Input, Pagination, Popconfirm, message } from 'antd'
 import { Link } from 'react-router-dom'
 import { playerApi } from '../../api/player'
 
+const PAGE_SIZE = 20
 const fmtDate = (v) => (v ? new Date(v).toLocaleDateString('zh-CN') : '-')
 const isTemp = (id) => typeof id === 'string' && id.startsWith('new-')
 
 /**
  * 球员名册管理（superManager）。替代 player-list.ftl + player-input.ftl。
- * "新增一行"只在前端本地追加（带 new- 临时 id），点"保存全部"才入库
- * （后端 savePlayer 对空 id 补 UUID）。写的是真实库——保存/删除立即生效。
+ * 服务端分页（每页 20 人），当前页整页可编辑；「保存本页」只提交当前页的行。
+ * "新增一行"只在前端本地追加（带 new- 临时 id），保存时清空 id 交后端补 UUID。
+ * 写的是真实库——保存/删除立即生效。
  */
 export default function PlayerManage() {
   const [rows, setRows] = useState([])
   const [editableKeys, setEditableKeys] = useState([])
   const [loading, setLoading] = useState(false)
+  const [searchName, setSearchName] = useState() // 球员名模糊搜索
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
   const tmpSeq = useRef(0) // 递增计数器，保证本地新行的 rowKey 唯一
 
   const reload = async () => {
     setLoading(true)
     try {
-      const res = await playerApi.listPlayers({ page: 1, limit: 1000 })
+      const res = await playerApi.listPlayers({ page, limit: PAGE_SIZE, playerName: searchName })
       const records = res.records || []
       setRows(records)
-      setEditableKeys(records.map((r) => r.playerId)) // 让每一行都处于可编辑状态
+      setTotal(res.total || 0)
+      setEditableKeys(records.map((r) => r.playerId)) // 当前页整页可编辑
     } finally {
       setLoading(false)
     }
   }
-  useEffect(() => { reload() }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { reload() }, [searchName, page])
 
   const onSaveAll = async () => {
-    // 临时行清空 id，交给后端补 UUID
+    // 只提交当前页；临时行清空 id，交给后端补 UUID
     const payload = rows.map((r) => (isTemp(r.playerId) ? { ...r, playerId: '' } : r))
     await playerApi.savePlayers(payload)
-    message.success('已保存')
+    message.success('本页已保存')
     reload()
   }
   // 本地新增一行：不落库，给个 new- 临时 id 占 rowKey
@@ -77,20 +84,39 @@ export default function PlayerManage() {
   ]
 
   return (
-    <EditableProTable
-      rowKey="playerId"
-      headerTitle="球员管理"
-      loading={loading}
-      value={rows}
-      onChange={setRows}
-      recordCreatorProps={false}
-      editable={{ type: 'multiple', editableKeys, onChange: setEditableKeys, actionRender: () => [] }}
-      columns={columns}
-      scroll={{ x: 700 }}
-      toolBarRender={() => [
-        <Button key="add" onClick={onAddRow}>新增一行</Button>,
-        <Button key="save" type="primary" onClick={onSaveAll}>保存全部</Button>,
-      ]}
-    />
+    <>
+      <EditableProTable
+        rowKey="playerId"
+        headerTitle="球员管理"
+        loading={loading}
+        value={rows}
+        onChange={setRows}
+        recordCreatorProps={false}
+        editable={{ type: 'multiple', editableKeys, onChange: setEditableKeys, actionRender: () => [] }}
+        columns={columns}
+        scroll={{ x: 700 }}
+        toolBarRender={() => [
+          <Input.Search
+            key="search"
+            allowClear
+            placeholder="搜索球员名"
+            style={{ width: 200 }}
+            onSearch={(v) => { setPage(1); setSearchName(v.trim() || undefined) }}
+          />,
+          <Button key="add" onClick={onAddRow}>新增一行</Button>,
+          <Button key="save" type="primary" onClick={onSaveAll}>保存本页</Button>,
+        ]}
+      />
+      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 4px' }}>
+        <Pagination
+          current={page}
+          pageSize={PAGE_SIZE}
+          total={total}
+          showSizeChanger={false}
+          showTotal={(t) => `共 ${t} 名球员`}
+          onChange={setPage}
+        />
+      </div>
+    </>
   )
 }
