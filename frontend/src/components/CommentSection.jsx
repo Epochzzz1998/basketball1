@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Avatar, Button, Divider, Empty, Input, List, Space, Tag, message } from 'antd'
+import { Avatar, Button, Divider, Empty, Input, Space, Spin, Tag, message } from 'antd'
 import { DislikeOutlined, LikeOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
@@ -9,10 +9,127 @@ import { useAuth } from '../auth/AuthContext'
 const fmt = (v) => (v ? dayjs(v).format('YYYY-MM-DD HH:mm') : '')
 
 /**
- * 帖子下的评论区。顶层评论列表（level='1'，按楼层排）+ 发表评论 + 评论点赞/点踩。
- * 评论内容是纯文本（非 HTML），React 自动转义，无需 DOMPurify。
- * 注意：发评论/点赞接口返回旧版 {result,msg}；点赞计数经 RabbitMQ 异步更新，不会立刻变。
- * 嵌套回复（commentRelId/level）留作下一步细化。
+ * 单条评论节点（递归）。支持点赞/点踩、回复（内联框）、展开子回复（再用 CommentNode 渲染，逐层缩进）。
+ * - 回复：commentRelId=本评论 id、level=本 level+1（与后端 getCommentInit 一致）；
+ * - 子回复用 listComments({commentRelId}) 拉取；commentNum 是该评论的回复数。
+ * 评论内容是纯文本，React 自动转义，无 XSS 风险。
+ */
+function CommentNode({ comment, newsId, depth = 0 }) {
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const [c, setC] = useState(comment) // 本节点数据（含 goodNum/badNum/commentNum），就地更新
+  const [replyOpen, setReplyOpen] = useState(false)
+  const [replyText, setReplyText] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [showReplies, setShowReplies] = useState(false)
+  const [replies, setReplies] = useState([])
+  const [repliesLoaded, setRepliesLoaded] = useState(false)
+  const [loadingReplies, setLoadingReplies] = useState(false)
+
+  const requireLogin = () => { message.info('请先登录'); navigate('/login') }
+
+  const like = async (type) => {
+    if (!user) return requireLogin()
+    const res = await (type === 'good' ? newsApi.goodComment(c.commentId) : newsApi.badComment(c.commentId))
+    if (res?.result) {
+      const d = res.delta || 0
+      setC((p) => ({ ...p, goodNum: (p.goodNum || 0) + (type === 'good' ? d : 0), badNum: (p.badNum || 0) + (type === 'bad' ? d : 0) }))
+      message.success(res.msg)
+    } else {
+      message.error(res?.msg || '操作失败')
+    }
+  }
+
+  const loadReplies = async () => {
+    setLoadingReplies(true)
+    try {
+      const res = await newsApi.listComments({ commentRelId: c.commentId, page: 1, limit: 100 })
+      setReplies(res.records || [])
+      setRepliesLoaded(true)
+    } finally {
+      setLoadingReplies(false)
+    }
+  }
+
+  const toggleReplies = async () => {
+    if (!showReplies && !repliesLoaded) await loadReplies()
+    setShowReplies((s) => !s)
+  }
+
+  const submitReply = async () => {
+    if (!user) return requireLogin()
+    if (!replyText.trim()) return
+    setSubmitting(true)
+    try {
+      const res = await newsApi.postComment({
+        newsId,
+        content: replyText.trim(),
+        commentRelId: c.commentId,
+        level: String((parseInt(c.level, 10) || 1) + 1),
+      })
+      if (res?.result) {
+        message.success(res.msg || '回复成功')
+        setReplyText('')
+        setReplyOpen(false)
+        setC((p) => ({ ...p, commentNum: (p.commentNum || 0) + 1 }))
+        await loadReplies()
+        setShowReplies(true)
+      } else {
+        message.error(res?.msg || '回复失败')
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div style={{ marginLeft: depth ? 24 : 0, paddingTop: 8 }}>
+      <Space size="small" wrap>
+        <Avatar size="small">{(c.userName || '匿')[0]}</Avatar>
+        <b>{c.userName || '匿名'}</b>
+        {c.floor != null && <Tag>#{c.floor}</Tag>}
+        <span style={{ color: '#aaa' }}>{fmt(c.commentDate)}</span>
+      </Space>
+      <div style={{ margin: '4px 0 4px 28px', whiteSpace: 'pre-wrap', color: '#333' }}>{c.content}</div>
+      <Space size="small" style={{ marginLeft: 28 }}>
+        <Button type="text" size="small" icon={<LikeOutlined />} onClick={() => like('good')}>{c.goodNum ?? 0}</Button>
+        <Button type="text" size="small" icon={<DislikeOutlined />} onClick={() => like('bad')}>{c.badNum ?? 0}</Button>
+        <Button type="link" size="small" onClick={() => (user ? setReplyOpen((o) => !o) : requireLogin())}>回复</Button>
+        {c.commentNum > 0 && (
+          <Button type="link" size="small" onClick={toggleReplies} loading={loadingReplies}>
+            {showReplies ? '收起' : `查看 ${c.commentNum} 条回复`}
+          </Button>
+        )}
+      </Space>
+
+      {replyOpen && (
+        <div style={{ marginLeft: 28, marginTop: 8 }}>
+          <Input.TextArea
+            value={replyText}
+            onChange={(e) => setReplyText(e.target.value)}
+            placeholder={`回复 ${c.userName || ''}`}
+            maxLength={500}
+            autoSize={{ minRows: 2, maxRows: 5 }}
+          />
+          <Space style={{ marginTop: 6 }}>
+            <Button type="primary" size="small" loading={submitting} onClick={submitReply}>发表回复</Button>
+            <Button size="small" onClick={() => setReplyOpen(false)}>取消</Button>
+          </Space>
+        </div>
+      )}
+
+      {showReplies && replies.map((r) => (
+        <CommentNode key={r.commentId} comment={r} newsId={newsId} depth={depth + 1} />
+      ))}
+
+      {depth === 0 && <Divider style={{ margin: '8px 0' }} />}
+    </div>
+  )
+}
+
+/**
+ * 帖子下的评论区。顶层评论（level='1'，按楼层）+ 发表评论 + 递归楼中楼。
+ * 注意：发评论/点赞接口返回旧版 {result,msg}；点赞计数据后端 delta 乐观更新。
  */
 export default function CommentSection({ newsId }) {
   const { user } = useAuth()
@@ -33,13 +150,8 @@ export default function CommentSection({ newsId }) {
   }, [newsId])
   useEffect(() => { load() }, [load])
 
-  const requireLogin = () => {
-    message.info('请先登录')
-    navigate('/login')
-  }
-
   const submit = async () => {
-    if (!user) return requireLogin()
+    if (!user) { message.info('请先登录'); navigate('/login'); return }
     if (!text.trim()) return
     setSubmitting(true)
     try {
@@ -56,20 +168,6 @@ export default function CommentSection({ newsId }) {
     }
   }
 
-  const likeComment = async (c, type) => {
-    if (!user) return requireLogin()
-    const res = await (type === 'good' ? newsApi.goodComment(c.commentId) : newsApi.badComment(c.commentId))
-    if (res?.result) {
-      const d = res.delta || 0 // 即时更新该评论的赞/踩数
-      setComments((list) => list.map((x) => (x.commentId === c.commentId
-        ? { ...x, goodNum: (x.goodNum || 0) + (type === 'good' ? d : 0), badNum: (x.badNum || 0) + (type === 'bad' ? d : 0) }
-        : x)))
-      message.success(res.msg)
-    } else {
-      message.error(res?.msg || '操作失败')
-    }
-  }
-
   return (
     <div style={{ marginTop: 8 }}>
       <Divider orientation="left">评论（{comments.length}）</Divider>
@@ -83,9 +181,7 @@ export default function CommentSection({ newsId }) {
             maxLength={500}
             autoSize={{ minRows: 2, maxRows: 6 }}
           />
-          <Button type="primary" style={{ marginTop: 8 }} loading={submitting} onClick={submit}>
-            发表评论
-          </Button>
+          <Button type="primary" style={{ marginTop: 8 }} loading={submitting} onClick={submit}>发表评论</Button>
         </div>
       ) : (
         <p style={{ color: '#888' }}>
@@ -93,35 +189,13 @@ export default function CommentSection({ newsId }) {
         </p>
       )}
 
-      <List
-        loading={loading}
-        dataSource={comments}
-        locale={{ emptyText: <Empty description="还没有评论，来抢沙发" /> }}
-        renderItem={(c) => (
-          <List.Item
-            actions={[
-              <Button key="g" type="text" size="small" icon={<LikeOutlined />} onClick={() => likeComment(c, 'good')}>
-                {c.goodNum ?? 0}
-              </Button>,
-              <Button key="b" type="text" size="small" icon={<DislikeOutlined />} onClick={() => likeComment(c, 'bad')}>
-                {c.badNum ?? 0}
-              </Button>,
-            ]}
-          >
-            <List.Item.Meta
-              avatar={<Avatar>{(c.userName || '匿')[0]}</Avatar>}
-              title={
-                <Space size="small" wrap>
-                  <span>{c.userName || '匿名'}</span>
-                  {c.floor != null && <Tag>#{c.floor}</Tag>}
-                  <span style={{ color: '#aaa', fontWeight: 'normal' }}>{fmt(c.commentDate)}</span>
-                </Space>
-              }
-              description={<span style={{ color: '#333', whiteSpace: 'pre-wrap' }}>{c.content}</span>}
-            />
-          </List.Item>
-        )}
-      />
+      {loading ? (
+        <Spin />
+      ) : comments.length ? (
+        comments.map((c) => <CommentNode key={c.commentId} comment={c} newsId={newsId} />)
+      ) : (
+        <Empty description="还没有评论，来抢沙发" />
+      )}
     </div>
   )
 }
