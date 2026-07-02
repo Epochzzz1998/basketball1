@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -36,6 +37,36 @@ public class PlayerServiceImpl extends ServiceImpl<PlayerMapper, DreamPlayer> im
 
     public List<PlayerStatsDto> findPlayerStats(@RequestBody(required = false) PlayerStatsDto param){
         return baseMapper.findPlayerStats(param);
+    }
+
+    @Override
+    public List<Map<String, Object>> findPlayerCrowns(String playerId) {
+        return baseMapper.findPlayerCrowns(playerId);
+    }
+
+    @Override
+    public List<Map<String, Object>> findPlayerChampionships(String playerId) {
+        return baseMapper.findPlayerChampionships(playerId);
+    }
+
+    @Override
+    public List<Map<String, Object>> findPlayerSeasonAwards(String playerId) {
+        return baseMapper.findPlayerSeasonAwards(playerId);
+    }
+
+    @Override
+    public List<Map<String, Object>> findSeasonAwards(Integer seasonNum) {
+        return baseMapper.findSeasonAwards(seasonNum);
+    }
+
+    @Override
+    public List<PlayerStatsDto> findPlayerPlayoffStats(String playerId) {
+        return baseMapper.findPlayerPlayoffStats(playerId);
+    }
+
+    @Override
+    public List<PlayerStatsDto> findPlayersPlayoffSeasonStats(PlayerStatsDto param) {
+        return baseMapper.findPlayersPlayoffSeasonStats(param);
     }
 
     @Override

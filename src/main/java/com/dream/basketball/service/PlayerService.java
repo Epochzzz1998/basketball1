@@ -7,8 +7,27 @@ import com.dream.basketball.entity.DreamPlayer;
 import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.List;
+import java.util.Map;
 
 public interface PlayerService extends IService<DreamPlayer> {
+
+    /** Seasons where this player led the league in a stat: rows of {award, season}. */
+    List<Map<String, Object>> findPlayerCrowns(String playerId);
+
+    /** Championships: seasons where the player's team won it all, rows of {season, team}. */
+    List<Map<String, Object>> findPlayerChampionships(String playerId);
+
+    /** This player's special awards (FMVP / 6MOY / MIP): rows of {award, season}. */
+    List<Map<String, Object>> findPlayerSeasonAwards(String playerId);
+
+    /** One season's special-award winners with name + key stats. */
+    List<Map<String, Object>> findSeasonAwards(Integer seasonNum);
+
+    /** One player's playoff seasons (incl. career summary row) with the team's playoff finish. */
+    List<PlayerStatsDto> findPlayerPlayoffStats(String playerId);
+
+    /** All players' playoff stats for a season (mirrors findPlayersSeasonStats). */
+    List<PlayerStatsDto> findPlayersPlayoffSeasonStats(PlayerStatsDto param);
 
     public List<DreamPlayerDto> findAllPlayers(@RequestBody(required = false) DreamPlayerDto param);
 
