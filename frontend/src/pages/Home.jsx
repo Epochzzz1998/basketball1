@@ -58,7 +58,7 @@ export default function Home() {
         styles={{ body: { padding: '36px 32px' } }}
       >
         <Title level={2} style={{ color: '#fff', margin: 0 }}>
-          {user ? `你好，${user.userNickname} 👋` : '欢迎来到 Dream 篮球 🏀'}
+          {user ? `你好，${user.userNickname} 👋` : '欢迎来到 Dream Unit 🏀'}
         </Title>
         <Paragraph style={{ color: 'rgba(255,255,255,.88)', fontSize: 15, margin: '10px 0 22px' }}>
           球员数据 · 资讯论坛 · 互动社区{user ? '' : '（游客可浏览，登录后可发帖/评论/点赞）'}

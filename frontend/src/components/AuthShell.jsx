@@ -25,7 +25,7 @@ export default function AuthShell({ subtitle, children }) {
       >
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
           <div style={{ fontSize: 42, lineHeight: 1 }}>🏀</div>
-          <Typography.Title level={3} style={{ margin: '10px 0 4px' }}>Dream 篮球</Typography.Title>
+          <Typography.Title level={3} style={{ margin: '10px 0 4px' }}>Dream Unit</Typography.Title>
           <Typography.Text type="secondary">{subtitle}</Typography.Text>
         </div>
         {children}

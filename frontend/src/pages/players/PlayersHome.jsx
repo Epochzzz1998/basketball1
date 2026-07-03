@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Card, Col, Row, Spin, Tabs } from 'antd'
+import { Card, Col, ConfigProvider, Row, Segmented, Spin } from 'antd'
+import { BarChartOutlined, TeamOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import AllPlayerSeasonStats from './AllPlayerSeasonStats'
 import { playerApi } from '../../api/player'
@@ -56,15 +57,56 @@ function TeamGrid() {
   )
 }
 
-/** 球员数据首页：Tabs = 数据总览（原赛季榜） + 球队卡片墙 */
+/**
+ * 数据概览首页：胶囊分段切换（比默认 Tabs 更现代）——
+ * 球队卡片墙在前，球员数据概览（原赛季榜）在后；选中态为品牌橙圆角滑块。
+ */
 export default function PlayersHome() {
+  const [tab, setTab] = useState('teams')
+
   return (
-    <Tabs
-      defaultActiveKey="overview"
-      items={[
-        { key: 'overview', label: '数据总览', children: <AllPlayerSeasonStats /> },
-        { key: 'teams', label: '球队', children: <TeamGrid /> },
-      ]}
-    />
+    <>
+      <ConfigProvider
+        theme={{
+          token: { borderRadius: 22, borderRadiusSM: 18 },
+          components: {
+            Segmented: {
+              itemSelectedBg: '#fa541c',
+              itemSelectedColor: '#ffffff',
+              trackBg: '#efefef',
+              itemColor: '#666',
+              itemHoverColor: '#fa541c',
+              itemHoverBg: 'rgba(250,84,28,0.08)',
+            },
+          },
+        }}
+      >
+        <Segmented
+          size="large"
+          value={tab}
+          onChange={setTab}
+          style={{ marginBottom: 16, padding: 4, boxShadow: 'inset 0 1px 3px rgba(0,0,0,.04)' }}
+          options={[
+            {
+              value: 'teams',
+              label: (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0 10px' }}>
+                  <TeamOutlined /> 球队
+                </span>
+              ),
+            },
+            {
+              value: 'overview',
+              label: (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0 10px' }}>
+                  <BarChartOutlined /> 球员数据概览
+                </span>
+              ),
+            },
+          ]}
+        />
+      </ConfigProvider>
+      {tab === 'teams' ? <TeamGrid /> : <AllPlayerSeasonStats />}
+    </>
   )
 }
