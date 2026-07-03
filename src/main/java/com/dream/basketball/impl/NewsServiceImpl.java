@@ -173,6 +173,39 @@ public class NewsServiceImpl implements NewsService {
     }
 
     /**
+     * 全局搜索：标题前缀匹配加权 + 标题/正文/作者分词匹配，限定频道，按相关度取前 N。
+     */
+    @Override
+    public List<News> searchNews(String keyword, String newsChannel, int size) {
+        BoolQueryBuilder queryBuilder = new BoolQueryBuilder();
+        BoolQueryBuilder kw = new BoolQueryBuilder();
+        kw.should(QueryBuilders.matchPhrasePrefixQuery("title", keyword).boost(3f));
+        kw.should(QueryBuilders.matchQuery("title", keyword).boost(2f));
+        kw.should(QueryBuilders.matchQuery("content", keyword));
+        kw.should(QueryBuilders.matchQuery("author", keyword));
+        kw.minimumShouldMatch(1);
+        queryBuilder.must(kw);
+        if (StringUtils.equals(NEWS_CHANNEL_FORUM, newsChannel)) {
+            // 与列表查询同款：老文档没有 channel 字段，缺失视作论坛帖
+            BoolQueryBuilder channel = new BoolQueryBuilder();
+            channel.should(QueryBuilders.matchQuery("newsChannel", NEWS_CHANNEL_FORUM));
+            channel.should(new BoolQueryBuilder().mustNot(QueryBuilders.existsQuery("newsChannel")));
+            queryBuilder.must(channel);
+        } else {
+            queryBuilder.must(QueryBuilders.matchQuery("newsChannel", newsChannel));
+        }
+        NativeSearchQuery query = new NativeSearchQueryBuilder()
+                .withQuery(queryBuilder)
+                .withPageable(PageRequest.of(0, size))
+                .build();
+        List<News> result = new ArrayList<>();
+        for (SearchHit<News> hit : template.search(query, News.class).getSearchHits()) {
+            result.add(hit.getContent());
+        }
+        return result;
+    }
+
+    /**
     * @Description: 获取评论
     * @param: [params]
     * @Author: Epoch

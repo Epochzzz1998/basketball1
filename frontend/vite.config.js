@@ -16,6 +16,7 @@ export default defineConfig({
       "/team": { target: "http://localhost:8088", changeOrigin: true },
       "/news": { target: "http://localhost:8088", changeOrigin: true },
       "/userInformation": { target: "http://localhost:8088", changeOrigin: true },
+      "/search": { target: "http://localhost:8088", changeOrigin: true },
       "/picImg": { target: "http://localhost:8088", changeOrigin: true }
     }
   }

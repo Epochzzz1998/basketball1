@@ -14,3 +14,15 @@ body {
   height: auto;
   border-radius: 6px;
 }
+
+/* 顶栏动作区：包着全局搜索框的那一格，去掉 ProLayout 动作项自带的 hover 灰底。
+   实测 DOM：item 同时挂 ...header-actions-item 和 ...header-actions-hover 两个类，
+   hover 底色在 -hover 类上，所以两个子串都要压 */
+[class*='actions-item']:has(.global-search),
+[class*='actions-item']:has(.global-search):hover,
+[class*='actions-hover']:has(.global-search),
+[class*='actions-hover']:has(.global-search):hover,
+[class*='actions-hover']:has(.global-search):active {
+  background: transparent !important;
+  cursor: default;
+}

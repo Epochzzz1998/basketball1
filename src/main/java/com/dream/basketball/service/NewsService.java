@@ -24,6 +24,9 @@ public interface NewsService {
 
     public List<NewsDto> getNewsByParams(NewsDto params);
 
+    /** Global-search helper: fuzzy match title(prefix boosted)/content/author within one channel, top-N by score. */
+    public List<News> searchNews(String keyword, String newsChannel, int size);
+
     public List<DreamNewsCommentDto> getCommentListByParams(DreamNewsCommentDto params);
 
     public Object good(String newsId, HttpServletRequest request);

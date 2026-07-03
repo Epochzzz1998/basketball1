@@ -15,6 +15,7 @@ import {
 } from '@ant-design/icons'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import GlobalSearch from '../components/GlobalSearch'
 
 /**
  * 整体外壳（P5-3 美化）：ProLayout 的 mix 布局 = 顶栏品牌 + 可折叠侧栏菜单，
@@ -33,7 +34,7 @@ export default function AppLayout() {
       path: '/',
       routes: [
         { path: '/', name: '首页', icon: <HomeOutlined /> },
-        { path: '/players', name: '球员数据', icon: <TeamOutlined /> },
+        { path: '/players', name: '数据概览', icon: <TeamOutlined /> },
         { path: '/rankings', name: '联盟排行', icon: <TrophyOutlined /> },
         { path: '/official', name: '新闻', icon: <NotificationOutlined /> },
         { path: '/news', name: '资讯论坛', icon: <ReadOutlined /> },
@@ -55,7 +56,7 @@ export default function AppLayout() {
       layout="mix"
       fixedHeader
       fixSiderbar
-      title="Dream 篮球"
+      title="Dream Unit"
       logo={<span style={{ fontSize: 26, lineHeight: 1 }}>🏀</span>}
       siderWidth={216}
       location={{ pathname: location.pathname }}
@@ -77,14 +78,17 @@ export default function AppLayout() {
             }
           : undefined
       }
-      actionsRender={() =>
-        user
+      // 搜索框在动作区（紧贴头像）；动作项自带的 hover 灰底由 index.css 里
+      // 的 [class*='actions-item']:has(.global-search) 规则压掉
+      actionsRender={() => [
+        <GlobalSearch key="global-search" />,
+        ...(user
           ? []
           : [
               <Button key="login" type="primary" size="small" onClick={() => navigate('/login')}>登录</Button>,
               <Button key="reg" size="small" onClick={() => navigate('/register')}>注册</Button>,
-            ]
-      }
+            ]),
+      ]}
       token={{
         bgLayout: '#f5f5f5',
         header: { colorBgHeader: '#ffffff' },
