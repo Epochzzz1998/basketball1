@@ -3,6 +3,7 @@ import { ProLayout } from '@ant-design/pro-components'
 import { Avatar, Badge, Button, Dropdown } from 'antd'
 import {
   BellOutlined,
+  SwapOutlined,
   DatabaseOutlined,
   EditOutlined,
   HomeOutlined,
@@ -61,6 +62,7 @@ export default function AppLayout() {
         { path: '/', name: '首页', icon: <HomeOutlined /> },
         { path: '/players', name: '数据概览', icon: <TeamOutlined /> },
         { path: '/rankings', name: '联盟排行', icon: <TrophyOutlined /> },
+        { path: '/compare', name: '球员对比', icon: <SwapOutlined /> },
         { path: '/official', name: '新闻', icon: <NotificationOutlined /> },
         { path: '/news', name: '资讯论坛', icon: <ReadOutlined /> },
         ...(user?.isManagerOrOver ? [{ path: '/admin/news', name: '资讯管理', icon: <EditOutlined /> }] : []),

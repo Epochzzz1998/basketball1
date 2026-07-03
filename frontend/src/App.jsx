@@ -13,6 +13,7 @@ import LeagueRankings from './pages/players/LeagueRankings'
 import RankingDetail from './pages/players/RankingDetail'
 import HonorDetail from './pages/players/HonorDetail'
 import PlayerCareer from './pages/players/PlayerCareer'
+import PlayerCompare from './pages/players/PlayerCompare'
 import PlayerManage from './pages/players/PlayerManage'
 import PlayerStatsManage from './pages/players/PlayerStatsManage'
 import NewsList from './pages/news/NewsList'
@@ -44,6 +45,7 @@ export default function App() {
         <Route path="players" element={<PlayersHome />} />
         <Route path="players/team/:teamCode" element={<TeamPlayers />} />
         <Route path="players/:playerId" element={<PlayerCareer />} />
+        <Route path="compare" element={<PlayerCompare />} />
         <Route path="rankings" element={<LeagueRankings />} />
         <Route path="rankings/honors/:group" element={<HonorDetail />} />
         <Route path="rankings/:field" element={<RankingDetail />} />
