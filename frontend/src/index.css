@@ -7,6 +7,12 @@ body {
   margin: 0;
 }
 
+/* 干净表格：去掉表头与表体之间的分隔横线（表头有灰底，已经足够区分） */
+.clean-table .ant-table-thead > tr > th,
+.clean-table .ant-table-thead > tr > td {
+  border-bottom: none;
+}
+
 /* 富文本正文/编辑器里的图片不许溢出容器（大图等比缩放） */
 .rich-content img,
 .w-e-text-container img {

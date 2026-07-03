@@ -120,4 +120,9 @@
         where ts.TEAM_CODE = #{teamCode} and ts.PLAYOFF_RESULT &lt;&gt; '未进季后赛'
         order by ts.SEASON_NUM
     </select>
+
+    <select id="findAllTeamRecords" resultType="com.dream.basketball.dto.TeamSeasonDto">
+        select SEASON_NUM as seasonNum, TEAM_CODE as teamCode, WINS as wins
+        from team_season
+    </select>
 </mapper>

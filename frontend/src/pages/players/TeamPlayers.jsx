@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Button, Card, Col, Empty, Progress, Row, Segmented, Select, Space, Spin, Table, Tabs, Tag } from 'antd'
+import { Button, Card, Col, Empty, Progress, Row, Segmented, Space, Spin, Table, Tabs, Tag } from 'antd'
 import { TrophyFilled } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import AllPlayerSeasonStats from './AllPlayerSeasonStats'
 import { teamApi } from '../../api/team'
-import { NBA_TEAM_NAMES, PLAYOFF_TAG, fmtNum, playoffRecord, seasonOptions, seasonYearLabel, teamRegion } from './rankConfig'
+import { NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, fmtNum, playoffRecord, seasonYearLabel, teamRegion } from './rankConfig'
+import SeasonPicker from '../../components/SeasonPicker'
 
 const MEDAL = ['#f5b301', '#9aa0a6', '#b87333']
 
@@ -259,23 +260,34 @@ function PlayoffHistory({ teamCode }) {
   if (rows === null) return <Spin style={{ display: 'block', margin: '40px auto' }} />
   if (!rows.length) return <Empty description="队史从未打进季后赛" />
 
-  const champs = rows.filter((r) => r.playoffResult === '总冠军').length
-  const finals = rows.filter((r) => ['总冠军', '总决赛'].includes(r.playoffResult)).length
+  // 各轮次数（止步该轮）；分区冠军 = 打进总决赛（含夺冠）；合计战绩由轮次+出战反推
+  const cnt = (res) => rows.filter((r) => r.playoffResult === res).length
+  const champs = cnt('总冠军')
+  const finalsLost = cnt('总决赛')
+  const confChamps = finalsLost + champs
+  const agg = rows.reduce(
+    (a, r) => {
+      const rec = playoffRecord(r.playoffResult, r.games)
+      if (rec) { a.w += rec.wins; a.l += rec.losses }
+      return a
+    },
+    { w: 0, l: 0 },
+  )
 
   const numCol = (title, key) => ({
-    title, dataIndex: key, width: 90, align: 'right',
+    title, dataIndex: key, width: 62, align: 'right',
     sorter: (a, b) => Number(a[key]) - Number(b[key]),
     render: (v) => fmtNum(v),
   })
 
   const columns = [
     {
-      title: '赛季', dataIndex: 'seasonNum', width: 150, fixed: 'left',
+      title: '赛季', dataIndex: 'seasonNum', width: 104,
       sorter: (a, b) => a.seasonNum - b.seasonNum, defaultSortOrder: 'descend',
-      render: (v) => seasonYearLabel(v),
+      render: (v) => seasonYearLabel(v).replace(' 赛季', ''),
     },
     {
-      title: '成绩', dataIndex: 'playoffResult', width: 110,
+      title: '成绩', dataIndex: 'playoffResult', width: 92,
       render: (v) => (
         <Tag color={PLAYOFF_TAG[v] || 'default'}>
           {v === '总冠军' && <TrophyFilled style={{ marginRight: 4 }} />}
@@ -291,11 +303,11 @@ function PlayoffHistory({ teamCode }) {
         return rec ? <b>{rec.wins}-{rec.losses}</b> : '-'
       },
     },
-    { title: '出战', dataIndex: 'games', width: 70, align: 'right', sorter: (a, b) => a.games - b.games },
-    numCol('场均得分', 'pts'),
-    numCol('场均失分', 'ptsAllowed'),
+    { title: '出战', dataIndex: 'games', width: 56, align: 'right', sorter: (a, b) => a.games - b.games },
+    numCol('得分', 'pts'),
+    numCol('失分', 'ptsAllowed'),
     {
-      title: '净胜分', width: 84, align: 'right',
+      title: '净胜', width: 66, align: 'right',
       sorter: (a, b) => (a.pts - a.ptsAllowed) - (b.pts - b.ptsAllowed),
       render: (_, r) => {
         const d = Number(r.pts) - Number(r.ptsAllowed)
@@ -315,13 +327,17 @@ function PlayoffHistory({ teamCode }) {
       extra={
         <Space size={8} wrap>
           <Tag color="geekblue">季后赛 ×{rows.length}</Tag>
-          <Tag color="volcano">总决赛 ×{finals}</Tag>
+          <Tag color="orange">季后赛战绩 {agg.w}-{agg.l}（{agg.w + agg.l ? ((agg.w / (agg.w + agg.l)) * 100).toFixed(1) : 0}%）</Tag>
+          <Tag color={PLAYOFF_TAG['首轮']}>首轮 ×{cnt('首轮')}</Tag>
+          <Tag color={PLAYOFF_TAG['半决赛']}>分区半决赛 ×{cnt('半决赛')}</Tag>
+          <Tag color={PLAYOFF_TAG['分区决赛']}>分区决赛 ×{cnt('分区决赛')}</Tag>
+          <Tag color={PLAYOFF_TAG['总决赛']}>分区冠军 ×{confChamps}</Tag>
           <Tag color="gold"><TrophyFilled /> 总冠军 ×{champs}</Tag>
         </Space>
       }
-      styles={{ body: { padding: 0 } }}
+      styles={{ body: { padding: '4px 12px 12px' } }}
     >
-      <Table rowKey="seasonNum" dataSource={rows} columns={columns} pagination={false} scroll={{ x: 1000 }} size="middle" />
+      <Table className="clean-table" rowKey="seasonNum" dataSource={rows} columns={columns} pagination={false} size="middle" />
     </Card>
   )
 }
@@ -330,12 +346,17 @@ function PlayoffHistory({ teamCode }) {
 
 function TeamHistory({ teamCode }) {
   const [rows, setRows] = useState(null)
+  const [allRecs, setAllRecs] = useState(null) // 全联盟历季胜场，算分区/分部第一用
 
   useEffect(() => {
     let alive = true
-    teamApi.history(teamCode)
-      .then((r) => { if (alive) setRows(r || []) })
-      .catch(() => { if (alive) setRows([]) })
+    Promise.all([teamApi.history(teamCode), teamApi.allRecords()])
+      .then(([r, all]) => {
+        if (!alive) return
+        setRows(r || [])
+        setAllRecs(all || [])
+      })
+      .catch(() => { if (alive) { setRows([]); setAllRecs([]) } })
     return () => { alive = false }
   }, [teamCode])
 
@@ -347,27 +368,71 @@ function TeamHistory({ teamCode }) {
   const champs = rows.filter((r) => r.playoffResult === '总冠军').length
   const playoffs = rows.filter((r) => r.playoffResult && r.playoffResult !== '未进季后赛').length
 
+  // 分区(东/西部)第一、分部(赛区)第一次数：与同范围各队当季胜场最高值比较（并列也算第一）
+  const { conf, div } = teamRegion(teamCode)
+  const confSet = new Set(Object.values(NBA_STRUCTURE[conf] || {}).flat())
+  const divSet = new Set(NBA_STRUCTURE[conf]?.[div] || [])
+  const firsts = (scopeSet) => {
+    if (!allRecs?.length || !scopeSet.size) return 0
+    const maxBySeason = {}
+    for (const rec of allRecs) {
+      if (!scopeSet.has(rec.teamCode)) continue
+      if (!(rec.seasonNum in maxBySeason) || rec.wins > maxBySeason[rec.seasonNum]) {
+        maxBySeason[rec.seasonNum] = rec.wins
+      }
+    }
+    return rows.filter((r) => r.wins >= (maxBySeason[r.seasonNum] ?? Infinity)).length
+  }
+  const confFirsts = firsts(confSet)
+  const divFirsts = firsts(divSet)
+
+  // 每季排名：联盟第 X（30 队比胜场）+ 东/西部第 Y
+  const ranks = {}
+  for (const r of rows) {
+    const seasonRecs = (allRecs || []).filter((rec) => rec.seasonNum === r.seasonNum)
+    if (!seasonRecs.length) continue
+    ranks[r.seasonNum] = {
+      league: 1 + seasonRecs.filter((rec) => rec.wins > r.wins).length,
+      conf: 1 + seasonRecs.filter((rec) => confSet.has(rec.teamCode) && rec.wins > r.wins).length,
+    }
+  }
+  const confShort = conf === '东部' ? '东部' : conf === '西部' ? '西部' : ''
+
   const numCol = (title, key) => ({
-    title, dataIndex: key, width: 90, align: 'right',
+    title, dataIndex: key, width: 62, align: 'right',
     sorter: (a, b) => Number(a[key]) - Number(b[key]),
     render: (v) => fmtNum(v),
   })
 
   const columns = [
     {
-      title: '赛季', dataIndex: 'seasonNum', width: 150, fixed: 'left',
+      title: '赛季', dataIndex: 'seasonNum', width: 104,
       sorter: (a, b) => a.seasonNum - b.seasonNum, defaultSortOrder: 'descend',
-      render: (v) => seasonYearLabel(v),
+      render: (v) => seasonYearLabel(v).replace(' 赛季', ''),
     },
-    { title: '胜', dataIndex: 'wins', width: 60, align: 'right', sorter: (a, b) => a.wins - b.wins },
-    { title: '负', dataIndex: 'losses', width: 60, align: 'right', sorter: (a, b) => a.losses - b.losses },
+    { title: '胜', dataIndex: 'wins', width: 48, align: 'right', sorter: (a, b) => a.wins - b.wins },
+    { title: '负', dataIndex: 'losses', width: 48, align: 'right', sorter: (a, b) => a.losses - b.losses },
     {
-      title: '胜率', width: 80, align: 'right',
+      title: '胜率', width: 70, align: 'right',
       sorter: (a, b) => a.wins / (a.wins + a.losses) - b.wins / (b.wins + b.losses),
       render: (_, r) => `${((r.wins / (r.wins + r.losses)) * 100).toFixed(1)}%`,
     },
     {
-      title: '季后赛', dataIndex: 'playoffResult', width: 110,
+      title: '赛季排名', width: 136,
+      sorter: (a, b) => (ranks[a.seasonNum]?.league ?? 99) - (ranks[b.seasonNum]?.league ?? 99),
+      render: (_, r) => {
+        const k = ranks[r.seasonNum]
+        if (!k) return '-'
+        return (
+          <span style={{ whiteSpace: 'nowrap' }}>
+            <b style={{ color: k.league <= 3 ? '#fa541c' : undefined }}>联盟第{k.league}</b>
+            {confShort && <span style={{ color: '#999', fontSize: 12, marginLeft: 6 }}>{confShort}第{k.conf}</span>}
+          </span>
+        )
+      },
+    },
+    {
+      title: '季后赛', dataIndex: 'playoffResult', width: 92,
       render: (v) => (
         <Tag color={PLAYOFF_TAG[v] || 'default'}>
           {v === '总冠军' && <TrophyFilled style={{ marginRight: 4 }} />}
@@ -375,10 +440,10 @@ function TeamHistory({ teamCode }) {
         </Tag>
       ),
     },
-    numCol('场均得分', 'pts'),
-    numCol('场均失分', 'ptsAllowed'),
+    numCol('得分', 'pts'),
+    numCol('失分', 'ptsAllowed'),
     {
-      title: '净胜分', width: 84, align: 'right',
+      title: '净胜', width: 66, align: 'right',
       sorter: (a, b) => (a.pts - a.ptsAllowed) - (b.pts - b.ptsAllowed),
       render: (_, r) => {
         const d = Number(r.pts) - Number(r.ptsAllowed)
@@ -399,13 +464,15 @@ function TeamHistory({ teamCode }) {
         <Space size={8} wrap>
           <Tag>队史 {rows.length} 个赛季</Tag>
           <Tag color="orange">总战绩 {totalW}-{totalL}（{((totalW / (totalW + totalL)) * 100).toFixed(1)}%）</Tag>
+          <Tag color="purple">分区第一 ×{confFirsts}</Tag>
+          <Tag color="cyan">分部第一 ×{divFirsts}</Tag>
           <Tag color="geekblue">季后赛 ×{playoffs}</Tag>
           <Tag color="gold"><TrophyFilled /> 总冠军 ×{champs}</Tag>
         </Space>
       }
-      styles={{ body: { padding: 0 } }}
+      styles={{ body: { padding: '4px 12px 12px' } }}
     >
-      <Table rowKey="seasonNum" dataSource={rows} columns={columns} pagination={false} scroll={{ x: 1240 }} size="middle" />
+      <Table className="clean-table" rowKey="seasonNum" dataSource={rows} columns={columns} pagination={false} size="middle" />
     </Card>
   )
 }
@@ -451,15 +518,7 @@ export default function TeamPlayers() {
               onChange={setStage}
               options={[{ label: '常规赛', value: 'reg' }, { label: '季后赛', value: 'po' }]}
             />
-            <span>
-              赛季：
-              <Select
-                value={seasonNum}
-                onChange={setSeasonNum}
-                options={seasonOptions.filter((o) => o.value !== 50)}
-                style={{ width: 170 }}
-              />
-            </span>
+            <SeasonPicker value={seasonNum} onChange={setSeasonNum} includeCareer={false} />
           </Space>
         </div>
       </Card>

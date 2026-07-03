@@ -9,4 +9,6 @@ export const teamApi = {
   playoffRankings: (seasonNum) => http.get('/team/playoffRankings', { params: { seasonNum } }),
   // 某队季后赛队史（只含进季后赛的赛季）
   playoffHistory: (teamCode) => http.get('/team/playoffHistory', { params: { teamCode } }),
+  // 全部（赛季, 球队, 胜场）记录（算分区/分部第一次数用）
+  allRecords: () => http.get('/team/allRecords'),
 }

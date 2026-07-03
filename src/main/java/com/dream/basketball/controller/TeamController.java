@@ -43,4 +43,10 @@ public class TeamController {
     public Result<List<TeamSeasonDto>> playoffHistory(String teamCode) {
         return new Result<>(0, "成功", teamMapper.findTeamPlayoffHistory(teamCode));
     }
+
+    /** 全部（赛季, 球队, 胜场）记录（分区/分部第一次数由前端结合结构配置计算） */
+    @GetMapping("/allRecords")
+    public Result<List<TeamSeasonDto>> allRecords() {
+        return new Result<>(0, "成功", teamMapper.findAllTeamRecords());
+    }
 }

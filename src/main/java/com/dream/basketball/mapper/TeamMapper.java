@@ -18,4 +18,7 @@ public interface TeamMapper {
 
     /** One team's playoff appearances: finish + playoff roster stat totals per season. */
     List<TeamSeasonDto> findTeamPlayoffHistory(@Param("teamCode") String teamCode);
+
+    /** Every (season, team, wins) record — conference/division-first counts are computed client-side. */
+    List<TeamSeasonDto> findAllTeamRecords();
 }
