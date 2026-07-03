@@ -11,4 +11,13 @@ public class DreamNewsCommentDto extends DreamNewsComment {
 
     private String anchorId;
 
+    /** 评论者若是已认证球员，回填其绑定的球员 ID（评论区显示认证徽章并可跳生涯页） */
+    private String verifiedPlayerId;
+
+    /** 认证球员姓名（徽章展示用） */
+    private String verifiedPlayerName;
+
+    /** 评论者头像 URL（与认证标识同一把批量查询回填） */
+    private String commenterAvatar;
+
 }

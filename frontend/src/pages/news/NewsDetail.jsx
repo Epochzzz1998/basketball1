@@ -61,7 +61,11 @@ export default function NewsDetail() {
             <Typography.Title level={3} style={{ marginBottom: 8 }}>{news.title}</Typography.Title>
             <Space size={[8, 4]} wrap style={{ color: '#888', marginBottom: 16 }}>
               {news.newsChannel === 'official' && <Tag color="orange">官方</Tag>}
-              {news.author && <span>{news.author}</span>}
+              {news.author && (
+                news.authorId
+                  ? <a onClick={() => navigate(`/users/${news.authorId}`)}>{news.author}</a>
+                  : <span>{news.author}</span>
+              )}
               {news.publishDate && <span>{fmt(news.publishDate)}</span>}
               {news.team && <Tag>{news.team}</Tag>}
               {news.newsType && <Tag color="blue">{news.newsType}</Tag>}

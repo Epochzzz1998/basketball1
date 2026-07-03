@@ -68,6 +68,12 @@ public class UserController extends BaseUtils {
                     .set("PASSWORD", upgraded));
             dreamUser.setPassword(upgraded);
         }
+        // 登录成功即刷新"最近活跃"（个人主页展示用）
+        Date now = new Date();
+        userService.update(new UpdateWrapper<DreamUser>()
+                .eq("USER_ID", dreamUser.getUserId())
+                .set("LAST_LOGIN_TIME", now));
+        dreamUser.setLastLoginTime(now);
         SecUtil.setLoginUserIdToSession(request, dreamUser);
         SecUtil.setLoginUserToSession(request, dreamUser);
         return handlerResultJson(true, "登录成功！");
@@ -114,6 +120,7 @@ public class UserController extends BaseUtils {
         data.put("userNickname", u.getUserNickname());
         data.put("userName", u.getUserName());
         data.put("userRole", u.getUserRole());
+        data.put("avatar", u.getAvatar());
         data.put("isSuperManager", role == Role.SUPER_MANAGER);
         data.put("isManagerOrOver", role.covers(Role.MANAGER));
         return new Result<>(0, "成功", data);

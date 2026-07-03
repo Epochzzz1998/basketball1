@@ -22,6 +22,8 @@ public class Constants {
 
     public static final Integer IDENTIFICATION = 1; // 已认证
 
+    public static final Integer IDENTIFICATION_PENDING = 2; // 认证审核中（等待超级管理员通过）
+
     public static final String GOOD_COMMENT = "goodComment";
 
     public static final String BAD_COMMENT = "badComment";

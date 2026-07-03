@@ -20,6 +20,8 @@ import NewsDetail from './pages/news/NewsDetail'
 import NewsManage from './pages/news/NewsManage'
 import NewsEdit from './pages/news/NewsEdit'
 import MyMessages from './pages/user/MyMessages'
+import UserProfile from './pages/user/UserProfile'
+import VerifyBindings from './pages/admin/VerifyBindings'
 
 /**
  * 路由表（P5-1 骨架）。
@@ -51,6 +53,8 @@ export default function App() {
         <Route path="news/new" element={<ProtectedRoute><NewsEdit /></ProtectedRoute>} />
         <Route path="news/edit/:newsId" element={<ProtectedRoute><NewsEdit /></ProtectedRoute>} />
         <Route path="news/:newsId" element={<NewsDetail />} />
+        {/* 用户公开主页（他人视角） */}
+        <Route path="users/:userId" element={<UserProfile />} />
 
         {/* 需登录 */}
         <Route path="me" element={<ProtectedRoute><MyMessages /></ProtectedRoute>} />
@@ -61,6 +65,7 @@ export default function App() {
         {/* 需 superManager */}
         {/* 原“用户管理”下架：老 user-list.ftl 名不副实，实为资讯管理（已由 /admin/news 覆盖），
             后端本就没有用户账号管理接口 */}
+        <Route path="admin/verify" element={<RoleRoute role="superManager"><VerifyBindings /></RoleRoute>} />
         <Route path="admin/players" element={<RoleRoute role="superManager"><PlayerManage /></RoleRoute>} />
         <Route path="admin/players/:playerId/stats" element={<RoleRoute role="superManager"><PlayerStatsManage /></RoleRoute>} />
 

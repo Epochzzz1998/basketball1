@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Avatar, Button, Divider, Empty, Input, Space, Spin, Tag, message } from 'antd'
-import { DislikeOutlined, LikeOutlined } from '@ant-design/icons'
+import { Avatar, Button, Divider, Empty, Input, Space, Spin, Tag, Tooltip, message } from 'antd'
+import { DislikeOutlined, LikeOutlined, TrophyFilled } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { newsApi } from '../api/news'
@@ -85,8 +85,21 @@ function CommentNode({ comment, newsId, depth = 0 }) {
   return (
     <div style={{ marginLeft: depth ? 24 : 0, paddingTop: 8 }}>
       <Space size="small" wrap>
-        <Avatar size="small">{(c.userName || '匿')[0]}</Avatar>
-        <b>{c.userName || '匿名'}</b>
+        <Avatar size="small" src={c.commenterAvatar || undefined}>{(c.userName || '匿')[0]}</Avatar>
+        {c.userId
+          ? <a onClick={() => navigate(`/users/${c.userId}`)} style={{ fontWeight: 700 }}>{c.userName || '匿名'}</a>
+          : <b>{c.userName || '匿名'}</b>}
+        {c.verifiedPlayerId && (
+          <Tooltip title="认证球员 · 点击看生涯数据">
+            <Tag
+              color="gold"
+              style={{ cursor: 'pointer', marginInlineEnd: 0, lineHeight: '18px' }}
+              onClick={() => navigate(`/players/${c.verifiedPlayerId}`)}
+            >
+              <TrophyFilled /> {c.verifiedPlayerName || '认证球员'}
+            </Tag>
+          </Tooltip>
+        )}
         {c.floor != null && <Tag>#{c.floor}</Tag>}
         <span style={{ color: '#aaa' }}>{fmt(c.commentDate)}</span>
       </Space>

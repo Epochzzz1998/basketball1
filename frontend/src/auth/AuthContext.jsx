@@ -32,8 +32,17 @@ export function AuthProvider({ children }) {
     setUser(null)
   }
 
+  // 资料（昵称/头像）变更后同步顶栏，不整页刷新
+  const refresh = async () => {
+    try {
+      setUser(await authApi.current())
+    } catch {
+      /* 未登录时忽略 */
+    }
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, refresh }}>
       {children}
     </AuthContext.Provider>
   )

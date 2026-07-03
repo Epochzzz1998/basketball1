@@ -65,6 +65,12 @@ public class NewsServiceImpl implements NewsService {
     UserInformationService userInformationService;
 
     @Autowired
+    com.dream.basketball.mapper.UserMapper userMapper;
+
+    @Autowired
+    com.dream.basketball.service.PlayerService playerService;
+
+    @Autowired
     RabbitMqProducer rabbitMqProducer;
 
     public void create(Class<?> clazz) {
@@ -103,6 +109,8 @@ public class NewsServiceImpl implements NewsService {
     */
     public void saveComment(Comment comment) {
         template.save(comment);
+        // ES 近实时（NRT）：不强刷的话，紧跟着的评论列表查询看不到刚发的评论
+        template.indexOps(Comment.class).refresh();
     }
 
     /**
@@ -228,7 +236,52 @@ public class NewsServiceImpl implements NewsService {
             dreamNewsCommentDto.setCommentNum(getCommentNum(dreamNewsCommentDto.getCommentId()));
             dreamNewsCommentDtos.add(dreamNewsCommentDto);
         }
+        fillVerifiedPlayer(dreamNewsCommentDtos);
         return dreamNewsCommentDtos;
+    }
+
+    /** 批量回填评论者信息（一把 IN 查询）：头像 + 已认证（IDENTIFICATION=1）的绑定球员 ID/姓名 */
+    private void fillVerifiedPlayer(List<DreamNewsCommentDto> comments) {
+        java.util.Set<String> userIds = new java.util.HashSet<>();
+        for (DreamNewsCommentDto c : comments) {
+            if (StringUtils.isNotBlank(c.getUserId())) {
+                userIds.add(c.getUserId());
+            }
+        }
+        if (userIds.isEmpty()) {
+            return;
+        }
+        java.util.Map<String, DreamUser> users = new java.util.HashMap<>();
+        for (DreamUser u : userMapper.selectList(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<DreamUser>()
+                .in("USER_ID", userIds))) {
+            users.put(u.getUserId(), u);
+        }
+        // 认证者的球员姓名一把批查
+        java.util.Set<String> playerIds = new java.util.HashSet<>();
+        for (DreamUser u : users.values()) {
+            if (com.dream.basketball.utils.Constants.IDENTIFICATION.equals(u.getPlayerIdentification())
+                    && StringUtils.isNotBlank(u.getPlayerId())) {
+                playerIds.add(u.getPlayerId());
+            }
+        }
+        java.util.Map<String, String> playerNames = new java.util.HashMap<>();
+        if (!playerIds.isEmpty()) {
+            for (com.dream.basketball.entity.DreamPlayer p : playerService.listByIds(playerIds)) {
+                playerNames.put(p.getPlayerId(), p.getPlayerName());
+            }
+        }
+        for (DreamNewsCommentDto c : comments) {
+            DreamUser u = users.get(c.getUserId());
+            if (u == null) {
+                continue;
+            }
+            c.setCommenterAvatar(u.getAvatar());
+            if (com.dream.basketball.utils.Constants.IDENTIFICATION.equals(u.getPlayerIdentification())
+                    && StringUtils.isNotBlank(u.getPlayerId())) {
+                c.setVerifiedPlayerId(u.getPlayerId());
+                c.setVerifiedPlayerName(playerNames.get(u.getPlayerId()));
+            }
+        }
     }
 
     /**

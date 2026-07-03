@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Empty, Input, Modal, Spin, Tag, message } from 'antd'
+import { Empty, Input, Modal, Spin, Tag } from 'antd'
 import { EnterOutlined, FileTextOutlined, ReadOutlined, SearchOutlined, UserOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { searchApi } from '../api/search'
@@ -78,7 +78,7 @@ function flatten(d, kw) {
   })))
   push('用户', d?.users?.map((u) => ({
     key: `user:${u.userId}`,
-    to: null, // 用户主页后续开放
+    to: `/users/${u.userId}`,
     node: (
       <span>
         <UserOutlined style={{ marginRight: 8, color: '#999' }} />
@@ -168,14 +168,10 @@ export default function GlobalSearch() {
   }
 
   const pick = (row) => {
-    if (!row) return
-    if (row.to) {
-      navigate(row.to)
-      setOpen(false)
-      reset()
-    } else {
-      message.info('用户主页建设中，敬请期待')
-    }
+    if (!row?.to) return
+    navigate(row.to)
+    setOpen(false)
+    reset()
   }
 
   const onKeyDown = (e) => {
