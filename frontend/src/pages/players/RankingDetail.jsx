@@ -4,7 +4,7 @@ import { Button, Select, Space } from 'antd'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { playerApi } from '../../api/player'
 import { RANKING_STATS, fmtNum, seasonOptions } from './rankConfig'
-import { buildFullStatColumns, FULL_COLUMNS_SCROLL_X } from './statColumns'
+import { buildFullStatColumns, FULL_COLUMNS_SCROLL_X, HONOR_COLUMN_KEYS, PLAYOFF_COLUMNS_SCROLL_X } from './statColumns'
 
 const MEDAL = ['#f5b301', '#9aa0a6', '#b87333']
 
@@ -32,12 +32,15 @@ export default function RankingDetail() {
         )
       },
     },
-    // 全量数据列；排行所依据的那一列高亮（表序即该列排序，故关闭表头排序避免破坏名次）
-    ...buildFullStatColumns({ serverSort: false }).map((c) =>
-      c.dataIndex === stat.field
-        ? { ...c, render: (v) => <span style={{ fontWeight: 700, color: '#fa541c' }}>{fmtNum(v, stat.digits)}</span> }
-        : c,
-    ),
+    // 全量数据列；排行所依据的那一列高亮（表序即该列排序，故关闭表头排序避免破坏名次）；
+    // 季后赛模式去掉荣誉四列（MVP/DPOY/阵容为常规赛评选）
+    ...buildFullStatColumns({ serverSort: false })
+      .filter((c) => stage !== 'po' || !HONOR_COLUMN_KEYS.includes(c.dataIndex))
+      .map((c) =>
+        c.dataIndex === stat.field
+          ? { ...c, render: (v) => <span style={{ fontWeight: 700, color: '#fa541c' }}>{fmtNum(v, stat.digits)}</span> }
+          : c,
+      ),
   ]
 
   return (
@@ -49,7 +52,7 @@ export default function RankingDetail() {
         columns={columns}
         search={false}
         options={false}
-        scroll={{ x: FULL_COLUMNS_SCROLL_X + 70 }}
+        scroll={{ x: (stage === 'po' ? PLAYOFF_COLUMNS_SCROLL_X : FULL_COLUMNS_SCROLL_X) + 70 }}
         toolBarRender={() => [
           <Space key="season">
             赛季：

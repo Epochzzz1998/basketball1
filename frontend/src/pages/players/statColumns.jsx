@@ -49,3 +49,7 @@ export function buildFullStatColumns({ serverSort = true } = {}) {
 }
 
 export const FULL_COLUMNS_SCROLL_X = 2560
+
+// 季后赛表用：荣誉四列（MVP/DPOY/最佳阵容/最佳防守）是常规赛评选，季后赛数据里无意义
+export const HONOR_COLUMN_KEYS = ['mvpRank', 'dpoyRank', 'allDbaTeam', 'allDefTeam']
+export const PLAYOFF_COLUMNS_SCROLL_X = FULL_COLUMNS_SCROLL_X - 320

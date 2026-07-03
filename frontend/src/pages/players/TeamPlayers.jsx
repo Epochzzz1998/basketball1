@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Button, Card, Col, Empty, Progress, Row, Select, Space, Spin, Table, Tabs, Tag } from 'antd'
+import { Button, Card, Col, Empty, Progress, Row, Segmented, Select, Space, Spin, Table, Tabs, Tag } from 'antd'
 import { TrophyFilled } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import AllPlayerSeasonStats from './AllPlayerSeasonStats'
@@ -32,8 +32,7 @@ function RankBadge({ rank, prefix = '联盟第' }) {
   )
 }
 
-function SeasonOverview({ teamCode }) {
-  const [seasonNum, setSeasonNum] = useState(1)
+function SeasonOverview({ teamCode, seasonNum }) {
   const [rows, setRows] = useState(null) // 全联盟 30 队（该赛季），用来算名次
 
   useEffect(() => {
@@ -60,15 +59,8 @@ function SeasonOverview({ teamCode }) {
     return 1 + confTeams.filter((r) => r.wins > me.wins).length
   }
 
-  const seasonSelect = (
-    <Space>
-      赛季：
-      <Select value={seasonNum} onChange={setSeasonNum} options={seasonOptions.filter((o) => o.value !== 50)} style={{ width: 170 }} />
-    </Space>
-  )
-
-  if (rows === null) return <Card extra={seasonSelect} title="赛季概览"><Spin style={{ display: 'block', margin: '40px auto' }} /></Card>
-  if (!me) return <Card extra={seasonSelect} title="赛季概览"><Empty description="该赛季暂无本队数据" /></Card>
+  if (rows === null) return <Card title="赛季概况"><Spin style={{ display: 'block', margin: '40px auto' }} /></Card>
+  if (!me) return <Card title="赛季概况"><Empty description="该赛季暂无本队数据" /></Card>
 
   const winRate = me.wins + me.losses ? me.wins / (me.wins + me.losses) : 0
 
@@ -79,7 +71,6 @@ function SeasonOverview({ teamCode }) {
         <Col xs={24} lg={9}>
           <Card
             title={`${seasonYearLabel(seasonNum)} 战绩`}
-            extra={seasonSelect}
             styles={{ body: { padding: '20px 24px' } }}
           >
             <Space size={28} align="center" wrap>
@@ -158,8 +149,7 @@ const PLAYOFF_STATS = [
   { key: 'tov', label: '失误', asc: true, note: '按最少排' },
 ]
 
-function PlayoffOverview({ teamCode }) {
-  const [seasonNum, setSeasonNum] = useState(1)
+function PlayoffOverview({ teamCode, seasonNum }) {
   const [rows, setRows] = useState(null) // 该季 16 支季后赛球队
 
   useEffect(() => {
@@ -177,21 +167,14 @@ function PlayoffOverview({ teamCode }) {
     const val = (r) => (stat.get ? stat.get(r) : Number(r[stat.key]))
     return 1 + rows.filter((r) => (stat.asc ? val(r) < val(me) : val(r) > val(me))).length
   }
-  const seasonSelect = (
-    <Space>
-      赛季：
-      <Select value={seasonNum} onChange={setSeasonNum} options={seasonOptions.filter((o) => o.value !== 50)} style={{ width: 170 }} />
-    </Space>
-  )
-
-  if (rows === null) return <Card extra={seasonSelect} title="季后赛概况"><Spin style={{ display: 'block', margin: '40px auto' }} /></Card>
-  if (!me) return <Card extra={seasonSelect} title="季后赛概况"><Empty description="该赛季未进季后赛" /></Card>
+  if (rows === null) return <Card title="季后赛概况"><Spin style={{ display: 'block', margin: '40px auto' }} /></Card>
+  if (!me) return <Card title="季后赛概况"><Empty description="该赛季未进季后赛" /></Card>
 
   return (
     <Row gutter={[16, 16]}>
       {/* 战报卡 */}
       <Col xs={24} lg={9}>
-        <Card title={`${seasonYearLabel(seasonNum)} 季后赛战报`} extra={seasonSelect} styles={{ body: { padding: '20px 24px' } }}>
+        <Card title={`${seasonYearLabel(seasonNum)} 季后赛战报`} styles={{ body: { padding: '20px 24px' } }}>
           {(() => {
             const rec = playoffRecord(me.playoffResult, me.games)
             const winRate = rec && me.games ? rec.wins / me.games : 0
@@ -429,61 +412,78 @@ function TeamHistory({ teamCode }) {
 
 /* ============ 页面 ============ */
 
-/** 球队主页（/players/team/:teamCode）：球员数据 / 赛季概览 / 球队历史 */
+/**
+ * 球队主页（/players/team/:teamCode）。
+ * 结构：身份卡（右侧 常规赛/季后赛 Segmented + 赛季选择，全页共用）
+ *      + 单行 Tabs：赛季概况（概况卡 + 该队球员数据表）/ 球队历史。
+ */
 export default function TeamPlayers() {
   const { teamCode } = useParams()
   const navigate = useNavigate()
   const { conf, div } = teamRegion(teamCode)
+  const [stage, setStage] = useState('reg') // reg=常规赛 po=季后赛
+  const [seasonNum, setSeasonNum] = useState(1)
+  const po = stage === 'po'
 
   return (
     <>
       <Button style={{ marginBottom: 12 }} onClick={() => navigate(-1)}>← 返回</Button>
-      {/* 球队身份头 */}
+      {/* 球队身份头 + 全页控件 */}
       <Card style={{ marginBottom: 16 }} styles={{ body: { padding: '18px 24px' } }}>
-        <Space size={16} align="center">
-          <div
-            style={{
-              width: 56, height: 56, borderRadius: '50%', background: 'rgba(250,84,28,.1)', color: '#fa541c',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 18,
-            }}
-          >
-            {teamCode}
-          </div>
-          <div>
-            <div style={{ fontSize: 20, fontWeight: 700 }}>{NBA_TEAM_NAMES[teamCode] || teamCode}</div>
-            <div style={{ color: '#999', fontSize: 13 }}>{conf && div ? `${conf} · ${div}` : teamCode}</div>
-          </div>
-        </Space>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <Space size={16} align="center">
+            <div
+              style={{
+                width: 56, height: 56, borderRadius: '50%', background: 'rgba(250,84,28,.1)', color: '#fa541c',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 18,
+              }}
+            >
+              {teamCode}
+            </div>
+            <div>
+              <div style={{ fontSize: 20, fontWeight: 700 }}>{NBA_TEAM_NAMES[teamCode] || teamCode}</div>
+              <div style={{ color: '#999', fontSize: 13 }}>{conf && div ? `${conf} · ${div}` : teamCode}</div>
+            </div>
+          </Space>
+          <Space size="middle" wrap>
+            <Segmented
+              value={stage}
+              onChange={setStage}
+              options={[{ label: '常规赛', value: 'reg' }, { label: '季后赛', value: 'po' }]}
+            />
+            <span>
+              赛季：
+              <Select
+                value={seasonNum}
+                onChange={setSeasonNum}
+                options={seasonOptions.filter((o) => o.value !== 50)}
+                style={{ width: 170 }}
+              />
+            </span>
+          </Space>
+        </div>
       </Card>
       <Tabs
-        defaultActiveKey="players"
+        defaultActiveKey="season"
         items={[
-          { key: 'players', label: '球员数据', children: <AllPlayerSeasonStats team={teamCode} /> },
           {
-            key: 'regular',
-            label: '常规赛',
+            key: 'season',
+            label: '赛季概况',
             children: (
-              <Tabs
-                defaultActiveKey="season"
-                items={[
-                  { key: 'season', label: '赛季概况', children: <SeasonOverview teamCode={teamCode} /> },
-                  { key: 'history', label: '球队历史', children: <TeamHistory teamCode={teamCode} /> },
-                ]}
-              />
+              <>
+                {po
+                  ? <PlayoffOverview teamCode={teamCode} seasonNum={seasonNum} />
+                  : <SeasonOverview teamCode={teamCode} seasonNum={seasonNum} />}
+                <div style={{ marginTop: 16 }}>
+                  <AllPlayerSeasonStats team={teamCode} stage={stage} seasonNum={seasonNum} />
+                </div>
+              </>
             ),
           },
           {
-            key: 'playoffs',
-            label: '季后赛',
-            children: (
-              <Tabs
-                defaultActiveKey="season"
-                items={[
-                  { key: 'season', label: '赛季概况', children: <PlayoffOverview teamCode={teamCode} /> },
-                  { key: 'history', label: '球队历史', children: <PlayoffHistory teamCode={teamCode} /> },
-                ]}
-              />
-            ),
+            key: 'history',
+            label: '球队历史',
+            children: po ? <PlayoffHistory teamCode={teamCode} /> : <TeamHistory teamCode={teamCode} />,
           },
         ]}
       />

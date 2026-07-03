@@ -3,26 +3,29 @@ import { ProTable } from '@ant-design/pro-components'
 import { Input, Select, Space } from 'antd'
 import { playerApi } from '../../api/player'
 import { seasonOptions } from './rankConfig'
-import { buildFullStatColumns, FULL_COLUMNS_SCROLL_X } from './statColumns'
+import { buildFullStatColumns, FULL_COLUMNS_SCROLL_X, HONOR_COLUMN_KEYS, PLAYOFF_COLUMNS_SCROLL_X } from './statColumns'
 
 /**
- * 全体球员某赛季数据榜（公开）。替代原 all-player-season-stats.ftl。
- * 用 ProTable：它的 request 回调把"排序/筛选"翻译成后端参数，排序直连 P3-1 白名单。
- * 传 team 时只显示该队球员（后端 PLAYER_TEAM LIKE 过滤，转会行如 "LAC->MIA" 两队都算）。
- * 不分页：一次拉全该赛季（联盟 ~300 人/季），滚动到底。
+ * 球员数据榜（公开）。可独立使用（自带赛季选择），也可受控嵌入（传 seasonNum 则隐藏内部选择）。
+ * - team：只显示该队球员（后端 PLAYER_TEAM LIKE，转会行两队都算）；
+ * - stage：'reg' 常规赛 / 'po' 季后赛（各查各的表，同一套排序白名单）；
+ * - 排序直连 P3-1 白名单；不分页一滚到底；球员名模糊搜索。
  */
-export default function AllPlayerSeasonStats({ team }) {
-  const [seasonNum, setSeasonNum] = useState(1)
+export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: seasonProp }) {
+  const [seasonState, setSeasonState] = useState(1)
   const [playerName, setPlayerName] = useState() // 球员名模糊搜索（后端 LIKE）
+  const controlled = seasonProp != null
+  const seasonNum = controlled ? seasonProp : seasonState
+  const po = stage === 'po'
 
   return (
     <ProTable
-      headerTitle={team ? `${team} · 球员数据` : '球员赛季数据榜'}
+      headerTitle={team ? `${team} · ${po ? '季后赛' : ''}球员数据` : '球员赛季数据榜'}
       rowKey="statsId"
-      columns={buildFullStatColumns()}
-      params={{ seasonNum, playerTeam: team, playerName }} /* 任一变化都会自动重新请求 */
+      columns={buildFullStatColumns().filter((c) => !po || !HONOR_COLUMN_KEYS.includes(c.dataIndex))}
+      params={{ seasonNum, playerTeam: team, playerName, stage }} /* 任一变化都会自动重新请求 */
       search={false}
-      scroll={{ x: FULL_COLUMNS_SCROLL_X }}
+      scroll={{ x: po ? PLAYOFF_COLUMNS_SCROLL_X : FULL_COLUMNS_SCROLL_X }}
       options={false}
       toolBarRender={() => [
         <Input.Search
@@ -32,15 +35,20 @@ export default function AllPlayerSeasonStats({ team }) {
           style={{ width: 200 }}
           onSearch={(v) => setPlayerName(v.trim() || undefined)}
         />,
-        <Space key="season">
-          赛季：
-          <Select value={seasonNum} onChange={setSeasonNum} options={seasonOptions} style={{ width: 170 }} />
-        </Space>,
+        ...(controlled
+          ? []
+          : [
+              <Space key="season">
+                赛季：
+                <Select value={seasonNum} onChange={setSeasonState} options={seasonOptions} style={{ width: 170 }} />
+              </Space>,
+            ]),
       ]}
       pagination={false} /* 不分页，一滚到底 */
       request={async (params, sort) => {
         const sortKey = Object.keys(sort || {})[0] // 当前排序列（驼峰名）
-        const res = await playerApi.listSeasonStats({
+        const api = po ? playerApi.listPlayoffSeasonStats : playerApi.listSeasonStats
+        const res = await api({
           page: 1,
           limit: 2000,
           seasonNum: params.seasonNum,
