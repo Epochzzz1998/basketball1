@@ -80,6 +80,8 @@ export const RANKING_STATS = [
   { field: 'playerAvgAss', label: '助攻' },
   { field: 'playerAvgSteal', label: '抢断' },
   { field: 'playerAvgBlock', label: '盖帽' },
+  { field: 'playerAvgFgm', label: '场均投篮命中', note: '每场命中球数' },
+  { field: 'playerAvgTpm', label: '场均三分命中', note: '每场命中三分数' },
   { field: 'playerAccuracy', label: '投篮%', digits: 3 },
   { field: 'playerThreeAccuracy', label: '三分%', digits: 3 },
   { field: 'playerFreethrowAccuracy', label: '罚球%', digits: 3 },

@@ -25,6 +25,7 @@ public final class SortUtil {
             "season", "season_num", "player_team", "player_position",
             "player_appearance", "player_fr_appearance", "player_sr_appearance", "playing_time",
             "player_avg_score", "player_avg_reb", "player_avg_ass",
+            "player_avg_fgm", "player_avg_tpm",
             "player_accuracy", "player_three_accuracy", "player_freethrow_accuracy",
             "player_avg_block", "player_avg_steal", "player_avg_turnover",
             "player_per", "player_pie", "player_ws",
