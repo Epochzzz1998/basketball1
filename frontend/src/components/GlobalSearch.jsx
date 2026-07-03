@@ -3,6 +3,7 @@ import { Empty, Input, Modal, Spin, Tag, message } from 'antd'
 import { EnterOutlined, FileTextOutlined, ReadOutlined, SearchOutlined, UserOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { searchApi } from '../api/search'
+import { NBA_TEAM_NAMES, teamRegion } from '../pages/players/rankConfig'
 
 /**
  * 全局搜索（cmd-k 风格）：顶栏是一枚自绘的触发胶囊（hover 样式完全自控，
@@ -16,8 +17,31 @@ const dateStr = (v) => {
   return s.slice(0, 10)
 }
 
+/** 球队是固定的 30 支（前端配置），直接本地匹配：队码（不分大小写）或中文名包含关键词 */
+function matchTeams(kw) {
+  const k = kw.trim().toLowerCase()
+  if (!k) return []
+  return Object.entries(NBA_TEAM_NAMES)
+    .filter(([code, name]) => code.toLowerCase().includes(k) || name.includes(kw.trim()))
+    .slice(0, 6)
+    .map(([code, name]) => {
+      const { conf, div } = teamRegion(code)
+      return {
+        key: `team:${code}`,
+        to: `/players/team/${code}`,
+        node: (
+          <span>
+            <Tag color="orange" style={{ marginRight: 8 }}>{code}</Tag>
+            <b>{name}</b>
+            {conf && <span style={{ color: '#bbb', fontSize: 12, marginLeft: 8 }}>{conf} · {div}</span>}
+          </span>
+        ),
+      }
+    })
+}
+
 /** 打平成 [{group}, {item}...] 的列表，方便键盘上下移动 */
-function flatten(d) {
+function flatten(d, kw) {
   const out = []
   const push = (group, items) => {
     if (!items?.length) return
@@ -34,6 +58,7 @@ function flatten(d) {
       </span>
     ),
   })))
+  push('球队', matchTeams(kw))
   const newsNode = (n, icon) => (
     <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
       {icon}
@@ -78,7 +103,7 @@ export default function GlobalSearch() {
   const wrapRef = useRef(null)
   const inputRef = useRef(null)
 
-  const rows = useMemo(() => flatten(data), [data])
+  const rows = useMemo(() => flatten(data, kw), [data, kw])
   const itemIdx = useMemo(() => rows.map((r, i) => (r.kind === 'item' ? i : -1)).filter((i) => i >= 0), [rows])
 
   // 顶栏触发胶囊外层：剥掉 ProLayout 动作项的 hover 类（灰底保险丝，双保险）
@@ -190,7 +215,7 @@ export default function GlobalSearch() {
         }}
       >
         <SearchOutlined style={{ color: hoverTrigger ? '#fa541c' : '#aaa', transition: 'color .2s' }} />
-        <span style={{ flex: 1 }}>搜索球员 / 新闻 / 资讯</span>
+        <span style={{ flex: 1 }}>搜索球员 / 球队 / 资讯</span>
         <span style={kbd}>/</span>
       </div>
 
@@ -212,7 +237,7 @@ export default function GlobalSearch() {
           value={kw}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder="搜索球员 / 新闻 / 资讯 / 用户…"
+          placeholder="搜索球员 / 球队 / 新闻 / 资讯 / 用户…"
           prefix={<SearchOutlined style={{ color: '#fa541c', fontSize: 18, marginRight: 6 }} />}
           style={{ padding: '14px 18px', fontSize: 16, borderBottom: '1px solid #f0f0f0', borderRadius: 0 }}
         />
