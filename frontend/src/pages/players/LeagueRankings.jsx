@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Badge, Card, Col, Empty, Row, Segmented, Select, Space, Table, Tabs, Tag } from 'antd'
+import { Badge, Card, Col, Empty, Row, Segmented, Select, Space, Table, Tag } from 'antd'
+import { CrownOutlined, OrderedListOutlined, TeamOutlined } from '@ant-design/icons'
+import PillTabs from '../../components/PillTabs'
 import { Link, useNavigate } from 'react-router-dom'
 import { playerApi } from '../../api/player'
 import { teamApi } from '../../api/team'
@@ -394,16 +396,19 @@ export default function LeagueRankings() {
           <SeasonPicker value={seasonNum} onChange={setSeasonNum} />
         </Space>
       </Card>
-      <Tabs
-        activeKey={tab}
+      <PillTabs
+        value={tab}
         onChange={setTab}
-        items={[
-          { key: 'stats', label: '单项排行', children: <StatsTab seasonNum={seasonNum} stage={stage} /> },
+        options={[
+          { value: 'stats', icon: <OrderedListOutlined />, label: '单项排行' },
           // 荣誉是全季评选（FMVP 已含），季后赛模式下不显示该 Tab
-          ...(stage === 'po' ? [] : [{ key: 'honors', label: '赛季荣誉', children: <HonorsTab seasonNum={seasonNum} /> }]),
-          { key: 'teams', label: '球队排行', children: <TeamsTab seasonNum={seasonNum} stage={stage} /> },
+          ...(stage === 'po' ? [] : [{ value: 'honors', icon: <CrownOutlined />, label: '赛季荣誉' }]),
+          { value: 'teams', icon: <TeamOutlined />, label: '球队排行' },
         ]}
       />
+      {tab === 'stats' && <StatsTab seasonNum={seasonNum} stage={stage} />}
+      {tab === 'honors' && stage !== 'po' && <HonorsTab seasonNum={seasonNum} />}
+      {tab === 'teams' && <TeamsTab seasonNum={seasonNum} stage={stage} />}
     </>
   )
 }

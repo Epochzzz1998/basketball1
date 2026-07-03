@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Button, Card, Col, Empty, Progress, Row, Segmented, Space, Spin, Table, Tabs, Tag } from 'antd'
+import { Button, Card, Col, Empty, Progress, Row, Segmented, Space, Spin, Table, Tag } from 'antd'
+import { DashboardOutlined, HistoryOutlined } from '@ant-design/icons'
+import PillTabs from '../../components/PillTabs'
 import { TrophyFilled } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import AllPlayerSeasonStats from './AllPlayerSeasonStats'
@@ -490,6 +492,7 @@ export default function TeamPlayers() {
   const { conf, div } = teamRegion(teamCode)
   const [stage, setStage] = useState('reg') // reg=常规赛 po=季后赛
   const [seasonNum, setSeasonNum] = useState(1)
+  const [tab, setTab] = useState('season')
   const po = stage === 'po'
 
   return (
@@ -522,30 +525,25 @@ export default function TeamPlayers() {
           </Space>
         </div>
       </Card>
-      <Tabs
-        defaultActiveKey="season"
-        items={[
-          {
-            key: 'season',
-            label: '赛季概况',
-            children: (
-              <>
-                {po
-                  ? <PlayoffOverview teamCode={teamCode} seasonNum={seasonNum} />
-                  : <SeasonOverview teamCode={teamCode} seasonNum={seasonNum} />}
-                <div style={{ marginTop: 16 }}>
-                  <AllPlayerSeasonStats team={teamCode} stage={stage} seasonNum={seasonNum} />
-                </div>
-              </>
-            ),
-          },
-          {
-            key: 'history',
-            label: '球队历史',
-            children: po ? <PlayoffHistory teamCode={teamCode} /> : <TeamHistory teamCode={teamCode} />,
-          },
+      <PillTabs
+        value={tab}
+        onChange={setTab}
+        options={[
+          { value: 'season', icon: <DashboardOutlined />, label: '赛季概况' },
+          { value: 'history', icon: <HistoryOutlined />, label: '球队历史' },
         ]}
       />
+      {tab === 'season' && (
+        <>
+          {po
+            ? <PlayoffOverview teamCode={teamCode} seasonNum={seasonNum} />
+            : <SeasonOverview teamCode={teamCode} seasonNum={seasonNum} />}
+          <div style={{ marginTop: 16 }}>
+            <AllPlayerSeasonStats team={teamCode} stage={stage} seasonNum={seasonNum} />
+          </div>
+        </>
+      )}
+      {tab === 'history' && (po ? <PlayoffHistory teamCode={teamCode} /> : <TeamHistory teamCode={teamCode} />)}
     </>
   )
 }
