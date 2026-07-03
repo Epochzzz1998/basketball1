@@ -118,34 +118,74 @@ function HonorCard({ group, rows, seasonNum }) {
   )
 }
 
-// 特别奖（每季一名）：FMVP / 最佳第六人 / 最快进步球员
+// 特别奖卡：MVP / DPOY（取自当季名次第 1）+ FMVP / 最佳第六人 / 最快进步球员（season_award）
 const SPECIAL_AWARDS = {
+  mvp: { label: '常规赛 MVP', icon: '👑', gold: true },
+  dpoy: { label: '最佳防守球员', icon: '🛡️', gold: true },
   fmvp: { label: '总决赛 FMVP', icon: '🏅', gold: true },
   smoy: { label: '最佳第六人', icon: '🪑' },
   mip: { label: '最快进步球员', icon: '📈' },
 }
 
-function SpecialAwardCards({ seasonNum }) {
-  const [rows, setRows] = useState(null)
+function SpecialAwardCards({ seasonNum, rows }) {
+  const [awards, setAwards] = useState(null) // fmvp/smoy/mip 来自后端 season_award
 
   useEffect(() => {
     let alive = true
-    setRows(null)
+    setAwards(null)
     playerApi.seasonAwards(seasonNum)
-      .then((r) => { if (alive) setRows(r || []) })
-      .catch(() => { if (alive) setRows([]) })
+      .then((r) => { if (alive) setAwards(r || []) })
+      .catch(() => { if (alive) setAwards([]) })
     return () => { alive = false }
   }, [seasonNum])
 
-  if (!rows?.length) return null
+  const off = (p, r, a) => `${fmtNum(p)}分 ${fmtNum(r)}板 ${fmtNum(a)}助`
+  const gray = { color: '#8c8c8c', fontSize: 12 }
+
+  const entries = []
+  const mvpRow = rows?.find((r) => r.mvpRank === 1)
+  if (mvpRow) {
+    entries.push({
+      key: 'mvp', playerId: mvpRow.playerId, playerName: mvpRow.playerName, playerTeam: mvpRow.playerTeam,
+      lines: [<div key="l" style={gray}>{off(mvpRow.playerAvgScore, mvpRow.playerAvgReb, mvpRow.playerAvgAss)}</div>],
+    })
+  }
+  const dpoyRow = rows?.find((r) => r.dpoyRank === 1)
+  if (dpoyRow) {
+    entries.push({
+      key: 'dpoy', playerId: dpoyRow.playerId, playerName: dpoyRow.playerName, playerTeam: dpoyRow.playerTeam,
+      lines: [<div key="l" style={gray}>{fmtNum(dpoyRow.playerAvgSteal)}断 {fmtNum(dpoyRow.playerAvgBlock)}帽 {fmtNum(dpoyRow.playerAvgReb)}板</div>],
+    })
+  }
+  for (const key of ['fmvp', 'smoy', 'mip']) {
+    const w = awards?.find((r) => r.award === key)
+    if (!w) continue
+    const lines = key === 'fmvp'
+      ? [
+          <div key="a" style={gray}>常规赛 {off(w.pts, w.reb, w.ast)}</div>,
+          <div key="b" style={{ color: '#d48806', fontSize: 12, fontWeight: 600 }}>季后赛 {off(w.poPts, w.poReb, w.poAst)}</div>,
+        ]
+      : key === 'mip'
+        ? [
+            <div key="a" style={gray}>上季 {off(w.prevPts, w.prevReb, w.prevAst)}</div>,
+            <div key="b" style={{ color: '#3f8600', fontSize: 12, fontWeight: 600 }}>
+              本季 {off(w.pts, w.reb, w.ast)}
+              {w.prevPts != null && w.pts != null && (
+                <span style={{ marginLeft: 6 }}>↑ +{(Number(w.pts) - Number(w.prevPts)).toFixed(1)}分</span>
+              )}
+            </div>,
+          ]
+        : [<div key="l" style={gray}>{off(w.pts, w.reb, w.ast)}</div>]
+    entries.push({ key, playerId: w.playerId, playerName: w.playerName, playerTeam: w.playerTeam, lines })
+  }
+
+  if (!entries.length) return null
   return (
     <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-      {['fmvp', 'smoy', 'mip'].map((key) => {
-        const meta = SPECIAL_AWARDS[key]
-        const w = rows.find((r) => r.award === key)
-        if (!w) return null
+      {entries.map((e) => {
+        const meta = SPECIAL_AWARDS[e.key]
         return (
-          <Col key={key} xs={24} sm={8}>
+          <Col key={e.key} xs={24} sm={12} lg={8}>
             <Card
               style={meta.gold ? { background: 'linear-gradient(135deg, #fffbe6 0%, #fff1b8 100%)', border: '1px solid #ffe58f' } : undefined}
               styles={{ body: { padding: '14px 18px' } }}
@@ -154,11 +194,9 @@ function SpecialAwardCards({ seasonNum }) {
                 <span style={{ fontSize: 30, lineHeight: 1 }}>{meta.icon}</span>
                 <div>
                   <div style={{ color: '#888', fontSize: 12 }}>{meta.label}</div>
-                  <Link to={`/players/${w.playerId}`} style={{ fontWeight: 700, fontSize: 16 }}>{w.playerName}</Link>
-                  <span style={{ color: '#999', fontSize: 12, marginLeft: 8 }}>{w.playerTeam}</span>
-                  <div style={{ color: '#8c8c8c', fontSize: 12 }}>
-                    {fmtNum(w.pts)}分 {fmtNum(w.reb)}板 {fmtNum(w.ast)}助
-                  </div>
+                  <Link to={`/players/${e.playerId}`} style={{ fontWeight: 700, fontSize: 16 }}>{e.playerName}</Link>
+                  <span style={{ color: '#999', fontSize: 12, marginLeft: 8 }}>{e.playerTeam}</span>
+                  {e.lines}
                 </div>
               </Space>
             </Card>
@@ -184,7 +222,7 @@ function HonorsTab({ seasonNum }) {
   if (rows === null) return <Card loading style={{ minHeight: 240 }} />
   return (
     <>
-      <SpecialAwardCards seasonNum={seasonNum} />
+      <SpecialAwardCards seasonNum={seasonNum} rows={rows} />
       <Row gutter={[16, 16]}>
         {HONOR_GROUPS.map((g) => (
           <Col key={g.key} xs={24} sm={g.span === 12 ? 24 : 12} lg={g.span}>

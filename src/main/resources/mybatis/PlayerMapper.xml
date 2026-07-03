@@ -117,7 +117,7 @@
         where PLAYER_ID = #{playerId} order by SEASON_NUM
     </select>
 
-    <!-- 某赛季的特别奖得主（带姓名与关键数据，赛季荣誉页展示用） -->
+    <!-- 某赛季的特别奖得主（带姓名与关键数据；FMVP 另附季后赛数据、MIP 另附上季数据） -->
     <select id="findSeasonAwards" resultType="java.util.HashMap">
         select sa.AWARD                as award,
                sa.PLAYER_ID            as playerId,
@@ -126,10 +126,18 @@
                ps.PLAYER_POSITION      as playerPosition,
                ps.PLAYER_AVG_SCORE     as pts,
                ps.PLAYER_AVG_REB       as reb,
-               ps.PLAYER_AVG_ASS       as ast
+               ps.PLAYER_AVG_ASS       as ast,
+               pp.PLAYER_AVG_SCORE     as poPts,
+               pp.PLAYER_AVG_REB       as poReb,
+               pp.PLAYER_AVG_ASS       as poAst,
+               pv.PLAYER_AVG_SCORE     as prevPts,
+               pv.PLAYER_AVG_REB       as prevReb,
+               pv.PLAYER_AVG_ASS       as prevAst
         from season_award sa
         left join dream_player dp on dp.PLAYER_ID = sa.PLAYER_ID
         left join player_stats ps on ps.PLAYER_ID = sa.PLAYER_ID and ps.SEASON_NUM = sa.SEASON_NUM
+        left join player_playoff_stats pp on pp.PLAYER_ID = sa.PLAYER_ID and pp.SEASON_NUM = sa.SEASON_NUM
+        left join player_stats pv on pv.PLAYER_ID = sa.PLAYER_ID and pv.SEASON_NUM = sa.SEASON_NUM - 1
         where sa.SEASON_NUM = #{seasonNum}
     </select>
 
