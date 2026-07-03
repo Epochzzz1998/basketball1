@@ -1,35 +1,17 @@
 import { useEffect, useState } from 'react'
 import { ProTable } from '@ant-design/pro-components'
 import { useParams, Link } from 'react-router-dom'
-import { Button, Card, Col, Empty, Row, Space, Spin, Tabs, Tag } from 'antd'
+import { Button, Card, Col, ConfigProvider, Empty, Row, Segmented, Space, Spin, Tag } from 'antd'
+import { BarChartOutlined, FireOutlined, IdcardOutlined, TrophyOutlined } from '@ant-design/icons'
 import { playerApi } from '../../api/player'
 import { PLAYOFF_TAG, fmtNum as num, fmtPair, fmtReb, seasonYearLabel } from './rankConfig'
+import { CAREER_AWARDS } from './honorConfig'
+import SeasonProfile from './SeasonProfile'
 
 const seasonLabel = (s) => (s === 50 ? '生涯' : seasonYearLabel(s))
 const shortSeason = (s) => seasonYearLabel(s).replace(' 赛季', '')
 
-/* ============ Tab 2：生涯荣誉（荣誉柜） ============ */
-
-// 荣誉配置：gold=顶级荣誉（金色卡）。结合实际 NBA 奖项体系。
-const AWARDS = [
-  { key: 'champion', label: '总冠军', icon: '🏆', gold: true },
-  { key: 'fmvp', label: '总决赛 FMVP', icon: '🏅', gold: true },
-  { key: 'mvp', label: '常规赛 MVP', icon: '👑', gold: true },
-  { key: 'dpoy', label: '最佳防守球员', icon: '🛡️', gold: true },
-  { key: 'smoy', label: '最佳第六人', icon: '🪑' },
-  { key: 'mip', label: '最快进步球员', icon: '📈' },
-  { key: 'scoring', label: '得分王', icon: '🔥' },
-  { key: 'rebounds', label: '篮板王', icon: '💪' },
-  { key: 'assists', label: '助攻王', icon: '🎯' },
-  { key: 'steals', label: '抢断王', icon: '⚡' },
-  { key: 'blocks', label: '盖帽王', icon: '🚫' },
-  { key: 'all1', label: '最佳一阵', icon: '⭐' },
-  { key: 'all2', label: '最佳二阵', icon: '✨' },
-  { key: 'all3', label: '最佳三阵', icon: '🌟' },
-  { key: 'def1', label: '防守一阵', icon: '🔒' },
-  { key: 'def2', label: '防守二阵', icon: '🔐' },
-  { key: 'def3', label: '防守三阵', icon: '🧱' },
-]
+/* ============ 生涯荣誉（荣誉柜） ============ */
 
 function AwardCard({ award, entries }) {
   const isChampion = award.key === 'champion'
@@ -66,7 +48,7 @@ function AwardCard({ award, entries }) {
 
 function HonorShelf({ honors }) {
   if (!honors) return <Spin style={{ display: 'block', margin: '40px auto' }} />
-  const owned = AWARDS.map((a) => ({ award: a, entries: honors[a.key] || [] })).filter((x) => x.entries.length > 0)
+  const owned = CAREER_AWARDS.map((a) => ({ award: a, entries: honors[a.key] || [] })).filter((x) => x.entries.length > 0)
   if (!owned.length) return <Empty description="生涯暂无主要荣誉——还在拼搏的路上" />
 
   // 顶部速览条：只列拿过的荣誉计数
@@ -222,11 +204,19 @@ function PlayoffTable({ playerId }) {
 
 /* ============ 页面 ============ */
 
-/** 球员主页（/players/:playerId）：身份头 + 生涯数据 / 生涯荣誉 */
+// 分段器选项（品牌橙胶囊，与数据概览同一设计语言）
+const TAB_OPTIONS = [
+  { value: 'profile', icon: <IdcardOutlined />, text: '赛季资料卡' },
+  { value: 'career', icon: <BarChartOutlined />, text: '常规赛数据' },
+  { value: 'playoffs', icon: <FireOutlined />, text: '季后赛数据' },
+  { value: 'honors', icon: <TrophyOutlined />, text: '生涯荣誉' },
+]
+
+/** 球员主页（/players/:playerId）：身份头 + 赛季资料卡 / 生涯数据 / 生涯荣誉 */
 export default function PlayerCareer() {
   const { playerId } = useParams()
   const [honors, setHonors] = useState(null)
-  const [tab, setTab] = useState('career')
+  const [tab, setTab] = useState('profile')
 
   useEffect(() => {
     let alive = true
@@ -265,16 +255,41 @@ export default function PlayerCareer() {
           </div>
         </Space>
       </Card>
-      {/* 生涯数据 / 生涯荣誉 */}
-      <Tabs
-        activeKey={tab}
-        onChange={setTab}
-        items={[
-          { key: 'career', label: '常规赛数据', children: <CareerTable playerId={playerId} /> },
-          { key: 'playoffs', label: '季后赛数据', children: <PlayoffTable playerId={playerId} /> },
-          { key: 'honors', label: '生涯荣誉', children: <HonorShelf honors={honors} /> },
-        ]}
-      />
+      {/* 胶囊分段器（替代默认 Tabs） */}
+      <ConfigProvider
+        theme={{
+          token: { borderRadius: 22, borderRadiusSM: 18 },
+          components: {
+            Segmented: {
+              itemSelectedBg: '#fa541c',
+              itemSelectedColor: '#ffffff',
+              trackBg: '#efefef',
+              itemColor: '#666',
+              itemHoverColor: '#fa541c',
+              itemHoverBg: 'rgba(250,84,28,0.08)',
+            },
+          },
+        }}
+      >
+        <Segmented
+          size="large"
+          value={tab}
+          onChange={setTab}
+          style={{ marginBottom: 16, padding: 4, boxShadow: 'inset 0 1px 3px rgba(0,0,0,.04)' }}
+          options={TAB_OPTIONS.map((o) => ({
+            value: o.value,
+            label: (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0 10px' }}>
+                {o.icon} {o.text}
+              </span>
+            ),
+          }))}
+        />
+      </ConfigProvider>
+      {tab === 'profile' && <SeasonProfile playerId={playerId} honors={honors} />}
+      {tab === 'career' && <CareerTable playerId={playerId} />}
+      {tab === 'playoffs' && <PlayoffTable playerId={playerId} />}
+      {tab === 'honors' && <HonorShelf honors={honors} />}
     </>
   )
 }

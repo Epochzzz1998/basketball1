@@ -29,3 +29,24 @@ export const HONOR_GROUPS = [
   { key: 'def3', title: '最佳防守三阵', span: 8,
     pick: (rows) => rows.filter((r) => r.allDefTeam === '三阵').sort(byDpoy), sub: defSub, rankOf: (r) => r.dpoyRank },
 ]
+
+// 生涯荣誉柜 / 赛季资料卡共用的荣誉元数据（gold=顶级荣誉金卡）
+export const CAREER_AWARDS = [
+  { key: 'champion', label: '总冠军', icon: '🏆', gold: true },
+  { key: 'fmvp', label: '总决赛 FMVP', icon: '🏅', gold: true },
+  { key: 'mvp', label: '常规赛 MVP', icon: '👑', gold: true },
+  { key: 'dpoy', label: '最佳防守球员', icon: '🛡️', gold: true },
+  { key: 'smoy', label: '最佳第六人', icon: '🪑' },
+  { key: 'mip', label: '最快进步球员', icon: '📈' },
+  { key: 'scoring', label: '得分王', icon: '🔥' },
+  { key: 'rebounds', label: '篮板王', icon: '💪' },
+  { key: 'assists', label: '助攻王', icon: '🎯' },
+  { key: 'steals', label: '抢断王', icon: '⚡' },
+  { key: 'blocks', label: '盖帽王', icon: '🚫' },
+  { key: 'all1', label: '最佳一阵', icon: '⭐' },
+  { key: 'all2', label: '最佳二阵', icon: '✨' },
+  { key: 'all3', label: '最佳三阵', icon: '🌟' },
+  { key: 'def1', label: '防守一阵', icon: '🔒' },
+  { key: 'def2', label: '防守二阵', icon: '🔐' },
+  { key: 'def3', label: '防守三阵', icon: '🧱' },
+]

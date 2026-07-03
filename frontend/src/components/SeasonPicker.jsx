@@ -65,7 +65,7 @@ export default function SeasonPicker({ value, onChange, includeCareer = true }) 
             ...(isCareer ? { background: '#fa541c', borderColor: '#fa541c', color: '#fff', fontWeight: 700 } : { color: '#555' }),
           }}
         >
-          🏅 生涯场均
+          🏅 生涯
         </div>
       )}
     </div>
@@ -98,7 +98,7 @@ export default function SeasonPicker({ value, onChange, includeCareer = true }) 
             fontVariantNumeric: 'tabular-nums',
           }}
         >
-          {seasonYearLabel(value)}
+          {value === 50 ? '生涯' : seasonYearLabel(value)}
           <CaretDownOutlined
             style={{ fontSize: 10, color: '#999', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}
           />
