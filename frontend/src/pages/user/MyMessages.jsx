@@ -1,5 +1,7 @@
+import { useRef } from 'react'
 import { ProList } from '@ant-design/pro-components'
-import { Badge, Tag } from 'antd'
+import { Badge, Button, Tag, message } from 'antd'
+import { CheckOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { userInformationApi } from '../../api/userInformation'
@@ -48,11 +50,27 @@ const detailOf = (m) => {
  */
 export default function MyMessages() {
   const navigate = useNavigate()
+  const actionRef = useRef()
+
+  const readAll = async () => {
+    try {
+      const res = await userInformationApi.readAll()
+      message.success(res?.msg || '已全部标记为已读')
+      actionRef.current?.reload()
+      window.dispatchEvent(new Event('unread-changed')) // 顶栏红点同步归零
+    } catch (e) {
+      message.error(e?.msg || '操作失败')
+    }
+  }
 
   return (
     <ProList
+      actionRef={actionRef}
       rowKey="userInformationId"
       headerTitle="我的消息"
+      toolBarRender={() => [
+        <Button key="readall" icon={<CheckOutlined />} onClick={readAll}>一键已读</Button>,
+      ]}
       pagination={{ pageSize: 10 }}
       request={async (params) => {
         const res = await userInformationApi.listMyMessages({ page: params.current, limit: params.pageSize })

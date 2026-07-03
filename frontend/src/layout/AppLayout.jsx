@@ -1,6 +1,6 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ProLayout } from '@ant-design/pro-components'
-import { Button, Dropdown } from 'antd'
+import { Avatar, Badge, Button, Dropdown } from 'antd'
 import {
   BellOutlined,
   DatabaseOutlined,
@@ -9,6 +9,7 @@ import {
   LogoutOutlined,
   NotificationOutlined,
   ReadOutlined,
+  SafetyCertificateOutlined,
   TeamOutlined,
   TrophyOutlined,
   UserOutlined,
@@ -16,18 +17,42 @@ import {
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import GlobalSearch from '../components/GlobalSearch'
+import { userInformationApi } from '../api/userInformation'
 
 /**
  * 整体外壳（P5-3 美化）：ProLayout 的 mix 布局 = 顶栏品牌 + 可折叠侧栏菜单，
  * 自带响应式/折叠/选中态，是 Ant Design Pro 的标准后台观感。
- * - 菜单仍按角色动态拼（数据来自 /user/current），带图标；
- * - 右上角：已登录=头像+昵称（下拉登出），未登录=登录/注册按钮；
+ * - 菜单按角色动态拼（数据来自 /user/current），带图标；
+ * - 右上角：已登录=头像+昵称（下拉：个人主页/我的消息(未读红数)/登出，头像带未读角标），
+ *   未登录=登录/注册按钮；
+ * - 未读数在路由变化时轻量刷新，页面可派发 window 'unread-changed' 事件主动触发；
  * - 子页面渲染进 <Outlet/>，内容区灰底，各页的 Card/ProTable 自然浮成白卡片。
  */
 export default function AppLayout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const [unread, setUnread] = useState(0)
+
+  // 未读数：登录后取一次，路由变化轻量刷新；'unread-changed' 事件（如一键已读后）立即刷新
+  useEffect(() => {
+    if (!user) {
+      setUnread(0)
+      return
+    }
+    let alive = true
+    const fetchUnread = () => {
+      userInformationApi.unreadCount()
+        .then((n) => { if (alive) setUnread(Number(n) || 0) })
+        .catch(() => {})
+    }
+    fetchUnread()
+    window.addEventListener('unread-changed', fetchUnread)
+    return () => {
+      alive = false
+      window.removeEventListener('unread-changed', fetchUnread)
+    }
+  }, [user, location.pathname])
 
   const route = useMemo(
     () => ({
@@ -38,9 +63,13 @@ export default function AppLayout() {
         { path: '/rankings', name: '联盟排行', icon: <TrophyOutlined /> },
         { path: '/official', name: '新闻', icon: <NotificationOutlined /> },
         { path: '/news', name: '资讯论坛', icon: <ReadOutlined /> },
-        ...(user ? [{ path: '/me', name: '我的消息', icon: <BellOutlined /> }] : []),
         ...(user?.isManagerOrOver ? [{ path: '/admin/news', name: '资讯管理', icon: <EditOutlined /> }] : []),
-        ...(user?.isSuperManager ? [{ path: '/admin/players', name: '球员管理', icon: <DatabaseOutlined /> }] : []),
+        ...(user?.isSuperManager
+          ? [
+              { path: '/admin/players', name: '球员管理', icon: <DatabaseOutlined /> },
+              { path: '/admin/verify', name: '认证审核', icon: <SafetyCertificateOutlined /> },
+            ]
+          : []),
       ],
     }),
     [user],
@@ -65,14 +94,43 @@ export default function AppLayout() {
       avatarProps={
         user
           ? {
-              icon: <UserOutlined />,
+              icon: user.avatar ? undefined : <UserOutlined />,
+              src: user.avatar || undefined,
               size: 'small',
               title: user.userNickname,
-              render: (_props, dom) => (
+              // 自绘头像+昵称：未读角标只包住头像，不压到昵称文字
+              render: () => (
                 <Dropdown
-                  menu={{ items: [{ key: 'logout', icon: <LogoutOutlined />, label: '登出', onClick: onLogout }] }}
+                  menu={{
+                    items: [
+                      {
+                        key: 'profile',
+                        icon: <UserOutlined />,
+                        label: '个人主页',
+                        onClick: () => navigate(`/users/${user.userId}`),
+                      },
+                      {
+                        key: 'messages',
+                        icon: <BellOutlined />,
+                        label: (
+                          <span>
+                            我的消息
+                            <Badge count={unread} size="small" style={{ marginLeft: 8 }} />
+                          </span>
+                        ),
+                        onClick: () => navigate('/me'),
+                      },
+                      { type: 'divider' },
+                      { key: 'logout', icon: <LogoutOutlined />, label: '登出', onClick: onLogout },
+                    ],
+                  }}
                 >
-                  {dom}
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '0 4px' }}>
+                    <Badge count={unread} size="small" offset={[-2, 4]}>
+                      <Avatar size={28} src={user.avatar || undefined} icon={user.avatar ? undefined : <UserOutlined />} />
+                    </Badge>
+                    <span style={{ fontSize: 14 }}>{user.userNickname}</span>
+                  </span>
                 </Dropdown>
               ),
             }

@@ -9,4 +9,7 @@ import http from './http'
  */
 export const userInformationApi = {
   listMyMessages: (params) => http.get('/userInformation/userInformationListData', { params }),
+  // 未读条数（顶栏红点）/ 一键已读
+  unreadCount: () => http.get('/userInformation/unreadCount'),
+  readAll: () => http.post('/userInformation/readAll'),
 }
