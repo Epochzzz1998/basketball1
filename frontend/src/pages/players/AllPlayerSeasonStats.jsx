@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { ProTable } from '@ant-design/pro-components'
-import { Input, Select, Space } from 'antd'
+import { Input } from 'antd'
 import { playerApi } from '../../api/player'
-import { seasonOptions } from './rankConfig'
+import SeasonPicker from '../../components/SeasonPicker'
 import { buildFullStatColumns, FULL_COLUMNS_SCROLL_X, HONOR_COLUMN_KEYS, PLAYOFF_COLUMNS_SCROLL_X } from './statColumns'
 
 /**
@@ -38,10 +38,7 @@ export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: s
         ...(controlled
           ? []
           : [
-              <Space key="season">
-                赛季：
-                <Select value={seasonNum} onChange={setSeasonState} options={seasonOptions} style={{ width: 170 }} />
-              </Space>,
+              <SeasonPicker key="season" value={seasonNum} onChange={setSeasonState} />,
             ]),
       ]}
       pagination={false} /* 不分页，一滚到底 */

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { ProTable } from '@ant-design/pro-components'
-import { Button, Select, Space } from 'antd'
+import { Button } from 'antd'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { playerApi } from '../../api/player'
 import { HONOR_GROUPS } from './honorConfig'
-import { seasonOptions, seasonYearLabel } from './rankConfig'
+import { seasonYearLabel } from './rankConfig'
+import SeasonPicker from '../../components/SeasonPicker'
 import { buildFullStatColumns, FULL_COLUMNS_SCROLL_X } from './statColumns'
 
 const MEDAL = ['#f5b301', '#9aa0a6', '#b87333']
@@ -54,10 +55,7 @@ export default function HonorDetail() {
         pagination={false}
         scroll={{ x: FULL_COLUMNS_SCROLL_X + 70 }}
         toolBarRender={() => [
-          <Space key="season">
-            赛季：
-            <Select value={seasonNum} onChange={setSeasonNum} options={seasonOptions} style={{ width: 170 }} />
-          </Space>,
+          <SeasonPicker key="season" value={seasonNum} onChange={setSeasonNum} />,
         ]}
       />
     </>

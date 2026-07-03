@@ -4,7 +4,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { playerApi } from '../../api/player'
 import { teamApi } from '../../api/team'
 import { HONOR_GROUPS } from './honorConfig'
-import { NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, RANKING_STATS, fmtNum, playoffRecord, seasonOptions } from './rankConfig'
+import { NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, RANKING_STATS, fmtNum, playoffRecord } from './rankConfig'
+import SeasonPicker from '../../components/SeasonPicker'
 
 const MEDAL = ['#f5b301', '#9aa0a6', '#b87333'] // 金 / 银 / 铜
 
@@ -340,8 +341,8 @@ function TeamsTab({ seasonNum, stage }) {
       ]
 
   return (
-    <Card styles={{ body: { padding: 0 } }}>
-      <div style={{ padding: '14px 20px' }}>
+    <Card styles={{ body: { padding: '4px 12px 12px' } }}>
+      <div style={{ padding: '10px 8px 14px' }}>
         <Space size="middle">
           范围：
           <Select value={scope} onChange={setScope} options={SCOPES} style={{ width: 140 }} />
@@ -354,6 +355,7 @@ function TeamsTab({ seasonNum, stage }) {
         </Space>
       </div>
       <Table
+        className="clean-table"
         rowKey="teamCode"
         loading={rows === null}
         dataSource={list}
@@ -389,10 +391,7 @@ export default function LeagueRankings() {
             }}
             options={[{ label: '常规赛', value: 'reg' }, { label: '季后赛', value: 'po' }]}
           />
-          <span>
-            赛季：
-            <Select value={seasonNum} onChange={setSeasonNum} options={seasonOptions} style={{ width: 170 }} />
-          </span>
+          <SeasonPicker value={seasonNum} onChange={setSeasonNum} />
         </Space>
       </Card>
       <Tabs

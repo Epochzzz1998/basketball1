@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { ProTable } from '@ant-design/pro-components'
-import { Button, Select, Space } from 'antd'
+import { Button } from 'antd'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { playerApi } from '../../api/player'
-import { RANKING_STATS, fmtNum, seasonOptions } from './rankConfig'
+import { RANKING_STATS, fmtNum } from './rankConfig'
+import SeasonPicker from '../../components/SeasonPicker'
 import { buildFullStatColumns, FULL_COLUMNS_SCROLL_X, HONOR_COLUMN_KEYS, PLAYOFF_COLUMNS_SCROLL_X } from './statColumns'
 
 const MEDAL = ['#f5b301', '#9aa0a6', '#b87333']
@@ -33,12 +34,20 @@ export default function RankingDetail() {
       },
     },
     // 全量数据列；排行所依据的那一列高亮（表序即该列排序，故关闭表头排序避免破坏名次）；
-    // 季后赛模式去掉荣誉四列（MVP/DPOY/阵容为常规赛评选）
+    // 季后赛模式去掉荣誉四列（MVP/DPOY/阵容为常规赛评选）。
+    // 高亮是"套"在原渲染外面而不是替换——成对列（如 命中/出手）才能保住原格式
     ...buildFullStatColumns({ serverSort: false })
       .filter((c) => stage !== 'po' || !HONOR_COLUMN_KEYS.includes(c.dataIndex))
       .map((c) =>
         c.dataIndex === stat.field
-          ? { ...c, render: (v) => <span style={{ fontWeight: 700, color: '#fa541c' }}>{fmtNum(v, stat.digits)}</span> }
+          ? {
+              ...c,
+              render: (v, row, idx) => (
+                <span style={{ fontWeight: 700, color: '#fa541c' }}>
+                  {c.render ? c.render(v, row, idx) : fmtNum(v, stat.digits)}
+                </span>
+              ),
+            }
           : c,
       ),
   ]
@@ -54,10 +63,7 @@ export default function RankingDetail() {
         options={false}
         scroll={{ x: (stage === 'po' ? PLAYOFF_COLUMNS_SCROLL_X : FULL_COLUMNS_SCROLL_X) + 70 }}
         toolBarRender={() => [
-          <Space key="season">
-            赛季：
-            <Select value={seasonNum} onChange={setSeasonNum} options={seasonOptions} style={{ width: 170 }} />
-          </Space>,
+          <SeasonPicker key="season" value={seasonNum} onChange={setSeasonNum} />,
         ]}
         pagination={false} /* 不分页，一滚到底 */
         params={{ seasonNum, stage }}
