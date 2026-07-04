@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  Avatar, Button, Card, Col, Empty, Form, Input, List, Modal, Popconfirm,
+  Avatar, Button, Card, Col, Empty, Form, Grid, Input, List, Modal, Popconfirm,
   Row, Select, Space, Spin, Statistic, Switch, Tabs, Tag, Upload, message,
 } from 'antd'
 import { CameraOutlined, CommentOutlined, EditOutlined, LikeOutlined, LockOutlined, MessageOutlined, TrophyFilled } from '@ant-design/icons'
@@ -177,6 +177,8 @@ export default function UserProfile() {
   const [pwdForm] = Form.useForm()
 
   const isSelf = !!me && me.userId === userId
+  const screens = Grid.useBreakpoint()
+  const isMobile = !screens.md // < 768px：横幅缩小、操作按钮挪到下方一行
 
 
   const load = () => {
@@ -272,47 +274,45 @@ export default function UserProfile() {
     }
   }
 
+  // 横幅操作按钮：本人=编辑资料/改密码；他人=发私信。桌面绝对定位右上角，移动端挪到横幅下方
+  const actionBtns = isSelf ? (
+    <>
+      <Button ghost size="small" icon={<EditOutlined />} onClick={() => { editForm.setFieldsValue({ userNickname: displayName }); setEditOpen(true) }}>
+        编辑资料
+      </Button>
+      <Button ghost size="small" icon={<LockOutlined />} onClick={() => setPwdOpen(true)}>
+        修改密码
+      </Button>
+    </>
+  ) : me ? (
+    <Button ghost size="small" icon={<MessageOutlined />} onClick={() => navigate(`/messages?peerId=${userId}`)}>
+      发私信
+    </Button>
+  ) : null
+
   return (
     <>
-      {/* 渐变横幅：身份区（本人视角右上角有编辑入口） */}
+      {/* 渐变横幅：身份区。桌面按钮在右上角；移动端缩小尺寸、按钮挪到下方一行，避免挤在一起 */}
       <div
         style={{
           background: 'linear-gradient(135deg, #fa541c 0%, #ff7a45 55%, #ffa940 100%)',
-          borderRadius: 12, padding: '30px 30px 52px', color: '#fff', position: 'relative',
+          borderRadius: 12, padding: isMobile ? '20px 18px 36px' : '30px 30px 52px', color: '#fff', position: 'relative',
         }}
       >
-        {isSelf && (
-          <Space style={{ position: 'absolute', top: 18, right: 20 }}>
-            <Button ghost size="small" icon={<EditOutlined />} onClick={() => { editForm.setFieldsValue({ userNickname: displayName }); setEditOpen(true) }}>
-              编辑资料
-            </Button>
-            <Button ghost size="small" icon={<LockOutlined />} onClick={() => setPwdOpen(true)}>
-              修改密码
-            </Button>
-          </Space>
+        {!isMobile && actionBtns && (
+          <Space style={{ position: 'absolute', top: 18, right: 20 }}>{actionBtns}</Space>
         )}
-        {!isSelf && me && (
-          <Button
-            ghost
-            size="small"
-            icon={<MessageOutlined />}
-            style={{ position: 'absolute', top: 18, right: 20 }}
-            onClick={() => navigate(`/messages?peerId=${userId}`)}
-          >
-            发私信
-          </Button>
-        )}
-        <Space size={20} align="center">
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 14 : 20 }}>
           <Avatar
-            size={76}
+            size={isMobile ? 58 : 76}
             src={user.avatar || undefined}
-            style={{ background: '#fff', color: '#fa541c', fontWeight: 800, fontSize: 32 }}
+            style={{ background: '#fff', color: '#fa541c', fontWeight: 800, fontSize: isMobile ? 26 : 32, flexShrink: 0 }}
           >
             {displayName.slice(0, 1).toUpperCase()}
           </Avatar>
-          <div>
-            <Space size={10} wrap align="center">
-              <span style={{ fontSize: 26, fontWeight: 700 }}>{displayName}</span>
+          <div style={{ minWidth: 0 }}>
+            <Space size={8} wrap align="center">
+              <span style={{ fontSize: isMobile ? 20 : 26, fontWeight: 700 }}>{displayName}</span>
               {role && <Tag color={role.color}>{role.label}</Tag>}
               {verified && user.playerId && (
                 <Tag color="gold" style={{ cursor: 'pointer' }} onClick={() => navigate(`/players/${user.playerId}`)}>
@@ -341,17 +341,20 @@ export default function UserProfile() {
                 </Popconfirm>
               )}
             </Space>
-            <div style={{ opacity: 0.9, marginTop: 6, fontSize: 14 }}>@{user.userName}</div>
+            <div style={{ opacity: 0.9, marginTop: 6, fontSize: isMobile ? 13 : 14 }}>@{user.userName}</div>
             <div style={{ opacity: 0.75, marginTop: 4, fontSize: 12 }}>
               加入于 {fmtDate(user.registTime)} · 最近活跃 {fmtDate(user.lastLoginTime)}
               {verified && user.checkTime ? ` · 认证于 ${fmtDate(user.checkTime)}` : ''}
             </div>
           </div>
-        </Space>
+        </div>
+        {isMobile && actionBtns && (
+          <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>{actionBtns}</div>
+        )}
       </div>
 
       {/* 悬浮统计条 */}
-      <Card style={{ margin: '-34px 22px 16px', borderRadius: 12 }} styles={{ body: { padding: '16px 24px' } }}>
+      <Card style={{ margin: isMobile ? '-24px 10px 14px' : '-34px 22px 16px', borderRadius: 12 }} styles={{ body: { padding: isMobile ? '14px 12px' : '16px 24px' } }}>
         <Row gutter={16}>
           <Col xs={12} sm={6}><Statistic title="发帖" value={stats.posts ?? 0} /></Col>
           <Col xs={12} sm={6}><Statistic title="评论" value={stats.comments ?? 0} /></Col>

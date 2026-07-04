@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Avatar, Badge, Button, Card, Image, Input, Modal, Popconfirm, Select, Spin, Tooltip, Upload, message } from 'antd'
-import { CloseCircleFilled, DeleteOutlined, EditOutlined, FileOutlined, PictureOutlined, RightOutlined, SendOutlined } from '@ant-design/icons'
+import { Avatar, Badge, Button, Card, Grid, Image, Input, Modal, Popconfirm, Select, Spin, Tooltip, Upload, message } from 'antd'
+import { ArrowLeftOutlined, CloseCircleFilled, DeleteOutlined, EditOutlined, FileOutlined, PictureOutlined, RightOutlined, SendOutlined } from '@ant-design/icons'
 import { Link, useSearchParams } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { pmApi } from '../../api/pm'
@@ -111,6 +111,8 @@ function MessageAttachments({ attachmentsJson, mine }) {
 
 export default function Messages() {
   const { user } = useAuth()
+  const screens = Grid.useBreakpoint()
+  const isMobile = !screens.md // < 768px：会话列表/聊天窗单栏切换，不并排
   const [searchParams, setSearchParams] = useSearchParams()
   const [convs, setConvs] = useState(null)
   const [peerId, setPeerId] = useState(searchParams.get('peerId') || null)
@@ -497,8 +499,14 @@ export default function Messages() {
         .pm-scroll::-webkit-scrollbar-thumb { background: rgba(0,0,0,.12); border-radius: 3px; }
       `}</style>
 
-      {/* 左栏：会话列表 */}
-      <div style={{ width: 304, borderRight: '1px solid #f0f0f0', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+      {/* 左栏：会话列表（移动端全宽；选中会话后隐藏，切到聊天窗） */}
+      <div style={{
+        width: isMobile ? '100%' : 304,
+        borderRight: isMobile ? 'none' : '1px solid #f0f0f0',
+        display: isMobile && peerId ? 'none' : 'flex',
+        flexDirection: 'column',
+        flexShrink: 0,
+      }}>
         <div style={{ padding: '16px 18px 12px', borderBottom: '1px solid #f5f5f5', display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 800, fontSize: 18 }}>私信</div>
@@ -520,10 +528,10 @@ export default function Messages() {
         </div>
       </div>
 
-      {/* 右栏：聊天窗（背景墙：品牌橙/蓝柔光斑 + 细点阵 + 渐变底，铺在容器上不随滚动） */}
+      {/* 右栏：聊天窗（移动端未选会话时隐藏，只显示列表） */}
       <div
         style={{
-          flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0,
+          flex: 1, display: isMobile && !peerId ? 'none' : 'flex', flexDirection: 'column', minWidth: 0,
           background: [
             'radial-gradient(circle at 16% 14%, rgba(250,84,28,.08), transparent 40%)',
             'radial-gradient(circle at 86% 86%, rgba(47,84,235,.06), transparent 42%)',
@@ -541,7 +549,10 @@ export default function Messages() {
         ) : (
           <>
             {/* 会话头 */}
-            <div style={{ padding: '13px 20px', background: '#fff', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', gap: 11, boxShadow: '0 1px 4px rgba(0,0,0,.03)', zIndex: 1 }}>
+            <div style={{ padding: '13px 16px', background: '#fff', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', gap: 11, boxShadow: '0 1px 4px rgba(0,0,0,.03)', zIndex: 1 }}>
+              {isMobile && (
+                <ArrowLeftOutlined onClick={() => openConv(null)} style={{ fontSize: 18, color: '#555', cursor: 'pointer', flexShrink: 0 }} />
+              )}
               <UserAvatar name={activePeer?.peerNickname} src={activePeer?.peerAvatar} size={38} online={!!onlineMap[peerId]} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <Link to={`/users/${peerId}`} style={{ fontWeight: 700, fontSize: 15, color: '#222' }}>
@@ -557,7 +568,7 @@ export default function Messages() {
             </div>
 
             {/* 消息流 */}
-            <div ref={scrollRef} className="pm-scroll" style={{ flex: 1, overflowY: 'auto', padding: '10px 22px' }}>
+            <div ref={scrollRef} className="pm-scroll" style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '10px 12px' : '10px 22px' }}>
               {msgs === null ? (
                 <div style={{ textAlign: 'center', padding: 40 }}><Spin /></div>
               ) : (
