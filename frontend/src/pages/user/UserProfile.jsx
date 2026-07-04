@@ -3,7 +3,7 @@ import {
   Avatar, Button, Card, Col, Empty, Form, Input, List, Modal, Popconfirm,
   Row, Select, Space, Spin, Statistic, Tabs, Tag, Upload, message,
 } from 'antd'
-import { CameraOutlined, CommentOutlined, EditOutlined, LikeOutlined, LockOutlined, TrophyFilled } from '@ant-design/icons'
+import { CameraOutlined, CommentOutlined, EditOutlined, LikeOutlined, LockOutlined, MessageOutlined, TrophyFilled } from '@ant-design/icons'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { userApi } from '../../api/user'
 import { searchApi } from '../../api/search'
@@ -277,6 +277,17 @@ export default function UserProfile() {
               修改密码
             </Button>
           </Space>
+        )}
+        {!isSelf && me && (
+          <Button
+            ghost
+            size="small"
+            icon={<MessageOutlined />}
+            style={{ position: 'absolute', top: 18, right: 20 }}
+            onClick={() => navigate(`/messages?peerId=${userId}`)}
+          >
+            发私信
+          </Button>
         )}
         <Space size={20} align="center">
           <Avatar

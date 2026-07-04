@@ -3,6 +3,7 @@ import { ProLayout } from '@ant-design/pro-components'
 import { Avatar, Badge, Button, Dropdown } from 'antd'
 import {
   BellOutlined,
+  MessageOutlined,
   SwapOutlined,
   DatabaseOutlined,
   EditOutlined,
@@ -19,6 +20,8 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import GlobalSearch from '../components/GlobalSearch'
 import { userInformationApi } from '../api/userInformation'
+import { pmApi } from '../api/pm'
+import { connectPmSocket, disconnectPmSocket } from '../realtime/pmSocket'
 
 /**
  * 整体外壳（P5-3 美化）：ProLayout 的 mix 布局 = 顶栏品牌 + 可折叠侧栏菜单，
@@ -34,11 +37,14 @@ export default function AppLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const [unread, setUnread] = useState(0)
+  const [pmUnread, setPmUnread] = useState(0)
 
-  // 未读数：登录后取一次，路由变化轻量刷新；'unread-changed' 事件（如一键已读后）立即刷新
+  // 未读数：登录后取一次，路由变化轻量刷新；'unread-changed' 事件（如一键已读后）立即刷新；
+  // 私信未读另走一路：'pm-event'（WS 推送到达）和 'pm-unread-changed'（聊天页标已读后）触发
   useEffect(() => {
     if (!user) {
       setUnread(0)
+      setPmUnread(0)
       return
     }
     let alive = true
@@ -47,13 +53,30 @@ export default function AppLayout() {
         .then((n) => { if (alive) setUnread(Number(n) || 0) })
         .catch(() => {})
     }
+    const fetchPmUnread = () => {
+      pmApi.unreadCount()
+        .then((n) => { if (alive) setPmUnread(Number(n) || 0) })
+        .catch(() => {})
+    }
     fetchUnread()
+    fetchPmUnread()
     window.addEventListener('unread-changed', fetchUnread)
+    window.addEventListener('pm-event', fetchPmUnread)
+    window.addEventListener('pm-unread-changed', fetchPmUnread)
     return () => {
       alive = false
       window.removeEventListener('unread-changed', fetchUnread)
+      window.removeEventListener('pm-event', fetchPmUnread)
+      window.removeEventListener('pm-unread-changed', fetchPmUnread)
     }
   }, [user, location.pathname])
+
+  // 私信 WebSocket 跟随登录态：登录建立连接，登出断开
+  useEffect(() => {
+    if (user) connectPmSocket()
+    else disconnectPmSocket()
+    return () => disconnectPmSocket()
+  }, [user])
 
   const route = useMemo(
     () => ({
@@ -112,6 +135,17 @@ export default function AppLayout() {
                         onClick: () => navigate(`/users/${user.userId}`),
                       },
                       {
+                        key: 'pm',
+                        icon: <MessageOutlined />,
+                        label: (
+                          <span>
+                            私信
+                            <Badge count={pmUnread} size="small" style={{ marginLeft: 8 }} />
+                          </span>
+                        ),
+                        onClick: () => navigate('/messages'),
+                      },
+                      {
                         key: 'messages',
                         icon: <BellOutlined />,
                         label: (
@@ -128,7 +162,7 @@ export default function AppLayout() {
                   }}
                 >
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '0 4px' }}>
-                    <Badge count={unread} size="small" offset={[-2, 4]}>
+                    <Badge count={unread + pmUnread} size="small" offset={[-2, 4]}>
                       <Avatar size={28} src={user.avatar || undefined} icon={user.avatar ? undefined : <UserOutlined />} />
                     </Badge>
                     <span style={{ fontSize: 14 }}>{user.userNickname}</span>

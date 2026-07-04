@@ -21,6 +21,7 @@ import NewsDetail from './pages/news/NewsDetail'
 import NewsManage from './pages/news/NewsManage'
 import NewsEdit from './pages/news/NewsEdit'
 import MyMessages from './pages/user/MyMessages'
+import Messages from './pages/user/Messages'
 import UserProfile from './pages/user/UserProfile'
 import VerifyBindings from './pages/admin/VerifyBindings'
 
@@ -60,6 +61,7 @@ export default function App() {
 
         {/* 需登录 */}
         <Route path="me" element={<ProtectedRoute><MyMessages /></ProtectedRoute>} />
+        <Route path="messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
 
         {/* 需 manager 及以上 */}
         <Route path="admin/news" element={<RoleRoute role="manager"><NewsManage /></RoleRoute>} />

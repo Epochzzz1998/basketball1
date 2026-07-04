@@ -47,6 +47,13 @@ public class SecUtil {
     }
 
     /**
+     * 从裸 HttpSession 取登录用户ID（WebSocket 握手期只有 session 没有完整 request）
+     */
+    public static String getLoginUserId(javax.servlet.http.HttpSession session) {
+        return session == null ? null : (String) session.getAttribute(USER_ID_KEY);
+    }
+
+    /**
      * 登录
      *
      * @param request

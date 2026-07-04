@@ -17,7 +17,10 @@ export default defineConfig({
       "/news": { target: "http://localhost:8088", changeOrigin: true },
       "/userInformation": { target: "http://localhost:8088", changeOrigin: true },
       "/search": { target: "http://localhost:8088", changeOrigin: true },
-      "/picImg": { target: "http://localhost:8088", changeOrigin: true }
+      "/picImg": { target: "http://localhost:8088", changeOrigin: true },
+      "/pm": { target: "http://localhost:8088", changeOrigin: true },
+      // 私信的 WebSocket（STOMP）握手也走代理，ws:true 才会升级协议
+      "/ws": { target: "http://localhost:8088", changeOrigin: true, ws: true }
     }
   }
 })

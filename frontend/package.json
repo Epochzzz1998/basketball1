@@ -13,14 +13,17 @@
     "@ant-design/icons": "^5.5.2",
     "@ant-design/pro-components": "^2.8.10",
     "@ant-design/v5-patch-for-react-19": "^1.0.3",
+    "@stomp/stompjs": "^7.3.0",
     "@wangeditor/editor": "^5.1.23",
+    "@wangeditor/plugin-mention": "^1.0.0",
     "antd": "^5.22.7",
     "axios": "^1.7.9",
     "dayjs": "^1.11.21",
     "dompurify": "^3.4.10",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "react-router-dom": "^7.1.1"
+    "react-router-dom": "^7.1.1",
+    "snabbdom": "^3.6.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

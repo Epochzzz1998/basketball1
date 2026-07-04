@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dream.basketball.mapper.PrivateMessageMapper">
+
+    <!--
+      Conversation list, three steps:
+      1) visible: messages I can still see (my side not conversation-deleted), each tagged with the counterpart id;
+      2) rank them per counterpart with ROW_NUMBER() and keep rn = 1 (the latest message of each conversation);
+      3) join counterpart's nickname/avatar + my unread count from that counterpart (recalled ones don't count).
+      Recalled last message is blanked here so the preview never leaks recalled content.
+    -->
+    <select id="findConversations" resultType="com.dream.basketball.dto.ConversationDto">
+        WITH visible AS (
+            SELECT m.*,
+                   IF(m.SENDER_ID = #{me}, m.RECEIVER_ID, m.SENDER_ID) AS peer
+            FROM dream_private_message m
+            WHERE (m.SENDER_ID = #{me} AND m.SENDER_DELETED = '0')
+               OR (m.RECEIVER_ID = #{me} AND m.RECEIVER_DELETED = '0')
+        )
+        SELECT v.peer                              AS peerId,
+               u.USER_NICKNAME                     AS peerNickname,
+               u.AVATAR                            AS peerAvatar,
+               IF(v.RECALLED = '1', '', v.CONTENT) AS lastContent,
+               v.SEND_TIME                         AS lastTime,
+               (v.SENDER_ID = #{me})               AS lastFromMe,
+               (v.RECALLED = '1')                  AS lastRecalled,
+               IFNULL(un.cnt, 0)                   AS unread
+        FROM (
+            SELECT visible.*,
+                   ROW_NUMBER() OVER (PARTITION BY peer ORDER BY SEND_TIME DESC, PM_ID DESC) AS rn
+            FROM visible
+        ) v
+        LEFT JOIN dream_user u ON u.USER_ID = v.peer
+        LEFT JOIN (
+            SELECT SENDER_ID AS peer, COUNT(*) AS cnt
+            FROM dream_private_message
+            WHERE RECEIVER_ID = #{me}
+              AND WHETHER_READ = 'toRead'
+              AND RECALLED = '0'
+              AND RECEIVER_DELETED = '0'
+            GROUP BY SENDER_ID
+        ) un ON un.peer = v.peer
+        WHERE v.rn = 1
+        ORDER BY v.SEND_TIME DESC
+    </select>
+
+    <!-- Both directions of one pair, my side's conversation-delete respected; PageHelper adds LIMIT. -->
+    <select id="findHistory" resultType="com.dream.basketball.entity.DreamPrivateMessage">
+        SELECT *
+        FROM dream_private_message
+        WHERE (SENDER_ID = #{me} AND RECEIVER_ID = #{peerId} AND SENDER_DELETED = '0')
+           OR (SENDER_ID = #{peerId} AND RECEIVER_ID = #{me} AND RECEIVER_DELETED = '0')
+        ORDER BY SEND_TIME DESC, PM_ID DESC
+    </select>
+
+</mapper>
