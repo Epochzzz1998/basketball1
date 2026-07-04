@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Avatar, Button, Card, Col, Divider, Empty, Row, Skeleton, Tag, message } from 'antd'
-import { ArrowLeftOutlined, DislikeOutlined, FireOutlined, LikeOutlined, PushpinFilled, RightOutlined, StarFilled, TagsOutlined, TrophyFilled } from '@ant-design/icons'
+import { Avatar, Button, Card, Col, Divider, Empty, Popconfirm, Row, Skeleton, Tag, message } from 'antd'
+import { ArrowLeftOutlined, DeleteOutlined, DislikeOutlined, EyeInvisibleOutlined, FireOutlined, LikeOutlined, LockOutlined, PushpinFilled, RightOutlined, StarFilled, TagsOutlined, TrophyFilled } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import DOMPurify from 'dompurify'
 import { newsApi } from '../../api/news'
@@ -149,6 +149,17 @@ export default function NewsDetail() {
     }
   }
 
+  // 删帖（题主/管理者）：成功后退回上一页
+  const removePost = async () => {
+    const res = await newsApi.deletePost(newsId)
+    if (res?.result) {
+      message.success(res.msg || '已删除')
+      navigate(-1)
+    } else {
+      message.error(res?.msg || '删除失败')
+    }
+  }
+
   // 管理小胶囊：点亮=已应用（实心彩色），再点取消
   const flagChip = (flag, active, icon, label, color) => (
     <span
@@ -214,6 +225,8 @@ export default function NewsDetail() {
                       {official && <Tag color="blue" style={{ marginInlineEnd: 0 }}>官方</Tag>}
                       {news.top === '1' && <Tag color="red" style={{ marginInlineEnd: 0 }}>置顶</Tag>}
                       {news.essence === '1' && <Tag color="volcano" style={{ marginInlineEnd: 0 }}>精华</Tag>}
+                      {news.locked === '1' && <Tag icon={<LockOutlined />} style={{ marginInlineEnd: 0 }}>已锁定</Tag>}
+                      {news.hidden === '1' && <Tag icon={<EyeInvisibleOutlined />} color="purple" style={{ marginInlineEnd: 0 }}>已隐藏</Tag>}
                     </div>
                     <div style={{ color: '#999', fontSize: 12, marginTop: 3 }}>
                       发布于 {fmt(news.publishDate)} · 浏览 {news.viewCount ?? 0} · {news.viewerCount ?? 0} 人看过
@@ -223,10 +236,17 @@ export default function NewsDetail() {
 
                 {/* 管理工具条：owner / manager 可置顶、加精（可并存）；点亮=已应用，再点取消 */}
                 {canManage && (
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 16, padding: '6px 10px 6px 12px', background: '#fafafa', border: '1px solid #f0f0f0', borderRadius: 10 }}>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 16, padding: '6px 10px 6px 12px', background: '#fafafa', border: '1px solid #f0f0f0', borderRadius: 10, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 12, color: '#999' }}>管理</span>
                     {flagChip('top', news.top === '1', <PushpinFilled />, '置顶', '#f5222d')}
                     {flagChip('essence', news.essence === '1', <StarFilled />, '精华', '#fa8c16')}
+                    {flagChip('locked', news.locked === '1', <LockOutlined />, news.locked === '1' ? '已锁定' : '封锁', '#595959')}
+                    {flagChip('hidden', news.hidden === '1', <EyeInvisibleOutlined />, news.hidden === '1' ? '已隐藏' : '隐藏', '#722ed1')}
+                    <Popconfirm title="确认删除该帖？此操作不可恢复" okText="删除" okButtonProps={{ danger: true }} onConfirm={removePost}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer', userSelect: 'none', padding: '3px 12px', borderRadius: 7, fontSize: 13, fontWeight: 600, color: '#cf1322', background: '#fff', border: '1px solid #ffccc7' }}>
+                        <DeleteOutlined /> 删除
+                      </span>
+                    </Popconfirm>
                   </div>
                 )}
 
@@ -277,7 +297,7 @@ export default function NewsDetail() {
                 </div>
 
                 <Divider style={{ margin: '18px 0 0' }} />
-                <CommentSection newsId={newsId} authorId={news.authorId} authorName={news.author} topicOwnerId={topicOwnerId} />
+                <CommentSection newsId={newsId} authorId={news.authorId} authorName={news.author} topicOwnerId={topicOwnerId} locked={news.locked === '1'} />
               </>
             ) : (
               <Empty description="资讯不存在或已删除">

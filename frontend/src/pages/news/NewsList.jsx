@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Avatar, Badge, Button, Card, Col, Empty, Input, Pagination, Row, Segmented, Tag } from 'antd'
 import {
-  ClockCircleOutlined, CrownOutlined, EditOutlined, FireOutlined, LikeOutlined, LockOutlined,
+  ClockCircleOutlined, CrownOutlined, EditOutlined, EyeInvisibleOutlined, FireOutlined, LikeOutlined, LockOutlined,
   MessageOutlined, RightOutlined, SearchOutlined, SettingOutlined, StarOutlined, TrophyFilled, UnlockOutlined,
 } from '@ant-design/icons'
 import { Link, useNavigate } from 'react-router-dom'
@@ -79,6 +79,8 @@ function PostCard({ post, topicOwnerId }) {
         <div className="post-title" style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.4, transition: 'color .2s', ...clamp(1) }}>
           {post.top === '1' && <Tag color="red" style={{ marginInlineEnd: 6, verticalAlign: 'middle' }}>置顶</Tag>}
           {post.essence === '1' && <Tag color="volcano" style={{ marginInlineEnd: 6, verticalAlign: 'middle' }}>精华</Tag>}
+          {post.locked === '1' && <Tag icon={<LockOutlined />} style={{ marginInlineEnd: 6, verticalAlign: 'middle' }}>锁定</Tag>}
+          {post.hidden === '1' && <Tag icon={<EyeInvisibleOutlined />} color="purple" style={{ marginInlineEnd: 6, verticalAlign: 'middle' }}>已隐藏</Tag>}
           {post.title || '(无标题)'}
         </div>
         {excerpt && (

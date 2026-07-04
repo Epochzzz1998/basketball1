@@ -102,9 +102,14 @@ public class UserProfileController {
             }
         }
 
-        // 帖子（官方+论坛都算，最新在前，取前 N；计数/获赞用全量聚合）。隐藏时不下发列表。
-        List<DreamNews> posts = hidePosts ? new ArrayList<>() : dreamNewsMapper.selectList(new QueryWrapper<DreamNews>()
-                .eq("AUTHOR_ID", userId).orderByDesc("PUBLISH_DATE").last("limit " + LIST_LIMIT));
+        // 帖子（官方+论坛都算，最新在前，取前 N；计数/获赞用全量聚合）。本人隐私隐藏时不下发列表；
+        // 被题主/管理者隐藏(HIDDEN)的帖，他人视角也不出现在足迹里（本人仍可见自己的）。
+        QueryWrapper<DreamNews> postsQw = new QueryWrapper<DreamNews>().eq("AUTHOR_ID", userId);
+        if (!isOwner) {
+            postsQw.ne("HIDDEN", "1");
+        }
+        postsQw.orderByDesc("PUBLISH_DATE").last("limit " + LIST_LIMIT);
+        List<DreamNews> posts = hidePosts ? new ArrayList<>() : dreamNewsMapper.selectList(postsQw);
         List<Map<String, Object>> postList = new ArrayList<>();
         for (DreamNews n : posts) {
             Map<String, Object> m = new HashMap<>();

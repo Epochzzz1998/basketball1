@@ -42,6 +42,9 @@ public class SearchController {
     @Autowired
     private com.dream.basketball.config.TopicPermissionService topicPerms;
 
+    @Autowired
+    private com.dream.basketball.mapper.DreamNewsMapper dreamNewsMapper;
+
     private static final int GROUP_LIMIT = 6;
 
     @GetMapping("/global")
@@ -67,15 +70,27 @@ public class SearchController {
         // 新闻 / 资讯：ES 相关度前 N（标题前缀加权）。论坛结果滤掉无权浏览的私密专题帖（防泄露）
         java.util.Set<String> hidden = topicPerms.hiddenTopicIds(
                 com.dream.basketball.utils.SecUtil.getLoginUserToSession(request));
-        List<News> forum = newsService.searchNews(kw, NEWS_CHANNEL_FORUM, GROUP_LIMIT + hidden.size());
-        if (!hidden.isEmpty()) {
-            forum = forum.stream().filter(n -> n.getTopicId() == null || !hidden.contains(n.getTopicId()))
-                    .collect(java.util.stream.Collectors.toList());
+        // 隐藏帖：搜索里对所有人都不出现（管理者从专题列表管；ES 里没有 HIDDEN 字段，按 id 集合滤）
+        java.util.Set<String> hiddenIds = new java.util.HashSet<>();
+        for (com.dream.basketball.entity.DreamNews dn : dreamNewsMapper.selectList(
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<com.dream.basketball.entity.DreamNews>()
+                        .select("NEWS_ID").eq("HIDDEN", "1"))) {
+            hiddenIds.add(dn.getNewsId());
         }
+        List<News> forum = newsService.searchNews(kw, NEWS_CHANNEL_FORUM, GROUP_LIMIT + hidden.size() + hiddenIds.size());
+        forum = forum.stream()
+                .filter(n -> hidden.isEmpty() || n.getTopicId() == null || !hidden.contains(n.getTopicId()))
+                .filter(n -> !hiddenIds.contains(n.getNewsId()))
+                .collect(java.util.stream.Collectors.toList());
         if (forum.size() > GROUP_LIMIT) {
             forum = forum.subList(0, GROUP_LIMIT);
         }
-        data.put("news", slimNews(newsService.searchNews(kw, NEWS_CHANNEL_OFFICIAL, GROUP_LIMIT)));
+        List<News> official = newsService.searchNews(kw, NEWS_CHANNEL_OFFICIAL, GROUP_LIMIT + hiddenIds.size());
+        official = official.stream().filter(n -> !hiddenIds.contains(n.getNewsId())).collect(java.util.stream.Collectors.toList());
+        if (official.size() > GROUP_LIMIT) {
+            official = official.subList(0, GROUP_LIMIT);
+        }
+        data.put("news", slimNews(official));
         data.put("forum", slimNews(forum));
 
         // 用户：用户名/昵称模糊（只回显示字段，后续再做用户主页）

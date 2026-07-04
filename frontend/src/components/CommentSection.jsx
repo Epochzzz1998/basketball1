@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Avatar, Button, Empty, Image, Space, Spin, Tag, Tooltip, message } from 'antd'
-import { DislikeOutlined, FileOutlined, LikeOutlined, TrophyFilled, UserOutlined } from '@ant-design/icons'
+import { DislikeOutlined, FileOutlined, LikeOutlined, LockOutlined, TrophyFilled, UserOutlined } from '@ant-design/icons'
 import { Link, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { newsApi } from '../api/news'
@@ -116,7 +116,7 @@ function CommentAttachments({ attachmentsJson }) {
  * - 子回复用 listComments({commentRelId}) 拉取；commentNum 是该评论的回复数。
  * 评论内容是纯文本（React 自动转义）；@昵称渲染成链接；末尾渲染图片/文件附件。
  */
-function CommentNode({ comment, newsId, depth = 0, authorId, topicOwnerId }) {
+function CommentNode({ comment, newsId, depth = 0, authorId, topicOwnerId, locked }) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [c, setC] = useState(comment) // 本节点数据（含 goodNum/badNum/commentNum），就地更新
@@ -232,9 +232,11 @@ function CommentNode({ comment, newsId, depth = 0, authorId, topicOwnerId }) {
           <Button type="text" size="small" style={{ color: '#8c8c8c' }} icon={<DislikeOutlined />} onClick={() => like('bad')}>
             {c.badNum ?? 0}
           </Button>
-          <Button type="text" size="small" style={{ color: '#8c8c8c' }} onClick={() => (user ? setReplyOpen((o) => !o) : requireLogin())}>
-            回复
-          </Button>
+          {!locked && (
+            <Button type="text" size="small" style={{ color: '#8c8c8c' }} onClick={() => (user ? setReplyOpen((o) => !o) : requireLogin())}>
+              回复
+            </Button>
+          )}
           {c.commentNum > 0 && (
             <Button type="link" size="small" onClick={toggleReplies} loading={loadingReplies}>
               {showReplies ? '收起' : `${c.commentNum} 条回复`}
@@ -260,7 +262,7 @@ function CommentNode({ comment, newsId, depth = 0, authorId, topicOwnerId }) {
         {showReplies && replies.length > 0 && (
           <div style={{ borderLeft: '2px solid #f0f0f0', paddingLeft: 14, marginTop: 4 }}>
             {replies.map((r) => (
-              <CommentNode key={r.commentId} comment={r} newsId={newsId} depth={depth + 1} authorId={authorId} topicOwnerId={topicOwnerId} />
+              <CommentNode key={r.commentId} comment={r} newsId={newsId} depth={depth + 1} authorId={authorId} topicOwnerId={topicOwnerId} locked={locked} />
             ))}
           </div>
         )}
@@ -273,7 +275,7 @@ function CommentNode({ comment, newsId, depth = 0, authorId, topicOwnerId }) {
  * 帖子下的评论区。顶层评论（level='1'，按楼层）+ 发表评论 + 递归楼中楼。
  * 注意：发评论/点赞接口返回旧版 {result,msg}；点赞计数据后端 delta 乐观更新。
  */
-export default function CommentSection({ newsId, authorId, authorName, topicOwnerId }) {
+export default function CommentSection({ newsId, authorId, authorName, topicOwnerId, locked }) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [comments, setComments] = useState([])
@@ -339,7 +341,16 @@ export default function CommentSection({ newsId, authorId, authorName, topicOwne
         )}
       </div>
 
-      {user ? (
+      {locked ? (
+        <div
+          style={{
+            background: '#fafafa', border: '1px dashed #e0e0e0', borderRadius: 10,
+            padding: '14px 20px', textAlign: 'center', color: '#8c8c8c', marginBottom: 20,
+          }}
+        >
+          <LockOutlined /> 该帖已被锁定，仅可查看，暂不能评论
+        </div>
+      ) : user ? (
         <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
           <UserAvatar name={user.userNickname} src={user.avatar} size={36} />
           <div style={{ flex: 1 }}>
@@ -365,7 +376,7 @@ export default function CommentSection({ newsId, authorId, authorName, topicOwne
       {loading ? (
         <div style={{ textAlign: 'center', padding: 24 }}><Spin /></div>
       ) : shown.length ? (
-        shown.map((c) => <CommentNode key={c.commentId} comment={c} newsId={newsId} authorId={authorId} topicOwnerId={topicOwnerId} />)
+        shown.map((c) => <CommentNode key={c.commentId} comment={c} newsId={newsId} authorId={authorId} topicOwnerId={topicOwnerId} locked={locked} />)
       ) : (
         <Empty
           image={Empty.PRESENTED_IMAGE_SIMPLE}

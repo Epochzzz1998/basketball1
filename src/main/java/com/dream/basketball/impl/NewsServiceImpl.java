@@ -180,6 +180,8 @@ public class NewsServiceImpl implements NewsService {
                     newsDto.setEssence(dreamNews.getEssence());
                     newsDto.setViewCount(dreamNews.getViewCount());
                     newsDto.setViewerCount(dreamNews.getViewerCount());
+                    newsDto.setLocked(dreamNews.getLocked());
+                    newsDto.setHidden(dreamNews.getHidden());
                 }
             }
             newsList.add(newsDto);
@@ -582,8 +584,12 @@ public class NewsServiceImpl implements NewsService {
         if (!userPerms.canComment(dreamUser.getUserId())) {
             return handlerResultJson(false, "你已被限制发言");
         }
-        // 专题帖：评论要有该专题的发言权
+        // 帖子被封锁：只读，任何人都不能再评论/回复
         DreamNews postForGate = dreamNewsService.getById(dreamNewsComment.getNewsId());
+        if (postForGate != null && "1".equals(postForGate.getLocked())) {
+            return handlerResultJson(false, "该帖已被锁定，仅可查看");
+        }
+        // 专题帖：评论要有该专题的发言权
         if (postForGate != null && StringUtils.isNotBlank(postForGate.getTopicId())
                 && !topicPerms.canComment(dreamUser, topicPerms.getTopic(postForGate.getTopicId()))) {
             return handlerResultJson(false, "你在该专题没有评论权限");

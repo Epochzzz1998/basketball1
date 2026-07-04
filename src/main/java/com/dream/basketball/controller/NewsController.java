@@ -82,11 +82,18 @@ public class NewsController extends BaseUtils {
         PageHelper.startPage(page, limit);
         List<NewsDto> rows = newsService.getNewsByParams(param);
         java.util.Set<String> hidden = topicPerms.hiddenTopicIds(me);
-        if (!hidden.isEmpty()) {
-            rows = rows.stream()
-                    .filter(r -> r.getTopicId() == null || !hidden.contains(r.getTopicId()))
-                    .collect(java.util.stream.Collectors.toList());
+        // 隐藏帖：只有该内容的管理者能看到（专题帖→该专题 canManage；官方/跨专题→manager+）
+        boolean canManageCtx;
+        if (StringUtils.isNotBlank(param.getTopicId())) {
+            canManageCtx = topicPerms.canManage(me, topicPerms.getTopic(param.getTopicId()));
+        } else {
+            canManageCtx = me != null && Role.fromUserRole(me.getUserRole()).covers(Role.MANAGER);
         }
+        final boolean showHidden = canManageCtx;
+        rows = rows.stream()
+                .filter(r -> hidden.isEmpty() || r.getTopicId() == null || !hidden.contains(r.getTopicId()))
+                .filter(r -> showHidden || !"1".equals(r.getHidden()))
+                .collect(java.util.stream.Collectors.toList());
         return handlerSuccessPageJson(0, "成功", rows.size(), rows);
     }
 
@@ -117,6 +124,10 @@ public class NewsController extends BaseUtils {
                 && !topicPerms.canView(SecUtil.getLoginUserToSession(request), topicPerms.getTopic(news.getTopicId()))) {
             return new Result<>(1, "你没有权限查看该专题的内容", null);
         }
+        // 隐藏帖：只有管理者（题主/admin，官方→manager+）能看，普通用户一律当作不存在
+        if (news != null && "1".equals(news.getHidden()) && !canManagePost(viewer, news)) {
+            return new Result<>(1, "该帖不存在或已被隐藏", null);
+        }
         // 浏览计数（通过所有可见性校验后才计）：PV 每次 +1；UV 靠 news_viewer 去重，登录用户首次浏览才 +1
         if (news != null && StringUtils.isNotBlank(news.getNewsId())) {
             String nid = news.getNewsId();
@@ -144,8 +155,8 @@ public class NewsController extends BaseUtils {
     }
 
     /**
-     * 置顶 / 精华（可并存）。官方新闻→manager+；论坛专题帖→该专题管理者（owner/admin）。
-     * flag=top|essence，value=1 开 / 0 关。存 dream_news；列表与详情读时合并。
+     * 置顶 / 精华 / 封锁 / 隐藏（可并存）。官方新闻→manager+；论坛专题帖→该专题管理者（owner/admin）。
+     * flag=top|essence|locked|hidden，value=1 开 / 0 关。封锁后只读；隐藏后普通用户在列表/详情/搜索都看不到（仅管理者可见，可撤销）。
      */
     @RequiresRole(Role.USER)
     @PostMapping("/setFlag")
@@ -155,7 +166,16 @@ public class NewsController extends BaseUtils {
         if (news == null || StringUtils.isBlank(news.getNewsId())) {
             return handlerResultJson(false, "帖子不存在");
         }
-        if (!"top".equals(flag) && !"essence".equals(flag)) {
+        String col;
+        if ("top".equals(flag)) {
+            col = "TOP";
+        } else if ("essence".equals(flag)) {
+            col = "ESSENCE";
+        } else if ("locked".equals(flag)) {
+            col = "LOCKED";
+        } else if ("hidden".equals(flag)) {
+            col = "HIDDEN";
+        } else {
             return handlerResultJson(false, "参数错误");
         }
         if (!canManagePost(me, news)) {
@@ -164,12 +184,33 @@ public class NewsController extends BaseUtils {
         String v = "1".equals(value) ? "1" : "0";
         com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<com.dream.basketball.entity.DreamNews> uw =
                 new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<com.dream.basketball.entity.DreamNews>().eq("NEWS_ID", newsId);
-        uw.set("top".equals(flag) ? "TOP" : "ESSENCE", v);
+        uw.set(col, v);
         dreamNewsService.update(uw);
         return handlerResultJson(true, "已更新");
     }
 
-    /** 能否管理某帖的置顶/精华：官方→manager+；专题帖→该专题 canManage；无专题的论坛帖→manager+。 */
+    /**
+     * 删除单个帖子（题主/管理者）。官方→manager+；论坛专题帖→该专题管理者（owner/admin）。
+     * 连带删 ES 文档 + 该帖上传的图片目录。比 /delete（仅 manager 批量）多了题主授权。
+     */
+    @RequiresRole(Role.USER)
+    @PostMapping("/deletePost")
+    public Object deletePost(String newsId, HttpServletRequest request) {
+        DreamUser me = SecUtil.getLoginUserToSession(request);
+        News news = StringUtils.isNotBlank(newsId) ? newsService.getNewsShow(newsId) : null;
+        if (news == null || StringUtils.isBlank(news.getNewsId())) {
+            return handlerResultJson(false, "帖子不存在");
+        }
+        if (!canManagePost(me, news)) {
+            return handlerResultJson(false, "无权删除该帖");
+        }
+        newsService.deleteNewsListByIds(newsId, News.class);
+        dreamNewsService.deleteSyncEs(newsId);
+        FileUtils.deleteUploadFolder(uploadPath, newsId.trim());
+        return handlerResultJson(true, "已删除");
+    }
+
+    /** 能否管理某帖的置顶/精华/封锁/删除：官方→manager+；专题帖→该专题 canManage；无专题的论坛帖→manager+。 */
     private boolean canManagePost(DreamUser me, News news) {
         if (me == null || news == null) {
             return false;

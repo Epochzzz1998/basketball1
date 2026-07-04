@@ -88,4 +88,12 @@ public class DreamNews extends Model<DreamNews> implements Serializable {
     @TableField("VIEWER_COUNT")
     private Integer viewerCount;
 
+    /** 封锁 '1'/'0' — 锁定后只读，不能再评论/回复 */
+    @TableField("LOCKED")
+    private String locked;
+
+    /** 隐藏 '1'/'0' — 题主/管理者隐藏后，普通用户在列表/详情/搜索里都看不到（软隐藏，可撤销） */
+    @TableField("HIDDEN")
+    private String hidden;
+
 }

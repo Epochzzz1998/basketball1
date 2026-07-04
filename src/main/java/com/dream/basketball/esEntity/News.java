@@ -66,6 +66,14 @@ public class News {
     @org.springframework.data.annotation.Transient
     private Integer viewerCount;
 
+    /** 封锁 '1'/'0'（只读）。存 dream_news，读时合并，不进 ES。 */
+    @org.springframework.data.annotation.Transient
+    private String locked;
+
+    /** 隐藏 '1'/'0'（软隐藏，仅管理者可见）。存 dream_news，读时合并，不进 ES。 */
+    @org.springframework.data.annotation.Transient
+    private String hidden;
+
 }
 
 
