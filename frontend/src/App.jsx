@@ -20,7 +20,6 @@ import NewsList from './pages/news/NewsList'
 import TopicsList from './pages/news/TopicsList'
 import TopicPosts from './pages/news/TopicPosts'
 import NewsDetail from './pages/news/NewsDetail'
-import NewsManage from './pages/news/NewsManage'
 import NewsEdit from './pages/news/NewsEdit'
 import MyMessages from './pages/user/MyMessages'
 import Messages from './pages/user/Messages'
@@ -68,12 +67,7 @@ export default function App() {
         <Route path="me" element={<ProtectedRoute><MyMessages /></ProtectedRoute>} />
         <Route path="messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
 
-        {/* 需 manager 及以上 */}
-        <Route path="admin/news" element={<RoleRoute role="manager"><NewsManage /></RoleRoute>} />
-
         {/* 需 superManager */}
-        {/* 原“用户管理”下架：老 user-list.ftl 名不副实，实为资讯管理（已由 /admin/news 覆盖），
-            后端本就没有用户账号管理接口 */}
         <Route path="admin/verify" element={<RoleRoute role="superManager"><VerifyBindings /></RoleRoute>} />
         <Route path="admin/users" element={<RoleRoute role="superManager"><UserManage /></RoleRoute>} />
         <Route path="admin/players" element={<RoleRoute role="superManager"><PlayerManage /></RoleRoute>} />

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Avatar, Button, Card, Col, Divider, Empty, Popconfirm, Row, Skeleton, Tag, message } from 'antd'
-import { ArrowLeftOutlined, DeleteOutlined, DislikeOutlined, EyeInvisibleOutlined, FireOutlined, LikeOutlined, LockOutlined, PushpinFilled, RightOutlined, StarFilled, TagsOutlined, TrophyFilled } from '@ant-design/icons'
+import { ArrowLeftOutlined, DeleteOutlined, DislikeOutlined, EyeInvisibleOutlined, FireOutlined, FormOutlined, LikeOutlined, LockOutlined, PushpinFilled, RightOutlined, StarFilled, TagsOutlined, TrophyFilled } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import DOMPurify from 'dompurify'
 import { newsApi } from '../../api/news'
@@ -184,9 +184,21 @@ export default function NewsDetail() {
           <Skeleton loading={loading} active paragraph={{ rows: 8 }}>
             {news ? (
               <>
-                <a onClick={() => navigate(-1)} style={{ color: '#888', fontSize: 13 }}>
-                  <ArrowLeftOutlined /> 返回
-                </a>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <a onClick={() => navigate(-1)} style={{ color: '#888', fontSize: 13 }}>
+                    <ArrowLeftOutlined /> 返回
+                  </a>
+                  <span style={{ flex: 1 }} />
+                  {/* 编辑：作者本人或 manager+（后端 save 同款校验）。低调文字链接，和「返回」对称 */}
+                  {user && (user.userId === news.authorId || user.isManagerOrOver) && (
+                    <a
+                      onClick={() => navigate(`/news/edit/${newsId}`)}
+                      style={{ color: '#888', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                    >
+                      <FormOutlined /> 编辑
+                    </a>
+                  )}
+                </div>
                 <h1 style={{ fontSize: 26, fontWeight: 800, lineHeight: 1.4, margin: '14px 0 18px' }}>
                   {news.title || '(无标题)'}
                 </h1>
@@ -227,6 +239,11 @@ export default function NewsDetail() {
                     <div style={{ color: '#999', fontSize: 12, marginTop: 3 }}>
                       发布于 {fmt(news.publishDate)} · 浏览 {news.viewCount ?? 0} · {news.viewerCount ?? 0} 人看过
                     </div>
+                    {news.lastEditTime && (
+                      <div style={{ color: '#bbb', fontSize: 12, marginTop: 2 }}>
+                        最后由 {news.lastEditorName || '管理员'} 于 {fmt(news.lastEditTime)} 编辑
+                      </div>
+                    )}
                   </div>
                 </div>
 

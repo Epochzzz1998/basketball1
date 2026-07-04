@@ -68,11 +68,20 @@ public class DreamNewsServiceImpl extends ServiceImpl<DreamNewsMapper, DreamNews
         }
         DreamNews dreamNews = baseMapper.selectById(newsId);
         DreamNews dreamNewsNew = JSONUtil.toBean(JSONUtil.toJsonStr(news), DreamNews.class);
-        // 更新操作，复制点赞数、点踩数、评论数
+        // 更新操作：这些字段由 DB 端管理（不随发帖正文提交），从旧行保留，别被重建的空值覆盖。
+        // 其中 TOP/ESSENCE/LOCKED/HIDDEN/VIEW_COUNT/VIEWER_COUNT 是 NOT NULL，若置 null 会直接报错。
         if (dreamNews != null) {
             dreamNewsNew.setGoodNum(dreamNews.getGoodNum());
             dreamNewsNew.setBadNum(dreamNews.getBadNum());
             dreamNewsNew.setCommentNum(dreamNews.getCommentNum());
+            dreamNewsNew.setTop(dreamNews.getTop());
+            dreamNewsNew.setEssence(dreamNews.getEssence());
+            dreamNewsNew.setLocked(dreamNews.getLocked());
+            dreamNewsNew.setHidden(dreamNews.getHidden());
+            dreamNewsNew.setViewCount(dreamNews.getViewCount());
+            dreamNewsNew.setViewerCount(dreamNews.getViewerCount());
+            dreamNewsNew.setLastEditTime(dreamNews.getLastEditTime());
+            dreamNewsNew.setLastEditorId(dreamNews.getLastEditorId());
         } else {
             // 新增操作
             dreamNewsNew.setGoodNum(0);

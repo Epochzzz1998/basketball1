@@ -6,7 +6,6 @@ import {
   MessageOutlined,
   SwapOutlined,
   DatabaseOutlined,
-  EditOutlined,
   HomeOutlined,
   LogoutOutlined,
   NotificationOutlined,
@@ -90,7 +89,6 @@ export default function AppLayout() {
         { path: '/official', name: '新闻', icon: <NotificationOutlined /> },
         { path: '/news', name: '百家说', icon: <ReadOutlined /> },
         ...(user ? [{ path: '/messages', name: '私信', icon: <MessageOutlined /> }] : []),
-        ...(user?.isManagerOrOver ? [{ path: '/admin/news', name: '资讯管理', icon: <EditOutlined /> }] : []),
         ...(user?.isSuperManager
           ? [
               { path: '/admin/players', name: '球员管理', icon: <DatabaseOutlined /> },

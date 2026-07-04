@@ -337,6 +337,13 @@ public class NewsController extends BaseUtils {
         }
         newsService.save(news);
         dreamNewsService.saveSyncEs(news);
+        // 编辑留痕：记下最后编辑的时间与编辑者（超管可改他人帖，需可追溯）。新发帖不算编辑。
+        if (isExisting) {
+            dreamNewsService.update(null, new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<com.dream.basketball.entity.DreamNews>()
+                    .eq("NEWS_ID", news.getNewsId())
+                    .set("LAST_EDIT_TIME", new java.util.Date())
+                    .set("LAST_EDITOR_ID", me.getUserId()));
+        }
         // @-mention 通知：只给"这次新增"的被 @ 者发（编辑时老正文里已有的 @ 不重复打扰），排除作者本人
         java.util.Set<String> mentionedNow = com.dream.basketball.utils.MentionUtil.parseNewsMentionIds(news.getContent());
         java.util.Set<String> mentionedBefore = isExisting

@@ -212,7 +212,6 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
   const paged = filtered?.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const canPost = isTopic ? !!topic.canPost : official ? user?.isManagerOrOver : true
-  const postLabel = official ? '发布新闻' : '发帖'
   const goPost = () => {
     if (!user) return navigate('/login')
     navigate(isTopic ? `/news/new?topicId=${topicId}` : official ? '/news/new?channel=official' : '/news/new')
@@ -306,11 +305,8 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
             </div>
           ) : (
             <Card style={{ borderRadius: 14 }}>
-              <Empty
-                description={kw ? '没有匹配的内容' : official ? '还没有新闻' : '还没有帖子，来发第一帖'}
-              >
-                {!kw && canPost && <Button type="primary" onClick={goPost}>{postLabel}</Button>}
-              </Empty>
+              {/* 发布入口只留右栏卡片那个，空状态不再重复放按钮 */}
+              <Empty description={kw ? '没有匹配的内容' : official ? '还没有新闻' : '还没有帖子，来发第一帖'} />
             </Card>
           )}
 

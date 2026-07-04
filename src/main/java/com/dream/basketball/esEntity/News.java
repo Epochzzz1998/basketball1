@@ -74,6 +74,14 @@ public class News {
     @org.springframework.data.annotation.Transient
     private String hidden;
 
+    /** 最后编辑：时间 + 编辑者 id/昵称。存 dream_news（昵称读时解析），不进 ES。 */
+    @org.springframework.data.annotation.Transient
+    private java.util.Date lastEditTime;
+    @org.springframework.data.annotation.Transient
+    private String lastEditorId;
+    @org.springframework.data.annotation.Transient
+    private String lastEditorName;
+
 }
 
 

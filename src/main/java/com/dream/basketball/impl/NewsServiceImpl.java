@@ -182,6 +182,8 @@ public class NewsServiceImpl implements NewsService {
                     newsDto.setViewerCount(dreamNews.getViewerCount());
                     newsDto.setLocked(dreamNews.getLocked());
                     newsDto.setHidden(dreamNews.getHidden());
+                    newsDto.setLastEditTime(dreamNews.getLastEditTime());
+                    newsDto.setLastEditorId(dreamNews.getLastEditorId());
                 }
             }
             newsList.add(newsDto);
@@ -198,8 +200,14 @@ public class NewsServiceImpl implements NewsService {
     private void fillAuthorAvatar(List<NewsDto> newsList) {
         java.util.Set<String> authorIds = new java.util.HashSet<>();
         for (NewsDto n : newsList) {
-            if (n != null && StringUtils.isNotBlank(n.getAuthorId())) {
+            if (n == null) {
+                continue;
+            }
+            if (StringUtils.isNotBlank(n.getAuthorId())) {
                 authorIds.add(n.getAuthorId());
+            }
+            if (StringUtils.isNotBlank(n.getLastEditorId())) {
+                authorIds.add(n.getLastEditorId()); // 编辑者也一并批查（拿最后编辑者昵称）
             }
         }
         if (authorIds.isEmpty()) {
@@ -225,12 +233,26 @@ public class NewsServiceImpl implements NewsService {
             }
         }
         for (NewsDto n : newsList) {
-            if (n == null || StringUtils.isBlank(n.getAuthorId())) {
+            if (n == null) {
+                continue;
+            }
+            // 最后编辑者昵称（独立于作者：超管改他人帖时二者不同）
+            if (StringUtils.isNotBlank(n.getLastEditorId())) {
+                DreamUser ed = userMap.get(n.getLastEditorId());
+                if (ed != null && StringUtils.isNotBlank(ed.getUserNickname())) {
+                    n.setLastEditorName(ed.getUserNickname());
+                }
+            }
+            if (StringUtils.isBlank(n.getAuthorId())) {
                 continue;
             }
             DreamUser u = userMap.get(n.getAuthorId());
             if (u == null) {
                 continue;
+            }
+            // 用作者当前昵称覆盖帖子里存的旧名（改名后帖子上也显示新名；ES 里的 author 是历史快照）
+            if (StringUtils.isNotBlank(u.getUserNickname())) {
+                n.setAuthor(u.getUserNickname());
             }
             n.setAuthorAvatar(u.getAvatar());
             n.setAuthorSuperManager(com.dream.basketball.config.Role.fromUserRole(u.getUserRole())
@@ -337,6 +359,10 @@ public class NewsServiceImpl implements NewsService {
             DreamUser u = users.get(c.getUserId());
             if (u == null) {
                 continue;
+            }
+            // 用评论者当前昵称覆盖评论里存的旧名（改名后同步显示）
+            if (StringUtils.isNotBlank(u.getUserNickname())) {
+                c.setUserName(u.getUserNickname());
             }
             c.setCommenterAvatar(u.getAvatar());
             c.setSuperManager(com.dream.basketball.config.Role.fromUserRole(u.getUserRole())
