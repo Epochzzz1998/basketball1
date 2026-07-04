@@ -17,6 +17,8 @@ import PlayerCompare from './pages/players/PlayerCompare'
 import PlayerManage from './pages/players/PlayerManage'
 import PlayerStatsManage from './pages/players/PlayerStatsManage'
 import NewsList from './pages/news/NewsList'
+import TopicsList from './pages/news/TopicsList'
+import TopicPosts from './pages/news/TopicPosts'
 import NewsDetail from './pages/news/NewsDetail'
 import NewsManage from './pages/news/NewsManage'
 import NewsEdit from './pages/news/NewsEdit'
@@ -24,6 +26,7 @@ import MyMessages from './pages/user/MyMessages'
 import Messages from './pages/user/Messages'
 import UserProfile from './pages/user/UserProfile'
 import VerifyBindings from './pages/admin/VerifyBindings'
+import UserManage from './pages/admin/UserManage'
 
 /**
  * 路由表（P5-1 骨架）。
@@ -51,8 +54,10 @@ export default function App() {
         <Route path="rankings/honors/:group" element={<HonorDetail />} />
         <Route path="rankings/:field" element={<RankingDetail />} />
         <Route path="official" element={<NewsList channel="official" />} />
-        <Route path="news" element={<NewsList channel="forum" />} />
-        {/* 发帖/编辑：登录即可（恢复原论坛发帖；后端 /news/save 限制作者本人或 manager） */}
+        {/* 资讯论坛：现在是专题列表；点进单个专题看帖流 */}
+        <Route path="news" element={<TopicsList />} />
+        <Route path="news/topic/:topicId" element={<TopicPosts />} />
+        {/* 发帖/编辑：登录即可；论坛发帖须带 ?topicId（后端按专题权限校验） */}
         <Route path="news/new" element={<ProtectedRoute><NewsEdit /></ProtectedRoute>} />
         <Route path="news/edit/:newsId" element={<ProtectedRoute><NewsEdit /></ProtectedRoute>} />
         <Route path="news/:newsId" element={<NewsDetail />} />
@@ -70,6 +75,7 @@ export default function App() {
         {/* 原“用户管理”下架：老 user-list.ftl 名不副实，实为资讯管理（已由 /admin/news 覆盖），
             后端本就没有用户账号管理接口 */}
         <Route path="admin/verify" element={<RoleRoute role="superManager"><VerifyBindings /></RoleRoute>} />
+        <Route path="admin/users" element={<RoleRoute role="superManager"><UserManage /></RoleRoute>} />
         <Route path="admin/players" element={<RoleRoute role="superManager"><PlayerManage /></RoleRoute>} />
         <Route path="admin/players/:playerId/stats" element={<RoleRoute role="superManager"><PlayerStatsManage /></RoleRoute>} />
 

@@ -14,6 +14,7 @@ import {
   SafetyCertificateOutlined,
   TeamOutlined,
   TrophyOutlined,
+  UsergroupAddOutlined,
   UserOutlined,
 } from '@ant-design/icons'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
@@ -88,10 +89,12 @@ export default function AppLayout() {
         { path: '/compare', name: '球员对比', icon: <SwapOutlined /> },
         { path: '/official', name: '新闻', icon: <NotificationOutlined /> },
         { path: '/news', name: '资讯论坛', icon: <ReadOutlined /> },
+        ...(user ? [{ path: '/messages', name: '私信', icon: <MessageOutlined /> }] : []),
         ...(user?.isManagerOrOver ? [{ path: '/admin/news', name: '资讯管理', icon: <EditOutlined /> }] : []),
         ...(user?.isSuperManager
           ? [
               { path: '/admin/players', name: '球员管理', icon: <DatabaseOutlined /> },
+              { path: '/admin/users', name: '用户管理', icon: <UsergroupAddOutlined /> },
               { path: '/admin/verify', name: '认证审核', icon: <SafetyCertificateOutlined /> },
             ]
           : []),
@@ -115,7 +118,14 @@ export default function AppLayout() {
       siderWidth={216}
       location={{ pathname: location.pathname }}
       route={route}
-      menuItemRender={(item, dom) => (item.path ? <Link to={item.path}>{dom}</Link> : dom)}
+      menuItemRender={(item, dom) => {
+        if (!item.path) return dom
+        // 私信项挂未读角标（实时 pmUnread）
+        const node = item.path === '/messages' && pmUnread > 0
+          ? <span style={{ display: 'inline-flex', alignItems: 'center', width: '100%' }}>{dom}<Badge count={pmUnread} size="small" style={{ marginLeft: 'auto' }} /></span>
+          : dom
+        return <Link to={item.path}>{node}</Link>
+      }}
       avatarProps={
         user
           ? {
@@ -135,17 +145,6 @@ export default function AppLayout() {
                         onClick: () => navigate(`/users/${user.userId}`),
                       },
                       {
-                        key: 'pm',
-                        icon: <MessageOutlined />,
-                        label: (
-                          <span>
-                            私信
-                            <Badge count={pmUnread} size="small" style={{ marginLeft: 8 }} />
-                          </span>
-                        ),
-                        onClick: () => navigate('/messages'),
-                      },
-                      {
                         key: 'messages',
                         icon: <BellOutlined />,
                         label: (
@@ -162,7 +161,7 @@ export default function AppLayout() {
                   }}
                 >
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '0 4px' }}>
-                    <Badge count={unread + pmUnread} size="small" offset={[-2, 4]}>
+                    <Badge count={unread} size="small" offset={[-2, 4]}>
                       <Avatar size={28} src={user.avatar || undefined} icon={user.avatar ? undefined : <UserOutlined />} />
                     </Badge>
                     <span style={{ fontSize: 14 }}>{user.userNickname}</span>

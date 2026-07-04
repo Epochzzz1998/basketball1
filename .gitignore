@@ -44,3 +44,6 @@ build/
 # Optional local-only profile overrides
 application-local.yml
 application-*-local.yml
+
+# bundled frontend build (generated at deploy time)
+/src/main/resources/static/

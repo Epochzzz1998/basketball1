@@ -1,0 +1,29 @@
+import http from './http'
+
+/**
+ * 专题（权限版块）接口。
+ * list/get 公开（登录可选，私密专题会带 locked）；create/delete 需超管；
+ * update/成员管理需 admin 或 owner（后端 canManage 兜底）。
+ * 写接口用 URLSearchParams 表单提交（与项目其它写接口一致）。
+ */
+const form = (obj) => {
+  const body = new URLSearchParams()
+  Object.entries(obj).forEach(([k, v]) => { if (v != null) body.append(k, v) })
+  return body
+}
+
+export const topicApi = {
+  list: () => http.get('/topic/list'),
+  // userInformationId 可选：从"我的消息"点进来时带上，后端顺便把该条消息标记已读
+  get: (topicId, userInformationId) => http.get('/topic/get', { params: { topicId, userInformationId } }),
+  create: (payload) => http.post('/topic/create', form(payload)),
+  update: (payload) => http.post('/topic/update', form(payload)),
+  remove: (topicId) => http.delete('/topic/delete', { params: { topicId } }),
+  members: (topicId) => http.get('/topic/members', { params: { topicId } }),
+  setMember: (payload) => http.post('/topic/setMember', form(payload)),
+  removeMember: (topicId, userId) => http.post('/topic/removeMember', form({ topicId, userId })),
+  // 申请加入
+  apply: (topicId, message) => http.post('/topic/apply', form({ topicId, message })),
+  requests: (topicId) => http.get('/topic/requests', { params: { topicId } }),
+  handleRequest: (payload) => http.post('/topic/handleRequest', form(payload)),
+}

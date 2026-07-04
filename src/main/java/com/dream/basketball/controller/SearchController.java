@@ -39,10 +39,13 @@ public class SearchController {
     @Autowired
     private UserMapper userMapper;
 
+    @Autowired
+    private com.dream.basketball.config.TopicPermissionService topicPerms;
+
     private static final int GROUP_LIMIT = 6;
 
     @GetMapping("/global")
-    public Result<Map<String, Object>> global(String keyword) {
+    public Result<Map<String, Object>> global(String keyword, javax.servlet.http.HttpServletRequest request) {
         Map<String, Object> data = new HashMap<>();
         String kw = keyword == null ? "" : keyword.trim();
         if (StringUtils.isBlank(kw) || kw.length() > 50) {
@@ -61,9 +64,19 @@ public class SearchController {
         }
         data.put("players", players);
 
-        // 新闻 / 资讯：ES 相关度前 N（标题前缀加权）
+        // 新闻 / 资讯：ES 相关度前 N（标题前缀加权）。论坛结果滤掉无权浏览的私密专题帖（防泄露）
+        java.util.Set<String> hidden = topicPerms.hiddenTopicIds(
+                com.dream.basketball.utils.SecUtil.getLoginUserToSession(request));
+        List<News> forum = newsService.searchNews(kw, NEWS_CHANNEL_FORUM, GROUP_LIMIT + hidden.size());
+        if (!hidden.isEmpty()) {
+            forum = forum.stream().filter(n -> n.getTopicId() == null || !hidden.contains(n.getTopicId()))
+                    .collect(java.util.stream.Collectors.toList());
+        }
+        if (forum.size() > GROUP_LIMIT) {
+            forum = forum.subList(0, GROUP_LIMIT);
+        }
         data.put("news", slimNews(newsService.searchNews(kw, NEWS_CHANNEL_OFFICIAL, GROUP_LIMIT)));
-        data.put("forum", slimNews(newsService.searchNews(kw, NEWS_CHANNEL_FORUM, GROUP_LIMIT)));
+        data.put("forum", slimNews(forum));
 
         // 用户：用户名/昵称模糊（只回显示字段，后续再做用户主页）
         List<Map<String, Object>> users = new ArrayList<>();

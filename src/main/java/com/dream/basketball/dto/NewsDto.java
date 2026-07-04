@@ -15,4 +15,11 @@ public class NewsDto extends News {
     /** author's uploaded avatar (batch-filled from dream_user; null if never uploaded) */
     private String authorAvatar;
 
+    /** 作者是否超级管理员（前端显示「超管」标识） */
+    private Boolean authorSuperManager;
+
+    /** 作者若为已认证球员：球员 id + 姓名（前端显示认证徽章，和评论区一致） */
+    private String authorVerifiedPlayerId;
+    private String authorVerifiedPlayerName;
+
 }

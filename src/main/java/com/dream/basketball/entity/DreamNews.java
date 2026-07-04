@@ -64,4 +64,28 @@ public class DreamNews extends Model<DreamNews> implements Serializable {
     @TableField("NEWS_CHANNEL")
     private String newsChannel;
 
+    /** owning forum topic id (null for official news; backfilled for legacy forum posts). */
+    @TableField("TOPIC_ID")
+    private String topicId;
+
+    /** free-form tags, comma-separated (replaces the old team/newsType). */
+    @TableField("TAGS")
+    private String tags;
+
+    /** 置顶 '1'/'0' — pinned posts float to the top of lists. */
+    @TableField("TOP")
+    private String top;
+
+    /** 精华 '1'/'0' — quality/featured marker. Can coexist with 置顶. */
+    @TableField("ESSENCE")
+    private String essence;
+
+    /** 总浏览次数（PV，每次打开都 +1） */
+    @TableField("VIEW_COUNT")
+    private Integer viewCount;
+
+    /** 浏览人数（UV，同一登录用户多次只算一次） */
+    @TableField("VIEWER_COUNT")
+    private Integer viewerCount;
+
 }

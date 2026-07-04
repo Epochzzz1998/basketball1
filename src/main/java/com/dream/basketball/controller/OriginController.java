@@ -5,14 +5,14 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Root endpoint. P4-1: the backend is now a pure JSON API (no server-rendered home
- * page), so "/" just reports liveness instead of forwarding to a FreeMarker view.
+ * Liveness endpoint. P5: the backend now also serves the React SPA (SpaConfig), so "/"
+ * must fall through to index.html — the liveness banner moved to /api/health.
  */
 @RestController
 public class OriginController {
 
-    @GetMapping("/")
-    public Result<String> index() {
+    @GetMapping("/api/health")
+    public Result<String> health() {
         return Result.ok("dream-app API is running");
     }
 }

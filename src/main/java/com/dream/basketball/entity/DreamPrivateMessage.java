@@ -31,6 +31,10 @@ public class DreamPrivateMessage extends Model<DreamPrivateMessage> implements S
     @TableField("CONTENT")
     private String content;
 
+    /** attachments as JSON [{"type":"image|file","url","name","size"}]; images render inline, files as download chips */
+    @TableField("ATTACHMENTS")
+    private String attachments;
+
     @TableField("SEND_TIME")
     private Date sendTime;
 
@@ -80,6 +84,14 @@ public class DreamPrivateMessage extends Model<DreamPrivateMessage> implements S
 
     public void setContent(String content) {
         this.content = content;
+    }
+
+    public String getAttachments() {
+        return attachments;
+    }
+
+    public void setAttachments(String attachments) {
+        this.attachments = attachments;
     }
 
     public Date getSendTime() {

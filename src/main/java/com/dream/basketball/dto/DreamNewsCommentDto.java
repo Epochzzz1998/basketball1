@@ -20,4 +20,7 @@ public class DreamNewsCommentDto extends DreamNewsComment {
     /** 评论者头像 URL（与认证标识同一把批量查询回填） */
     private String commenterAvatar;
 
+    /** 评论者是否超级管理员（前端显示「超管」标识） */
+    private Boolean superManager;
+
 }

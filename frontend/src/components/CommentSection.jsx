@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Avatar, Button, Empty, Image, Space, Spin, Tag, Tooltip, message } from 'antd'
-import { DislikeOutlined, FileOutlined, LikeOutlined, TrophyFilled } from '@ant-design/icons'
+import { DislikeOutlined, FileOutlined, LikeOutlined, TrophyFilled, UserOutlined } from '@ant-design/icons'
 import { Link, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { newsApi } from '../api/news'
 import { useAuth } from '../auth/AuthContext'
 import CommentComposer, { humanSize } from './CommentComposer'
+import { SuperAdminBadge, TopicOwnerBadge, OpBadge } from './RoleBadges'
 
 const fmt = (v) => (v ? dayjs(v).format('YYYY-MM-DD HH:mm') : '')
 
@@ -115,7 +116,7 @@ function CommentAttachments({ attachmentsJson }) {
  * - 子回复用 listComments({commentRelId}) 拉取；commentNum 是该评论的回复数。
  * 评论内容是纯文本（React 自动转义）；@昵称渲染成链接；末尾渲染图片/文件附件。
  */
-function CommentNode({ comment, newsId, depth = 0 }) {
+function CommentNode({ comment, newsId, depth = 0, authorId, topicOwnerId }) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [c, setC] = useState(comment) // 本节点数据（含 goodNum/badNum/commentNum），就地更新
@@ -195,6 +196,9 @@ function CommentNode({ comment, newsId, depth = 0 }) {
           {c.userId
             ? <a onClick={() => navigate(`/users/${c.userId}`)} style={{ fontWeight: 600, color: '#333', fontSize: 14 }}>{c.userName || '匿名'}</a>
             : <b style={{ fontSize: 14 }}>{c.userName || '匿名'}</b>}
+          {c.superManager && <SuperAdminBadge />}
+          {topicOwnerId && c.userId === topicOwnerId && <TopicOwnerBadge />}
+          {authorId && c.userId === authorId && <OpBadge />}
           {c.verifiedPlayerId && (
             <Tooltip title="认证球员 · 点击看生涯数据">
               <Tag
@@ -256,7 +260,7 @@ function CommentNode({ comment, newsId, depth = 0 }) {
         {showReplies && replies.length > 0 && (
           <div style={{ borderLeft: '2px solid #f0f0f0', paddingLeft: 14, marginTop: 4 }}>
             {replies.map((r) => (
-              <CommentNode key={r.commentId} comment={r} newsId={newsId} depth={depth + 1} />
+              <CommentNode key={r.commentId} comment={r} newsId={newsId} depth={depth + 1} authorId={authorId} topicOwnerId={topicOwnerId} />
             ))}
           </div>
         )}
@@ -269,11 +273,15 @@ function CommentNode({ comment, newsId, depth = 0 }) {
  * 帖子下的评论区。顶层评论（level='1'，按楼层）+ 发表评论 + 递归楼中楼。
  * 注意：发评论/点赞接口返回旧版 {result,msg}；点赞计数据后端 delta 乐观更新。
  */
-export default function CommentSection({ newsId }) {
+export default function CommentSection({ newsId, authorId, authorName, topicOwnerId }) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [comments, setComments] = useState([])
   const [loading, setLoading] = useState(false)
+  const [onlyAuthor, setOnlyAuthor] = useState(false) // 只看楼主：仅展示楼主的顶层评论（其回复照常）
+
+  // 只看楼主时按楼主 userId 过滤顶层评论；回复不受影响（各评论展开时单独拉取）
+  const shown = onlyAuthor && authorId ? comments.filter((c) => c.userId === authorId) : comments
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -307,8 +315,28 @@ export default function CommentSection({ newsId }) {
 
   return (
     <div style={{ marginTop: 22 }}>
-      <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>
-        全部评论 <span style={{ color: '#999', fontWeight: 400, fontSize: 14 }}>({comments.length})</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        <div style={{ fontSize: 16, fontWeight: 700 }}>
+          {onlyAuthor ? '楼主评论' : '全部评论'} <span style={{ color: '#999', fontWeight: 400, fontSize: 14 }}>({shown.length})</span>
+        </div>
+        <span style={{ flex: 1 }} />
+        {authorId && (
+          <span
+            onClick={() => setOnlyAuthor((v) => !v)}
+            title={onlyAuthor ? '显示全部评论' : '只看楼主的评论'}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer', userSelect: 'none',
+              padding: '4px 14px', borderRadius: 999, fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap',
+              color: onlyAuthor ? '#fff' : '#8c8c8c',
+              background: onlyAuthor ? '#fa541c' : '#f5f5f5',
+              border: `1px solid ${onlyAuthor ? '#fa541c' : '#ececec'}`,
+              boxShadow: onlyAuthor ? '0 2px 8px rgba(250,84,28,.25)' : 'none',
+              transition: 'all .15s',
+            }}
+          >
+            <UserOutlined /> 只看楼主
+          </span>
+        )}
       </div>
 
       {user ? (
@@ -336,10 +364,13 @@ export default function CommentSection({ newsId }) {
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: 24 }}><Spin /></div>
-      ) : comments.length ? (
-        comments.map((c) => <CommentNode key={c.commentId} comment={c} newsId={newsId} />)
+      ) : shown.length ? (
+        shown.map((c) => <CommentNode key={c.commentId} comment={c} newsId={newsId} authorId={authorId} topicOwnerId={topicOwnerId} />)
       ) : (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="还没有评论，来抢沙发" />
+        <Empty
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          description={onlyAuthor ? '楼主还没在本帖发表评论' : '还没有评论，来抢沙发'}
+        />
       )}
     </div>
   )

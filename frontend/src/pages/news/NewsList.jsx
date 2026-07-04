@@ -1,12 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Avatar, Button, Card, Col, Empty, Input, Pagination, Row, Segmented, Tag } from 'antd'
+import { Avatar, Badge, Button, Card, Col, Empty, Input, Pagination, Row, Segmented, Tag } from 'antd'
 import {
-  EditOutlined, FireOutlined, LikeOutlined, MessageOutlined, RightOutlined, SearchOutlined,
+  ClockCircleOutlined, CrownOutlined, EditOutlined, FireOutlined, LikeOutlined, LockOutlined,
+  MessageOutlined, RightOutlined, SearchOutlined, SettingOutlined, StarOutlined, TrophyFilled, UnlockOutlined,
 } from '@ant-design/icons'
 import { Link, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { newsApi } from '../../api/news'
 import { useAuth } from '../../auth/AuthContext'
+import TopicMemberModal from '../../components/TopicMemberModal'
+import TopicApplyButton from '../../components/TopicApplyButton'
+import { SuperAdminBadge, TopicOwnerBadge } from '../../components/RoleBadges'
 
 /**
  * 帖子列表（公开，P5-2 内容流改版），按频道复用：
@@ -51,7 +55,7 @@ const avatarColor = (name) => {
 const hotOf = (p) => (p.goodNum ?? 0) * 2 + (p.commentNum ?? 0) * 3
 
 /** 单条帖子卡：头像 + 标题/摘要/元信息 + 首图缩略图 */
-function PostCard({ post }) {
+function PostCard({ post, topicOwnerId }) {
   const cover = coverOf(post.content)
   const excerpt = textOf(post.content)
   return (
@@ -73,6 +77,8 @@ function PostCard({ post }) {
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className="post-title" style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.4, transition: 'color .2s', ...clamp(1) }}>
+          {post.top === '1' && <Tag color="red" style={{ marginInlineEnd: 6, verticalAlign: 'middle' }}>置顶</Tag>}
+          {post.essence === '1' && <Tag color="volcano" style={{ marginInlineEnd: 6, verticalAlign: 'middle' }}>精华</Tag>}
           {post.title || '(无标题)'}
         </div>
         {excerpt && (
@@ -82,9 +88,15 @@ function PostCard({ post }) {
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 10, fontSize: 12, color: '#999' }}>
           <span style={{ color: '#595959', fontWeight: 500 }}>{post.author || '匿名'}</span>
+          {post.authorSuperManager && <SuperAdminBadge />}
+          {topicOwnerId && post.authorId === topicOwnerId && <TopicOwnerBadge />}
+          {post.authorVerifiedPlayerId && (
+            <Tag color="gold" style={{ marginInlineEnd: 0 }}><TrophyFilled /> {post.authorVerifiedPlayerName || '认证球员'}</Tag>
+          )}
           <span>{timeAgo(post.publishDate)}</span>
-          {post.team && <Tag style={{ marginInlineEnd: 0 }} bordered={false}>{post.team}</Tag>}
-          {post.newsType && <Tag style={{ marginInlineEnd: 0 }} bordered={false}>{post.newsType}</Tag>}
+          {String(post.tags || '').split(',').map((t) => t.trim()).filter(Boolean).slice(0, 4).map((t) => (
+            <Tag key={t} style={{ marginInlineEnd: 0 }} bordered={false}>{t}</Tag>
+          ))}
           <span style={{ flex: 1 }} />
           <span><LikeOutlined /> {post.goodNum ?? 0}</span>
           <span><MessageOutlined /> {post.commentNum ?? 0}</span>
@@ -146,43 +158,62 @@ function HotRail({ rows, official }) {
   )
 }
 
-export default function NewsList({ channel = 'forum' }) {
+/**
+ * 帖子流。三种用法：
+ * - channel="official"：官方新闻（蓝横幅，manager+ 可发）；
+ * - topic={...}：某个专题的帖子流（专题横幅，发帖/发言/管理按该专题权限）；
+ * 均复用同一套卡片流 + 热榜。列表接口 ES 全量返回，前端搜索/排序/分页。
+ */
+export default function NewsList({ channel = 'forum', topic = null, onApplied }) {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const official = channel === 'official'
+  const isTopic = !!topic
+  const official = !isTopic && channel === 'official'
 
   const [rows, setRows] = useState(null)
   const [kw, setKw] = useState('')
-  const [sort, setSort] = useState('最新')
+  // 视图：最新 / 最热 / 精华 / 只看题主（后两个是过滤，题主仅专题模式有）
+  const [view, setView] = useState('最新')
   const [page, setPage] = useState(1)
+  const [memberOpen, setMemberOpen] = useState(false)
+
+  const topicId = topic?.topicId
 
   useEffect(() => {
     let alive = true
-    setRows(null); setKw(''); setSort('最新'); setPage(1)
-    newsApi.listNews({ page: 1, limit: 9999, newsChannel: channel })
+    setRows(null); setKw(''); setView('最新'); setPage(1)
+    const params = isTopic
+      ? { page: 1, limit: 9999, newsChannel: 'forum', topicId }
+      : { page: 1, limit: 9999, newsChannel: channel }
+    newsApi.listNews(params)
       .then((r) => { if (alive) setRows(r.records || []) })
       .catch(() => { if (alive) setRows([]) })
     return () => { alive = false }
-  }, [channel])
+  }, [channel, isTopic, topicId])
 
   const filtered = useMemo(() => {
     if (rows === null) return null
     const k = kw.trim().toLowerCase()
-    const hit = k
+    let hit = k
       ? rows.filter((p) => `${p.title || ''}${p.author || ''}`.toLowerCase().includes(k))
       : rows
-    return sort === '最热'
+    // 精华：只看加精帖；只看题主：前端按专题 owner 的 authorId 过滤（列表已全量在手）
+    if (view === '精华') hit = hit.filter((p) => p.essence === '1')
+    if (view === '只看题主' && topic?.ownerId) hit = hit.filter((p) => p.authorId === topic.ownerId)
+    const sorted = view === '最热'
       ? [...hit].sort((a, b) => hotOf(b) - hotOf(a) || dayjs(b.publishDate).valueOf() - dayjs(a.publishDate).valueOf())
-      : hit // 后端已按发布时间倒序
-  }, [rows, kw, sort])
+      : hit // 后端已按（置顶优先 + 发布时间倒序）排好
+    // 置顶帖始终浮到最前（不论哪个视图）
+    return [...sorted.filter((p) => p.top === '1'), ...sorted.filter((p) => p.top !== '1')]
+  }, [rows, kw, view, isTopic, topic])
 
   const paged = filtered?.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
-  const canPost = official ? user?.isManagerOrOver : true
+  const canPost = isTopic ? !!topic.canPost : official ? user?.isManagerOrOver : true
   const postLabel = official ? '发布新闻' : '发帖'
   const goPost = () => {
     if (!user) return navigate('/login')
-    navigate(official ? '/news/new?channel=official' : '/news/new')
+    navigate(isTopic ? `/news/new?topicId=${topicId}` : official ? '/news/new?channel=official' : '/news/new')
   }
 
   const ring = (size, pos) => ({
@@ -197,7 +228,7 @@ export default function NewsList({ channel = 'forum' }) {
         .post-card:hover .post-title { color: ${BRAND}; }
       `}</style>
 
-      {/* 频道横幅：论坛=品牌橙，官方新闻=权威蓝 */}
+      {/* 横幅：官方新闻=权威蓝；专题=品牌橙 + 名称/简介/可见性 + 返回专题列表 + 成员管理 */}
       <div
         style={{
           position: 'relative', overflow: 'hidden', borderRadius: 16, color: '#fff',
@@ -209,11 +240,30 @@ export default function NewsList({ channel = 'forum' }) {
       >
         <div style={ring(190, { top: -80, right: 120 })} />
         <div style={ring(120, { bottom: -50, right: 300 })} />
-        <div style={{ position: 'relative' }}>
-          <div style={{ fontSize: 23, fontWeight: 800 }}>{official ? '官方新闻' : '资讯论坛'}</div>
-          <div style={{ opacity: 0.88, marginTop: 6, fontSize: 13 }}>
-            {official ? '权威发布 · 人人可评' : '看帖 · 发帖 · 评论 · 点赞'}
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {isTopic && (
+              <Link to="/news" style={{ color: 'rgba(255,255,255,.85)', fontSize: 12 }}>‹ 全部专题</Link>
+            )}
+            <div style={{ fontSize: 23, fontWeight: 800, marginTop: isTopic ? 4 : 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+              {isTopic ? topic.name : official ? '官方新闻' : '资讯论坛'}
+              {isTopic && (topic.visibility === 'private'
+                ? <Tag icon={<LockOutlined />} style={{ marginInlineEnd: 0 }}>私密</Tag>
+                : <Tag icon={<UnlockOutlined />} color="green" style={{ marginInlineEnd: 0 }}>公开</Tag>)}
+            </div>
+            <div style={{ opacity: 0.88, marginTop: 6, fontSize: 13, maxWidth: 620 }}>
+              {isTopic ? (topic.description || '按专题组织的讨论区') : official ? '权威发布 · 人人可评' : '看帖 · 发帖 · 评论 · 点赞'}
+            </div>
           </div>
+          {isTopic && (topic.canManage ? (
+            <Badge count={topic.pendingCount || 0} size="small" offset={[-4, 2]}>
+              <Button icon={<SettingOutlined />} onClick={() => setMemberOpen(true)} style={{ fontWeight: 600, flexShrink: 0 }}>
+                成员管理
+              </Button>
+            </Badge>
+          ) : (
+            <TopicApplyButton topic={topic} onApplied={onApplied} banner />
+          ))}
         </div>
       </div>
 
@@ -229,7 +279,16 @@ export default function NewsList({ channel = 'forum' }) {
               onChange={(e) => { setKw(e.target.value); setPage(1) }}
               style={{ maxWidth: 260, borderRadius: 10 }}
             />
-            <Segmented options={['最新', '最热']} value={sort} onChange={(v) => { setSort(v); setPage(1) }} />
+            <Segmented
+              value={view}
+              onChange={(v) => { setView(v); setPage(1) }}
+              options={[
+                { label: '最新', value: '最新', icon: <ClockCircleOutlined /> },
+                { label: '最热', value: '最热', icon: <FireOutlined /> },
+                { label: '精华', value: '精华', icon: <StarOutlined /> },
+                ...(isTopic && topic?.ownerId ? [{ label: '题主', value: '只看题主', icon: <CrownOutlined /> }] : []),
+              ]}
+            />
             <span style={{ flex: 1 }} />
             {filtered != null && <span style={{ fontSize: 13, color: '#999' }}>{filtered.length} 篇</span>}
           </div>
@@ -241,7 +300,7 @@ export default function NewsList({ channel = 'forum' }) {
             </div>
           ) : paged.length ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {paged.map((p) => <PostCard key={p.newsId} post={p} />)}
+              {paged.map((p) => <PostCard key={p.newsId} post={p} topicOwnerId={isTopic ? topic?.ownerId : null} />)}
             </div>
           ) : (
             <Card style={{ borderRadius: 14 }}>
@@ -270,7 +329,7 @@ export default function NewsList({ channel = 'forum' }) {
         <Col xs={24} lg={7}>
           <div style={{ position: 'sticky', top: 76, display: 'flex', flexDirection: 'column', gap: 16 }}>
             <HotRail rows={rows} official={official} />
-            {(official ? user?.isManagerOrOver : true) && (
+            {canPost && (
               <Card style={{ borderRadius: 14 }} styles={{ body: { padding: '18px 20px' } }}>
                 <div style={{ fontWeight: 700, fontSize: 15 }}>{official ? '发布新闻' : '有想说的？'}</div>
                 <div style={{ fontSize: 13, color: '#8c8c8c', margin: '6px 0 14px' }}>
@@ -281,12 +340,24 @@ export default function NewsList({ channel = 'forum' }) {
                 </Button>
               </Card>
             )}
+            {isTopic && !canPost && !topic.canManage && (
+              <Card style={{ borderRadius: 14 }} styles={{ body: { padding: '16px 20px' } }}>
+                <div style={{ color: '#8c8c8c', fontSize: 13, marginBottom: 12 }}>
+                  {topic.canComment ? '你还没有发帖权限，可申请开通。' : '你还没有发帖/发言权限，可向 owner 申请开通。'}
+                </div>
+                <TopicApplyButton topic={topic} onApplied={onApplied} block />
+              </Card>
+            )}
             <Link to={official ? '/news' : '/official'} style={{ color: '#888', fontSize: 13, textAlign: 'center' }}>
               去{official ? '资讯论坛' : '官方新闻'}逛逛 <RightOutlined style={{ fontSize: 10 }} />
             </Link>
           </div>
         </Col>
       </Row>
+
+      {isTopic && topic.canManage && (
+        <TopicMemberModal topicId={topicId} open={memberOpen} onClose={() => setMemberOpen(false)} onChange={onApplied} />
+      )}
     </>
   )
 }

@@ -32,6 +32,9 @@ public class UserInformationServiceImpl extends ServiceImpl<UserInformationMappe
     @Autowired
     UserService userService;
 
+    @Autowired
+    com.dream.basketball.mapper.ForumTopicMapper forumTopicMapper;
+
     /**
     * @Description: 发送消息
     * @param: [operatorId, operatorName, receiverId, msgType, msgId, commentContent]
@@ -131,6 +134,18 @@ public class UserInformationServiceImpl extends ServiceImpl<UserInformationMappe
             content = dreamNews == null ? "原帖已删除！"
                     : (dreamNews.getContent().length() > 30 ? dreamNews.getContent().substring(0, 30) + "......" : dreamNews.getContent());
             contentMsg = "在帖子里@了您";
+        } else if (StringUtils.equals(TOPIC_APPLY, msgType) || StringUtils.equals(TOPIC_APPROVED, msgType)
+                || StringUtils.equals(TOPIC_REJECTED, msgType)) {
+            // msgId=专题 id：content 存专题名，供"我的消息"展示与跳转
+            com.dream.basketball.entity.ForumTopic topic = forumTopicMapper.selectById(msgId);
+            content = topic == null ? "专题已删除" : topic.getName();
+            if (StringUtils.equals(TOPIC_APPLY, msgType)) {
+                contentMsg = "申请加入你的专题";
+            } else if (StringUtils.equals(TOPIC_APPROVED, msgType)) {
+                contentMsg = "通过了你的加入申请";
+            } else {
+                contentMsg = "驳回了你的加入申请";
+            }
         }
         userInformation.setContent(content);
         userInformation.setContentMsg(contentMsg);

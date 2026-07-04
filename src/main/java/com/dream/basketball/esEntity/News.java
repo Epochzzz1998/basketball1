@@ -43,6 +43,29 @@ public class News {
     @Field(type = FieldType.Keyword)
     private String newsChannel;
 
+    /** owning forum topic (keyword, exact filtering). Null for official news; backfilled for legacy forum posts. */
+    @Field(type = FieldType.Keyword)
+    private String topicId;
+
+    /** free-form tags, comma-separated (replaces the old team/newsType selects). */
+    @Field(type = FieldType.Text, analyzer = "ik_max_word")
+    private String tags;
+
+    /** 置顶 '1'/'0'. Lives in dream_news; merged in at read time, not indexed in ES. */
+    @org.springframework.data.annotation.Transient
+    private String top;
+
+    /** 精华 '1'/'0'. Lives in dream_news; merged in at read time, not indexed in ES. */
+    @org.springframework.data.annotation.Transient
+    private String essence;
+
+    /** 浏览计数（PV 总数 / UV 人数）。存 dream_news，读时合并，不进 ES。 */
+    @org.springframework.data.annotation.Transient
+    private Integer viewCount;
+
+    @org.springframework.data.annotation.Transient
+    private Integer viewerCount;
+
 }
 
 

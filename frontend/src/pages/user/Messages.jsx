@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Avatar, Badge, Button, Card, Empty, Input, Popconfirm, Spin } from 'antd'
-import { DeleteOutlined, RightOutlined, SendOutlined } from '@ant-design/icons'
+import { Avatar, Badge, Button, Card, Image, Input, Modal, Popconfirm, Select, Spin, Tooltip, Upload, message } from 'antd'
+import { CloseCircleFilled, DeleteOutlined, EditOutlined, FileOutlined, PictureOutlined, RightOutlined, SendOutlined } from '@ant-design/icons'
 import { Link, useSearchParams } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { pmApi } from '../../api/pm'
 import { userApi } from '../../api/user'
+import { searchApi } from '../../api/search'
 import { useAuth } from '../../auth/AuthContext'
 import EmojiPicker from '../../components/EmojiPicker'
+import { humanSize } from '../../components/CommentComposer'
+
+// 附件：图片走 image/*，文件走常见文档白名单；单条最多 9 个
+const FILE_ACCEPT = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.md,.zip,.rar,.7z'
+const MAX_ATTACH = 9
 
 /**
  * 私信页（/messages，需登录，P5；P5-UI 现代化改版）：双栏聊天。
@@ -66,6 +72,43 @@ const dayLabel = (d) => {
   return d.format('YYYY年M月D日')
 }
 
+// 气泡里的附件：图片内联缩略（可点开预览）+ 文件下载卡，按发送方向对齐
+function MessageAttachments({ attachmentsJson, mine }) {
+  let atts = []
+  try { atts = JSON.parse(attachmentsJson || '[]') } catch { atts = [] }
+  atts = atts.filter((a) => a && typeof a.url === 'string' && /^(https?:\/\/|\/)/.test(a.url))
+  if (!atts.length) return null
+  const images = atts.filter((a) => a.type === 'image')
+  const files = atts.filter((a) => a.type !== 'image')
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: mine ? 'flex-end' : 'flex-start' }}>
+      {images.length > 0 && (
+        <Image.PreviewGroup>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: mine ? 'flex-end' : 'flex-start' }}>
+            {images.map((a, i) => (
+              <Image key={i} src={a.url} width={128} height={128} style={{ objectFit: 'cover', borderRadius: 12 }} />
+            ))}
+          </div>
+        </Image.PreviewGroup>
+      )}
+      {files.map((a, i) => (
+        <a
+          key={i}
+          href={a.url}
+          target="_blank"
+          rel="noreferrer"
+          download={a.name || true}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: '#fff', border: '1px solid #eef0f2', borderRadius: 12, color: 'inherit', maxWidth: 260, boxShadow: '0 1px 4px rgba(0,0,0,.05)' }}
+        >
+          <FileOutlined style={{ color: '#fa541c', fontSize: 18 }} />
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name || '文件'}</span>
+          {a.size != null && <span style={{ fontSize: 11, color: '#999', flexShrink: 0 }}>{humanSize(a.size)}</span>}
+        </a>
+      ))}
+    </div>
+  )
+}
+
 export default function Messages() {
   const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -77,8 +120,14 @@ export default function Messages() {
   const [hasMore, setHasMore] = useState(false)
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [text, setText] = useState('')
+  const [attachments, setAttachments] = useState([]) // 待发送附件 [{type,url,name,size}]
+  const [uploading, setUploading] = useState(false)
   const [sending, setSending] = useState(false)
   const [onlineMap, setOnlineMap] = useState({}) // { userId: 是否在线 }
+  const [composeOpen, setComposeOpen] = useState(false) // 发起私信弹窗
+  const [composeOpts, setComposeOpts] = useState([]) // 搜到的用户候选
+  const [composeLoading, setComposeLoading] = useState(false)
+  const composeTimer = useRef(null)
 
   const scrollRef = useRef(null)
   const inputWrapRef = useRef(null)
@@ -197,13 +246,34 @@ export default function Messages() {
     setSearchParams(pid ? { peerId: pid } : {}, { replace: true })
   }
 
+  // 发起私信：搜全站用户（按昵称，去掉自己），选中即打开会话（没聊过也能开）
+  const composeSearch = (kw) => {
+    if (composeTimer.current) clearTimeout(composeTimer.current)
+    const q = kw.trim()
+    if (!q) { setComposeOpts([]); return }
+    setComposeLoading(true)
+    composeTimer.current = setTimeout(() => {
+      searchApi.mentionUsers(q)
+        .then((list) => setComposeOpts((list || []).filter((u) => u.userId !== user.userId)))
+        .catch(() => setComposeOpts([]))
+        .finally(() => setComposeLoading(false))
+    }, 300)
+  }
+
+  const pickCompose = (uid) => {
+    setComposeOpen(false)
+    setComposeOpts([])
+    if (uid) openConv(uid)
+  }
+
   const send = async () => {
     const t = text.trim()
-    if (!t || !peerId || sending) return
+    if ((!t && !attachments.length) || !peerId || sending) return
     setSending(true)
     try {
-      const msg = await pmApi.send(peerId, t)
+      const msg = await pmApi.send(peerId, t, attachments.length ? JSON.stringify(attachments) : undefined)
       setText('')
+      setAttachments([])
       setMsgs((m) => (m && !m.some((x) => x.pmId === msg.pmId) ? [...m, msg] : (m || [msg])))
       loadConvs()
       scrollBottom(true)
@@ -213,6 +283,28 @@ export default function Messages() {
       setSending(false)
     }
   }
+
+  // 附件上传：走 antd Upload 的 customRequest，成功后进 attachments 待发送队列
+  const doUpload = async ({ file, onSuccess, onError }) => {
+    if (attachments.length >= MAX_ATTACH) { message.warning(`最多 ${MAX_ATTACH} 个附件`); onError?.(new Error('max')); return }
+    setUploading(true)
+    try {
+      const url = await pmApi.uploadFile(file)
+      if (url) {
+        const isImage = (file.type || '').startsWith('image/')
+        setAttachments((a) => [...a, { type: isImage ? 'image' : 'file', url, name: file.name, size: file.size }])
+        onSuccess?.()
+      } else {
+        onError?.(new Error('上传失败'))
+      }
+    } catch (err) {
+      onError?.(err) // 具体错误已由 http 拦截器弹出
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const removeAttach = (i) => setAttachments((a) => a.filter((_, idx) => idx !== i))
 
   // 在光标处插入 emoji（拿底层 textarea 选区拼接再恢复光标）
   const insertEmoji = (emoji) => {
@@ -272,7 +364,7 @@ export default function Messages() {
     const unread = c.unread > 0
     const preview = c.lastRecalled
       ? '[消息已撤回]'
-      : `${c.lastFromMe ? '我: ' : ''}${c.lastContent || ''}`
+      : `${c.lastFromMe ? '我: ' : ''}${c.lastContent || '[图片/附件]'}`
     return (
       <div
         key={c.peerId}
@@ -359,17 +451,22 @@ export default function Messages() {
               src={mine ? user.avatar : activePeer?.peerAvatar}
               size={AV}
             />
-            <div
-              style={{
-                padding: '10px 14px', fontSize: 14, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                background: mine ? 'linear-gradient(135deg, #ff8a5c 0%, #fa541c 100%)' : '#fff',
-                color: mine ? '#fff' : '#333',
-                border: mine ? 'none' : '1px solid #eef0f2',
-                borderRadius: mine ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                boxShadow: mine ? '0 2px 10px rgba(250,84,28,.22)' : '0 1px 4px rgba(0,0,0,.05)',
-              }}
-            >
-              {m.content}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: mine ? 'flex-end' : 'flex-start', minWidth: 0 }}>
+              {m.content ? (
+                <div
+                  style={{
+                    padding: '10px 14px', fontSize: 14, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                    background: mine ? 'linear-gradient(135deg, #ff8a5c 0%, #fa541c 100%)' : '#fff',
+                    color: mine ? '#fff' : '#333',
+                    border: mine ? 'none' : '1px solid #eef0f2',
+                    borderRadius: mine ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                    boxShadow: mine ? '0 2px 10px rgba(250,84,28,.22)' : '0 1px 4px rgba(0,0,0,.05)',
+                  }}
+                >
+                  {m.content}
+                </div>
+              ) : null}
+              <MessageAttachments attachmentsJson={m.attachments} mine={mine} />
             </div>
             {mine && canRecall && (
               <a className="pm-recall" style={{ fontSize: 11, color: '#bbb', opacity: 0, transition: 'opacity .15s', flexShrink: 0, alignSelf: 'center' }} onClick={() => recall(m.pmId)}>
@@ -402,9 +499,12 @@ export default function Messages() {
 
       {/* 左栏：会话列表 */}
       <div style={{ width: 304, borderRight: '1px solid #f0f0f0', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
-        <div style={{ padding: '16px 18px 12px', borderBottom: '1px solid #f5f5f5' }}>
-          <div style={{ fontWeight: 800, fontSize: 18 }}>私信</div>
-          {convs?.length ? <div style={{ fontSize: 12, color: '#999', marginTop: 2 }}>{convs.length} 个会话</div> : null}
+        <div style={{ padding: '16px 18px 12px', borderBottom: '1px solid #f5f5f5', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 800, fontSize: 18 }}>私信</div>
+            {convs?.length ? <div style={{ fontSize: 12, color: '#999', marginTop: 2 }}>{convs.length} 个会话</div> : null}
+          </div>
+          <Button type="primary" size="small" icon={<EditOutlined />} onClick={() => setComposeOpen(true)}>发起</Button>
         </div>
         <div className="pm-scroll" style={{ flex: 1, overflowY: 'auto', paddingTop: 4 }}>
           {convs === null ? (
@@ -414,7 +514,7 @@ export default function Messages() {
           ) : (
             <div style={{ textAlign: 'center', color: '#bbb', marginTop: 70, padding: '0 20px' }}>
               <div style={{ fontSize: 40 }}>💬</div>
-              <div style={{ fontSize: 13, marginTop: 10, lineHeight: 1.7 }}>还没有会话<br />去用户主页点「发私信」开聊</div>
+              <div style={{ fontSize: 13, marginTop: 10, lineHeight: 1.7 }}>还没有会话<br />点右上角「发起」搜用户开聊</div>
             </div>
           )}
         </div>
@@ -481,9 +581,40 @@ export default function Messages() {
 
             {/* 输入区 */}
             <div style={{ background: '#fff', borderTop: '1px solid #f0f0f0', padding: '10px 16px 14px' }}>
+              {/* 待发送附件预览：图片缩略 / 文件卡，各带右上角移除 */}
+              {attachments.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+                  {attachments.map((att, i) => (
+                    <div key={i} style={{ position: 'relative' }}>
+                      {att.type === 'image' ? (
+                        <Image src={att.url} width={60} height={60} preview={false} style={{ objectFit: 'cover', borderRadius: 8 }} />
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 10px', background: '#f5f5f5', borderRadius: 8, maxWidth: 180, height: 60, boxSizing: 'border-box' }}>
+                          <FileOutlined style={{ color: '#fa541c', fontSize: 16 }} />
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{att.name}</div>
+                            <div style={{ fontSize: 11, color: '#999' }}>{humanSize(att.size)}</div>
+                          </div>
+                        </div>
+                      )}
+                      <CloseCircleFilled
+                        onClick={() => removeAttach(i)}
+                        style={{ position: 'absolute', top: -6, right: -6, color: '#8c8c8c', background: '#fff', borderRadius: '50%', cursor: 'pointer', fontSize: 16 }}
+                      />
+                    </div>
+                  ))}
+                  {uploading && <span style={{ fontSize: 12, color: '#999', alignSelf: 'center' }}>上传中…</span>}
+                </div>
+              )}
               <div ref={inputWrapRef} style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-                <div style={{ paddingBottom: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: 6 }}>
                   <EmojiPicker onPick={insertEmoji} />
+                  <Upload accept="image/*" multiple showUploadList={false} customRequest={doUpload}>
+                    <Tooltip title="图片"><PictureOutlined style={{ fontSize: 18, color: '#8c8c8c', cursor: 'pointer' }} /></Tooltip>
+                  </Upload>
+                  <Upload accept={FILE_ACCEPT} multiple showUploadList={false} customRequest={doUpload}>
+                    <Tooltip title="文件"><FileOutlined style={{ fontSize: 18, color: '#8c8c8c', cursor: 'pointer' }} /></Tooltip>
+                  </Upload>
                 </div>
                 <Input.TextArea
                   value={text}
@@ -505,15 +636,47 @@ export default function Messages() {
                   shape="circle"
                   icon={<SendOutlined />}
                   loading={sending}
-                  disabled={!text.trim()}
+                  disabled={!text.trim() && !attachments.length}
                   onClick={send}
-                  style={{ flexShrink: 0, width: 40, height: 40, boxShadow: text.trim() ? '0 4px 12px rgba(250,84,28,.3)' : 'none' }}
+                  style={{ flexShrink: 0, width: 40, height: 40, boxShadow: (text.trim() || attachments.length) ? '0 4px 12px rgba(250,84,28,.3)' : 'none' }}
                 />
               </div>
             </div>
           </>
         )}
       </div>
+
+      {/* 发起私信：搜全站用户，选中即开会话 */}
+      <Modal
+        open={composeOpen}
+        title="发起私信"
+        footer={null}
+        onCancel={() => { setComposeOpen(false); setComposeOpts([]) }}
+        destroyOnClose
+      >
+        <Select
+          showSearch
+          autoFocus
+          placeholder="搜索用户昵称…"
+          style={{ width: '100%' }}
+          size="large"
+          value={null}
+          filterOption={false}
+          onSearch={composeSearch}
+          onChange={pickCompose}
+          notFoundContent={composeLoading ? <div style={{ textAlign: 'center', padding: 12 }}><Spin size="small" /></div> : null}
+          options={composeOpts.map((u) => ({
+            value: u.userId,
+            label: (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <UserAvatar name={u.userNickname} src={u.avatar} size={22} />
+                {u.userNickname}
+              </span>
+            ),
+          }))}
+        />
+        <div style={{ fontSize: 12, color: '#999', marginTop: 10 }}>选中用户即可开始聊天，没聊过也能直接发。</div>
+      </Modal>
     </Card>
   )
 }

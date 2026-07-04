@@ -60,6 +60,10 @@ public class UserController extends BaseUtils {
         if (!PasswordUtil.matches(dreamUserDto.getPassword(), dreamUser.getPassword())) {
             return handlerResultJson(false, "密码错误，请检查后重新输入！");
         }
+        // 全局用户管理：账号被超管禁用则不允许登录
+        if (Constants.DISABLE.equals(dreamUser.getUserStatus())) {
+            return handlerResultJson(false, "账号已被禁用，请联系管理员");
+        }
         // P2-3: 旧 MD5 校验通过即透明升级为 BCrypt（只更新 PASSWORD 一列）
         if (PasswordUtil.needsUpgrade(dreamUser.getPassword())) {
             String upgraded = PasswordUtil.hash(dreamUserDto.getPassword());
@@ -123,6 +127,10 @@ public class UserController extends BaseUtils {
         data.put("avatar", u.getAvatar());
         data.put("isSuperManager", role == Role.SUPER_MANAGER);
         data.put("isManagerOrOver", role.covers(Role.MANAGER));
+        // 全局权限（超管可控）：前端据此显隐入口/给提示；后端有兜底
+        data.put("canBrowse", !"0".equals(u.getCanBrowse()));
+        data.put("canComment", !"0".equals(u.getCanComment()));
+        data.put("canPost", !"0".equals(u.getCanPost()));
         return new Result<>(0, "成功", data);
     }
 
@@ -132,6 +140,74 @@ public class UserController extends BaseUtils {
     public Object loginOut(HttpServletRequest request) {
         SecUtil.logout4Session(request);
         return handlerResultJson(true, "已登出");
+    }
+
+    // ===== 全局用户管理（超级管理员） =====
+
+    /** 用户列表（超管）：按昵称/用户名模糊分页，带全局权限位。 */
+    @RequiresRole(Role.SUPER_MANAGER)
+    @GetMapping("/adminList")
+    public Object adminList(String keyword, Integer page, Integer limit) {
+        com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<DreamUser> qw =
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
+        if (StringUtils.isNotBlank(keyword)) {
+            String kw = keyword.trim();
+            qw.and(w -> w.like("USER_NICKNAME", kw).or().like("USER_NAME", kw));
+        }
+        qw.orderByDesc("REGIST_TIME");
+        com.github.pagehelper.PageHelper.startPage(page == null ? 1 : page, limit == null ? 20 : limit);
+        java.util.List<DreamUser> users = userService.list(qw);
+        com.github.pagehelper.PageInfo<DreamUser> info = new com.github.pagehelper.PageInfo<>(users);
+        java.util.List<java.util.Map<String, Object>> rows = new java.util.ArrayList<>();
+        for (DreamUser u : users) {
+            java.util.Map<String, Object> m = new java.util.HashMap<>();
+            m.put("userId", u.getUserId());
+            m.put("userNickname", u.getUserNickname());
+            m.put("userName", u.getUserName());
+            m.put("userRole", u.getUserRole());
+            m.put("avatar", u.getAvatar());
+            m.put("registTime", u.getRegistTime());
+            m.put("lastLoginTime", u.getLastLoginTime());
+            m.put("enabled", !Constants.DISABLE.equals(u.getUserStatus()));
+            m.put("canBrowse", !"0".equals(u.getCanBrowse()));
+            m.put("canComment", !"0".equals(u.getCanComment()));
+            m.put("canPost", !"0".equals(u.getCanPost()));
+            m.put("isSuperManager", Role.fromUserRole(u.getUserRole()) == Role.SUPER_MANAGER);
+            rows.add(m);
+        }
+        return handlerSuccessPageJson(0, "成功", (int) info.getTotal(), rows);
+    }
+
+    /** 设置某用户的全局权限（超管）：登录/浏览/发言/发帖。不能改超管、不能改自己。 */
+    @RequiresRole(Role.SUPER_MANAGER)
+    @PostMapping("/setUserPerms")
+    public Object setUserPerms(String userId, String enabled, String canBrowse, String canComment, String canPost,
+                              HttpServletRequest request) {
+        DreamUser target = StringUtils.isBlank(userId) ? null : userService.getById(userId);
+        if (target == null) {
+            return handlerResultJson(false, "用户不存在");
+        }
+        if (Role.fromUserRole(target.getUserRole()) == Role.SUPER_MANAGER) {
+            return handlerResultJson(false, "不能修改超级管理员");
+        }
+        if (StringUtils.equals(userId, SecUtil.getLoginUserIdToSession(request))) {
+            return handlerResultJson(false, "不能修改自己");
+        }
+        UpdateWrapper<DreamUser> uw = new UpdateWrapper<DreamUser>().eq("USER_ID", userId);
+        if (enabled != null) {
+            uw.set("USER_STATUS", "1".equals(enabled) ? Constants.USABLE : Constants.DISABLE);
+        }
+        if (canBrowse != null) {
+            uw.set("CAN_BROWSE", "1".equals(canBrowse) ? "1" : "0");
+        }
+        if (canComment != null) {
+            uw.set("CAN_COMMENT", "1".equals(canComment) ? "1" : "0");
+        }
+        if (canPost != null) {
+            uw.set("CAN_POST", "1".equals(canPost) ? "1" : "0");
+        }
+        userService.update(uw);
+        return handlerResultJson(true, "已保存");
     }
 
     /** 验证码图片（前端以 <img src> 加载；答案存 session 供 /login 校验，不再打印到控制台） */

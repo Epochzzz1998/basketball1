@@ -8,6 +8,12 @@ export const userApi = {
   profile: (userId) => http.get('/user/profile', { params: { userId } }),
   // 本人：改昵称 / 改密码 / 传头像
   updateProfile: (userNickname) => http.post('/user/updateProfile', new URLSearchParams({ userNickname })),
+  // 本人：主页隐私（隐藏发帖/评论）；传哪个改哪个
+  setActivityPrivacy: (payload) => {
+    const body = new URLSearchParams()
+    Object.entries(payload).forEach(([k, v]) => { if (v != null) body.append(k, v) })
+    return http.post('/user/setActivityPrivacy', body)
+  },
   uploadAvatar: (file) => {
     const fd = new FormData()
     fd.append('file', file)
@@ -22,4 +28,13 @@ export const userApi = {
   bindings: () => http.get('/user/bindings'),
   reviewBinding: (userId, approve) =>
     http.post('/user/reviewBinding', new URLSearchParams({ userId, approve })),
+  // 超管：认证审核历史（分页）
+  verifyHistory: (params) => http.get('/user/verifyHistory', { params }),
+  // 超管：全局用户管理——列表 + 设置某用户的登录/浏览/发言/发帖权限
+  adminList: (params) => http.get('/user/adminList', { params }),
+  setUserPerms: (payload) => {
+    const body = new URLSearchParams()
+    Object.entries(payload).forEach(([k, v]) => { if (v != null) body.append(k, v) })
+    return http.post('/user/setUserPerms', body)
+  },
 }

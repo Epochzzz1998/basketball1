@@ -56,6 +56,9 @@ public class PmController extends BaseUtils {
     @Autowired
     private com.dream.basketball.config.PresenceService presenceService;
 
+    @org.springframework.beans.factory.annotation.Value("${picPath.uploadPath:}")
+    private String uploadPath;
+
     /** push one event to a user's personal queue (no-op for offline users; they catch up via REST) */
     private void push(String userId, String type, Object data) {
         Map<String, Object> payload = new HashMap<>();
@@ -64,16 +67,21 @@ public class PmController extends BaseUtils {
         messagingTemplate.convertAndSendToUser(userId, "/queue/pm", payload);
     }
 
-    /** 发私信：校验后落库，然后把消息推给对方（和自己的其他标签页） */
+    /** 发私信：校验后落库，然后把消息推给对方（和自己的其他标签页）。可带附件（图片/文档）。 */
     @RequiresRole(Role.USER)
     @PostMapping("/send")
-    public Object send(String receiverId, String content, HttpServletRequest request) {
+    public Object send(String receiverId, String content, String attachments, HttpServletRequest request) {
         String me = SecUtil.getLoginUserIdToSession(request);
         content = StringUtils.trim(content);
-        if (StringUtils.isBlank(receiverId) || StringUtils.isBlank(content)) {
+        String safeAttachments = sanitizeAttachments(attachments);
+        if (StringUtils.isBlank(receiverId)) {
+            return new Result<>(1, "缺少收件人", null);
+        }
+        // 文字和附件至少要有一样
+        if (StringUtils.isBlank(content) && safeAttachments == null) {
             return new Result<>(1, "内容不能为空", null);
         }
-        if (content.length() > 500) {
+        if (content != null && content.length() > 500) {
             return new Result<>(1, "单条私信最多 500 字", null);
         }
         if (StringUtils.equals(me, receiverId)) {
@@ -88,7 +96,8 @@ public class PmController extends BaseUtils {
         msg.setPmId(UUID.randomUUID().toString());
         msg.setSenderId(me);
         msg.setReceiverId(receiverId);
-        msg.setContent(content);
+        msg.setContent(StringUtils.defaultString(content)); // 纯附件时存 ""，避免 CONTENT NOT NULL 报错
+        msg.setAttachments(safeAttachments);
         msg.setSendTime(new Date());
         msg.setWhetherRead(Constants.TO_READ);
         msg.setRecalled(FLAG_OFF);
@@ -99,6 +108,38 @@ public class PmController extends BaseUtils {
         push(receiverId, "message", msg);
         push(me, "message", msg);
         return new Result<>(0, "发送成功", msg);
+    }
+
+    /** 私信附件上传（登录即可）：图片或常见文档，返回可访问 URL。按发送者归档到 pm-{me}/ 目录。 */
+    @RequiresRole(Role.USER)
+    @PostMapping("/upload")
+    public Object upload(org.springframework.web.multipart.MultipartFile file, HttpServletRequest request)
+            throws java.io.IOException {
+        String me = SecUtil.getLoginUserIdToSession(request);
+        String url = com.dream.basketball.utils.FileUtils.uploadAttachment(file, uploadPath, "pm-" + me);
+        Map<String, Object> data = new HashMap<>();
+        data.put("url", url);
+        return new Result<>(0, "上传成功", data);
+    }
+
+    /** 只保留指向本站上传目录的附件（挡掉外链 / javascript: 等），解析失败或全被过滤则返回 null。 */
+    private String sanitizeAttachments(String attachmentsJson) {
+        if (StringUtils.isBlank(attachmentsJson)) {
+            return null;
+        }
+        try {
+            com.alibaba.fastjson.JSONArray arr = com.alibaba.fastjson.JSON.parseArray(attachmentsJson);
+            com.alibaba.fastjson.JSONArray kept = new com.alibaba.fastjson.JSONArray();
+            for (int i = 0; i < arr.size(); i++) {
+                com.alibaba.fastjson.JSONObject o = arr.getJSONObject(i);
+                if (o != null && com.dream.basketball.utils.FileUtils.isLocalUploadUrl(o.getString("url"))) {
+                    kept.add(o);
+                }
+            }
+            return kept.isEmpty() ? null : kept.toJSONString();
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /** 会话列表：每个对话最后一条 + 未读数（SQL 里窗口函数推导） */
@@ -121,6 +162,7 @@ public class PmController extends BaseUtils {
         for (DreamPrivateMessage m : rows) {
             if (FLAG_ON.equals(m.getRecalled())) {
                 m.setContent("");
+                m.setAttachments(null);
             }
         }
         return handlerSuccessPageJson(0, "成功", (int) new PageInfo<>(rows).getTotal(), rows);

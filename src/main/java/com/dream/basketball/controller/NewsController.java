@@ -56,12 +56,38 @@ public class NewsController extends BaseUtils {
     @Autowired
     private UserInformationService userInformationService;
 
-    /** 资讯列表数据（公开） */
+    @Autowired
+    private com.dream.basketball.config.TopicPermissionService topicPerms;
+
+    @Autowired
+    private com.dream.basketball.config.UserPermService userPerms;
+
+    @Autowired
+    private com.dream.basketball.mapper.NewsViewerMapper newsViewerMapper;
+
+    /** 资讯列表数据（公开）：指定专题要有浏览权；跨专题聚合时滤掉无权浏览的私密专题帖 */
     @GetMapping("/newsListData")
-    public Object newsListData(NewsDto param, Integer page, Integer limit) throws Exception {
+    public Object newsListData(NewsDto param, Integer page, Integer limit, HttpServletRequest request) throws Exception {
+        DreamUser me = SecUtil.getLoginUserToSession(request);
+        // 全局限制：被禁止浏览的登录用户看不到论坛/新闻
+        if (me != null && !userPerms.canBrowse(me.getUserId())) {
+            return handlerSuccessPageJson(0, "成功", 0, java.util.Collections.emptyList());
+        }
+        if (StringUtils.isNotBlank(param.getTopicId())) {
+            com.dream.basketball.entity.ForumTopic t = topicPerms.getTopic(param.getTopicId());
+            if (t == null || !topicPerms.canView(me, t)) {
+                return handlerSuccessPageJson(0, "成功", 0, java.util.Collections.emptyList());
+            }
+        }
         PageHelper.startPage(page, limit);
         List<NewsDto> rows = newsService.getNewsByParams(param);
-        return handlerSuccessPageJson(0, "成功", (int) new PageInfo<>(rows).getTotal(), rows);
+        java.util.Set<String> hidden = topicPerms.hiddenTopicIds(me);
+        if (!hidden.isEmpty()) {
+            rows = rows.stream()
+                    .filter(r -> r.getTopicId() == null || !hidden.contains(r.getTopicId()))
+                    .collect(java.util.stream.Collectors.toList());
+        }
+        return handlerSuccessPageJson(0, "成功", rows.size(), rows);
     }
 
     /** 评论列表数据（公开） */
@@ -78,15 +104,109 @@ public class NewsController extends BaseUtils {
         return handlerSuccessPageJson(0, "成功", (int) new PageInfo<>(rows).getTotal(), rows);
     }
 
-    /** 资讯详情（公开）；附带把对应消息通知标记为已读 */
+    /** 资讯详情（公开，但专题帖要有浏览权）；附带把对应消息通知标记为已读 */
     @GetMapping("/newsShow")
-    public Object newsShow(String newsId, String level, String userInformationId, String anchorId) {
+    public Object newsShow(String newsId, String level, String userInformationId, String anchorId, HttpServletRequest request) {
+        DreamUser viewer = SecUtil.getLoginUserToSession(request);
+        if (viewer != null && !userPerms.canBrowse(viewer.getUserId())) {
+            return new Result<>(1, "你已被限制浏览论坛/新闻", null);
+        }
+        com.dream.basketball.esEntity.News news = newsService.getNewsShow(newsId);
+        // 专题帖：无浏览权直接拒（防私密专题内容泄露）
+        if (news != null && StringUtils.isNotBlank(news.getTopicId())
+                && !topicPerms.canView(SecUtil.getLoginUserToSession(request), topicPerms.getTopic(news.getTopicId()))) {
+            return new Result<>(1, "你没有权限查看该专题的内容", null);
+        }
+        // 浏览计数（通过所有可见性校验后才计）：PV 每次 +1；UV 靠 news_viewer 去重，登录用户首次浏览才 +1
+        if (news != null && StringUtils.isNotBlank(news.getNewsId())) {
+            String nid = news.getNewsId();
+            dreamNewsService.update(null, new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<com.dream.basketball.entity.DreamNews>()
+                    .eq("NEWS_ID", nid).setSql("VIEW_COUNT = IFNULL(VIEW_COUNT,0) + 1"));
+            news.setViewCount((news.getViewCount() == null ? 0 : news.getViewCount()) + 1);
+            if (viewer != null && newsViewerMapper.insertIgnore(nid, viewer.getUserId(), new java.util.Date()) > 0) {
+                dreamNewsService.update(null, new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<com.dream.basketball.entity.DreamNews>()
+                        .eq("NEWS_ID", nid).setSql("VIEWER_COUNT = IFNULL(VIEWER_COUNT,0) + 1"));
+                news.setViewerCount((news.getViewerCount() == null ? 0 : news.getViewerCount()) + 1);
+            }
+        }
         userInformationService.updateInformationRead(userInformationId);
         Map<String, Object> data = new HashMap<>();
-        data.put("news", newsService.getNewsShow(newsId));
+        data.put("news", news);
         data.put("level", level);
         data.put("anchorId", StringUtils.isNotBlank(anchorId) ? anchorId : NO_ANCHOR);
+        data.put("canManage", canManagePost(viewer, news)); // 能否给该帖置顶/加精
+        // 题主标识用：该帖所属专题的 owner（官方新闻无专题→null）
+        if (news != null && StringUtils.isNotBlank(news.getTopicId())) {
+            com.dream.basketball.entity.ForumTopic t = topicPerms.getTopic(news.getTopicId());
+            data.put("topicOwnerId", t == null ? null : t.getOwnerId());
+        }
         return new Result<>(0, "成功", data);
+    }
+
+    /**
+     * 置顶 / 精华（可并存）。官方新闻→manager+；论坛专题帖→该专题管理者（owner/admin）。
+     * flag=top|essence，value=1 开 / 0 关。存 dream_news；列表与详情读时合并。
+     */
+    @RequiresRole(Role.USER)
+    @PostMapping("/setFlag")
+    public Object setFlag(String newsId, String flag, String value, HttpServletRequest request) {
+        DreamUser me = SecUtil.getLoginUserToSession(request);
+        News news = StringUtils.isNotBlank(newsId) ? newsService.getNewsShow(newsId) : null;
+        if (news == null || StringUtils.isBlank(news.getNewsId())) {
+            return handlerResultJson(false, "帖子不存在");
+        }
+        if (!"top".equals(flag) && !"essence".equals(flag)) {
+            return handlerResultJson(false, "参数错误");
+        }
+        if (!canManagePost(me, news)) {
+            return handlerResultJson(false, "无权操作");
+        }
+        String v = "1".equals(value) ? "1" : "0";
+        com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<com.dream.basketball.entity.DreamNews> uw =
+                new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<com.dream.basketball.entity.DreamNews>().eq("NEWS_ID", newsId);
+        uw.set("top".equals(flag) ? "TOP" : "ESSENCE", v);
+        dreamNewsService.update(uw);
+        return handlerResultJson(true, "已更新");
+    }
+
+    /** 能否管理某帖的置顶/精华：官方→manager+；专题帖→该专题 canManage；无专题的论坛帖→manager+。 */
+    private boolean canManagePost(DreamUser me, News news) {
+        if (me == null || news == null) {
+            return false;
+        }
+        if ("official".equals(news.getNewsChannel())) {
+            return Role.fromUserRole(me.getUserRole()).covers(Role.MANAGER);
+        }
+        if (StringUtils.isNotBlank(news.getTopicId())) {
+            return topicPerms.canManage(me, topicPerms.getTopic(news.getTopicId()));
+        }
+        return Role.fromUserRole(me.getUserRole()).covers(Role.MANAGER);
+    }
+
+    /** 作者数据小结（公开）：发帖数 / 精华数 / 置顶数 / 获赞数（获赞=其所有帖 GOOD_NUM 之和）。给帖子详情作者卡用。 */
+    @GetMapping("/authorStats")
+    public Object authorStats(String userId) {
+        Map<String, Object> stats = new HashMap<>();
+        if (StringUtils.isBlank(userId)) {
+            return new Result<>(0, "成功", stats);
+        }
+        List<Map<String, Object>> rows = dreamNewsService.getBaseMapper().selectMaps(
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<com.dream.basketball.entity.DreamNews>()
+                        .select("COUNT(*) as postCount",
+                                "IFNULL(SUM(CASE WHEN ESSENCE='1' THEN 1 ELSE 0 END),0) as essenceCount",
+                                "IFNULL(SUM(CASE WHEN TOP='1' THEN 1 ELSE 0 END),0) as topCount",
+                                "IFNULL(SUM(GOOD_NUM),0) as likeCount")
+                        .eq("AUTHOR_ID", userId));
+        Map<String, Object> r = rows.isEmpty() ? new HashMap<>() : rows.get(0);
+        stats.put("postCount", num(r.get("postCount")));
+        stats.put("essenceCount", num(r.get("essenceCount")));
+        stats.put("topCount", num(r.get("topCount")));
+        stats.put("likeCount", num(r.get("likeCount")));
+        return new Result<>(0, "成功", stats);
+    }
+
+    private long num(Object o) {
+        return o == null ? 0 : Long.parseLong(String.valueOf(o));
     }
 
     /** 评论详情（公开）；附带标记已读 */
@@ -133,7 +253,7 @@ public class NewsController extends BaseUtils {
         boolean isExisting = existing != null && StringUtils.isNotBlank(existing.getNewsId());
         if (isExisting) {
             // Editing: only the original author or a manager may edit; preserve original
-            // authorship and publish time (don't let the client reassign or reset them).
+            // authorship, publish time, channel and topic (don't let the client reassign them).
             if (!isManager && !StringUtils.equals(existing.getAuthorId(), me.getUserId())) {
                 return handlerResultJson(false, "无权编辑他人的帖子");
             }
@@ -141,16 +261,34 @@ public class NewsController extends BaseUtils {
             news.setAuthorId(existing.getAuthorId());
             news.setPublishDate(existing.getPublishDate());
             news.setNewsChannel(existing.getNewsChannel());
+            news.setTopicId(existing.getTopicId());
         } else {
+            // 全局限制：被超管禁止发帖的用户不能发新帖
+            if (!userPerms.canPost(me.getUserId())) {
+                return handlerResultJson(false, "你已被限制发帖");
+            }
             // New post: force author to the current user (ignore any client-sent value).
             news.setAuthor(me.getUserNickname());
             news.setAuthorId(me.getUserId());
-            // Channel: the official news zone is manager-only; everything else lands in the forum.
+            // Channel: the official news zone is manager-only; everything else is a forum post
+            // and must belong to a topic the user is allowed to post in.
             boolean official = StringUtils.equals(NEWS_CHANNEL_OFFICIAL, news.getNewsChannel());
-            if (official && !isManager) {
-                return handlerResultJson(false, "只有管理员可以发布官方新闻！");
+            if (official) {
+                if (!isManager) {
+                    return handlerResultJson(false, "只有管理员可以发布官方新闻！");
+                }
+                news.setNewsChannel(NEWS_CHANNEL_OFFICIAL);
+                news.setTopicId(null); // official news has no topic
+            } else {
+                news.setNewsChannel(NEWS_CHANNEL_FORUM);
+                com.dream.basketball.entity.ForumTopic topic = topicPerms.getTopic(news.getTopicId());
+                if (topic == null) {
+                    return handlerResultJson(false, "请选择要发布到的专题");
+                }
+                if (!topicPerms.canPost(me, topic)) {
+                    return handlerResultJson(false, "你在该专题没有发帖权限");
+                }
             }
-            news.setNewsChannel(official ? NEWS_CHANNEL_OFFICIAL : NEWS_CHANNEL_FORUM);
         }
         newsService.save(news);
         dreamNewsService.saveSyncEs(news);

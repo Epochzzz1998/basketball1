@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   Avatar, Button, Card, Col, Empty, Form, Input, List, Modal, Popconfirm,
-  Row, Select, Space, Spin, Statistic, Tabs, Tag, Upload, message,
+  Row, Select, Space, Spin, Statistic, Switch, Tabs, Tag, Upload, message,
 } from 'antd'
 import { CameraOutlined, CommentOutlined, EditOutlined, LikeOutlined, LockOutlined, MessageOutlined, TrophyFilled } from '@ant-design/icons'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -35,7 +35,8 @@ const daysSince = (v) => {
   return Math.max(1, Math.floor((Date.now() - t.getTime()) / 86400000))
 }
 
-function PostList({ posts }) {
+function PostList({ posts, hidden }) {
+  if (hidden) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="该用户已隐藏发帖" />
   if (!posts?.length) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="还没有发过帖子" />
   return (
     <List
@@ -68,7 +69,8 @@ function PostList({ posts }) {
   )
 }
 
-function CommentTrail({ comments }) {
+function CommentTrail({ comments, hidden }) {
+  if (hidden) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="该用户已隐藏评论" />
   if (!comments?.length) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="还没有发表过评论" />
   return (
     <List
@@ -204,7 +206,7 @@ export default function UserProfile() {
   }
   if (data === null) return <Spin style={{ display: 'block', margin: '80px auto' }} size="large" />
 
-  const { user, stats, posts, comments } = data
+  const { user, stats, posts, comments, postsHidden, commentsHidden } = data
   const role = ROLE_META[user.userRole]
   const displayName = user.userNickname || user.userName
   const verified = user.identStatus === 1
@@ -256,6 +258,17 @@ export default function UserProfile() {
       load()
     } catch (e) {
       message.error(e?.msg || '操作失败')
+    }
+  }
+
+  // 主页隐私：即改即存（隐藏后他人主页看不到，本人仍可见）
+  const togglePrivacy = async (field, checked) => {
+    try {
+      await userApi.setActivityPrivacy({ [field]: checked ? '1' : '0' })
+      message.success('已保存')
+      load()
+    } catch (e) {
+      message.error(e?.msg || '保存失败')
     }
   }
 
@@ -351,11 +364,26 @@ export default function UserProfile() {
 
       {/* 内容区 */}
       <Card styles={{ body: { padding: '8px 20px 16px' } }}>
+        {/* 本人：主页隐私开关（隐藏后他人看不到，自己仍可见） */}
+        {isSelf && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 18, padding: '6px 4px 12px', borderBottom: '1px solid #f5f5f5', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 13, color: '#8c8c8c' }}>主页隐私</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Switch size="small" checked={!!user.hidePosts} onChange={(c) => togglePrivacy('hidePosts', c)} />
+              <span style={{ fontSize: 13 }}>隐藏我的发帖</span>
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Switch size="small" checked={!!user.hideComments} onChange={(c) => togglePrivacy('hideComments', c)} />
+              <span style={{ fontSize: 13 }}>隐藏我的评论</span>
+            </span>
+            <span style={{ fontSize: 12, color: '#bbb' }}>仅对他人隐藏，你自己仍能看到</span>
+          </div>
+        )}
         <Tabs
           defaultActiveKey="posts"
           items={[
-            { key: 'posts', label: `${isSelf ? '我' : '他'}的帖子（${stats.posts ?? 0}）`, children: <PostList posts={posts} /> },
-            { key: 'comments', label: `${isSelf ? '我' : '他'}的评论（${stats.comments ?? 0}）`, children: <CommentTrail comments={comments} /> },
+            { key: 'posts', label: `${isSelf ? '我' : '他'}的帖子（${stats.posts ?? 0}）`, children: <PostList posts={posts} hidden={postsHidden} /> },
+            { key: 'comments', label: `${isSelf ? '我' : '他'}的评论（${stats.comments ?? 0}）`, children: <CommentTrail comments={comments} hidden={commentsHidden} /> },
           ]}
         />
       </Card>

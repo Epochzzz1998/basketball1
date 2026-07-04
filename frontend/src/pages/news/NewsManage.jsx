@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { ProTable } from '@ant-design/pro-components'
-import { Button, Popconfirm, Tag, message } from 'antd'
+import { Button, Popconfirm, Switch, Tag, message } from 'antd'
 import { Link, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { newsApi } from '../../api/news'
@@ -22,6 +22,17 @@ export default function NewsManage() {
     actionRef.current?.reload()
   }
 
+  // 置顶/精华（可并存）：即改即存
+  const toggleFlag = async (row, flag, checked) => {
+    const res = await newsApi.setFlag(row.newsId, flag, checked ? '1' : '0')
+    if (res?.result) {
+      message.success('已更新')
+      actionRef.current?.reload()
+    } else {
+      message.error(res?.msg || '操作失败')
+    }
+  }
+
   const columns = [
     {
       title: '标题', dataIndex: 'title', ellipsis: true,
@@ -32,8 +43,20 @@ export default function NewsManage() {
       render: (_, r) => (r.newsChannel === 'official' ? <Tag color="orange">官方</Tag> : <Tag>论坛</Tag>),
     },
     { title: '作者', dataIndex: 'author', width: 120 },
-    { title: '球队', dataIndex: 'team', width: 110 },
-    { title: '分类', dataIndex: 'newsType', width: 110 },
+    {
+      title: '标签', dataIndex: 'tags', width: 220,
+      render: (_, r) => (r.tags
+        ? String(r.tags).split(',').map((t) => t.trim()).filter(Boolean).map((t) => <Tag key={t} style={{ marginBottom: 2 }}>{t}</Tag>)
+        : <span style={{ color: '#ccc' }}>—</span>),
+    },
+    {
+      title: '置顶', dataIndex: 'top', width: 64, align: 'center',
+      render: (_, r) => <Switch size="small" checked={r.top === '1'} onChange={(c) => toggleFlag(r, 'top', c)} />,
+    },
+    {
+      title: '精华', dataIndex: 'essence', width: 64, align: 'center',
+      render: (_, r) => <Switch size="small" checked={r.essence === '1'} onChange={(c) => toggleFlag(r, 'essence', c)} />,
+    },
     { title: '发布时间', dataIndex: 'publishDate', width: 160, render: (_, r) => fmt(r.publishDate) },
     {
       title: '操作', valueType: 'option', width: 120,

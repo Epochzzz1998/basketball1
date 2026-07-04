@@ -12,7 +12,14 @@ const stripHtml = (s) => (s || '').replace(/<[^>]+>/g, '')
 
 // 点赞/点踩帖子类消息 msgId=帖子 id；评论类（含评论里@）msgId=评论 id、msgIdSecond=帖子 id
 const COMMENT_TYPES = ['goodComment', 'badComment', 'commentComment', 'mentionComment']
+// 专题类消息 msgId=专题 id，点进去跳专题页
+const TOPIC_TYPES = ['topicApply', 'topicApproved', 'topicRejected']
 const newsIdOf = (m) => (COMMENT_TYPES.includes(m.msgType) ? m.msgIdSecond : m.msgId)
+// 点击一条消息去哪：专题类→专题页，其余→帖子详情。都带 userInformationId 顺便标已读
+const linkOf = (m) =>
+  TOPIC_TYPES.includes(m.msgType)
+    ? `/news/topic/${m.msgId}?userInformationId=${m.userInformationId}`
+    : `/news/${newsIdOf(m)}?userInformationId=${m.userInformationId}`
 
 // 动作短语按 msgType 在前端固定构造（库里 commentNews/commentComment 的 contentMsg 存的是评论原文，
 // 不是短语——直接显示会变成「xxx "评论内容"」，很怪；这里统一映射，老消息也能正确显示）。
@@ -29,6 +36,9 @@ const actionTextOf = (m) => {
     case 'commentComment': return t ? `回复了您在${t}下的评论` : '回复了您的评论'
     case 'mentionComment': return t ? `在${t}的评论里@了您` : '在评论里@了您'
     case 'mentionNews': return t ? `在帖子${t}里@了您` : '在帖子里@了您'
+    case 'topicApply': return `申请加入你的专题${m.content ? `「${m.content}」` : ''}`
+    case 'topicApproved': return `通过了你加入${m.content ? `「${m.content}」` : '专题'}的申请`
+    case 'topicRejected': return `驳回了你加入${m.content ? `「${m.content}」` : '专题'}的申请`
     default: return m.contentMsg || ''
   }
 }
@@ -43,6 +53,9 @@ const detailOf = (m) => {
     case 'badComment': return `您的评论：${s(m.content)}`
     case 'mentionComment': return `评论内容：${s(m.content)}`
     case 'mentionNews': return `帖子：${s(m.content)}`
+    case 'topicApply': return '点击进入专题，在成员管理里审批'
+    case 'topicApproved': return '点击进入该专题'
+    case 'topicRejected': return `专题：${s(m.content)}`
     default: return `原帖：${s(m.content)}` // goodNews / badNews
   }
 }
@@ -85,7 +98,7 @@ export default function MyMessages() {
           render: (_, m) => {
             const unread = m.whetherRead === 'toRead'
             return (
-              <a onClick={() => navigate(`/news/${newsIdOf(m)}?userInformationId=${m.userInformationId}`)}>
+              <a onClick={() => navigate(linkOf(m))}>
                 {unread && <Badge status="processing" style={{ marginRight: 6 }} />}
                 <span style={{ fontWeight: unread ? 600 : 400 }}>
                   {m.operatorName || '有人'} {actionTextOf(m)}

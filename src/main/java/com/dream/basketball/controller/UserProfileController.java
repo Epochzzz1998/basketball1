@@ -33,6 +33,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -55,6 +56,9 @@ public class UserProfileController {
     @Autowired
     private PlayerService playerService;
 
+    @Autowired
+    private com.dream.basketball.mapper.PlayerVerifyRecordMapper verifyRecordMapper;
+
     @Value("${picPath.uploadPath:}")
     private String uploadPath;
 
@@ -63,11 +67,17 @@ public class UserProfileController {
     /* ==================== 公开主页 ==================== */
 
     @GetMapping("/profile")
-    public Result<Map<String, Object>> profile(String userId) {
+    public Result<Map<String, Object>> profile(String userId, HttpServletRequest request) {
         DreamUser u = StringUtils.isBlank(userId) ? null : userMapper.selectById(userId);
         if (u == null) {
             return new Result<>(1, "用户不存在", null);
         }
+
+        // 隐私：本人看自己不隐藏；他人看时按开关隐藏发帖/评论列表
+        String me = SecUtil.getLoginUserIdToSession(request);
+        boolean isOwner = StringUtils.isNotBlank(me) && me.equals(userId);
+        boolean hidePosts = "1".equals(u.getHidePosts()) && !isOwner;
+        boolean hideComments = "1".equals(u.getHideComments()) && !isOwner;
 
         Map<String, Object> user = new HashMap<>();
         user.put("userId", u.getUserId());
@@ -77,6 +87,9 @@ public class UserProfileController {
         user.put("avatar", u.getAvatar());
         user.put("registTime", u.getRegistTime());
         user.put("lastLoginTime", u.getLastLoginTime());
+        // 原始隐藏开关（本人视角用来回显开关状态）
+        user.put("hidePosts", "1".equals(u.getHidePosts()));
+        user.put("hideComments", "1".equals(u.getHideComments()));
         // 认证三态 + 绑定球员（徽章只在已认证时展示，审核中仅本人视角用）
         int identStatus = u.getPlayerIdentification() == null ? 0 : u.getPlayerIdentification();
         user.put("identStatus", identStatus);
@@ -89,8 +102,8 @@ public class UserProfileController {
             }
         }
 
-        // 帖子（官方+论坛都算，最新在前，取前 N；计数/获赞用全量聚合）
-        List<DreamNews> posts = dreamNewsMapper.selectList(new QueryWrapper<DreamNews>()
+        // 帖子（官方+论坛都算，最新在前，取前 N；计数/获赞用全量聚合）。隐藏时不下发列表。
+        List<DreamNews> posts = hidePosts ? new ArrayList<>() : dreamNewsMapper.selectList(new QueryWrapper<DreamNews>()
                 .eq("AUTHOR_ID", userId).orderByDesc("PUBLISH_DATE").last("limit " + LIST_LIMIT));
         List<Map<String, Object>> postList = new ArrayList<>();
         for (DreamNews n : posts) {
@@ -104,8 +117,8 @@ public class UserProfileController {
             postList.add(m);
         }
 
-        // 评论足迹（带所在帖子标题；帖子可能已删 → 标题空由前端兜底）
-        List<DreamNewsComment> comments = dreamNewsCommentMapper.selectList(new QueryWrapper<DreamNewsComment>()
+        // 评论足迹（带所在帖子标题；帖子可能已删 → 标题空由前端兜底）。隐藏时不下发列表。
+        List<DreamNewsComment> comments = hideComments ? new ArrayList<>() : dreamNewsCommentMapper.selectList(new QueryWrapper<DreamNewsComment>()
                 .eq("USER_ID", userId).orderByDesc("COMMENT_DATE").last("limit " + LIST_LIMIT));
         Map<String, String> titleMap = new HashMap<>();
         List<String> newsIds = comments.stream().map(DreamNewsComment::getNewsId)
@@ -143,6 +156,8 @@ public class UserProfileController {
         data.put("stats", stats);
         data.put("posts", postList);
         data.put("comments", commentList);
+        data.put("postsHidden", hidePosts);       // 他人视角：该用户隐藏了发帖
+        data.put("commentsHidden", hideComments); // 他人视角：该用户隐藏了评论
         return new Result<>(0, "成功", data);
     }
 
@@ -207,6 +222,22 @@ public class UserProfileController {
         return new Result<>(0, "密码已修改", null);
     }
 
+    /** 主页隐私（仅本人）：是否隐藏我的发帖 / 评论。传哪个改哪个（'1' 隐藏 / '0' 显示）。 */
+    @RequiresRole(Role.USER)
+    @PostMapping("/setActivityPrivacy")
+    public Result<Object> setActivityPrivacy(String hidePosts, String hideComments, HttpServletRequest request) {
+        DreamUser me = SecUtil.getLoginUserToSession(request);
+        UpdateWrapper<DreamUser> uw = new UpdateWrapper<DreamUser>().eq("USER_ID", me.getUserId());
+        if (hidePosts != null) {
+            uw.set("HIDE_POSTS", "1".equals(hidePosts) ? "1" : "0");
+        }
+        if (hideComments != null) {
+            uw.set("HIDE_COMMENTS", "1".equals(hideComments) ? "1" : "0");
+        }
+        userMapper.update(null, uw);
+        return new Result<>(0, "已保存", null);
+    }
+
     /* ==================== 球员认证绑定 ==================== */
 
     /** 申请绑定球员 → 进入审核中（同一球员只允许一个已认证账号） */
@@ -233,6 +264,15 @@ public class UserProfileController {
         me.setPlayerId(playerId);
         me.setPlayerIdentification(Constants.IDENTIFICATION_PENDING);
         SecUtil.setLoginUserToSession(request, me);
+        // 认证历史：先作废旧的待审记录，再插一条新的 pending
+        cancelPendingRecords(me.getUserId());
+        com.dream.basketball.entity.PlayerVerifyRecord rec = new com.dream.basketball.entity.PlayerVerifyRecord();
+        rec.setId(UUID.randomUUID().toString());
+        rec.setUserId(me.getUserId());
+        rec.setPlayerId(playerId);
+        rec.setStatus("pending");
+        rec.setApplyTime(new Date());
+        verifyRecordMapper.insert(rec);
         return new Result<>(0, "已提交认证申请，等待超级管理员审核", null);
     }
 
@@ -249,6 +289,7 @@ public class UserProfileController {
         me.setPlayerId(null);
         me.setPlayerIdentification(Constants.UNIDENTIFICATION);
         SecUtil.setLoginUserToSession(request, me);
+        cancelPendingRecords(me.getUserId()); // 撤销申请：作废待审记录
         return new Result<>(0, "已解除绑定", null);
     }
 
@@ -278,12 +319,13 @@ public class UserProfileController {
     /** 审核（超管）：approve=true 通过（盖章时间），false 驳回（清空绑定） */
     @RequiresRole(Role.SUPER_MANAGER)
     @PostMapping("/reviewBinding")
-    public Result<Object> reviewBinding(String userId, Boolean approve) {
+    public Result<Object> reviewBinding(String userId, Boolean approve, HttpServletRequest request) {
         DreamUser target = StringUtils.isBlank(userId) ? null : userMapper.selectById(userId);
         if (target == null || target.getPlayerIdentification() == null
                 || !Constants.IDENTIFICATION_PENDING.equals(target.getPlayerIdentification())) {
             return new Result<>(1, "该申请不存在或已处理", null);
         }
+        String handlerId = SecUtil.getLoginUserIdToSession(request);
         if (Boolean.TRUE.equals(approve)) {
             Integer taken = userMapper.selectCount(new QueryWrapper<DreamUser>()
                     .eq("PLAYER_ID", target.getPlayerId())
@@ -296,14 +338,81 @@ public class UserProfileController {
                     .eq("USER_ID", userId)
                     .set("PLAYER_IDENTIFICATION", Constants.IDENTIFICATION)
                     .set("CHECK_TIME", new Date()));
+            resolvePendingRecord(userId, target.getPlayerId(), "approved", handlerId);
             return new Result<>(0, "已通过认证", null);
         }
+        String playerIdBefore = target.getPlayerId();
         userMapper.update(null, new UpdateWrapper<DreamUser>()
                 .eq("USER_ID", userId)
                 .set("PLAYER_ID", null)
                 .set("PLAYER_IDENTIFICATION", Constants.UNIDENTIFICATION)
                 .set("CHECK_TIME", null));
+        resolvePendingRecord(userId, playerIdBefore, "rejected", handlerId);
         return new Result<>(0, "已驳回申请", null);
+    }
+
+    /** 认证审核历史（超管，分页）：全部记录 + 用户/球员名 + 状态 + 时间 + 审核人。 */
+    @RequiresRole(Role.SUPER_MANAGER)
+    @GetMapping("/verifyHistory")
+    public Result<Map<String, Object>> verifyHistory(Integer page, Integer limit) {
+        com.github.pagehelper.PageHelper.startPage(page == null ? 1 : page, limit == null ? 20 : limit);
+        List<com.dream.basketball.entity.PlayerVerifyRecord> recs = verifyRecordMapper.selectList(
+                new QueryWrapper<com.dream.basketball.entity.PlayerVerifyRecord>().orderByDesc("APPLY_TIME"));
+        com.github.pagehelper.PageInfo<com.dream.basketball.entity.PlayerVerifyRecord> info =
+                new com.github.pagehelper.PageInfo<>(recs);
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (com.dream.basketball.entity.PlayerVerifyRecord r : recs) {
+            Map<String, Object> m = new HashMap<>();
+            DreamUser u = userMapper.selectById(r.getUserId());
+            DreamPlayer p = StringUtils.isBlank(r.getPlayerId()) ? null : playerService.getById(r.getPlayerId());
+            DreamUser handler = StringUtils.isBlank(r.getHandlerId()) ? null : userMapper.selectById(r.getHandlerId());
+            m.put("userId", r.getUserId());
+            m.put("userNickname", u == null ? r.getUserId() : u.getUserNickname());
+            m.put("playerId", r.getPlayerId());
+            m.put("playerName", p == null ? null : p.getPlayerName());
+            m.put("playerNumber", p == null ? null : p.getPlayerNumber());
+            m.put("status", r.getStatus());
+            m.put("applyTime", r.getApplyTime());
+            m.put("handleTime", r.getHandleTime());
+            m.put("handlerName", handler == null ? null : handler.getUserNickname());
+            rows.add(m);
+        }
+        Map<String, Object> data = new HashMap<>();
+        data.put("total", info.getTotal());
+        data.put("records", rows);
+        return new Result<>(0, "成功", data);
+    }
+
+    /** 把用户最新的 pending 记录落定为 approved/rejected；没有则补一条（兼容历史遗留的待审用户）。 */
+    private void resolvePendingRecord(String userId, String playerId, String status, String handlerId) {
+        com.dream.basketball.entity.PlayerVerifyRecord rec = verifyRecordMapper.selectOne(
+                new QueryWrapper<com.dream.basketball.entity.PlayerVerifyRecord>()
+                        .eq("USER_ID", userId).eq("STATUS", "pending")
+                        .orderByDesc("APPLY_TIME").last("limit 1"));
+        Date now = new Date();
+        if (rec == null) {
+            rec = new com.dream.basketball.entity.PlayerVerifyRecord();
+            rec.setId(UUID.randomUUID().toString());
+            rec.setUserId(userId);
+            rec.setPlayerId(playerId);
+            rec.setApplyTime(now);
+            rec.setStatus(status);
+            rec.setHandleTime(now);
+            rec.setHandlerId(handlerId);
+            verifyRecordMapper.insert(rec);
+        } else {
+            rec.setStatus(status);
+            rec.setHandleTime(now);
+            rec.setHandlerId(handlerId);
+            verifyRecordMapper.updateById(rec);
+        }
+    }
+
+    /** 作废用户所有 pending 记录（撤销申请 / 重新申请时用）。 */
+    private void cancelPendingRecords(String userId) {
+        verifyRecordMapper.update(null, new UpdateWrapper<com.dream.basketball.entity.PlayerVerifyRecord>()
+                .eq("USER_ID", userId).eq("STATUS", "pending")
+                .set("STATUS", "cancelled").set("HANDLE_TIME", new Date()));
     }
 
     private long sumGood(List<Object> objs) {

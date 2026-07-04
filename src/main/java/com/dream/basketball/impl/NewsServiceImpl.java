@@ -65,6 +65,12 @@ public class NewsServiceImpl implements NewsService {
     UserInformationService userInformationService;
 
     @Autowired
+    com.dream.basketball.config.TopicPermissionService topicPerms;
+
+    @Autowired
+    com.dream.basketball.config.UserPermService userPerms;
+
+    @Autowired
     com.dream.basketball.mapper.UserMapper userMapper;
 
     @Autowired
@@ -169,14 +175,19 @@ public class NewsServiceImpl implements NewsService {
                     newsDto.setGoodNum(dreamNews.getGoodNum());
                     newsDto.setBadNum(dreamNews.getBadNum());
                     newsDto.setCommentNum(dreamNews.getCommentNum());
+                    // 置顶/精华/浏览计数存在 MySQL，读时合并进来（ES 不索引这些字段）
+                    newsDto.setTop(dreamNews.getTop());
+                    newsDto.setEssence(dreamNews.getEssence());
+                    newsDto.setViewCount(dreamNews.getViewCount());
+                    newsDto.setViewerCount(dreamNews.getViewerCount());
                 }
             }
             newsList.add(newsDto);
         }
-        // Newest first (admin/list views). Sorted in memory: the query already pulls the whole
-        // index (<=10000), and this avoids depending on the ES date-mapping being sortable.
-        newsList.sort(java.util.Comparator.comparing(News::getPublishDate,
-                java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder())));
+        // 置顶帖优先，其次按发布时间倒序。内存排序：查询已拉全量（<=10000），也不依赖 ES 日期可排序。
+        newsList.sort(java.util.Comparator
+                .comparingInt((News n) -> "1".equals(n.getTop()) ? 0 : 1)
+                .thenComparing(News::getPublishDate, java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder())));
         fillAuthorAvatar(newsList);
         return newsList;
     }
@@ -192,14 +203,40 @@ public class NewsServiceImpl implements NewsService {
         if (authorIds.isEmpty()) {
             return;
         }
-        java.util.Map<String, String> avatars = new java.util.HashMap<>();
+        java.util.Map<String, DreamUser> userMap = new java.util.HashMap<>();
         for (DreamUser u : userMapper.selectList(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<DreamUser>()
                 .in("USER_ID", authorIds))) {
-            avatars.put(u.getUserId(), u.getAvatar());
+            userMap.put(u.getUserId(), u);
+        }
+        // 已认证球员作者：一把批查球员姓名（和评论区 fillVerifiedPlayer 同款）
+        java.util.Set<String> playerIds = new java.util.HashSet<>();
+        for (DreamUser u : userMap.values()) {
+            if (com.dream.basketball.utils.Constants.IDENTIFICATION.equals(u.getPlayerIdentification())
+                    && StringUtils.isNotBlank(u.getPlayerId())) {
+                playerIds.add(u.getPlayerId());
+            }
+        }
+        java.util.Map<String, String> playerNames = new java.util.HashMap<>();
+        if (!playerIds.isEmpty()) {
+            for (com.dream.basketball.entity.DreamPlayer p : playerService.listByIds(playerIds)) {
+                playerNames.put(p.getPlayerId(), p.getPlayerName());
+            }
         }
         for (NewsDto n : newsList) {
-            if (n != null && StringUtils.isNotBlank(n.getAuthorId())) {
-                n.setAuthorAvatar(avatars.get(n.getAuthorId()));
+            if (n == null || StringUtils.isBlank(n.getAuthorId())) {
+                continue;
+            }
+            DreamUser u = userMap.get(n.getAuthorId());
+            if (u == null) {
+                continue;
+            }
+            n.setAuthorAvatar(u.getAvatar());
+            n.setAuthorSuperManager(com.dream.basketball.config.Role.fromUserRole(u.getUserRole())
+                    == com.dream.basketball.config.Role.SUPER_MANAGER);
+            if (com.dream.basketball.utils.Constants.IDENTIFICATION.equals(u.getPlayerIdentification())
+                    && StringUtils.isNotBlank(u.getPlayerId())) {
+                n.setAuthorVerifiedPlayerId(u.getPlayerId());
+                n.setAuthorVerifiedPlayerName(playerNames.get(u.getPlayerId()));
             }
         }
     }
@@ -300,6 +337,8 @@ public class NewsServiceImpl implements NewsService {
                 continue;
             }
             c.setCommenterAvatar(u.getAvatar());
+            c.setSuperManager(com.dream.basketball.config.Role.fromUserRole(u.getUserRole())
+                    == com.dream.basketball.config.Role.SUPER_MANAGER);
             if (com.dream.basketball.utils.Constants.IDENTIFICATION.equals(u.getPlayerIdentification())
                     && StringUtils.isNotBlank(u.getPlayerId())) {
                 c.setVerifiedPlayerId(u.getPlayerId());
@@ -368,6 +407,10 @@ public class NewsServiceImpl implements NewsService {
                 } else {
                     queryBuilder.must(QueryBuilders.matchQuery("newsChannel", params.getNewsChannel()));
                 }
+            }
+            // 专题过滤：列某个专题的帖子（topicId 是 keyword 精确匹配）
+            if (StringUtils.isNotBlank(params.getTopicId())) {
+                queryBuilder.must(QueryBuilders.termQuery("topicId", params.getTopicId()));
             }
         }
         return builder.withQuery(queryBuilder);
@@ -534,6 +577,16 @@ public class NewsServiceImpl implements NewsService {
         DreamUser dreamUser = SecUtil.getLoginUserToSession(request);
         if (dreamUser == null) {
             return handlerResultJson(false, "请先登录！");
+        }
+        // 全局限制：被超管禁止发言的用户不能评论
+        if (!userPerms.canComment(dreamUser.getUserId())) {
+            return handlerResultJson(false, "你已被限制发言");
+        }
+        // 专题帖：评论要有该专题的发言权
+        DreamNews postForGate = dreamNewsService.getById(dreamNewsComment.getNewsId());
+        if (postForGate != null && StringUtils.isNotBlank(postForGate.getTopicId())
+                && !topicPerms.canComment(dreamUser, topicPerms.getTopic(postForGate.getTopicId()))) {
+            return handlerResultJson(false, "你在该专题没有评论权限");
         }
         dreamNewsComment.setCommentId(UUID.randomUUID().toString());
         dreamNewsComment.setUserId(dreamUser.getUserId());

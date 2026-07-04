@@ -42,6 +42,15 @@ public class Constants {
     /** @-mention inside a post body (someone @'d you in a news/forum post) */
     public static final String MENTION_NEWS = "mentionNews";
 
+    /** someone applied to join your topic (to the topic owner) */
+    public static final String TOPIC_APPLY = "topicApply";
+
+    /** your topic join request was approved (to the applicant) */
+    public static final String TOPIC_APPROVED = "topicApproved";
+
+    /** your topic join request was rejected (to the applicant) */
+    public static final String TOPIC_REJECTED = "topicRejected";
+
     public static final String TO_READ = "toRead";
 
     public static final String READ = "read";

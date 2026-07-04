@@ -52,4 +52,9 @@ export const newsApi = {
   badPost: (newsId) => http.post('/news/bad', new URLSearchParams({ newsId })),
   goodComment: (commentId) => http.post('/news/goodComment', new URLSearchParams({ commentId })),
   badComment: (commentId) => http.post('/news/badComment', new URLSearchParams({ commentId })),
+  // 置顶/精华：flag='top'|'essence'，value='1' 开 / '0' 关（官方→manager+；论坛→专题管理者）
+  setFlag: (newsId, flag, value) =>
+    http.post('/news/setFlag', new URLSearchParams({ newsId, flag, value })),
+  // 作者数据小结：{postCount, essenceCount, topCount, likeCount}
+  authorStats: (userId) => http.get('/news/authorStats', { params: { userId } }),
 }

@@ -55,12 +55,70 @@ public class DreamUser extends Model<DreamUser> implements Serializable {
     @TableField("AVATAR")
     private String avatar;
 
+    /** global permission flags (super-admin controlled): '0' = denied, null/'1' = allowed */
+    @TableField("CAN_BROWSE")
+    private String canBrowse;
+
+    @TableField("CAN_COMMENT")
+    private String canComment;
+
+    @TableField("CAN_POST")
+    private String canPost;
+
+    /** '1' = 在公开主页隐藏我的发帖（仅本人可见） */
+    @TableField("HIDE_POSTS")
+    private String hidePosts;
+
+    /** '1' = 在公开主页隐藏我的评论（仅本人可见） */
+    @TableField("HIDE_COMMENTS")
+    private String hideComments;
+
     public String getAvatar() {
         return avatar;
     }
 
     public void setAvatar(String avatar) {
         this.avatar = avatar;
+    }
+
+    public String getCanBrowse() {
+        return canBrowse;
+    }
+
+    public void setCanBrowse(String canBrowse) {
+        this.canBrowse = canBrowse;
+    }
+
+    public String getCanComment() {
+        return canComment;
+    }
+
+    public void setCanComment(String canComment) {
+        this.canComment = canComment;
+    }
+
+    public String getCanPost() {
+        return canPost;
+    }
+
+    public void setCanPost(String canPost) {
+        this.canPost = canPost;
+    }
+
+    public String getHidePosts() {
+        return hidePosts;
+    }
+
+    public void setHidePosts(String hidePosts) {
+        this.hidePosts = hidePosts;
+    }
+
+    public String getHideComments() {
+        return hideComments;
+    }
+
+    public void setHideComments(String hideComments) {
+        this.hideComments = hideComments;
     }
 
     @Override
