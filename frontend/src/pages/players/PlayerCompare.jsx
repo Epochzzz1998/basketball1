@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Card, Col, ConfigProvider, Empty, Input, Modal, Row, Segmented, Spin, Tag } from 'antd'
+import { Card, Col, Empty, Input, Modal, Row, Spin, Tag } from 'antd'
 import { BarChartOutlined, FireOutlined, IdcardOutlined, TrophyOutlined } from '@ant-design/icons'
 import { Link } from 'react-router-dom'
 import RadarChart from '../../components/RadarChart'
 import SeasonPicker from '../../components/SeasonPicker'
+import PillTabs from '../../components/PillTabs'
 import { playerApi } from '../../api/player'
 import { searchApi } from '../../api/search'
 import { fmtNum, seasonYearLabel, PLAYOFF_TAG } from './rankConfig'
@@ -11,15 +12,18 @@ import { CAREER_AWARDS } from './honorConfig'
 import { GRID_STATS, RADAR_AXES, percentileOf, val } from './SeasonProfile'
 
 /**
- * 球员对比（/compare）：A 橙 / B 蓝，四个板块对应个人页四 Tab——
- * 赛季资料卡（双色覆盖雷达 ×常规/季后 + 逐项对位）/ 常规赛生涯场均 / 季后赛生涯场均 / 生涯荣誉。
- * 对位行：两侧数值+双向条形，优势侧加粗上色。
+ * 球员对比（/compare，P5-2 对战台改版）：A 橙 / B 蓝。
+ * 顶部是对角撞色的"对战台"横幅（选人内嵌），四个板块对应个人页四 Tab——
+ * 赛季资料卡（双色覆盖雷达 ×常规/季后 + 逐项对位）/ 常规赛生涯 / 季后赛生涯 / 生涯荣誉。
+ * 数据对位卡带"领先项数"拔河条；对位行：两侧数值+渐变双向条形，优势侧加粗上色。
  */
 
 const A_COLOR = '#fa541c'
 const B_COLOR = '#2f54eb'
 const A_FILL = 'rgba(250,84,28,.20)'
 const B_FILL = 'rgba(47,84,235,.18)'
+const A_TINT = 'rgba(250,84,28,.07)'
+const B_TINT = 'rgba(47,84,235,.07)'
 
 // 生涯场均对位在 12 项数据卡之外加两项体量数据
 const CAREER_STATS = [
@@ -28,11 +32,14 @@ const CAREER_STATS = [
   ...GRID_STATS,
 ]
 
-/** 卡片式选人：未选=虚线占位卡；已选=着色球员卡（点击换人）；搜索在居中 Modal 里 */
-function PlayerPick({ value, onChange, color, tint, placeholder }) {
+/** 对战台内的选人位：未选=白虚线框；已选=号码白圆 + 白色大名字（点击换人）；搜索在居中 Modal */
+function PlayerPick({ value, onChange, side }) {
   const [open, setOpen] = useState(false)
   const [opts, setOpts] = useState([])
   const timer = useRef()
+  const color = side === 'A' ? A_COLOR : B_COLOR
+  const tint = side === 'A' ? A_TINT : B_TINT
+  const mirror = side === 'B' // B 方内容贴右、镜像排列
 
   const search = (kw) => {
     clearTimeout(timer.current)
@@ -55,41 +62,47 @@ function PlayerPick({ value, onChange, color, tint, placeholder }) {
 
   return (
     <>
-      {value ? (
-        <div
-          onClick={() => setOpen(true)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
-            borderRadius: 12, background: tint, border: `1px solid ${color}33`, cursor: 'pointer',
-          }}
-        >
+      <div
+        onClick={() => setOpen(true)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', minWidth: 0,
+          flexDirection: mirror ? 'row-reverse' : 'row', textAlign: mirror ? 'right' : 'left',
+        }}
+      >
+        {value ? (
+          <>
+            <div
+              style={{
+                width: 52, height: 52, borderRadius: '50%', background: 'rgba(255,255,255,.95)', color,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 15,
+                flexShrink: 0, boxShadow: '0 3px 10px rgba(0,0,0,.18)',
+              }}
+            >
+              #{value.number ?? '-'}
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div
+                style={{
+                  fontWeight: 900, fontSize: 21, color: '#fff', textShadow: '0 2px 6px rgba(0,0,0,.25)',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}
+              >
+                {value.name}
+              </div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,.78)' }}>点击更换球员</div>
+            </div>
+          </>
+        ) : (
           <div
             style={{
-              width: 44, height: 44, borderRadius: '50%', background: color, color: '#fff',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 14, flexShrink: 0,
+              border: '1.5px dashed rgba(255,255,255,.65)', color: '#fff', borderRadius: 12,
+              padding: '14px 24px', fontWeight: 700, background: 'rgba(255,255,255,.10)',
             }}
           >
-            #{value.number ?? '-'}
+            + 选择球员 {side}
           </div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontWeight: 800, fontSize: 16, color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {value.name}
-            </div>
-            <div style={{ fontSize: 12, color: '#999' }}>点击更换球员</div>
-          </div>
-        </div>
-      ) : (
-        <div
-          onClick={() => setOpen(true)}
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            padding: '21px 16px', borderRadius: 12, border: `1.5px dashed ${color}66`,
-            color, fontWeight: 600, cursor: 'pointer', background: '#fff',
-          }}
-        >
-          + {placeholder}
-        </div>
-      )}
+        )}
+      </div>
 
       <Modal
         open={open}
@@ -105,7 +118,7 @@ function PlayerPick({ value, onChange, color, tint, placeholder }) {
           autoFocus
           size="large"
           variant="borderless"
-          placeholder={`搜索${placeholder}…`}
+          placeholder={`搜索球员 ${side}…`}
           onChange={(e) => search(e.target.value)}
           style={{ padding: '14px 18px', fontSize: 15, borderBottom: '1px solid #f0f0f0', borderRadius: 0 }}
         />
@@ -133,7 +146,35 @@ function PlayerPick({ value, onChange, color, tint, placeholder }) {
 
 const MEDAL = ['#f5b301', '#9aa0a6', '#b87333']
 
-/** 对位行：A 数值(+排名) | 双向条形+项目名 | B 数值(+排名)（优势侧加粗上色） */
+/** 领先项数拔河条：数一遍对位项里 A/B 各赢几项 */
+function ScoreStrip({ rowA, rowB, stats }) {
+  if (!rowA || !rowB) return null
+  let wa = 0
+  let wb = 0
+  stats.forEach((s) => {
+    const av = val(rowA, s.key)
+    const bv = val(rowB, s.key)
+    if (av == null || bv == null || av === bv) return
+    if (s.asc ? av < bv : av > bv) wa += 1
+    else wb += 1
+  })
+  const total = wa + wb || 1
+  return (
+    <div style={{ margin: '0 0 16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700, marginBottom: 5 }}>
+        <span style={{ color: A_COLOR }}>{wa} 项领先</span>
+        <span style={{ color: '#bbb', fontWeight: 400 }}>数据对位</span>
+        <span style={{ color: B_COLOR }}>{wb} 项领先</span>
+      </div>
+      <div style={{ display: 'flex', height: 8, borderRadius: 4, overflow: 'hidden', background: '#f0f0f0', gap: wa && wb ? 2 : 0 }}>
+        <div style={{ width: `${(wa / total) * 100}%`, background: 'linear-gradient(90deg, #ff9c6e, #fa541c)', transition: 'width .45s' }} />
+        <div style={{ width: `${(wb / total) * 100}%`, background: 'linear-gradient(90deg, #2f54eb, #85a5ff)', transition: 'width .45s' }} />
+      </div>
+    </div>
+  )
+}
+
+/** 对位行：A 数值(+排名) | 双向渐变条形+项目名药丸 | B 数值(+排名)（优势侧加粗上色） */
 function CompareRows({ rowA, rowB, stats, league, rankPrefix = '联盟第', fmtOverride }) {
   const rankOf = (v, s) =>
     league?.length && v != null
@@ -147,6 +188,7 @@ function CompareRows({ rowA, rowB, stats, league, rankPrefix = '联盟第', fmtO
     )
   return (
     <div>
+      <style>{'.cmp-row { transition: background .15s; border-radius: 8px; } .cmp-row:hover { background: #fafafa; }'}</style>
       {stats.map((s) => {
         const av = rowA ? val(rowA, s.key) : null
         const bv = rowB ? val(rowB, s.key) : null
@@ -158,29 +200,56 @@ function CompareRows({ rowA, rowB, stats, league, rankPrefix = '联盟第', fmtO
         const wB = Math.max(4, (Math.abs(bv ?? 0) / max) * 100)
         const fmtV = (v) => (v == null ? '-' : (fmtOverride ? fmtOverride(v, s) : fmtNum(v, digits)))
         return (
-          <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '7px 0', borderBottom: '1px solid #fafafa' }}>
-            <div style={{ width: 80, textAlign: 'right' }}>
-              <div style={{ fontVariantNumeric: 'tabular-nums', fontSize: 15, fontWeight: better === 1 ? 800 : 400, color: better === 1 ? A_COLOR : '#999' }}>
+          <div key={s.key} className="cmp-row" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 8px' }}>
+            <div style={{ width: 82, textAlign: 'right' }}>
+              <div
+                style={{
+                  fontVariantNumeric: 'tabular-nums', fontSize: better === 1 ? 17 : 14,
+                  fontWeight: better === 1 ? 800 : 400, color: better === 1 ? A_COLOR : '#999', lineHeight: 1.3,
+                }}
+              >
                 {fmtV(av)}
               </div>
               {chip(rankOf(av, s), 'right')}
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ textAlign: 'center', fontSize: 12, color: '#888', marginBottom: 3 }}>
-                {s.label}
-                {s.note && <span style={{ marginLeft: 4, fontSize: 11, color: '#ccc' }}>{s.note}</span>}
+              <div style={{ textAlign: 'center', marginBottom: 5 }}>
+                <span
+                  style={{
+                    display: 'inline-block', background: '#f6f6f6', borderRadius: 999,
+                    padding: '1px 12px', fontSize: 12, color: '#777',
+                  }}
+                >
+                  {s.label}
+                  {s.note && <span style={{ marginLeft: 4, fontSize: 11, color: '#c0c0c0' }}>{s.note}</span>}
+                </span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                 <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
-                  <div style={{ width: `${wA}%`, height: 5, borderRadius: 3, background: better === -1 ? '#ffd8c2' : A_COLOR, opacity: better === -1 ? 0.9 : 1 }} />
+                  <div
+                    style={{
+                      width: `${wA}%`, height: 7, borderRadius: 4, transition: 'width .45s ease',
+                      background: better === -1 ? '#ffd8c2' : 'linear-gradient(90deg, #ffbb96, #fa541c)',
+                    }}
+                  />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ width: `${wB}%`, height: 5, borderRadius: 3, background: better === 1 ? '#c6d4ff' : B_COLOR }} />
+                  <div
+                    style={{
+                      width: `${wB}%`, height: 7, borderRadius: 4, transition: 'width .45s ease',
+                      background: better === 1 ? '#c6d4ff' : 'linear-gradient(90deg, #2f54eb, #85a5ff)',
+                    }}
+                  />
                 </div>
               </div>
             </div>
-            <div style={{ width: 80, textAlign: 'left' }}>
-              <div style={{ fontVariantNumeric: 'tabular-nums', fontSize: 15, fontWeight: better === -1 ? 800 : 400, color: better === -1 ? B_COLOR : '#999' }}>
+            <div style={{ width: 82, textAlign: 'left' }}>
+              <div
+                style={{
+                  fontVariantNumeric: 'tabular-nums', fontSize: better === -1 ? 17 : 14,
+                  fontWeight: better === -1 ? 800 : 400, color: better === -1 ? B_COLOR : '#999', lineHeight: 1.3,
+                }}
+              >
                 {fmtV(bv)}
               </div>
               {chip(rankOf(bv, s), 'left')}
@@ -192,18 +261,31 @@ function CompareRows({ rowA, rowB, stats, league, rankPrefix = '联盟第', fmtO
   )
 }
 
-/** 名字行（A vs B，各自链到个人页） */
+/** 名字行（A vs B，色点 + 各自链到个人页） */
 function NamesBar({ a, b, extraA, extraB }) {
+  const dot = (color) => (
+    <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 4, background: color, verticalAlign: 2 }} />
+  )
   return (
-    <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+    <div style={{ display: 'flex', alignItems: 'center', marginBottom: 14 }}>
       <div style={{ flex: 1, textAlign: 'right' }}>
-        <Link to={`/players/${a.id}`} style={{ color: A_COLOR, fontWeight: 800, fontSize: 16 }}>{a.name}</Link>
+        {dot(A_COLOR)}
+        <Link to={`/players/${a.id}`} style={{ color: A_COLOR, fontWeight: 800, fontSize: 17, margin: '0 0 0 8px' }}>{a.name}</Link>
         {extraA && <span style={{ marginLeft: 8 }}>{extraA}</span>}
       </div>
-      <span style={{ margin: '0 18px', color: '#bbb', fontWeight: 700 }}>VS</span>
+      <span
+        style={{
+          margin: '0 16px', color: '#c0c0c0', fontWeight: 900, fontStyle: 'italic', fontSize: 13,
+          border: '1.5px solid #eee', borderRadius: '50%', width: 34, height: 34,
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}
+      >
+        VS
+      </span>
       <div style={{ flex: 1 }}>
         {extraB && <span style={{ marginRight: 8 }}>{extraB}</span>}
-        <Link to={`/players/${b.id}`} style={{ color: B_COLOR, fontWeight: 800, fontSize: 16 }}>{b.name}</Link>
+        <Link to={`/players/${b.id}`} style={{ color: B_COLOR, fontWeight: 800, fontSize: 17, marginRight: 8 }}>{b.name}</Link>
+        {dot(B_COLOR)}
       </div>
     </div>
   )
@@ -295,53 +377,62 @@ export default function PlayerCompare() {
 
   const missTag = (name, what) => <Tag style={{ color: '#999' }}>{name} {what}</Tag>
 
+  const ring = (size, pos) => ({
+    position: 'absolute', width: size, height: size, borderRadius: '50%',
+    border: '2px solid rgba(255,255,255,.15)', ...pos,
+  })
+
   return (
     <>
-      {/* 选人区 */}
-      <Card style={{ marginBottom: 16 }} styles={{ body: { padding: '18px 22px' } }}>
-        <Row gutter={16} align="middle">
-          <Col xs={24} md={10}>
-            <PlayerPick value={a} onChange={setA} color={A_COLOR} tint="rgba(250,84,28,.06)" placeholder="选择球员 A（橙方）" />
-          </Col>
-          <Col xs={24} md={4} style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 26, fontWeight: 900, color: '#e0e0e0', letterSpacing: 2, fontStyle: 'italic' }}>VS</span>
-          </Col>
-          <Col xs={24} md={10}>
-            <PlayerPick value={b} onChange={setB} color={B_COLOR} tint="rgba(47,84,235,.06)" placeholder="选择球员 B（蓝方）" />
-          </Col>
-        </Row>
-      </Card>
+      {/* 对战台：橙蓝对角撞色 + 内嵌选人 + 白色 VS 徽章 */}
+      <div
+        style={{
+          position: 'relative', borderRadius: 18, overflow: 'hidden', marginBottom: 16,
+          background: 'linear-gradient(105deg, #ad2102 0%, #fa541c 49.75%, #2f54eb 50.25%, #10239e 100%)',
+          boxShadow: '0 6px 22px rgba(0,0,0,.14)',
+        }}
+      >
+        <div style={ring(210, { top: -90, left: -60 })} />
+        <div style={ring(150, { bottom: -60, left: '30%' })} />
+        <div style={ring(190, { top: -70, right: -50 })} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '26px 28px', position: 'relative' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <PlayerPick value={a} onChange={setA} side="A" />
+          </div>
+          <div
+            style={{
+              width: 54, height: 54, borderRadius: '50%', background: '#fff', flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontStyle: 'italic', fontWeight: 900, fontSize: 17, color: '#1f1f1f', letterSpacing: 1,
+              boxShadow: '0 4px 14px rgba(0,0,0,.28)',
+            }}
+          >
+            VS
+          </div>
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'flex-end' }}>
+            <PlayerPick value={b} onChange={setB} side="B" />
+          </div>
+        </div>
+      </div>
 
       {!a || !b ? (
-        <Card><Empty description="选择两名球员开始对比（输入姓名搜索）" image={Empty.PRESENTED_IMAGE_SIMPLE} /></Card>
+        <Card style={{ borderRadius: 16 }} styles={{ body: { padding: '70px 20px' } }}>
+          <Empty description="从上方对战台选择两名球员，开始数据对位" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        </Card>
       ) : !ready ? (
         <Spin style={{ display: 'block', margin: '80px auto' }} size="large" />
       ) : (
         <>
-          <ConfigProvider
-            theme={{
-              token: { borderRadius: 22, borderRadiusSM: 18 },
-              components: {
-                Segmented: {
-                  itemSelectedBg: '#fa541c', itemSelectedColor: '#ffffff', trackBg: '#efefef',
-                  itemColor: '#666', itemHoverColor: '#fa541c', itemHoverBg: 'rgba(250,84,28,0.08)',
-                },
-              },
-            }}
-          >
-            <Segmented
-              size="large"
-              value={tab}
-              onChange={setTab}
-              style={{ marginBottom: 16, padding: 4, boxShadow: 'inset 0 1px 3px rgba(0,0,0,.04)' }}
-              options={[
-                { value: 'profile', label: <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0 10px' }}><IdcardOutlined /> 赛季资料卡</span> },
-                { value: 'career', label: <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0 10px' }}><BarChartOutlined /> 常规赛生涯</span> },
-                { value: 'playoffs', label: <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0 10px' }}><FireOutlined /> 季后赛生涯</span> },
-                { value: 'honors', label: <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0 10px' }}><TrophyOutlined /> 生涯荣誉</span> },
-              ]}
-            />
-          </ConfigProvider>
+          <PillTabs
+            value={tab}
+            onChange={setTab}
+            options={[
+              { value: 'profile', icon: <IdcardOutlined />, label: '赛季资料卡' },
+              { value: 'career', icon: <BarChartOutlined />, label: '常规赛生涯' },
+              { value: 'playoffs', icon: <FireOutlined />, label: '季后赛生涯' },
+              { value: 'honors', icon: <TrophyOutlined />, label: '生涯荣誉' },
+            ]}
+          />
 
           {/* ===== 赛季资料卡对比 ===== */}
           {tab === 'profile' && (
@@ -349,7 +440,7 @@ export default function PlayerCompare() {
               <Card
                 title={`${seasonNum === 50 ? '生涯' : seasonYearLabel(seasonNum)} 对位`}
                 extra={<SeasonPicker value={seasonNum} onChange={setSeasonNum} />}
-                style={{ marginBottom: 16 }}
+                style={{ marginBottom: 16, borderRadius: 16 }}
                 styles={{ body: { padding: '18px 20px' } }}
               >
                 <NamesBar
@@ -361,6 +452,7 @@ export default function PlayerCompare() {
                     ? (seasonNum === 50 ? <Tag>生涯</Tag> : <Tag color="blue">{String(rowB.playerTeam || '').replace('->', ' → ')}</Tag>)
                     : missTag(b.name, '未出战')}
                 />
+                <ScoreStrip rowA={rowA} rowB={rowB} stats={GRID_STATS} />
                 <Row gutter={[20, 20]}>
                   <Col xs={24} lg={10}>
                     {league === null
@@ -373,7 +465,7 @@ export default function PlayerCompare() {
                   </Col>
                 </Row>
               </Card>
-              <Card title="季后赛对位" styles={{ body: { padding: '18px 20px' } }}>
+              <Card title="季后赛对位" style={{ borderRadius: 16 }} styles={{ body: { padding: '18px 20px' } }}>
                 {!poRowA && !poRowB ? (
                   <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="两人该赛季都未进季后赛" />
                 ) : (
@@ -387,6 +479,7 @@ export default function PlayerCompare() {
                         ? (seasonNum === 50 ? <Tag>生涯</Tag> : <Tag color={PLAYOFF_TAG[poRowB.playoffResult] || 'default'}>{poRowB.playoffResult}</Tag>)
                         : missTag(b.name, '未进季后赛')}
                     />
+                    <ScoreStrip rowA={poRowA} rowB={poRowB} stats={GRID_STATS} />
                     <Row gutter={[20, 20]}>
                       <Col xs={24} lg={10}>
                         {poLeague === null
@@ -412,6 +505,7 @@ export default function PlayerCompare() {
               <Card
                 title={`常规赛对位 · ${seasonYearLabel(statSeason)}`}
                 extra={<SeasonPicker value={statSeason} onChange={setStatSeason} includeCareer />}
+                style={{ borderRadius: 16 }}
                 styles={{ body: { padding: '18px 20px' } }}
               >
                 <NamesBar
@@ -425,7 +519,12 @@ export default function PlayerCompare() {
                 />
                 {!ra && !rb
                   ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="两人该赛季都未出战" />
-                  : <CompareRows rowA={ra} rowB={rb} stats={CAREER_STATS} league={statLeague} />}
+                  : (
+                    <>
+                      <ScoreStrip rowA={ra} rowB={rb} stats={CAREER_STATS} />
+                      <CompareRows rowA={ra} rowB={rb} stats={CAREER_STATS} league={statLeague} />
+                    </>
+                  )}
               </Card>
             )
           })()}
@@ -439,6 +538,7 @@ export default function PlayerCompare() {
               <Card
                 title={`季后赛对位 · ${seasonYearLabel(statSeason)}`}
                 extra={<SeasonPicker value={statSeason} onChange={setStatSeason} includeCareer />}
+                style={{ borderRadius: 16 }}
                 styles={{ body: { padding: '18px 20px' } }}
               >
                 {!ra && !rb ? (
@@ -458,6 +558,7 @@ export default function PlayerCompare() {
                             : <Tag color={PLAYOFF_TAG[rb.playoffResult] || 'default'}>{rb.playoffResult}</Tag>)
                         : missTag(b.name, miss)}
                     />
+                    <ScoreStrip rowA={ra} rowB={rb} stats={CAREER_STATS} />
                     <CompareRows rowA={ra} rowB={rb} stats={CAREER_STATS} league={statPoLeague} rankPrefix="季后赛第" />
                   </>
                 )}
@@ -487,11 +588,19 @@ export default function PlayerCompare() {
               { label: 'MVP 票选名次', va: Number(ra?.mvpRank) || null, vb: Number(rb?.mvpRank) || null },
               { label: 'DPOY 票选名次', va: Number(ra?.dpoyRank) || null, vb: Number(rb?.dpoyRank) || null },
             ].filter((r) => r.va || r.vb)
-            const cell = (v, mine, other, color) => {
-              const win = mine != null && (other == null || mine > other)
+            // 胜方数值套色底药丸，负方灰字
+            const cell = (v, mine, other, color, tint, align) => {
+              const win = mine != null && mine > 0 && (other == null || mine > other)
               const disp = isCareer ? (v ? `×${v}` : '—') : (v ? '✓' : '—')
               return (
-                <span style={{ fontSize: 17, fontWeight: win ? 800 : 400, color: win ? color : '#999', fontVariantNumeric: 'tabular-nums' }}>
+                <span
+                  style={{
+                    display: 'inline-block', minWidth: 46, textAlign: 'center',
+                    padding: '2px 12px', borderRadius: 999, fontSize: 16, fontVariantNumeric: 'tabular-nums',
+                    fontWeight: win ? 800 : 400, color: win ? color : '#999',
+                    background: win ? tint : 'transparent',
+                  }}
+                >
                   {disp}
                 </span>
               )
@@ -500,31 +609,41 @@ export default function PlayerCompare() {
               <Card
                 title={`荣誉对位 · ${isCareer ? '生涯合计' : seasonYearLabel(statSeason)}`}
                 extra={<SeasonPicker value={statSeason} onChange={setStatSeason} includeCareer />}
+                style={{ borderRadius: 16 }}
                 styles={{ body: { padding: '18px 20px' } }}
               >
                 <NamesBar a={a} b={b} />
                 <div>
+                  <style>{'.hon-row { transition: background .15s; border-radius: 8px; } .hon-row:hover { background: #fafafa; }'}</style>
                   {rows.map(({ aw, ca, cb }) => (
-                    <div key={aw.key} style={{ display: 'flex', alignItems: 'center', padding: '9px 0', borderBottom: '1px solid #fafafa' }}>
-                      <div style={{ flex: 1, textAlign: 'right' }}>{cell(ca, ca, cb, A_COLOR)}</div>
-                      <div style={{ width: 180, textAlign: 'center', fontWeight: aw.gold ? 700 : 500 }}>
+                    <div key={aw.key} className="hon-row" style={{ display: 'flex', alignItems: 'center', padding: '9px 8px' }}>
+                      <div style={{ flex: 1, textAlign: 'right' }}>{cell(ca, ca, cb, A_COLOR, A_TINT, 'right')}</div>
+                      <div style={{ width: 190, textAlign: 'center', fontWeight: aw.gold ? 700 : 500 }}>
                         <span style={{ marginRight: 6 }}>{aw.icon}</span>{aw.label}
                       </div>
-                      <div style={{ flex: 1, textAlign: 'left' }}>{cell(cb, cb, ca, B_COLOR)}</div>
+                      <div style={{ flex: 1, textAlign: 'left' }}>{cell(cb, cb, ca, B_COLOR, B_TINT, 'left')}</div>
                     </div>
                   ))}
                   {voteRows.map((r) => {
                     const aWin = r.va != null && (r.vb == null || r.va < r.vb)
                     const bWin = r.vb != null && (r.va == null || r.vb < r.va)
+                    const pill = (win, color, tint, text, align) => (
+                      <span
+                        style={{
+                          display: 'inline-block', minWidth: 46, textAlign: 'center',
+                          padding: '2px 12px', borderRadius: 999, fontSize: 14,
+                          fontWeight: win ? 800 : 400, color: win ? color : '#999',
+                          background: win ? tint : 'transparent',
+                        }}
+                      >
+                        {text}
+                      </span>
+                    )
                     return (
-                      <div key={r.label} style={{ display: 'flex', alignItems: 'center', padding: '9px 0', borderBottom: '1px solid #fafafa' }}>
-                        <div style={{ flex: 1, textAlign: 'right', fontSize: 15, fontWeight: aWin ? 800 : 400, color: aWin ? A_COLOR : '#999' }}>
-                          {r.va ? `第 ${r.va}` : '—'}
-                        </div>
-                        <div style={{ width: 180, textAlign: 'center', color: '#666', fontSize: 13 }}>{r.label}</div>
-                        <div style={{ flex: 1, textAlign: 'left', fontSize: 15, fontWeight: bWin ? 800 : 400, color: bWin ? B_COLOR : '#999' }}>
-                          {r.vb ? `第 ${r.vb}` : '—'}
-                        </div>
+                      <div key={r.label} className="hon-row" style={{ display: 'flex', alignItems: 'center', padding: '9px 8px' }}>
+                        <div style={{ flex: 1, textAlign: 'right' }}>{pill(aWin, A_COLOR, A_TINT, r.va ? `第 ${r.va}` : '—', 'right')}</div>
+                        <div style={{ width: 190, textAlign: 'center', color: '#666', fontSize: 13 }}>{r.label}</div>
+                        <div style={{ flex: 1, textAlign: 'left' }}>{pill(bWin, B_COLOR, B_TINT, r.vb ? `第 ${r.vb}` : '—', 'left')}</div>
                       </div>
                     )
                   })}

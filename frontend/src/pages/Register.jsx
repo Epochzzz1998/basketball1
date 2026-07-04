@@ -31,17 +31,19 @@ export default function Register() {
     }
   }
 
+  const iconStyle = { color: '#b3b3b3' }
+
   return (
-    <AuthShell subtitle="注册一个账号，加入讨论">
+    <AuthShell title="创建账号" subtitle="注册后加入讨论：发帖、评论、点赞一条龙">
       <Form onFinish={onFinish} size="large">
         <Form.Item name="userNickname" rules={[{ required: true, message: '请输入用户名' }]}>
-          <Input prefix={<UserOutlined />} placeholder="用户名（登录用）" autoComplete="off" />
+          <Input variant="filled" prefix={<UserOutlined style={iconStyle} />} placeholder="用户名（登录用）" autoComplete="off" />
         </Form.Item>
         <Form.Item name="userName" rules={[{ required: true, message: '请输入昵称' }]}>
-          <Input prefix={<IdcardOutlined />} placeholder="昵称/姓名" autoComplete="off" />
+          <Input variant="filled" prefix={<IdcardOutlined style={iconStyle} />} placeholder="昵称/姓名" autoComplete="off" />
         </Form.Item>
         <Form.Item name="password" rules={[{ required: true, message: '请输入密码' }]}>
-          <Input.Password prefix={<LockOutlined />} placeholder="密码" autoComplete="off" />
+          <Input.Password variant="filled" prefix={<LockOutlined style={iconStyle} />} placeholder="密码" autoComplete="off" />
         </Form.Item>
         <Form.Item
           name="confirm"
@@ -56,11 +58,20 @@ export default function Register() {
             }),
           ]}
         >
-          <Input.Password prefix={<LockOutlined />} placeholder="确认密码" autoComplete="off" />
+          <Input.Password variant="filled" prefix={<LockOutlined style={iconStyle} />} placeholder="确认密码" autoComplete="off" />
         </Form.Item>
-        <Button type="primary" htmlType="submit" block size="large" loading={submitting}>注册</Button>
-        <div style={{ marginTop: 16, textAlign: 'center' }}>
-          已有账号？<Link to="/login">去登录</Link>
+        <Button
+          type="primary"
+          htmlType="submit"
+          block
+          size="large"
+          loading={submitting}
+          style={{ fontWeight: 700, boxShadow: '0 6px 16px rgba(250,84,28,.3)' }}
+        >
+          注 册
+        </Button>
+        <div style={{ marginTop: 20, textAlign: 'center', color: '#8c8c8c' }}>
+          已有账号？<Link to="/login" style={{ fontWeight: 600 }}>去登录</Link>
         </div>
       </Form>
     </AuthShell>

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Form, Input, Button, Space, message } from 'antd'
+import { Form, Input, Button, message } from 'antd'
 import { LockOutlined, SafetyCertificateOutlined, UserOutlined } from '@ant-design/icons'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
@@ -34,33 +34,45 @@ export default function Login() {
   }
 
   return (
-    <AuthShell subtitle="登录后可发帖、评论、点赞">
+    <AuthShell title="欢迎回来" subtitle="登录后可发帖、评论、点赞，还能申请球员身份认证">
       <Form onFinish={onFinish} size="large">
         <Form.Item name="userNickname" rules={[{ required: true, message: '请输入用户名' }]}>
-          <Input prefix={<UserOutlined />} placeholder="用户名" autoComplete="off" />
+          <Input variant="filled" prefix={<UserOutlined style={{ color: '#b3b3b3' }} />} placeholder="用户名" autoComplete="off" />
         </Form.Item>
         <Form.Item name="password" rules={[{ required: true, message: '请输入密码' }]}>
-          <Input.Password prefix={<LockOutlined />} placeholder="密码" autoComplete="off" />
+          <Input.Password variant="filled" prefix={<LockOutlined style={{ color: '#b3b3b3' }} />} placeholder="密码" autoComplete="off" />
         </Form.Item>
         <Form.Item>
-          <Space.Compact style={{ width: '100%' }}>
+          <div style={{ display: 'flex', gap: 10 }}>
             <Form.Item name="code" noStyle rules={[{ required: true, message: '请输入验证码' }]}>
-              <Input prefix={<SafetyCertificateOutlined />} placeholder="验证码" />
+              <Input
+                variant="filled"
+                prefix={<SafetyCertificateOutlined style={{ color: '#b3b3b3' }} />}
+                placeholder="验证码"
+                style={{ flex: 1 }}
+              />
             </Form.Item>
             <img
               src={captcha}
               alt="验证码"
-              style={{ height: 40, cursor: 'pointer', borderRadius: '0 8px 8px 0', border: '1px solid #d9d9d9', borderLeft: 'none' }}
+              style={{ height: 44, width: 116, objectFit: 'cover', cursor: 'pointer', borderRadius: 10, border: '1px solid #f0f0f0', flexShrink: 0 }}
               title="点击刷新"
               onClick={refreshCaptcha}
             />
-          </Space.Compact>
+          </div>
         </Form.Item>
-        <Button type="primary" htmlType="submit" block size="large" loading={submitting}>
-          登录
+        <Button
+          type="primary"
+          htmlType="submit"
+          block
+          size="large"
+          loading={submitting}
+          style={{ fontWeight: 700, boxShadow: '0 6px 16px rgba(250,84,28,.3)' }}
+        >
+          登 录
         </Button>
-        <div style={{ marginTop: 16, textAlign: 'center' }}>
-          没有账号？<Link to="/register">去注册</Link>
+        <div style={{ marginTop: 20, textAlign: 'center', color: '#8c8c8c' }}>
+          没有账号？<Link to="/register" style={{ fontWeight: 600 }}>去注册</Link>
         </div>
       </Form>
     </AuthShell>
