@@ -177,7 +177,31 @@ public class NewsServiceImpl implements NewsService {
         // index (<=10000), and this avoids depending on the ES date-mapping being sortable.
         newsList.sort(java.util.Comparator.comparing(News::getPublishDate,
                 java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder())));
+        fillAuthorAvatar(newsList);
         return newsList;
+    }
+
+    /** Batch-fill authors' uploaded avatars (one IN query; rows without an avatar stay null). */
+    private void fillAuthorAvatar(List<NewsDto> newsList) {
+        java.util.Set<String> authorIds = new java.util.HashSet<>();
+        for (NewsDto n : newsList) {
+            if (n != null && StringUtils.isNotBlank(n.getAuthorId())) {
+                authorIds.add(n.getAuthorId());
+            }
+        }
+        if (authorIds.isEmpty()) {
+            return;
+        }
+        java.util.Map<String, String> avatars = new java.util.HashMap<>();
+        for (DreamUser u : userMapper.selectList(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<DreamUser>()
+                .in("USER_ID", authorIds))) {
+            avatars.put(u.getUserId(), u.getAvatar());
+        }
+        for (NewsDto n : newsList) {
+            if (n != null && StringUtils.isNotBlank(n.getAuthorId())) {
+                n.setAuthorAvatar(avatars.get(n.getAuthorId()));
+            }
+        }
     }
 
     /**
@@ -514,6 +538,7 @@ public class NewsServiceImpl implements NewsService {
         dreamNewsComment.setCommentId(UUID.randomUUID().toString());
         dreamNewsComment.setUserId(dreamUser.getUserId());
         dreamNewsComment.setUserName(dreamUser.getUserNickname());
+        dreamNewsComment.setAttachments(sanitizeAttachments(dreamNewsComment.getAttachments()));
         dreamNewsComment.setCommentDate(new Date());
         dreamNewsComment.setGoodNum(0);
         dreamNewsComment.setBadNum(0);
@@ -555,7 +580,39 @@ public class NewsServiceImpl implements NewsService {
 //        redisUtil.addMsgToRedis(receiverId, COMMENT, dreamNewsComment.getCommentId(), dreamUser.getUserId());
         // 数据库
         userInformationService.saveUserInformation(dreamUser.getUserId(), dreamUser.getUserNickname(), receiverId, commentType, msgId, msgIdSecond, msgIdThird, level, dreamNewsComment.getContent(), commentRelRelId);
+        // @-mention 通知：评论里被 @ 到的人各发一条（排除自己，也排除刚收到评论/回复通知的 receiverId，避免重复打扰）
+        for (String mentionedId : com.dream.basketball.utils.MentionUtil.parseCommentMentionIds(dreamNewsComment.getMentions())) {
+            if (StringUtils.equals(mentionedId, dreamUser.getUserId()) || StringUtils.equals(mentionedId, receiverId)) {
+                continue;
+            }
+            userInformationService.saveUserInformation(dreamUser.getUserId(), dreamUser.getUserNickname(), mentionedId,
+                    MENTION_COMMENT, dreamNewsComment.getCommentId(), dreamNewsComment.getNewsId(),
+                    dreamNewsComment.getCommentId(), level, dreamNewsComment.getContent(), "");
+        }
         return handlerResultJson(true, "评论成功！");
+    }
+
+    /**
+     * 清洗评论附件 JSON：只保留 url 指向本站上传目录的条目（挡掉伪造的外链 / javascript: URL）。
+     * 返回过滤后的 JSON 数组字符串；无有效附件时返回 null。
+     */
+    private String sanitizeAttachments(String attachmentsJson) {
+        if (org.apache.commons.lang3.StringUtils.isBlank(attachmentsJson)) {
+            return null;
+        }
+        try {
+            com.alibaba.fastjson.JSONArray arr = com.alibaba.fastjson.JSON.parseArray(attachmentsJson);
+            com.alibaba.fastjson.JSONArray kept = new com.alibaba.fastjson.JSONArray();
+            for (int i = 0; i < arr.size(); i++) {
+                com.alibaba.fastjson.JSONObject o = arr.getJSONObject(i);
+                if (o != null && com.dream.basketball.utils.FileUtils.isLocalUploadUrl(o.getString("url"))) {
+                    kept.add(o);
+                }
+            }
+            return kept.isEmpty() ? null : kept.toJSONString();
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /**

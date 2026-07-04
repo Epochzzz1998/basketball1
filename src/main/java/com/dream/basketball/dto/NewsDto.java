@@ -12,4 +12,7 @@ public class NewsDto extends News {
 
     private Integer commentNum;
 
+    /** author's uploaded avatar (batch-filled from dream_user; null if never uploaded) */
+    private String authorAvatar;
+
 }

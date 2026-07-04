@@ -10,8 +10,8 @@ const fmt = (v) => (v ? dayjs(v).format('YYYY-MM-DD HH:mm') : '')
 // 原帖摘要是富文本 HTML 截断，剥掉标签只展示纯文本
 const stripHtml = (s) => (s || '').replace(/<[^>]+>/g, '')
 
-// 点赞/点踩帖子类消息 msgId=帖子 id；评论类消息 msgId=评论 id、msgIdSecond=帖子 id
-const COMMENT_TYPES = ['goodComment', 'badComment', 'commentComment']
+// 点赞/点踩帖子类消息 msgId=帖子 id；评论类（含评论里@）msgId=评论 id、msgIdSecond=帖子 id
+const COMMENT_TYPES = ['goodComment', 'badComment', 'commentComment', 'mentionComment']
 const newsIdOf = (m) => (COMMENT_TYPES.includes(m.msgType) ? m.msgIdSecond : m.msgId)
 
 // 动作短语按 msgType 在前端固定构造（库里 commentNews/commentComment 的 contentMsg 存的是评论原文，
@@ -27,6 +27,8 @@ const actionTextOf = (m) => {
     case 'goodComment': return t ? `点赞了您在${t}下的评论` : '点赞了您的评论'
     case 'badComment': return t ? `点踩了您在${t}下的评论` : '点踩了您的评论'
     case 'commentComment': return t ? `回复了您在${t}下的评论` : '回复了您的评论'
+    case 'mentionComment': return t ? `在${t}的评论里@了您` : '在评论里@了您'
+    case 'mentionNews': return t ? `在帖子${t}里@了您` : '在帖子里@了您'
     default: return m.contentMsg || ''
   }
 }
@@ -39,6 +41,8 @@ const detailOf = (m) => {
     case 'commentComment': return `回复内容：${s(m.contentMsg)} ｜ 您的评论：${s(m.content)}`
     case 'goodComment':
     case 'badComment': return `您的评论：${s(m.content)}`
+    case 'mentionComment': return `评论内容：${s(m.content)}`
+    case 'mentionNews': return `帖子：${s(m.content)}`
     default: return `原帖：${s(m.content)}` // goodNews / badNews
   }
 }

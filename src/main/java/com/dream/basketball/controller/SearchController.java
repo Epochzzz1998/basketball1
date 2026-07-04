@@ -80,6 +80,33 @@ public class SearchController {
         return new Result<>(0, "成功", data);
     }
 
+    /**
+     * @-mention 候选（公开）：按昵称/用户名模糊，回 id/昵称/头像，供评论框与富文本编辑器的 @ 下拉用。
+     * 比 /global 轻——只查用户表，不跑球员/ES 查询，适合边打字边搜。
+     */
+    @GetMapping("/mentionUsers")
+    public Result<List<Map<String, Object>>> mentionUsers(String keyword) {
+        List<Map<String, Object>> users = new ArrayList<>();
+        String kw = keyword == null ? "" : keyword.trim();
+        if (kw.length() > 50) {
+            return new Result<>(0, "成功", users);
+        }
+        QueryWrapper<DreamUser> qw = new QueryWrapper<>();
+        if (StringUtils.isNotBlank(kw)) {
+            qw.and(w -> w.like("USER_NICKNAME", kw).or().like("USER_NAME", kw));
+        }
+        // 关键词为空时给一批用户垫底（刚打 @ 还没输入时有东西可选）
+        qw.last("limit 8");
+        for (DreamUser u : userMapper.selectList(qw)) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("userId", u.getUserId());
+            m.put("userNickname", u.getUserNickname());
+            m.put("avatar", u.getAvatar());
+            users.add(m);
+        }
+        return new Result<>(0, "成功", users);
+    }
+
     /** 只保留面板需要的字段，避免整篇正文进响应 */
     private List<Map<String, Object>> slimNews(List<News> list) {
         List<Map<String, Object>> out = new ArrayList<>();

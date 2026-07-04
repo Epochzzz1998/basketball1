@@ -119,6 +119,18 @@ public class UserInformationServiceImpl extends ServiceImpl<UserInformationMappe
                 content = "原帖已删除！";
             }
             contentMsg = commentContent;
+        } else if (StringUtils.equals(MENTION_COMMENT, msgType)) {
+            // msgId=评论 id：明细展示 @ 了你的那条评论原文
+            DreamNewsComment dreamNewsComment = dreamNewsCommentService.getById(msgId);
+            content = dreamNewsComment == null ? "原评论已删除！"
+                    : (dreamNewsComment.getContent().length() > 30 ? dreamNewsComment.getContent().substring(0, 30) + "......" : dreamNewsComment.getContent());
+            contentMsg = "在评论里@了您";
+        } else if (StringUtils.equals(MENTION_NEWS, msgType)) {
+            // msgId=帖子 id：明细展示帖子摘要
+            DreamNews dreamNews = dreamNewsService.getById(msgId);
+            content = dreamNews == null ? "原帖已删除！"
+                    : (dreamNews.getContent().length() > 30 ? dreamNews.getContent().substring(0, 30) + "......" : dreamNews.getContent());
+            contentMsg = "在帖子里@了您";
         }
         userInformation.setContent(content);
         userInformation.setContentMsg(contentMsg);

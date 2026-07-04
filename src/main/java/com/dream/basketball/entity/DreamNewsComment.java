@@ -55,6 +55,14 @@ public class DreamNewsComment extends Model<DreamNewsComment> implements Seriali
     @TableField("LEVEL")
     private String level;
 
+    /** @-mentions picked from the dropdown, as JSON [{"id","name"}]; drives notifications + render links */
+    @TableField("MENTIONS")
+    private String mentions;
+
+    /** attachments as JSON [{"type":"image|file","url","name","size"}]; images render as thumbnails, files as download chips */
+    @TableField("ATTACHMENTS")
+    private String attachments;
+
     public String getCommentId() {
         return commentId;
     }
@@ -149,5 +157,21 @@ public class DreamNewsComment extends Model<DreamNewsComment> implements Seriali
 
     public void setLevel(String level) {
         this.level = level;
+    }
+
+    public String getMentions() {
+        return mentions;
+    }
+
+    public void setMentions(String mentions) {
+        this.mentions = mentions;
+    }
+
+    public String getAttachments() {
+        return attachments;
+    }
+
+    public void setAttachments(String attachments) {
+        this.attachments = attachments;
     }
 }

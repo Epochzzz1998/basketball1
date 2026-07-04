@@ -36,6 +36,12 @@ public class Constants {
 
     public static final String COMMENT_COMMENT = "commentComment";
 
+    /** @-mention inside a comment (someone @'d you in a comment/reply) */
+    public static final String MENTION_COMMENT = "mentionComment";
+
+    /** @-mention inside a post body (someone @'d you in a news/forum post) */
+    public static final String MENTION_NEWS = "mentionNews";
+
     public static final String TO_READ = "toRead";
 
     public static final String READ = "read";

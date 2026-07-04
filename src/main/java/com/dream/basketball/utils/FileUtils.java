@@ -28,7 +28,12 @@ public class FileUtils {
 
     private static final Set<String> ALLOWED_EXTENSIONS = new HashSet<>(Arrays.asList(
             "jpg", "jpeg", "png", "gif", "webp", "bmp"));
-    private static final long MAX_FILE_SIZE = 5L * 1024 * 1024; // 5MB
+    // Comment file attachments: images + common documents/archives. Deliberately excludes
+    // html/svg/js/jsp/exe/sh etc. (stored-XSS / executable) — same defensive stance as images.
+    private static final Set<String> ALLOWED_DOC_EXTENSIONS = new HashSet<>(Arrays.asList(
+            "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "csv", "md", "zip", "rar", "7z"));
+    private static final long MAX_FILE_SIZE = 5L * 1024 * 1024; // 5MB (images)
+    private static final long MAX_ATTACHMENT_SIZE = 20L * 1024 * 1024; // 20MB (comment files)
 
     /** URL prefix that ImgConfigurer maps to the upload dir (e.g. /picImg/). */
     private static String picPath;
@@ -45,15 +50,31 @@ public class FileUtils {
      * @throws IOException              storage failure
      */
     public static String upload(MultipartFile file, String uploadPath, String folderKey) throws IOException {
+        return store(file, uploadPath, folderKey, ALLOWED_EXTENSIONS, MAX_FILE_SIZE, "仅允许图片 " + ALLOWED_EXTENSIONS);
+    }
+
+    /**
+     * Store a comment attachment (image OR document). Same hardening as {@link #upload}, but a
+     * wider whitelist (images + docs) and a larger size cap. Returns the accessible URL.
+     */
+    public static String uploadAttachment(MultipartFile file, String uploadPath, String folderKey) throws IOException {
+        Set<String> allowed = new HashSet<>(ALLOWED_EXTENSIONS);
+        allowed.addAll(ALLOWED_DOC_EXTENSIONS);
+        return store(file, uploadPath, folderKey, allowed, MAX_ATTACHMENT_SIZE, "支持图片与常见文档 " + allowed);
+    }
+
+    /** Validate (non-empty / size / extension whitelist) then store with a random name; returns the URL. */
+    private static String store(MultipartFile file, String uploadPath, String folderKey,
+                                Set<String> allowedExt, long maxSize, String typeHint) throws IOException {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("上传文件为空");
         }
-        if (file.getSize() > MAX_FILE_SIZE) {
-            throw new IllegalArgumentException("文件过大，最大 " + (MAX_FILE_SIZE / 1024 / 1024) + "MB");
+        if (file.getSize() > maxSize) {
+            throw new IllegalArgumentException("文件过大，最大 " + (maxSize / 1024 / 1024) + "MB");
         }
         String ext = safeExtension(file.getOriginalFilename());
-        if (!ALLOWED_EXTENSIONS.contains(ext)) {
-            throw new IllegalArgumentException("不支持的文件类型，仅允许图片 " + ALLOWED_EXTENSIONS);
+        if (!allowedExt.contains(ext)) {
+            throw new IllegalArgumentException("不支持的文件类型，" + typeHint);
         }
         // path-traversal-safe folder segment + server-generated filename (decoupled from original name)
         String safeFolder = folderKey == null ? "" : folderKey.replaceAll("[^a-zA-Z0-9_\\-]", "");
@@ -67,6 +88,11 @@ public class FileUtils {
 
         String urlFolder = safeFolder.isEmpty() ? "" : safeFolder + "/";
         return picPath + urlFolder + safeName;
+    }
+
+    /** True if a URL points into our own upload store (rejects external / javascript: URLs on save). */
+    public static boolean isLocalUploadUrl(String url) {
+        return url != null && picPath != null && !picPath.isEmpty() && url.startsWith(picPath);
     }
 
     /**

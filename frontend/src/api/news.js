@@ -28,6 +28,14 @@ export const newsApi = {
     const data = await http.post('/news/upload', fd)
     return data?.url
   },
+  // 评论附件上传（图片或文档）：返回可访问 URL；前端据扩展名分 image/file 渲染
+  uploadCommentFile: async (file, newsId) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    if (newsId) fd.append('newsId', newsId)
+    const data = await http.post('/news/commentUpload', fd)
+    return data?.url
+  },
 
   // ===== 评论 / 点赞（评论列表公开；发评论与点赞需登录） =====
   // 评论列表：顶层评论传 level:'1'；某条评论的回复传 commentRelId=该评论 id。返回 {total, records}。

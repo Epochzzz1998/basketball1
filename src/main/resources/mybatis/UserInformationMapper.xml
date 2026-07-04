@@ -8,7 +8,7 @@
         from user_information u
         left join dream_news n
             on n.NEWS_ID = (case
-                when u.MSG_TYPE in ('goodComment', 'badComment', 'commentComment') then u.MSG_ID_SECOND
+                when u.MSG_TYPE in ('goodComment', 'badComment', 'commentComment', 'mentionComment') then u.MSG_ID_SECOND
                 else u.MSG_ID
             end)
         <where>

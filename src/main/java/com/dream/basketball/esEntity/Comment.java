@@ -51,6 +51,14 @@ public class Comment {
     @Field(type = FieldType.Text, analyzer = "ik_max_word")
     private String level;
 
+    /** @-mentions JSON [{"id","name"}] — mirrors DreamNewsComment.mentions so ES round-trips it */
+    @Field(type = FieldType.Keyword, index = false)
+    private String mentions;
+
+    /** attachments JSON [{type,url,name,size}] — mirrors DreamNewsComment.attachments so ES round-trips it */
+    @Field(type = FieldType.Keyword, index = false)
+    private String attachments;
+
 }
 
 

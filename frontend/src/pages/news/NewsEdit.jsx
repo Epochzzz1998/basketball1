@@ -3,7 +3,14 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button, Card, Form, Input, Select, Space, message } from 'antd'
 import RichTextEditor from '../../components/RichTextEditor'
 import { newsApi } from '../../api/news'
+import { searchApi } from '../../api/search'
 import { useAuth } from '../../auth/AuthContext'
+
+// 富文本 @ 候选：把后端用户规约成编辑器面板要的 {id,name,avatar}
+const mentionSearch = async (kw) => {
+  const list = await searchApi.mentionUsers(kw)
+  return (list || []).map((u) => ({ id: u.userId, name: u.userNickname, avatar: u.avatar }))
+}
 
 // NBA 现役 30 支球队简写（下拉用）
 const NBA_TEAMS = [
@@ -114,6 +121,7 @@ export default function NewsEdit() {
             value={content}
             onChange={setContent}
             uploadImage={(file) => newsApi.uploadNewsImage(file, newsIdRef.current)}
+            mentionSearch={mentionSearch}
           />
         </Form.Item>
         <Space>

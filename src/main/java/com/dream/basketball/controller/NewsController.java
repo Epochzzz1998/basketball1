@@ -154,6 +154,18 @@ public class NewsController extends BaseUtils {
         }
         newsService.save(news);
         dreamNewsService.saveSyncEs(news);
+        // @-mention 通知：只给"这次新增"的被 @ 者发（编辑时老正文里已有的 @ 不重复打扰），排除作者本人
+        java.util.Set<String> mentionedNow = com.dream.basketball.utils.MentionUtil.parseNewsMentionIds(news.getContent());
+        java.util.Set<String> mentionedBefore = isExisting
+                ? com.dream.basketball.utils.MentionUtil.parseNewsMentionIds(existing.getContent())
+                : java.util.Collections.emptySet();
+        for (String mentionedId : mentionedNow) {
+            if (mentionedBefore.contains(mentionedId) || StringUtils.equals(mentionedId, me.getUserId())) {
+                continue;
+            }
+            userInformationService.saveUserInformation(me.getUserId(), me.getUserNickname(), mentionedId,
+                    com.dream.basketball.utils.Constants.MENTION_NEWS, news.getNewsId(), "", "", "", "", "");
+        }
         return handlerResultJson(true, "操作成功！");
     }
 
@@ -165,6 +177,20 @@ public class NewsController extends BaseUtils {
     @PostMapping("/upload")
     public Object upload(MultipartFile file, String newsId) throws IOException {
         String url = FileUtils.upload(file, uploadPath, newsId);
+        Map<String, Object> data = new HashMap<>();
+        data.put("url", url);
+        return new Result<>(0, "上传成功", data);
+    }
+
+    /**
+     * 评论附件上传（登录即可）：图片或常见文档，返回可访问 URL + 服务端识别的类型。
+     * 文件按帖子归档到 comment-{newsId}/ 目录。
+     */
+    @RequiresRole(Role.USER)
+    @PostMapping("/commentUpload")
+    public Object commentUpload(MultipartFile file, String newsId) throws IOException {
+        String folder = "comment-" + (StringUtils.isNotBlank(newsId) ? newsId : "misc");
+        String url = FileUtils.uploadAttachment(file, uploadPath, folder);
         Map<String, Object> data = new HashMap<>();
         data.put("url", url);
         return new Result<>(0, "上传成功", data);
