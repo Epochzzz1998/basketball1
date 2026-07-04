@@ -137,27 +137,23 @@ export default function NewsDetail() {
     return () => { alive = false }
   }, [news?.authorId])
 
-  // 置顶/精华（可并存）：调用后就地更新
+  // 置顶/精华/封锁/隐藏（可并存）：成功就地更新；失败由 http 拦截器统一弹错（接口回统一 Result，成功时 data 为空，不能靠 res.result 判断）
   const toggleFlag = async (flag) => {
     const cur = news?.[flag] === '1'
-    const res = await newsApi.setFlag(newsId, flag, cur ? '0' : '1')
-    if (res?.result) {
+    try {
+      await newsApi.setFlag(newsId, flag, cur ? '0' : '1')
       setNews((n) => (n ? { ...n, [flag]: cur ? '0' : '1' } : n))
-      message.success(res.msg || '已更新')
-    } else {
-      message.error(res?.msg || '操作失败')
-    }
+      message.success('已更新')
+    } catch { /* 拦截器已弹错 */ }
   }
 
-  // 删帖（题主/管理者）：成功后退回上一页
+  // 删帖（题主/管理者）：成功后退回上一页；失败由拦截器弹错
   const removePost = async () => {
-    const res = await newsApi.deletePost(newsId)
-    if (res?.result) {
-      message.success(res.msg || '已删除')
+    try {
+      await newsApi.deletePost(newsId)
+      message.success('已删除')
       navigate(-1)
-    } else {
-      message.error(res?.msg || '删除失败')
-    }
+    } catch { /* 拦截器已弹错 */ }
   }
 
   // 管理小胶囊：点亮=已应用（实心彩色），再点取消

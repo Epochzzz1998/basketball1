@@ -54,7 +54,7 @@ export default function App() {
         <Route path="rankings/honors/:group" element={<HonorDetail />} />
         <Route path="rankings/:field" element={<RankingDetail />} />
         <Route path="official" element={<NewsList channel="official" />} />
-        {/* 资讯论坛：现在是专题列表；点进单个专题看帖流 */}
+        {/* 百家说：现在是专题列表；点进单个专题看帖流 */}
         <Route path="news" element={<TopicsList />} />
         <Route path="news/topic/:topicId" element={<TopicPosts />} />
         {/* 发帖/编辑：登录即可；论坛发帖须带 ?topicId（后端按专题权限校验） */}

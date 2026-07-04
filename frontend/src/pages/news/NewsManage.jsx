@@ -22,15 +22,13 @@ export default function NewsManage() {
     actionRef.current?.reload()
   }
 
-  // 置顶/精华（可并存）：即改即存
+  // 置顶/精华（可并存）：即改即存；成功时统一 Result 的 data 为空，靠 try/catch 判断（失败由拦截器弹错）
   const toggleFlag = async (row, flag, checked) => {
-    const res = await newsApi.setFlag(row.newsId, flag, checked ? '1' : '0')
-    if (res?.result) {
+    try {
+      await newsApi.setFlag(row.newsId, flag, checked ? '1' : '0')
       message.success('已更新')
       actionRef.current?.reload()
-    } else {
-      message.error(res?.msg || '操作失败')
-    }
+    } catch { /* 拦截器已弹错 */ }
   }
 
   const columns = [

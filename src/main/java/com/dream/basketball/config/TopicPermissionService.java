@@ -120,8 +120,20 @@ public class TopicPermissionService {
      * and the home hot list so private content never leaks. Admin sees everything (empty set).
      */
     public Set<String> hiddenTopicIds(DreamUser user) {
-        List<ForumTopic> privates = topicMapper.selectList(
-                new QueryWrapper<ForumTopic>().eq("VISIBILITY", PRIVATE));
+        return privateTopicIdsInternal(topicMapper.selectList(
+                new QueryWrapper<ForumTopic>().eq("VISIBILITY", PRIVATE)), user);
+    }
+
+    /** 所有私密专题 id。用于把私密内容从「跨专题的公开展示位」（首页热帖 / 热榜 / 相关推荐）里排除——那些位置对谁都只展示公开专题的帖。 */
+    public Set<String> privateTopicIds() {
+        Set<String> ids = new HashSet<>();
+        for (ForumTopic t : topicMapper.selectList(new QueryWrapper<ForumTopic>().eq("VISIBILITY", PRIVATE))) {
+            ids.add(t.getTopicId());
+        }
+        return ids;
+    }
+
+    private Set<String> privateTopicIdsInternal(List<ForumTopic> privates, DreamUser user) {
         Set<String> hidden = new HashSet<>();
         if (privates.isEmpty() || isAdmin(user)) {
             return hidden;

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Button, Card, Col, Empty, Row } from 'antd'
+import { Button, Card, Col, Empty, Row, Tag } from 'antd'
 import { FireOutlined, RightOutlined } from '@ant-design/icons'
 import { Link, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { useAuth } from '../auth/AuthContext'
 import { newsApi } from '../api/news'
+import { topicApi } from '../api/topic'
 import { playerApi } from '../api/player'
 import { teamApi } from '../api/team'
 import SeasonPicker from '../components/SeasonPicker'
@@ -241,8 +242,15 @@ function HotList({ posts }) {
             </span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: i < 3 ? 600 : 400, ...clamp(1) }}>{p.title || '(无标题)'}</div>
-              <div style={{ fontSize: 12, color: '#999', marginTop: 2, ...clamp(1) }}>
-                {p.author} · 👍 {p.goodNum ?? 0} · 💬 {p.commentNum ?? 0}
+              <div style={{ fontSize: 12, color: '#999', marginTop: 3, display: 'flex', alignItems: 'center', gap: 6 }}>
+                {p.topicName && (
+                  <Tag color="blue" style={{ marginInlineEnd: 0, fontSize: 11, lineHeight: '16px', padding: '0 6px', flexShrink: 0 }}>
+                    {p.topicName}
+                  </Tag>
+                )}
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                  {p.author} · 👍 {p.goodNum ?? 0} · 💬 {p.commentNum ?? 0}
+                </span>
               </div>
             </div>
           </Link>
@@ -259,17 +267,27 @@ export default function Home() {
   const navigate = useNavigate()
   const [seasonNum, setSeasonNum] = useState(LATEST_SEASON)
   const [forum, setForum] = useState(null) //      论坛帖（热帖榜；不随赛季变）
+  const [topicNameMap, setTopicNameMap] = useState({}) // topicId → 话题名（热帖榜标注所属话题）
   const [leaders, setLeaders] = useState(null) //  [{stat, rows}] 五单项 Top3
   const [teams, setTeams] = useState(null) //      球队战绩（常规赛）
   const [poTeams, setPoTeams] = useState(null) //  季后赛球队榜（冠军战绩用）
   const [awards, setAwards] = useState(null) //    赛季特别奖
 
-  // 论坛热帖：只拉一次。注意：新闻列表接口的 page/limit 实际不生效（ES 全量返回），前端自行截断
+  // 论坛热帖：只拉一次。接口已把私密话题的帖排除（跨专题展示位只展示公开话题）。
+  // 另拉一次话题列表建 id→名 映射，给每条热帖标出所属话题。
   useEffect(() => {
     let alive = true
     newsApi.listNews({ page: 1, limit: 20, newsChannel: 'forum' })
       .then((r) => { if (alive) setForum(r.records || []) })
       .catch(() => { if (alive) setForum([]) })
+    topicApi.list()
+      .then((r) => {
+        if (!alive) return
+        const m = {}
+        ;(Array.isArray(r) ? r : []).forEach((t) => { if (t?.topicId) m[t.topicId] = t.name })
+        setTopicNameMap(m)
+      })
+      .catch(() => {})
     return () => { alive = false }
   }, [])
 
@@ -300,10 +318,10 @@ export default function Home() {
   const hotPosts = useMemo(() => {
     if (forum === null) return null
     return forum
-      .map((p) => ({ ...p, hot: (p.goodNum ?? 0) * 2 + (p.commentNum ?? 0) * 3 }))
+      .map((p) => ({ ...p, hot: (p.goodNum ?? 0) * 2 + (p.commentNum ?? 0) * 3, topicName: topicNameMap[p.topicId] }))
       .sort((a, b) => b.hot - a.hot || dayjs(b.publishDate).valueOf() - dayjs(a.publishDate).valueOf())
       .slice(0, 6)
-  }, [forum])
+  }, [forum, topicNameMap])
 
   return (
     <>

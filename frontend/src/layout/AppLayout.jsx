@@ -88,7 +88,7 @@ export default function AppLayout() {
         { path: '/rankings', name: '联盟排行', icon: <TrophyOutlined /> },
         { path: '/compare', name: '球员对比', icon: <SwapOutlined /> },
         { path: '/official', name: '新闻', icon: <NotificationOutlined /> },
-        { path: '/news', name: '资讯论坛', icon: <ReadOutlined /> },
+        { path: '/news', name: '百家说', icon: <ReadOutlined /> },
         ...(user ? [{ path: '/messages', name: '私信', icon: <MessageOutlined /> }] : []),
         ...(user?.isManagerOrOver ? [{ path: '/admin/news', name: '资讯管理', icon: <EditOutlined /> }] : []),
         ...(user?.isSuperManager
@@ -113,7 +113,7 @@ export default function AppLayout() {
       layout="mix"
       fixedHeader
       fixSiderbar
-      title="Dream Unit"
+      title="Dream Everything"
       logo={<span style={{ fontSize: 26, lineHeight: 1 }}>🏀</span>}
       siderWidth={216}
       location={{ pathname: location.pathname }}

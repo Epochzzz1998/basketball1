@@ -14,7 +14,7 @@ import { SuperAdminBadge, TopicOwnerBadge } from '../../components/RoleBadges'
 
 /**
  * 帖子列表（公开，P5-2 内容流改版），按频道复用：
- * - channel="forum"（默认）：资讯论坛（品牌橙横幅），登录用户皆可发帖；
+ * - channel="forum"（默认）：百家说（品牌橙横幅），登录用户皆可发帖；
  * - channel="official"：官方新闻（权威蓝横幅），只有 manager+ 能发布。
  * 布局：频道横幅 + 搜索/最新最热工具栏 + 帖子卡片流（字母头像/摘要/首图缩略图/互动数）
  *      + 右栏热榜与发帖引导。
@@ -248,13 +248,13 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
               <Link to="/news" style={{ color: 'rgba(255,255,255,.85)', fontSize: 12 }}>‹ 全部专题</Link>
             )}
             <div style={{ fontSize: 23, fontWeight: 800, marginTop: isTopic ? 4 : 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-              {isTopic ? topic.name : official ? '官方新闻' : '资讯论坛'}
+              {isTopic ? topic.name : official ? '官方新闻' : '百家说'}
               {isTopic && (topic.visibility === 'private'
                 ? <Tag icon={<LockOutlined />} style={{ marginInlineEnd: 0 }}>私密</Tag>
                 : <Tag icon={<UnlockOutlined />} color="green" style={{ marginInlineEnd: 0 }}>公开</Tag>)}
             </div>
             <div style={{ opacity: 0.88, marginTop: 6, fontSize: 13, maxWidth: 620 }}>
-              {isTopic ? (topic.description || '按专题组织的讨论区') : official ? '权威发布 · 人人可评' : '看帖 · 发帖 · 评论 · 点赞'}
+              {isTopic ? (topic.description || '按专题组织的讨论区') : official ? '权威发布 · 人人可评' : '见你所见，想你所想'}
             </div>
           </div>
           {isTopic && (topic.canManage ? (
@@ -351,7 +351,7 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
               </Card>
             )}
             <Link to={official ? '/news' : '/official'} style={{ color: '#888', fontSize: 13, textAlign: 'center' }}>
-              去{official ? '资讯论坛' : '官方新闻'}逛逛 <RightOutlined style={{ fontSize: 10 }} />
+              去{official ? '百家说' : '官方新闻'}逛逛 <RightOutlined style={{ fontSize: 10 }} />
             </Link>
           </div>
         </Col>

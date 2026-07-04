@@ -10,7 +10,7 @@ import TopicEditModal from '../../components/TopicEditModal'
 import TopicApplyButton from '../../components/TopicApplyButton'
 
 /**
- * 专题列表（资讯论坛首页）：论坛内容按专题组织。
+ * 专题列表（百家说首页）：论坛内容按专题组织。
  * - 公开/可浏览的专题点进去看帖流；私密无权的专题带锁展示（看得到名字/简介，进不去）；
  * - 超管可「新建专题」（指定 owner）+ 删除；admin/owner 可编辑设置；
  * - owner 的成员权限管理在专题内页操作。
@@ -55,8 +55,8 @@ export default function TopicsList() {
         <div style={ring(120, { bottom: -50, right: 300 })} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', position: 'relative' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 23, fontWeight: 800 }}>资讯论坛</div>
-            <div style={{ opacity: 0.88, marginTop: 6, fontSize: 13 }}>按专题组织 · 各专题可设浏览/发帖/发言权限</div>
+            <div style={{ fontSize: 23, fontWeight: 800 }}>百家说</div>
+            <div style={{ opacity: 0.88, marginTop: 6, fontSize: 13 }}>见你所见，想你所想</div>
           </div>
           {user?.isSuperManager && (
             <Button size="large" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)} style={{ fontWeight: 600 }}>

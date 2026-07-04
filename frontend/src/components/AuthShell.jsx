@@ -66,7 +66,7 @@ function BrandPanel() {
       <div style={ring(320, { bottom: -140, right: -120 })} />
       <div style={ring(200, { bottom: -90, left: -90 })} />
 
-      <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: 1 }}>Dream Unit</div>
+      <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: 1 }}>Dream Everything</div>
       <div style={{ width: 34, height: 3, borderRadius: 2, background: 'rgba(255,255,255,.55)', marginTop: 10 }} />
 
       <div style={{ flex: 1 }} />
@@ -118,7 +118,7 @@ export default function AuthShell({ title, subtitle, children }) {
               display: 'flex', flexDirection: 'column', justifyContent: 'center',
             }}
           >
-            {!wide && <div style={{ fontSize: 20, fontWeight: 800, color: BRAND, marginBottom: 6 }}>Dream Unit</div>}
+            {!wide && <div style={{ fontSize: 20, fontWeight: 800, color: BRAND, marginBottom: 6 }}>Dream Everything</div>}
             <div style={{ fontSize: 24, fontWeight: 800 }}>{title}</div>
             <div style={{ color: '#8c8c8c', fontSize: 14, margin: '8px 0 30px' }}>{subtitle}</div>
             {children}
