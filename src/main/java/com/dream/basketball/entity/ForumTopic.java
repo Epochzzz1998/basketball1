@@ -57,6 +57,14 @@ public class ForumTopic extends Model<ForumTopic> implements Serializable {
     @TableField("SORT")
     private Integer sort;
 
+    /**
+     * 是否在百家说里露出：'1' 可见（默认）/ '0' 不可见（下架）。
+     * 不可见 = 不进专题列表（仅题主/管理员/已加入成员仍能在列表看到）、帖子不被全站搜索与首页热榜收录。
+     * 与 visibility(公开/私密) 正交：前者管"能不能进"，这个管"在不在百家说露脸/被搜到"。
+     */
+    @TableField("LISTED")
+    private String listed;
+
     public String getTopicId() {
         return topicId;
     }
@@ -135,5 +143,13 @@ public class ForumTopic extends Model<ForumTopic> implements Serializable {
 
     public void setSort(Integer sort) {
         this.sort = sort;
+    }
+
+    public String getListed() {
+        return listed;
+    }
+
+    public void setListed(String listed) {
+        this.listed = listed;
     }
 }

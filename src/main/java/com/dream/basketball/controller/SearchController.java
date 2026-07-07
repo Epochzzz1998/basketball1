@@ -70,6 +70,7 @@ public class SearchController {
         // 新闻 / 资讯：ES 相关度前 N（标题前缀加权）。论坛结果滤掉无权浏览的私密专题帖（防泄露）
         java.util.Set<String> hidden = topicPerms.hiddenTopicIds(
                 com.dream.basketball.utils.SecUtil.getLoginUserToSession(request));
+        hidden.addAll(topicPerms.unlistedTopicIds()); // 不可见专题：帖子对所有人都不进搜索
         // 隐藏帖：搜索里对所有人都不出现（管理者从专题列表管；ES 里没有 HIDDEN 字段，按 id 集合滤）
         java.util.Set<String> hiddenIds = new java.util.HashSet<>();
         for (com.dream.basketball.entity.DreamNews dn : dreamNewsMapper.selectList(

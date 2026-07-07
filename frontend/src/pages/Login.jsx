@@ -7,7 +7,7 @@ import { authApi } from '../api/auth'
 import AuthShell from '../components/AuthShell'
 
 /**
- * 登录页。表单字段名与后端一致：userNickname / password / code（验证码）。
+ * 登录页。表单字段名与后端一致：loginName（固定登录名）/ password / code（验证码）。
  * 验证码图片点击可刷新（后端一次性消费，失败后需换新的）。
  */
 export default function Login() {
@@ -36,8 +36,8 @@ export default function Login() {
   return (
     <AuthShell title="欢迎回来" subtitle="登录后可发帖、评论、点赞，还能申请球员身份认证">
       <Form onFinish={onFinish} size="large">
-        <Form.Item name="userNickname" rules={[{ required: true, message: '请输入用户名' }]}>
-          <Input variant="filled" prefix={<UserOutlined style={{ color: '#b3b3b3' }} />} placeholder="用户名" autoComplete="off" />
+        <Form.Item name="loginName" rules={[{ required: true, message: '请输入登录名' }]}>
+          <Input variant="filled" prefix={<UserOutlined style={{ color: '#b3b3b3' }} />} placeholder="登录名" autoComplete="off" />
         </Form.Item>
         <Form.Item name="password" rules={[{ required: true, message: '请输入密码' }]}>
           <Input.Password variant="filled" prefix={<LockOutlined style={{ color: '#b3b3b3' }} />} placeholder="密码" autoComplete="off" />

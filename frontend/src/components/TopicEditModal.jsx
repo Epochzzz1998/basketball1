@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Avatar, Checkbox, Form, Input, Modal, Radio, Select, message } from 'antd'
+import { Avatar, Checkbox, Form, Input, Modal, Radio, Select, Switch, message } from 'antd'
 import { topicApi } from '../api/topic'
 import { searchApi } from '../api/search'
 
@@ -30,11 +30,12 @@ export default function TopicEditModal({ open, onClose, onSaved, topic }) {
       form.setFieldsValue({
         name: topic.name, description: topic.description,
         visibility: topic.visibility, openPost: topic.openPost, openComment: topic.openComment,
+        listed: topic.listed !== false,
       })
       setVisibility(topic.visibility || 'public')
     } else {
       form.resetFields()
-      form.setFieldsValue({ visibility: 'public', openPost: false, openComment: false })
+      form.setFieldsValue({ visibility: 'public', openPost: false, openComment: false, listed: true })
       setVisibility('public')
     }
     setOpts([])
@@ -60,6 +61,7 @@ export default function TopicEditModal({ open, onClose, onSaved, topic }) {
         name: v.name,
         description: v.description || '',
         visibility: v.visibility,
+        listed: v.listed === false ? '0' : '1',
         openPost: v.visibility === 'public' && v.openPost ? '1' : '0',
         openComment: v.visibility === 'public' && v.openComment ? '1' : '0',
       }
@@ -132,6 +134,15 @@ export default function TopicEditModal({ open, onClose, onSaved, topic }) {
             </Form.Item>
           </div>
         )}
+        <Form.Item
+          name="listed"
+          label="在百家说中可见"
+          valuePropName="checked"
+          extra="关闭后：本专题不在百家说列表出现、帖子也不被全站搜索和首页热榜收录；题主、管理员、已加入成员仍能在列表看到并进入。"
+          style={{ marginTop: 12 }}
+        >
+          <Switch checkedChildren="可见" unCheckedChildren="隐藏" />
+        </Form.Item>
       </Form>
     </Modal>
   )

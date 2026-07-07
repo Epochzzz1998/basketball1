@@ -133,6 +133,20 @@ public class TopicPermissionService {
         return ids;
     }
 
+    /** 所有「不可见」专题 id（LISTED='0'）。把下架专题的帖子从全站搜索 / 首页热榜里排除——对谁都不露（含题主本人，"不被搜到"是绝对的）。 */
+    public Set<String> unlistedTopicIds() {
+        Set<String> ids = new HashSet<>();
+        for (ForumTopic t : topicMapper.selectList(new QueryWrapper<ForumTopic>().eq("LISTED", "0"))) {
+            ids.add(t.getTopicId());
+        }
+        return ids;
+    }
+
+    /** 该用户是否为该专题的白名单成员（有 forum_topic_member 行）。不可见专题在列表里对成员仍放行。 */
+    public boolean isMember(DreamUser user, ForumTopic t) {
+        return user != null && t != null && member(t.getTopicId(), user) != null;
+    }
+
     private Set<String> privateTopicIdsInternal(List<ForumTopic> privates, DreamUser user) {
         Set<String> hidden = new HashSet<>();
         if (privates.isEmpty() || isAdmin(user)) {

@@ -6,8 +6,8 @@ import { authApi } from '../api/auth'
 import AuthShell from '../components/AuthShell'
 
 /**
- * 注册页（公开）。字段与后端一致：userNickname / userName / password。
- * 后端按昵称查重（P3-1），重复会被拒。注册不需要验证码。
+ * 注册页（公开）。字段与后端一致：loginName（固定登录名）/ userNickname（显示昵称）/ password。
+ * 后端对登录名和昵称各自查重，重复会被拒。注册不需要验证码。
  */
 export default function Register() {
   const navigate = useNavigate()
@@ -18,8 +18,8 @@ export default function Register() {
     try {
       // 只把后端需要的字段传过去（confirm 仅前端用）
       await authApi.register({
+        loginName: values.loginName,
         userNickname: values.userNickname,
-        userName: values.userName,
         password: values.password,
       })
       message.success('注册成功，请登录')
@@ -36,11 +36,11 @@ export default function Register() {
   return (
     <AuthShell title="创建账号" subtitle="注册后加入讨论：发帖、评论、点赞一条龙">
       <Form onFinish={onFinish} size="large">
-        <Form.Item name="userNickname" rules={[{ required: true, message: '请输入用户名' }]}>
-          <Input variant="filled" prefix={<UserOutlined style={iconStyle} />} placeholder="用户名（登录用）" autoComplete="off" />
+        <Form.Item name="loginName" rules={[{ required: true, message: '请输入登录名' }]}>
+          <Input variant="filled" prefix={<UserOutlined style={iconStyle} />} placeholder="登录名（用于登录，注册后不可改）" autoComplete="off" />
         </Form.Item>
-        <Form.Item name="userName" rules={[{ required: true, message: '请输入昵称' }]}>
-          <Input variant="filled" prefix={<IdcardOutlined style={iconStyle} />} placeholder="昵称/姓名" autoComplete="off" />
+        <Form.Item name="userNickname" rules={[{ required: true, message: '请输入昵称' }]}>
+          <Input variant="filled" prefix={<IdcardOutlined style={iconStyle} />} placeholder="昵称（对外展示，之后可改）" autoComplete="off" />
         </Form.Item>
         <Form.Item name="password" rules={[{ required: true, message: '请输入密码' }]}>
           <Input.Password variant="filled" prefix={<LockOutlined style={iconStyle} />} placeholder="密码" autoComplete="off" />

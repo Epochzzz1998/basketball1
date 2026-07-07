@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button, Card, Col, Empty, Popconfirm, Row, Spin, Tag, message } from 'antd'
 import {
-  DeleteOutlined, EditOutlined, LockOutlined, PlusOutlined, RightOutlined, TeamOutlined, UnlockOutlined,
+  DeleteOutlined, EditOutlined, EyeInvisibleOutlined, LockOutlined, PlusOutlined, RightOutlined, TeamOutlined, UnlockOutlined,
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { topicApi } from '../../api/topic'
@@ -90,6 +90,7 @@ export default function TopicsList() {
                           ? <Tag icon={<LockOutlined />} color="default" style={{ marginInlineEnd: 0 }}>私密</Tag>
                           : <Tag icon={<UnlockOutlined />} color="green" style={{ marginInlineEnd: 0 }}>公开</Tag>}
                         {t.locked && <Tag color="red" style={{ marginInlineEnd: 0 }}>无浏览权</Tag>}
+                        {t.listed === false && <Tag icon={<EyeInvisibleOutlined />} color="orange" style={{ marginInlineEnd: 0 }}>未公开</Tag>}
                       </div>
                     </div>
                     {/* admin/owner 的编辑、admin 的删除 */}

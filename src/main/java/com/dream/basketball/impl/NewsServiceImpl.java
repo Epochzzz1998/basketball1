@@ -209,6 +209,8 @@ public class NewsServiceImpl implements NewsService {
             if (StringUtils.isNotBlank(n.getLastEditorId())) {
                 authorIds.add(n.getLastEditorId()); // 编辑者也一并批查（拿最后编辑者昵称）
             }
+            // 正文里 @ 的人也批查，拿其当前昵称（用于把正文里的旧 @名 同步成新名）
+            authorIds.addAll(com.dream.basketball.utils.MentionUtil.parseNewsMentionIds(n.getContent()));
         }
         if (authorIds.isEmpty()) {
             return;
@@ -217,6 +219,12 @@ public class NewsServiceImpl implements NewsService {
         for (DreamUser u : userMapper.selectList(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<DreamUser>()
                 .in("USER_ID", authorIds))) {
             userMap.put(u.getUserId(), u);
+        }
+        java.util.Map<String, String> idToNick = new java.util.HashMap<>();
+        for (DreamUser u : userMap.values()) {
+            if (StringUtils.isNotBlank(u.getUserNickname())) {
+                idToNick.put(u.getUserId(), u.getUserNickname());
+            }
         }
         // 已认证球员作者：一把批查球员姓名（和评论区 fillVerifiedPlayer 同款）
         java.util.Set<String> playerIds = new java.util.HashSet<>();
@@ -236,6 +244,8 @@ public class NewsServiceImpl implements NewsService {
             if (n == null) {
                 continue;
             }
+            // 正文里的 @ 用当前昵称重写（改名后帖子正文里的 @ 也显示新名）
+            n.setContent(com.dream.basketball.utils.MentionUtil.rewriteNewsMentionNames(n.getContent(), idToNick));
             // 最后编辑者昵称（独立于作者：超管改他人帖时二者不同）
             if (StringUtils.isNotBlank(n.getLastEditorId())) {
                 DreamUser ed = userMap.get(n.getLastEditorId());
@@ -332,6 +342,8 @@ public class NewsServiceImpl implements NewsService {
             if (StringUtils.isNotBlank(c.getUserId())) {
                 userIds.add(c.getUserId());
             }
+            // @ 提及的人也批查，拿其当前昵称（用于把 mentions 里的旧名同步成新名）
+            userIds.addAll(com.dream.basketball.utils.MentionUtil.parseCommentMentionIds(c.getMentions()));
         }
         if (userIds.isEmpty()) {
             return;
@@ -340,6 +352,12 @@ public class NewsServiceImpl implements NewsService {
         for (DreamUser u : userMapper.selectList(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<DreamUser>()
                 .in("USER_ID", userIds))) {
             users.put(u.getUserId(), u);
+        }
+        java.util.Map<String, String> idToNick = new java.util.HashMap<>();
+        for (DreamUser u : users.values()) {
+            if (StringUtils.isNotBlank(u.getUserNickname())) {
+                idToNick.put(u.getUserId(), u.getUserNickname());
+            }
         }
         // 认证者的球员姓名一把批查
         java.util.Set<String> playerIds = new java.util.HashSet<>();
@@ -356,6 +374,8 @@ public class NewsServiceImpl implements NewsService {
             }
         }
         for (DreamNewsCommentDto c : comments) {
+            // @ 提及：给 mentions 补 cur=当前昵称（改名后 @ 也显示新名），与作者是否还在无关
+            c.setMentions(com.dream.basketball.utils.MentionUtil.enrichCommentMentions(c.getMentions(), idToNick));
             DreamUser u = users.get(c.getUserId());
             if (u == null) {
                 continue;

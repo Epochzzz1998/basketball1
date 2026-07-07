@@ -65,6 +65,10 @@ public class TopicController {
                 new QueryWrapper<ForumTopic>().orderByAsc("SORT").orderByAsc("CREATE_TIME"));
         List<Map<String, Object>> out = new ArrayList<>();
         for (ForumTopic t : topics) {
+            // 不可见专题（LISTED='0'）：仅题主/管理员/已加入成员能在列表看到，其余人跳过
+            if ("0".equals(t.getListed()) && !perms.canManage(me, t) && !perms.isMember(me, t)) {
+                continue;
+            }
             out.add(topicView(t, me));
         }
         return new Result<>(0, "成功", out);
@@ -98,6 +102,7 @@ public class TopicController {
         DreamUser owner = t.getOwnerId() == null ? null : userMapper.selectById(t.getOwnerId());
         m.put("ownerName", owner == null ? null : owner.getUserNickname());
         m.put("visibility", t.getVisibility());
+        m.put("listed", !"0".equals(t.getListed())); // 是否在百家说露出（默认 true）
         m.put("openPost", ON.equals(t.getOpenPost()));
         m.put("openComment", ON.equals(t.getOpenComment()));
         m.put("postCount", dreamNewsMapper.selectCount(new QueryWrapper<DreamNews>().eq("TOPIC_ID", t.getTopicId())));
@@ -125,7 +130,7 @@ public class TopicController {
     @RequiresRole(Role.SUPER_MANAGER)
     @PostMapping("/create")
     public Object create(String name, String description, String ownerId, String visibility,
-                         String openPost, String openComment, HttpServletRequest request) {
+                         String openPost, String openComment, String listed, HttpServletRequest request) {
         if (StringUtils.isBlank(name)) {
             return new Result<>(1, "专题名称不能为空", null);
         }
@@ -140,6 +145,7 @@ public class TopicController {
         t.setVisibility(TopicPermissionService.PRIVATE.equals(visibility) ? TopicPermissionService.PRIVATE : TopicPermissionService.PUBLIC);
         t.setOpenPost(ON.equals(openPost) ? ON : OFF);
         t.setOpenComment(ON.equals(openComment) ? ON : OFF);
+        t.setListed("0".equals(listed) ? "0" : "1"); // 默认可见；显式传 '0' 才下架
         t.setCreateBy(SecUtil.getLoginUserIdToSession(request));
         t.setCreateTime(new Date());
         t.setSort(0);
@@ -151,7 +157,7 @@ public class TopicController {
     @RequiresRole(Role.USER)
     @PostMapping("/update")
     public Object update(String topicId, String name, String description, String visibility,
-                         String openPost, String openComment, String ownerId, HttpServletRequest request) {
+                         String openPost, String openComment, String listed, String ownerId, HttpServletRequest request) {
         DreamUser me = SecUtil.getLoginUserToSession(request);
         ForumTopic t = perms.getTopic(topicId);
         if (t == null) {
@@ -174,6 +180,9 @@ public class TopicController {
         }
         if (openComment != null) {
             t.setOpenComment(ON.equals(openComment) ? ON : OFF);
+        }
+        if (listed != null) {
+            t.setListed("0".equals(listed) ? "0" : "1"); // 题主/管理员切换是否在百家说露出
         }
         // 只有 admin 能转让 owner
         if (StringUtils.isNotBlank(ownerId) && Role.fromUserRole(me.getUserRole()) == Role.SUPER_MANAGER

@@ -17,5 +17,8 @@
         <if test="param.userNickname != null and param.userNickname !=''">
             and t.USER_NICKNAME  = #{param.userNickname}
         </if>
+        <if test="param.loginName != null and param.loginName !=''">
+            and t.LOGIN_NAME  = #{param.loginName}
+        </if>
     </sql>
 </mapper>

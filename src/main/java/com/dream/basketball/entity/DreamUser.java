@@ -31,6 +31,10 @@ public class DreamUser extends Model<DreamUser> implements Serializable {
     @TableField("USER_NICKNAME")
     private String userNickname;
 
+    /** 固定登录名（注册后不可改）。与可改的 userNickname(显示名) 分离，改昵称不再影响登录。 */
+    @TableField("LOGIN_NAME")
+    private String loginName;
+
     @TableField("USER_ROLE")
     private String userRole;
 
@@ -168,6 +172,14 @@ public class DreamUser extends Model<DreamUser> implements Serializable {
 
     public void setUserNickname(String userNickname) {
         this.userNickname = userNickname;
+    }
+
+    public String getLoginName() {
+        return loginName;
+    }
+
+    public void setLoginName(String loginName) {
+        this.loginName = loginName;
     }
 
     public String getUserRole() {

@@ -90,9 +90,14 @@ public class NewsController extends BaseUtils {
             canManageCtx = me != null && Role.fromUserRole(me.getUserRole()).covers(Role.MANAGER);
         }
         final boolean showHidden = canManageCtx;
-        // 跨专题的公开展示位（首页热帖 / 热榜 / 相关推荐，即不带 topicId 的聚合）：私密专题的帖一律不出现（对谁都一样，含 admin）
-        final java.util.Set<String> excludePrivate = StringUtils.isBlank(param.getTopicId())
-                ? topicPerms.privateTopicIds() : java.util.Collections.emptySet();
+        // 跨专题的公开展示位（首页热帖 / 热榜 / 相关推荐，即不带 topicId 的聚合）：私密专题 + 不可见专题的帖一律不出现（对谁都一样，含 admin）
+        final java.util.Set<String> excludePrivate;
+        if (StringUtils.isBlank(param.getTopicId())) {
+            excludePrivate = topicPerms.privateTopicIds();
+            excludePrivate.addAll(topicPerms.unlistedTopicIds());
+        } else {
+            excludePrivate = java.util.Collections.emptySet();
+        }
         rows = rows.stream()
                 .filter(r -> hidden.isEmpty() || r.getTopicId() == null || !hidden.contains(r.getTopicId()))
                 .filter(r -> r.getTopicId() == null || !excludePrivate.contains(r.getTopicId()))

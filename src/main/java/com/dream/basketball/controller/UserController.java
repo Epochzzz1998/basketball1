@@ -88,18 +88,32 @@ public class UserController extends BaseUtils {
      */
     @PostMapping("/regist")
     public Object regist(DreamUserDto dreamUserDto) {
-        DreamUserDto existQuery = new DreamUserDto();
-        existQuery.setUserNickname(dreamUserDto.getUserNickname());
-        if (!CollectionUtils.isEmpty(userService.findAllUsers(existQuery))) {
-            return handlerResultJson(false, "该用户已存在！");
+        // 登录名（注册后固定，用于登录）与昵称（显示名，之后可改）都必须唯一，各查各的
+        if (StringUtils.isBlank(dreamUserDto.getLoginName())) {
+            return handlerResultJson(false, "请填写登录名");
+        }
+        if (StringUtils.isBlank(dreamUserDto.getUserNickname())) {
+            return handlerResultJson(false, "请填写昵称");
+        }
+        DreamUserDto byLogin = new DreamUserDto();
+        byLogin.setLoginName(dreamUserDto.getLoginName().trim());
+        if (!CollectionUtils.isEmpty(userService.findAllUsers(byLogin))) {
+            return handlerResultJson(false, "该登录名已被占用！");
+        }
+        DreamUserDto byNick = new DreamUserDto();
+        byNick.setUserNickname(dreamUserDto.getUserNickname().trim());
+        if (!CollectionUtils.isEmpty(userService.findAllUsers(byNick))) {
+            return handlerResultJson(false, "该昵称已被占用！");
         }
         DreamUser dreamUser = new DreamUser();
         dreamUser.setUserId(UUID.randomUUID().toString());
         dreamUser.setRegistTime(new Date());
-        dreamUser.setUserNickname(dreamUserDto.getUserNickname());
+        dreamUser.setLoginName(dreamUserDto.getLoginName().trim());
+        dreamUser.setUserNickname(dreamUserDto.getUserNickname().trim());
+        // userName = 真实姓名（老字段，新注册表单不再收集，留空；老用户的姓名数据保留不动）
+        dreamUser.setUserName(dreamUserDto.getUserName());
         dreamUser.setPassword(PasswordUtil.hash(dreamUserDto.getPassword()));
         dreamUser.setUserStatus(Constants.USABLE);
-        dreamUser.setUserName(dreamUserDto.getUserName());
         dreamUser.setUserRole(Constants.NORMAL_USER);
         dreamUser.setPlayerIdentification(Constants.UNIDENTIFICATION);
         userService.save(dreamUser);

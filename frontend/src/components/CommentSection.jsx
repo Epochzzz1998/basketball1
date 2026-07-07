@@ -29,7 +29,8 @@ function UserAvatar({ name, src, size }) {
 }
 
 // 把正文里"选中过的 @昵称"渲染成可点链接（跳该用户主页），其余保持纯文本。
-// mentionsJson 是后端存的 [{id,name}]；按名字长度倒序匹配，避免 "@li" 抢了 "@lisa" 的前缀。
+// mentionsJson 是后端存的 [{id,name}]，后端读时会补 cur=@对象的当前昵称；
+// 用旧 name（正文里就是它）按长度倒序匹配定位，避免 "@li" 抢 "@lisa" 前缀；显示时优先 cur（改名后 @ 显示新名）。
 function renderContent(content, mentionsJson) {
   if (!content) return content
   let mentions = []
@@ -54,7 +55,7 @@ function renderContent(content, mentionsJson) {
           onClick={(e) => e.stopPropagation()}
           style={{ color: '#fa541c', fontWeight: 600 }}
         >
-          @{hit.name}
+          @{hit.cur || hit.name}
         </Link>,
       )
       i += 1 + hit.name.length
