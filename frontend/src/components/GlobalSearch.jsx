@@ -3,6 +3,7 @@ import { Empty, Input, Modal, Spin, Tag } from 'antd'
 import { EnterOutlined, FileTextOutlined, ReadOutlined, SearchOutlined, UserOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { searchApi } from '../api/search'
+import useIsMobile from '../hooks/useIsMobile'
 import { NBA_TEAM_NAMES, teamRegion } from '../pages/players/rankConfig'
 
 /**
@@ -92,6 +93,7 @@ function flatten(d, kw) {
 
 export default function GlobalSearch() {
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const [open, setOpen] = useState(false)
   const [hoverTrigger, setHoverTrigger] = useState(false)
   const [kw, setKw] = useState('')
@@ -204,15 +206,16 @@ export default function GlobalSearch() {
         onMouseEnter={() => setHoverTrigger(true)}
         onMouseLeave={() => setHoverTrigger(false)}
         style={{
-          display: 'flex', alignItems: 'center', gap: 8, height: 32, padding: '0 6px 0 12px',
+          display: 'flex', alignItems: 'center', justifyContent: isMobile ? 'center' : 'flex-start',
+          gap: 8, height: 32, padding: isMobile ? 0 : '0 6px 0 12px',
           border: `1px solid ${hoverTrigger ? '#fa541c' : '#e8e8e8'}`, borderRadius: 16,
           background: '#fff', color: '#999', fontSize: 13, cursor: 'pointer',
-          transition: 'border-color .2s', userSelect: 'none', width: 220,
+          transition: 'border-color .2s', userSelect: 'none', width: isMobile ? 32 : 220,
         }}
       >
         <SearchOutlined style={{ color: hoverTrigger ? '#fa541c' : '#aaa', transition: 'color .2s' }} />
-        <span style={{ flex: 1 }}>搜索球员 / 球队 / 资讯</span>
-        <span style={kbd}>/</span>
+        {!isMobile && <span style={{ flex: 1 }}>搜索球员 / 球队 / 资讯</span>}
+        {!isMobile && <span style={kbd}>/</span>}
       </div>
 
       <Modal

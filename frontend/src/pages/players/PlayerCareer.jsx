@@ -7,6 +7,7 @@ import { playerApi } from '../../api/player'
 import { PLAYOFF_TAG, fmtNum as num, fmtPair, fmtReb, seasonYearLabel } from './rankConfig'
 import { CAREER_AWARDS } from './honorConfig'
 import SeasonProfile from './SeasonProfile'
+import useIsMobile from '../../hooks/useIsMobile'
 
 const seasonLabel = (s) => (s === 50 ? '生涯' : seasonYearLabel(s))
 const shortSeason = (s) => seasonYearLabel(s).replace(' 赛季', '')
@@ -15,6 +16,7 @@ const shortSeason = (s) => seasonYearLabel(s).replace(' 赛季', '')
 
 function AwardCard({ award, entries }) {
   const isChampion = award.key === 'champion'
+  const isMobile = useIsMobile()
   return (
     <Card
       style={
@@ -25,11 +27,11 @@ function AwardCard({ award, entries }) {
       styles={{ body: { padding: '16px 18px' } }}
     >
       <Space align="start" size={14}>
-        <span style={{ fontSize: 34, lineHeight: 1 }}>{award.icon}</span>
+        <span style={{ fontSize: isMobile ? 26 : 34, lineHeight: 1 }}>{award.icon}</span>
         <div>
           <div style={{ fontWeight: 700, fontSize: 15 }}>
             {award.label}
-            <span style={{ marginLeft: 8, fontSize: 22, fontWeight: 800, color: award.gold ? '#d48806' : '#fa541c' }}>
+            <span style={{ marginLeft: 8, fontSize: isMobile ? 18 : 22, fontWeight: 800, color: award.gold ? '#d48806' : '#fa541c' }}>
               ×{entries.length}
             </span>
           </div>

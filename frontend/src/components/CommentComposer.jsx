@@ -4,6 +4,7 @@ import { CloseCircleFilled, FileOutlined, PictureOutlined } from '@ant-design/ic
 import MentionInput from './MentionInput'
 import EmojiPicker from './EmojiPicker'
 import { newsApi } from '../api/news'
+import useIsMobile from '../hooks/useIsMobile'
 
 /**
  * 评论/回复输入器：文本框（@ 提及）+ 工具栏（表情/图片/文件）+ 附件预览 + 提交。
@@ -23,6 +24,7 @@ export const humanSize = (n) => {
 }
 
 export default function CommentComposer({ newsId, placeholder, submitText = '发表评论', onSubmit, onCancel, compact }) {
+  const isMobile = useIsMobile()
   const [text, setText] = useState('')
   const [mentions, setMentions] = useState([])
   const [attachments, setAttachments] = useState([])
@@ -109,7 +111,7 @@ export default function CommentComposer({ newsId, placeholder, submitText = '发
       )}
 
       {/* 工具栏 + 提交 */}
-      <div style={{ display: 'flex', alignItems: 'center', marginTop: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', marginTop: 10, flexWrap: isMobile ? 'wrap' : 'nowrap', rowGap: isMobile ? 8 : 0 }}>
         <Space size={16} align="center">
           <EmojiPicker onPick={insertEmoji} />
           <Upload accept={IMG_ACCEPT} multiple showUploadList={false} customRequest={doUpload}>

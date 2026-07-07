@@ -8,6 +8,7 @@ import { teamApi } from '../../api/team'
 import { HONOR_GROUPS } from './honorConfig'
 import { NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, RANKING_STATS, fmtNum, playoffRecord } from './rankConfig'
 import SeasonPicker from '../../components/SeasonPicker'
+import useIsMobile from '../../hooks/useIsMobile'
 
 const MEDAL = ['#f5b301', '#9aa0a6', '#b87333'] // 金 / 银 / 铜
 
@@ -132,6 +133,7 @@ const SPECIAL_AWARDS = {
 
 function SpecialAwardCards({ seasonNum, rows }) {
   const [awards, setAwards] = useState(null) // fmvp/smoy/mip 来自后端 season_award
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     let alive = true
@@ -194,7 +196,7 @@ function SpecialAwardCards({ seasonNum, rows }) {
               styles={{ body: { padding: '14px 18px' } }}
             >
               <Space align="center" size={14}>
-                <span style={{ fontSize: 30, lineHeight: 1 }}>{meta.icon}</span>
+                <span style={{ fontSize: isMobile ? 22 : 30, lineHeight: 1 }}>{meta.icon}</span>
                 <div>
                   <div style={{ color: '#888', fontSize: 12 }}>{meta.label}</div>
                   <Link to={`/players/${e.playerId}`} style={{ fontWeight: 700, fontSize: 16 }}>{e.playerName}</Link>
@@ -345,7 +347,7 @@ function TeamsTab({ seasonNum, stage }) {
   return (
     <Card styles={{ body: { padding: '4px 12px 12px' } }}>
       <div style={{ padding: '10px 8px 14px' }}>
-        <Space size="middle">
+        <Space size="middle" wrap>
           范围：
           <Select value={scope} onChange={setScope} options={SCOPES} style={{ width: 140 }} />
           <Badge

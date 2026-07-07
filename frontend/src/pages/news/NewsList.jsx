@@ -11,6 +11,7 @@ import { useAuth } from '../../auth/AuthContext'
 import TopicMemberModal from '../../components/TopicMemberModal'
 import TopicApplyButton from '../../components/TopicApplyButton'
 import { SuperAdminBadge, TopicOwnerBadge } from '../../components/RoleBadges'
+import useIsMobile from '../../hooks/useIsMobile'
 
 /**
  * 帖子列表（公开，P5-2 内容流改版），按频道复用：
@@ -56,6 +57,7 @@ const hotOf = (p) => (p.goodNum ?? 0) * 2 + (p.commentNum ?? 0) * 3
 
 /** 单条帖子卡：头像 + 标题/摘要/元信息 + 首图缩略图 */
 function PostCard({ post, topicOwnerId }) {
+  const isMobile = useIsMobile()
   const cover = coverOf(post.content)
   const excerpt = textOf(post.content)
   return (
@@ -88,7 +90,7 @@ function PostCard({ post, topicOwnerId }) {
             {excerpt}
           </div>
         )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 10, fontSize: 12, color: '#999' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 10, fontSize: 12, color: '#999', flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
           <span style={{ color: '#595959', fontWeight: 500 }}>{post.author || '匿名'}</span>
           {post.authorSuperManager && <SuperAdminBadge />}
           {topicOwnerId && post.authorId === topicOwnerId && <TopicOwnerBadge />}
@@ -169,6 +171,7 @@ function HotRail({ rows, official }) {
 export default function NewsList({ channel = 'forum', topic = null, onApplied }) {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const isMobile = useIsMobile()
   const isTopic = !!topic
   const official = !isTopic && channel === 'official'
 
@@ -233,7 +236,7 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
       <div
         style={{
           position: 'relative', overflow: 'hidden', borderRadius: 16, color: '#fff',
-          padding: '24px 28px', marginBottom: 16,
+          padding: isMobile ? '16px 14px' : '24px 28px', marginBottom: 16,
           background: official
             ? 'linear-gradient(120deg, #1d39c4 0%, #2f54eb 60%, #597ef7 100%)'
             : 'linear-gradient(120deg, #fa541c 0%, #d4380d 60%, #ad2102 100%)',
@@ -241,12 +244,12 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
       >
         <div style={ring(190, { top: -80, right: 120 })} />
         <div style={ring(120, { bottom: -50, right: 300 })} />
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             {isTopic && (
               <Link to="/news" style={{ color: 'rgba(255,255,255,.85)', fontSize: 12 }}>‹ 全部专题</Link>
             )}
-            <div style={{ fontSize: 23, fontWeight: 800, marginTop: isTopic ? 4 : 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ fontSize: isMobile ? 18 : 23, fontWeight: 800, marginTop: isTopic ? 4 : 0, display: 'flex', alignItems: 'center', gap: 8 }}>
               {isTopic ? topic.name : official ? '官方新闻' : '百家说'}
               {isTopic && (topic.visibility === 'private'
                 ? <Tag icon={<LockOutlined />} style={{ marginInlineEnd: 0 }}>私密</Tag>
@@ -325,7 +328,7 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
 
         {/* 右栏：热榜 + 发帖引导 */}
         <Col xs={24} lg={7}>
-          <div style={{ position: 'sticky', top: 76, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ position: isMobile ? 'static' : 'sticky', top: 76, display: 'flex', flexDirection: 'column', gap: 16 }}>
             <HotRail rows={rows} official={official} />
             {canPost && (
               <Card style={{ borderRadius: 14 }} styles={{ body: { padding: '18px 20px' } }}>

@@ -10,6 +10,7 @@ import { searchApi } from '../../api/search'
 import { fmtNum, seasonYearLabel, PLAYOFF_TAG } from './rankConfig'
 import { CAREER_AWARDS } from './honorConfig'
 import { GRID_STATS, RADAR_AXES, percentileOf, val } from './SeasonProfile'
+import useIsMobile from '../../hooks/useIsMobile'
 
 /**
  * 球员对比（/compare，P5-2 对战台改版）：A 橙 / B 蓝。
@@ -292,6 +293,7 @@ function NamesBar({ a, b, extraA, extraB }) {
 }
 
 export default function PlayerCompare() {
+  const isMobile = useIsMobile()
   const [a, setA] = useState(null)
   const [b, setB] = useState(null)
   const [tab, setTab] = useState('profile')
@@ -395,7 +397,7 @@ export default function PlayerCompare() {
         <div style={ring(210, { top: -90, left: -60 })} />
         <div style={ring(150, { bottom: -60, left: '30%' })} />
         <div style={ring(190, { top: -70, right: -50 })} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '26px 28px', position: 'relative' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: isMobile ? '18px 16px' : '26px 28px', position: 'relative' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <PlayerPick value={a} onChange={setA} side="A" />
           </div>
@@ -618,7 +620,7 @@ export default function PlayerCompare() {
                   {rows.map(({ aw, ca, cb }) => (
                     <div key={aw.key} className="hon-row" style={{ display: 'flex', alignItems: 'center', padding: '9px 8px' }}>
                       <div style={{ flex: 1, textAlign: 'right' }}>{cell(ca, ca, cb, A_COLOR, A_TINT, 'right')}</div>
-                      <div style={{ width: 190, textAlign: 'center', fontWeight: aw.gold ? 700 : 500 }}>
+                      <div style={{ width: isMobile ? 120 : 190, textAlign: 'center', fontWeight: aw.gold ? 700 : 500 }}>
                         <span style={{ marginRight: 6 }}>{aw.icon}</span>{aw.label}
                       </div>
                       <div style={{ flex: 1, textAlign: 'left' }}>{cell(cb, cb, ca, B_COLOR, B_TINT, 'left')}</div>
@@ -642,7 +644,7 @@ export default function PlayerCompare() {
                     return (
                       <div key={r.label} className="hon-row" style={{ display: 'flex', alignItems: 'center', padding: '9px 8px' }}>
                         <div style={{ flex: 1, textAlign: 'right' }}>{pill(aWin, A_COLOR, A_TINT, r.va ? `第 ${r.va}` : '—', 'right')}</div>
-                        <div style={{ width: 190, textAlign: 'center', color: '#666', fontSize: 13 }}>{r.label}</div>
+                        <div style={{ width: isMobile ? 120 : 190, textAlign: 'center', color: '#666', fontSize: 13 }}>{r.label}</div>
                         <div style={{ flex: 1, textAlign: 'left' }}>{pill(bWin, B_COLOR, B_TINT, r.vb ? `第 ${r.vb}` : '—', 'left')}</div>
                       </div>
                     )

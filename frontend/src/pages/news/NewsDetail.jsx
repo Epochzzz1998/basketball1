@@ -8,6 +8,7 @@ import { newsApi } from '../../api/news'
 import { useAuth } from '../../auth/AuthContext'
 import CommentSection from '../../components/CommentSection'
 import { SuperAdminBadge, TopicOwnerBadge, OpBadge } from '../../components/RoleBadges'
+import useIsMobile from '../../hooks/useIsMobile'
 
 /**
  * 资讯详情（公开，/news/:newsId，P5-2 文章页改版）。
@@ -95,6 +96,7 @@ export default function NewsDetail() {
   const userInformationId = searchParams.get('userInformationId') || undefined
   const navigate = useNavigate()
   const { user } = useAuth()
+  const isMobile = useIsMobile()
   const [news, setNews] = useState(null)
   const [canManage, setCanManage] = useState(false) // 能否置顶/加精（owner/manager+）
   const [topicOwnerId, setTopicOwnerId] = useState(null) // 该帖所属专题的 owner（题主标识用）
@@ -180,7 +182,7 @@ export default function NewsDetail() {
   return (
     <Row gutter={[16, 16]}>
       <Col xs={24} lg={17}>
-        <Card style={{ borderRadius: 16 }} styles={{ body: { padding: '24px 30px' } }}>
+        <Card style={{ borderRadius: 16 }} styles={{ body: { padding: isMobile ? '16px 14px' : '24px 30px' } }}>
           <Skeleton loading={loading} active paragraph={{ rows: 8 }}>
             {news ? (
               <>
@@ -199,7 +201,7 @@ export default function NewsDetail() {
                     </a>
                   )}
                 </div>
-                <h1 style={{ fontSize: 26, fontWeight: 800, lineHeight: 1.4, margin: '14px 0 18px' }}>
+                <h1 style={{ fontSize: isMobile ? 20 : 26, fontWeight: 800, lineHeight: 1.4, margin: '14px 0 18px' }}>
                   {news.title || '(无标题)'}
                 </h1>
 
@@ -323,7 +325,7 @@ export default function NewsDetail() {
 
       {/* 右栏：作者卡 + 同频道热门 */}
       <Col xs={24} lg={7}>
-        <div style={{ position: 'sticky', top: 76, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ position: isMobile ? 'static' : 'sticky', top: 76, display: 'flex', flexDirection: 'column', gap: 16 }}>
           {news && (
             <Card style={{ borderRadius: 14 }} styles={{ body: { padding: '18px 20px' } }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

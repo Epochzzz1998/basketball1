@@ -7,6 +7,7 @@ import { newsApi } from '../api/news'
 import { useAuth } from '../auth/AuthContext'
 import CommentComposer, { humanSize } from './CommentComposer'
 import { SuperAdminBadge, TopicOwnerBadge, OpBadge } from './RoleBadges'
+import useIsMobile from '../hooks/useIsMobile'
 
 const fmt = (v) => (v ? dayjs(v).format('YYYY-MM-DD HH:mm') : '')
 
@@ -119,6 +120,7 @@ function CommentAttachments({ attachmentsJson }) {
 function CommentNode({ comment, newsId, depth = 0, authorId, topicOwnerId, locked }) {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const [c, setC] = useState(comment) // 本节点数据（含 goodNum/badNum/commentNum），就地更新
   const [replyOpen, setReplyOpen] = useState(false)
   const [showReplies, setShowReplies] = useState(false)
@@ -225,7 +227,7 @@ function CommentNode({ comment, newsId, depth = 0, authorId, topicOwnerId, locke
         <CommentAttachments attachmentsJson={c.attachments} />
 
         {/* 操作行 */}
-        <Space size={2} style={{ marginLeft: -8, marginTop: 4 }}>
+        <Space size={2} wrap={isMobile} style={{ marginLeft: -8, marginTop: 4 }}>
           <Button type="text" size="small" style={{ color: '#8c8c8c' }} icon={<LikeOutlined />} onClick={() => like('good')}>
             {c.goodNum ?? 0}
           </Button>
@@ -278,6 +280,7 @@ function CommentNode({ comment, newsId, depth = 0, authorId, topicOwnerId, locke
 export default function CommentSection({ newsId, authorId, authorName, topicOwnerId, locked }) {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const [comments, setComments] = useState([])
   const [loading, setLoading] = useState(false)
   const [onlyAuthor, setOnlyAuthor] = useState(false) // 只看楼主：仅展示楼主的顶层评论（其回复照常）
@@ -317,7 +320,7 @@ export default function CommentSection({ newsId, authorId, authorName, topicOwne
 
   return (
     <div style={{ marginTop: 22 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
         <div style={{ fontSize: 16, fontWeight: 700 }}>
           {onlyAuthor ? '楼主评论' : '全部评论'} <span style={{ color: '#999', fontWeight: 400, fontSize: 14 }}>({shown.length})</span>
         </div>

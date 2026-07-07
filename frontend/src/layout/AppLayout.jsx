@@ -189,7 +189,7 @@ export default function AppLayout() {
     >
       {/* 内容区是 flex 列容器：flex 子项上 margin:auto 会把宽度压成"内容宽"再居中，
           必须显式 width:100% 才能占满（maxWidth 只在超宽屏才生效） */}
-      <div style={{ padding: 20, maxWidth: 1440, margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
+      <div className="app-content" style={{ padding: 20, maxWidth: 1440, margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
         <Outlet />
       </div>
     </ProLayout>

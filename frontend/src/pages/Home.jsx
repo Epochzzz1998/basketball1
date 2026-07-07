@@ -9,6 +9,7 @@ import { topicApi } from '../api/topic'
 import { playerApi } from '../api/player'
 import { teamApi } from '../api/team'
 import SeasonPicker from '../components/SeasonPicker'
+import useIsMobile from '../hooks/useIsMobile'
 import { NBA_TEAM_NAMES, fmtNum, playoffRecord, teamRegion } from './players/rankConfig'
 
 /**
@@ -54,6 +55,7 @@ function SectionTitle({ title, extra, onExtra }) {
 /** 单项领跑卡：榜首大字 + 2/3 名小行，整卡可点进完整排行 */
 function LeaderCard({ stat, rows, seasonNum }) {
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const top = rows?.[0]
   return (
     <Card
@@ -80,7 +82,7 @@ function LeaderCard({ stat, rows, seasonNum }) {
             </Link>
             <span style={{ fontSize: 12, color: '#999', flexShrink: 0 }}>{top.playerTeam}</span>
           </div>
-          <div style={{ fontSize: 30, fontWeight: 800, color: BRAND, fontVariantNumeric: 'tabular-nums', lineHeight: 1.25, marginBottom: 10 }}>
+          <div style={{ fontSize: isMobile ? 22 : 30, fontWeight: 800, color: BRAND, fontVariantNumeric: 'tabular-nums', lineHeight: 1.25, marginBottom: 10 }}>
             {fmtNum(top[stat.field])}
           </div>
           {rows.slice(1, 3).map((r, i) => (

@@ -8,6 +8,7 @@ import { topicApi } from '../../api/topic'
 import { useAuth } from '../../auth/AuthContext'
 import TopicEditModal from '../../components/TopicEditModal'
 import TopicApplyButton from '../../components/TopicApplyButton'
+import useIsMobile from '../../hooks/useIsMobile'
 
 /**
  * 专题列表（百家说首页）：论坛内容按专题组织。
@@ -22,6 +23,7 @@ const clamp = (n) => ({ display: '-webkit-box', WebkitLineClamp: n, WebkitBoxOri
 export default function TopicsList() {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const isMobile = useIsMobile()
   const [topics, setTopics] = useState(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [editTopic, setEditTopic] = useState(null)
@@ -50,12 +52,12 @@ export default function TopicsList() {
       <style>{'.topic-card{transition:all .2s} .topic-card:hover{border-color:#ffbb96;box-shadow:0 6px 18px rgba(250,84,28,.1);transform:translateY(-2px)}'}</style>
 
       {/* 横幅 */}
-      <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 16, color: '#fff', padding: '24px 28px', marginBottom: 18, background: 'linear-gradient(120deg, #fa541c 0%, #d4380d 60%, #ad2102 100%)' }}>
+      <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 16, color: '#fff', padding: isMobile ? '16px 14px' : '24px 28px', marginBottom: 18, background: 'linear-gradient(120deg, #fa541c 0%, #d4380d 60%, #ad2102 100%)' }}>
         <div style={ring(190, { top: -80, right: 120 })} />
         <div style={ring(120, { bottom: -50, right: 300 })} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', position: 'relative' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 23, fontWeight: 800 }}>百家说</div>
+            <div style={{ fontSize: isMobile ? 18 : 23, fontWeight: 800 }}>百家说</div>
             <div style={{ opacity: 0.88, marginTop: 6, fontSize: 13 }}>见你所见，想你所想</div>
           </div>
           {user?.isSuperManager && (

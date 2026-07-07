@@ -3,6 +3,7 @@ import { Avatar, Button, Checkbox, Empty, Modal, Popconfirm, Select, Spin, messa
 import { DeleteOutlined } from '@ant-design/icons'
 import { topicApi } from '../api/topic'
 import { searchApi } from '../api/search'
+import useIsMobile from '../hooks/useIsMobile'
 
 /**
  * 专题成员权限管理（owner / admin 用）：搜用户加入 + 逐人勾三权（浏览/发帖/发言）+ 移除。
@@ -17,6 +18,7 @@ const avatarColor = (name) => {
 const bool = (b) => (b ? '1' : '0')
 
 export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
+  const isMobile = useIsMobile()
   const [rows, setRows] = useState(null)
   const [reqs, setReqs] = useState([])
   const [reqFlags, setReqFlags] = useState({}) // { requestId: {comment, post} } 审批时勾选给哪些权限
@@ -96,7 +98,7 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
           {reqs.map((r) => {
             const f = reqFlags[r.requestId] || { comment: true, post: false }
             return (
-              <div key={r.requestId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid #fff3d6' }}>
+              <div key={r.requestId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid #fff3d6', flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
                 {r.avatar ? <Avatar size={30} src={r.avatar} /> : <Avatar size={30} style={{ background: avatarColor(r.userNickname), fontWeight: 700 }}>{String(r.userNickname || '?')[0].toUpperCase()}</Avatar>}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: 13 }}>{r.userNickname}</div>
@@ -138,10 +140,10 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
 
       <div style={{ display: 'flex', fontSize: 12, color: '#999', padding: '0 4px 6px', borderBottom: '1px solid #f0f0f0' }}>
         <span style={{ flex: 1 }}>成员</span>
-        <span style={{ width: 56, textAlign: 'center' }}>浏览</span>
-        <span style={{ width: 56, textAlign: 'center' }}>发帖</span>
-        <span style={{ width: 56, textAlign: 'center' }}>发言</span>
-        <span style={{ width: 36 }} />
+        <span style={{ width: isMobile ? 44 : 56, textAlign: 'center' }}>浏览</span>
+        <span style={{ width: isMobile ? 44 : 56, textAlign: 'center' }}>发帖</span>
+        <span style={{ width: isMobile ? 44 : 56, textAlign: 'center' }}>发言</span>
+        <span style={{ width: isMobile ? 28 : 36 }} />
       </div>
 
       <div style={{ maxHeight: 380, overflowY: 'auto' }}>
@@ -154,16 +156,16 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
                 {row.avatar ? <Avatar size={30} src={row.avatar} /> : <Avatar size={30} style={{ background: avatarColor(row.userNickname), fontWeight: 700 }}>{String(row.userNickname || '?')[0].toUpperCase()}</Avatar>}
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.userNickname}</span>
               </div>
-              <span style={{ width: 56, textAlign: 'center' }}>
+              <span style={{ width: isMobile ? 44 : 56, textAlign: 'center' }}>
                 <Checkbox checked={row.canView} onChange={(e) => setFlags(row, { ...row, canView: e.target.checked })} />
               </span>
-              <span style={{ width: 56, textAlign: 'center' }}>
+              <span style={{ width: isMobile ? 44 : 56, textAlign: 'center' }}>
                 <Checkbox checked={row.canPost} onChange={(e) => setFlags(row, { ...row, canPost: e.target.checked })} />
               </span>
-              <span style={{ width: 56, textAlign: 'center' }}>
+              <span style={{ width: isMobile ? 44 : 56, textAlign: 'center' }}>
                 <Checkbox checked={row.canComment} onChange={(e) => setFlags(row, { ...row, canComment: e.target.checked })} />
               </span>
-              <span style={{ width: 36, textAlign: 'center' }}>
+              <span style={{ width: isMobile ? 28 : 36, textAlign: 'center' }}>
                 <Popconfirm title="移除该成员？" onConfirm={() => remove(row.userId)} okText="移除" cancelText="取消">
                   <DeleteOutlined style={{ color: '#bbb', cursor: 'pointer' }} />
                 </Popconfirm>

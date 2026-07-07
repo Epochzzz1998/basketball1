@@ -32,3 +32,55 @@ body {
   background: transparent !important;
   cursor: default;
 }
+
+/* ============================================================
+   移动端全局适配（<768px）。这里集中处理"每个页面都受益"的共性问题，
+   页面内的大字号/间距等个性化缩放走各页的 useIsMobile()（内联样式 CSS 盖不动）。
+   ============================================================ */
+@media (max-width: 767px) {
+  /* 内容区收窄内边距，把宽度让给卡片与表格（AppLayout 的外层容器） */
+  .app-content {
+    padding: 12px !important;
+  }
+
+  /* 卡片内边距略收（未显式设 body padding 的卡片） */
+  .ant-card-body {
+    padding: 16px;
+  }
+
+  /* 弹窗几乎占满屏宽，别超出视口两侧 */
+  .ant-modal {
+    max-width: calc(100vw - 16px);
+    margin: 8px auto;
+  }
+
+  /* 胶囊分段/标签：一排放不下时可横向滑动，而不是被压扁或裁掉 */
+  .ant-segmented {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .ant-segmented::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* ProTable 顶部工具条（标题 + 搜索 + 赛季选择）在窄屏换行，别互相挤 */
+  .ant-pro-table-list-toolbar-container {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .ant-pro-table-list-toolbar-right {
+    flex-wrap: wrap;
+  }
+
+  /* 表格单元格内边距略收，缓解宽表横向溢出压力（宽表本就横向滚动） */
+  .ant-table-tbody > tr > td,
+  .ant-table-thead > tr > th {
+    padding: 8px 8px;
+  }
+
+  /* 富文本正文在窄屏字号略降、行距舒展，读着不费劲 */
+  .rich-content {
+    font-size: 15px;
+    line-height: 1.75;
+  }
+}

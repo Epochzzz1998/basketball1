@@ -8,6 +8,7 @@ import AllPlayerSeasonStats from './AllPlayerSeasonStats'
 import { teamApi } from '../../api/team'
 import { NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, fmtNum, playoffRecord, seasonYearLabel, teamRegion } from './rankConfig'
 import SeasonPicker from '../../components/SeasonPicker'
+import useIsMobile from '../../hooks/useIsMobile'
 
 const MEDAL = ['#f5b301', '#9aa0a6', '#b87333']
 
@@ -37,6 +38,7 @@ function RankBadge({ rank, prefix = '联盟第' }) {
 
 function SeasonOverview({ teamCode, seasonNum }) {
   const [rows, setRows] = useState(null) // 全联盟 30 队（该赛季），用来算名次
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     let alive = true
@@ -90,7 +92,7 @@ function SeasonOverview({ teamCode, seasonNum }) {
                 )}
               />
               <div>
-                <div style={{ fontSize: 30, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
+                <div style={{ fontSize: isMobile ? 22 : 30, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
                   {me.wins} <span style={{ color: '#bbb', fontSize: 20 }}>胜</span>{' '}
                   {me.losses} <span style={{ color: '#bbb', fontSize: 20 }}>负</span>
                 </div>
@@ -124,7 +126,7 @@ function SeasonOverview({ teamCode, seasonNum }) {
                       {s.label}
                       {s.note && <span style={{ marginLeft: 6, fontSize: 11, color: '#bbb' }}>{s.note}</span>}
                     </div>
-                    <div style={{ fontSize: 26, fontWeight: 800, color, margin: '2px 0 6px', fontVariantNumeric: 'tabular-nums' }}>
+                    <div style={{ fontSize: isMobile ? 20 : 26, fontWeight: 800, color, margin: '2px 0 6px', fontVariantNumeric: 'tabular-nums' }}>
                       {display}
                     </div>
                     <RankBadge rank={rank} />
@@ -154,6 +156,7 @@ const PLAYOFF_STATS = [
 
 function PlayoffOverview({ teamCode, seasonNum }) {
   const [rows, setRows] = useState(null) // 该季 16 支季后赛球队
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     let alive = true
@@ -201,7 +204,7 @@ function PlayoffOverview({ teamCode, seasonNum }) {
                     {isChamp && <TrophyFilled style={{ marginRight: 6 }} />}
                     {me.playoffResult}
                   </Tag>
-                  <div style={{ fontSize: 28, fontWeight: 800, marginTop: 10, fontVariantNumeric: 'tabular-nums' }}>
+                  <div style={{ fontSize: isMobile ? 22 : 28, fontWeight: 800, marginTop: 10, fontVariantNumeric: 'tabular-nums' }}>
                     {rec ? (
                       <>
                         {rec.wins} <span style={{ color: '#bbb', fontSize: 18 }}>胜</span>{' '}
@@ -232,7 +235,7 @@ function PlayoffOverview({ teamCode, seasonNum }) {
                     {s.label}
                     {s.note && <span style={{ marginLeft: 6, fontSize: 11, color: '#bbb' }}>{s.note}</span>}
                   </div>
-                  <div style={{ fontSize: 26, fontWeight: 800, color, margin: '2px 0 6px', fontVariantNumeric: 'tabular-nums' }}>
+                  <div style={{ fontSize: isMobile ? 20 : 26, fontWeight: 800, color, margin: '2px 0 6px', fontVariantNumeric: 'tabular-nums' }}>
                     {display}
                   </div>
                   <RankBadge rank={rank} prefix="季后赛第" />
@@ -339,7 +342,7 @@ function PlayoffHistory({ teamCode }) {
       }
       styles={{ body: { padding: '4px 12px 12px' } }}
     >
-      <Table className="clean-table" rowKey="seasonNum" dataSource={rows} columns={columns} pagination={false} size="middle" />
+      <Table className="clean-table" rowKey="seasonNum" dataSource={rows} columns={columns} pagination={false} size="middle" scroll={{ x: 'max-content' }} />
     </Card>
   )
 }
@@ -474,7 +477,7 @@ function TeamHistory({ teamCode }) {
       }
       styles={{ body: { padding: '4px 12px 12px' } }}
     >
-      <Table className="clean-table" rowKey="seasonNum" dataSource={rows} columns={columns} pagination={false} size="middle" />
+      <Table className="clean-table" rowKey="seasonNum" dataSource={rows} columns={columns} pagination={false} size="middle" scroll={{ x: 'max-content' }} />
     </Card>
   )
 }

@@ -6,6 +6,7 @@ import { newsApi } from '../../api/news'
 import { searchApi } from '../../api/search'
 import { topicApi } from '../../api/topic'
 import { useAuth } from '../../auth/AuthContext'
+import useIsMobile from '../../hooks/useIsMobile'
 
 // 富文本 @ 候选：把后端用户规约成编辑器面板要的 {id,name,avatar}
 const mentionSearch = async (kw) => {
@@ -45,6 +46,7 @@ export default function NewsEdit() {
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving] = useState(false)
   const newsIdRef = useRef(routeId || crypto.randomUUID())
+  const isMobile = useIsMobile()
 
   // 新建到专题：拉专题名显示（让用户知道发到哪）
   useEffect(() => {
@@ -111,12 +113,12 @@ export default function NewsEdit() {
           <Form.Item name="author" label="作者" tooltip="当前登录用户，不可修改">
             <Input disabled style={{ width: 160 }} />
           </Form.Item>
-          <Form.Item name="tags" label="标签" tooltip="输入后回车添加，可自定义；也可从推荐里选" style={{ minWidth: 320 }}>
+          <Form.Item name="tags" label="标签" tooltip="输入后回车添加，可自定义；也可从推荐里选" style={{ minWidth: isMobile ? '100%' : 320 }}>
             <Select
               mode="tags"
               allowClear
               placeholder="输入标签回车添加（如 转会、湖人、重磅）"
-              style={{ minWidth: 320 }}
+              style={{ minWidth: isMobile ? '100%' : 320 }}
               tokenSeparators={[',', '，', ' ']}
               maxTagCount={8}
               options={TAG_SUGGESTIONS.map((t) => ({ label: t, value: t }))}

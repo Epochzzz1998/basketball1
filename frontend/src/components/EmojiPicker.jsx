@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Popover, Tooltip } from 'antd'
 import { SmileOutlined } from '@ant-design/icons'
+import useIsMobile from '../hooks/useIsMobile'
 
 /**
  * 轻量 emoji 选择器：一个笑脸按钮 + 弹层网格，点选回调 onPick(emoji)。
@@ -16,10 +17,11 @@ const GROUPS = [
 ]
 
 export default function EmojiPicker({ onPick }) {
+  const isMobile = useIsMobile()
   const [open, setOpen] = useState(false)
 
   const content = (
-    <div style={{ width: 288, maxHeight: 300, overflowY: 'auto' }}>
+    <div style={{ width: isMobile ? 260 : 288, maxHeight: 300, overflowY: 'auto' }}>
       {GROUPS.map((g) => (
         <div key={g.name} style={{ marginBottom: 8 }}>
           <div style={{ fontSize: 11, color: '#999', margin: '4px 2px' }}>{g.name}</div>

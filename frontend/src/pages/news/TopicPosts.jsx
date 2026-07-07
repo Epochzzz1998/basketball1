@@ -5,6 +5,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { topicApi } from '../../api/topic'
 import TopicApplyButton from '../../components/TopicApplyButton'
 import NewsList from './NewsList'
+import useIsMobile from '../../hooks/useIsMobile'
 
 /**
  * 单个专题页：先取专题 + 我的权限。
@@ -30,6 +31,8 @@ export default function TopicPosts() {
 
   useEffect(() => { load() }, [load])
 
+  const isMobile = useIsMobile()
+
   if (loading) return <div style={{ textAlign: 'center', padding: 80 }}><Spin size="large" /></div>
 
   if (!topic) {
@@ -45,14 +48,14 @@ export default function TopicPosts() {
   // 私密专题、无浏览权 → 上锁
   if (topic.locked) {
     return (
-      <Card style={{ borderRadius: 16 }} styles={{ body: { padding: '60px 20px', textAlign: 'center' } }}>
-        <LockOutlined style={{ fontSize: 46, color: '#d0d0d0' }} />
+      <Card style={{ borderRadius: 16 }} styles={{ body: { padding: isMobile ? '36px 16px' : '60px 20px', textAlign: 'center' } }}>
+        <LockOutlined style={{ fontSize: isMobile ? 34 : 46, color: '#d0d0d0' }} />
         <div style={{ fontSize: 18, fontWeight: 700, marginTop: 16 }}>{topic.name}</div>
         <div style={{ color: '#8c8c8c', margin: '8px 0 20px' }}>
           {topic.description || '这是一个私密专题'}
           <br />你没有浏览该专题的权限，可向专题 owner（{topic.ownerName || '未知'}）申请加入。
         </div>
-        <Space>
+        <Space wrap={isMobile}>
           <Button onClick={() => navigate('/news')}>返回专题列表</Button>
           <TopicApplyButton topic={topic} onApplied={() => load(true)} />
         </Space>
