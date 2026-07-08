@@ -58,7 +58,6 @@ const hotOf = (p) => (p.goodNum ?? 0) * 2 + (p.commentNum ?? 0) * 3
 
 /** 单条帖子卡：头像 + 标题/摘要/元信息 + 首图缩略图 */
 function PostCard({ post, topicOwnerId }) {
-  const isMobile = useIsMobile()
   const cover = coverOf(post.content)
   const excerpt = textOf(post.content)
   return (
@@ -79,7 +78,19 @@ function PostCard({ post, topicOwnerId }) {
         </Avatar>
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div className="post-title" style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.4, transition: 'color .2s', ...clamp(1) }}>
+        {/* 作者行：头像旁对齐——名字 + 身份标识（超管/题主/认证）+ 头衔 + 时间 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#999', flexWrap: 'wrap' }}>
+          <span style={{ color: '#333', fontWeight: 600, fontSize: 13 }}>{post.author || '匿名'}</span>
+          {post.authorSuperManager && <SuperAdminBadge />}
+          {topicOwnerId && post.authorId === topicOwnerId && <TopicOwnerBadge />}
+          {post.authorVerifiedPlayerId && (
+            <Tag color="gold" style={{ marginInlineEnd: 0 }}><TrophyFilled /> {post.authorVerifiedPlayerName || '认证球员'}</Tag>
+          )}
+          <UserTitles titles={post.authorTitles} size="sm" />
+          <span style={{ color: '#bbb' }}>{timeAgo(post.publishDate)}</span>
+        </div>
+        {/* 标题（含置顶/精华/锁定/隐藏标） */}
+        <div className="post-title" style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.4, marginTop: 6, transition: 'color .2s', ...clamp(1) }}>
           {post.top === '1' && <Tag color="red" style={{ marginInlineEnd: 6, verticalAlign: 'middle' }}>置顶</Tag>}
           {post.essence === '1' && <Tag color="volcano" style={{ marginInlineEnd: 6, verticalAlign: 'middle' }}>精华</Tag>}
           {post.locked === '1' && <Tag icon={<LockOutlined />} style={{ marginInlineEnd: 6, verticalAlign: 'middle' }}>锁定</Tag>}
@@ -91,19 +102,12 @@ function PostCard({ post, topicOwnerId }) {
             {excerpt}
           </div>
         )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 10, fontSize: 12, color: '#999', flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
-          <span style={{ color: '#595959', fontWeight: 500 }}>{post.author || '匿名'}</span>
-          {post.authorSuperManager && <SuperAdminBadge />}
-          {topicOwnerId && post.authorId === topicOwnerId && <TopicOwnerBadge />}
-          {post.authorVerifiedPlayerId && (
-            <Tag color="gold" style={{ marginInlineEnd: 0 }}><TrophyFilled /> {post.authorVerifiedPlayerName || '认证球员'}</Tag>
-          )}
-          <UserTitles titles={post.authorTitles} size="sm" />
-          <span>{timeAgo(post.publishDate)}</span>
+        {/* 底部：标签 + 点赞/评论 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, fontSize: 12, color: '#999', flexWrap: 'wrap' }}>
           {String(post.tags || '').split(',').map((t) => t.trim()).filter(Boolean).slice(0, 4).map((t) => (
             <Tag key={t} style={{ marginInlineEnd: 0 }} bordered={false}>{t}</Tag>
           ))}
-          <span style={{ flex: 1 }} />
+          <span style={{ flex: 1, minWidth: 8 }} />
           <span><LikeOutlined /> {post.goodNum ?? 0}</span>
           <span><MessageOutlined /> {post.commentNum ?? 0}</span>
         </div>
