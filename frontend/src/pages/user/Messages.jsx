@@ -8,6 +8,7 @@ import { userApi } from '../../api/user'
 import { searchApi } from '../../api/search'
 import { useAuth } from '../../auth/AuthContext'
 import EmojiPicker from '../../components/EmojiPicker'
+import UserTitles from '../../components/UserTitles'
 import { humanSize } from '../../components/CommentComposer'
 
 // 附件：图片走 image/*，文件走常见文档白名单；单条最多 9 个
@@ -188,7 +189,7 @@ export default function Messages() {
     userApi.profile(peerId)
       .then((d) => {
         if (alive && d?.user) {
-          setFreshPeer({ peerId, peerNickname: d.user.userNickname || '用户', peerAvatar: d.user.avatar })
+          setFreshPeer({ peerId, peerNickname: d.user.userNickname || '用户', peerAvatar: d.user.avatar, peerTitles: d.user.titles })
         }
       })
       .catch(() => {})
@@ -488,8 +489,9 @@ export default function Messages() {
 
   return (
     <Card
-      style={{ borderRadius: 16, overflow: 'hidden' }}
-      styles={{ body: { padding: 0, height: 'max(480px, calc(100vh - 140px))', display: 'flex' } }}
+      // 移动端：负边距收掉外层大部分留白、贴近屏幕边；卡片增高填满可视区，减少底部留白
+      style={{ borderRadius: isMobile ? 12 : 16, overflow: 'hidden', margin: isMobile ? '-4px -6px 0' : 0 }}
+      styles={{ body: { padding: 0, height: isMobile ? 'calc(100vh - 84px)' : 'max(480px, calc(100vh - 140px))', display: 'flex' } }}
     >
       <style>{`
         .pm-conv:hover { background: #f5f6f8 !important; }
@@ -507,7 +509,7 @@ export default function Messages() {
         flexDirection: 'column',
         flexShrink: 0,
       }}>
-        <div style={{ padding: '16px 18px 12px', borderBottom: '1px solid #f5f5f5', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ padding: isMobile ? '12px 14px 10px' : '16px 18px 12px', borderBottom: '1px solid #f5f5f5', display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 800, fontSize: 18 }}>私信</div>
             {convs?.length ? <div style={{ fontSize: 12, color: '#999', marginTop: 2 }}>{convs.length} 个会话</div> : null}
@@ -555,9 +557,12 @@ export default function Messages() {
               )}
               <UserAvatar name={activePeer?.peerNickname} src={activePeer?.peerAvatar} size={38} online={!!onlineMap[peerId]} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <Link to={`/users/${peerId}`} style={{ fontWeight: 700, fontSize: 15, color: '#222' }}>
-                  {activePeer?.peerNickname || '用户'}
-                </Link>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                  <Link to={`/users/${peerId}`} style={{ fontWeight: 700, fontSize: 15, color: '#222' }}>
+                    {activePeer?.peerNickname || '用户'}
+                  </Link>
+                  <UserTitles titles={activePeer?.peerTitles} size="sm" />
+                </div>
                 <div style={{ fontSize: 11, color: onlineMap[peerId] ? '#52c41a' : '#aaa', marginTop: 1 }}>
                   {onlineMap[peerId] ? '在线' : '离线'}
                 </div>

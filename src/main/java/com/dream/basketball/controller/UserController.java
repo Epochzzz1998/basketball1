@@ -288,7 +288,8 @@ public class UserController extends BaseUtils {
 
     /** 头衔颜色白名单（antd Tag 预设色）。非白名单一律兜底成 blue。 */
     private static final java.util.List<String> TITLE_COLORS = java.util.Arrays.asList(
-            "red", "volcano", "orange", "gold", "lime", "green", "cyan", "blue", "geekblue", "purple", "magenta");
+            "red", "volcano", "orange", "gold", "yellow", "lime", "green", "teal", "cyan", "sky",
+            "blue", "geekblue", "indigo", "purple", "magenta", "pink", "brown", "slate", "gray", "crimson");
 
     /**
      * 分配头衔（超管）：整表替换该用户的头衔集。入参 titles 是 JSON 数组 [{"t":"文字","c":"颜色"}]，可多个。

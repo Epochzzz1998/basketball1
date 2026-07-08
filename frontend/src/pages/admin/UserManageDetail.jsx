@@ -134,7 +134,7 @@ export default function UserManageDetail() {
             ? titles.map((item, i) => (
                 <Popover key={item.t} trigger="click" title="改颜色" content={<Swatches value={item.c} onPick={(c) => recolor(i, c)} />}>
                   <Tag
-                    color={item.c}
+                    color={TITLE_HEX[item.c] || '#1677ff'}
                     closable
                     onClose={(e) => { e.preventDefault(); removeTitle(i) }}
                     style={{ cursor: 'pointer', marginInlineEnd: 0, fontSize: 13, padding: '1px 8px' }}

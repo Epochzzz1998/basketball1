@@ -17,6 +17,9 @@ public class ConversationDto {
 
     private String peerAvatar;
 
+    /** 对方头衔（逗号/JSON 串），会话头展示在名字旁 */
+    private String peerTitles;
+
     /** last visible message content (blank when that message is recalled) */
     private String lastContent;
 
