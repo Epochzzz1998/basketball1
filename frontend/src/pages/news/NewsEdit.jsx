@@ -14,18 +14,15 @@ const mentionSearch = async (kw) => {
   return (list || []).map((u) => ({ id: u.userId, name: u.userNickname, avatar: u.avatar }))
 }
 
-// 标签推荐项（可自定义添加，这里只是下拉建议）：常见分类 + NBA 30 队简写
+// 标签推荐项（只是下拉建议，可自定义任意添加）：通用分类，不绑定具体主题
 const TAG_SUGGESTIONS = [
-  '赛事', '转会', '伤病', '选秀', '数据分析', '花边', '公告', '重磅', '讨论',
-  'ATL', 'BOS', 'BKN', 'CHA', 'CHI', 'CLE', 'DAL', 'DEN', 'DET', 'GSW',
-  'HOU', 'IND', 'LAC', 'LAL', 'MEM', 'MIA', 'MIL', 'MIN', 'NOP', 'NYK',
-  'OKC', 'ORL', 'PHI', 'PHX', 'POR', 'SAC', 'SAS', 'TOR', 'UTA', 'WAS',
+  '讨论', '分享', '求助', '公告', '资源', '教程', '反馈', '闲聊', '重磅', '精华',
 ]
 
 /**
  * 资讯录入/编辑（manager）。替代 news-input.ftl。
  * - 作者：取当前登录用户昵称、只读不可改（编辑时保留原作者）；
- * - 球队/分类：下拉选择（NBA 30 队 / 预设分类），不手输；
+ * - 标签：mode="tags" 自定义任意添加 + 通用推荐项（不绑定具体主题）；
  * - 新建用 crypto.randomUUID() 定 newsId（插图按它归档、保存按它 upsert）；
  * - publishDate 不传，后端 save() 见空自动设当前时间。
  */
@@ -107,7 +104,7 @@ export default function NewsEdit() {
     >
       <Form form={form} layout="vertical" onFinish={onFinish}>
         <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入标题' }]}>
-          <Input placeholder="资讯标题" maxLength={100} showCount />
+          <Input placeholder="请输入标题" maxLength={100} showCount />
         </Form.Item>
         <Space size="large" wrap>
           <Form.Item name="author" label="作者" tooltip="当前登录用户，不可修改">
@@ -117,7 +114,7 @@ export default function NewsEdit() {
             <Select
               mode="tags"
               allowClear
-              placeholder="输入标签回车添加（如 转会、湖人、重磅）"
+              placeholder="输入标签回车添加，可自定义（如 讨论、公告、求助）"
               style={{ minWidth: isMobile ? '100%' : 320 }}
               tokenSeparators={[',', '，', ' ']}
               maxTagCount={8}

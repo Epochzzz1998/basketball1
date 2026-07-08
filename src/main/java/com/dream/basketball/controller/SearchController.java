@@ -55,21 +55,32 @@ public class SearchController {
             return new Result<>(0, "成功", data);
         }
 
-        // 球员：按名字模糊
+        // 只搜「对本人开放的功能」范围内的内容：某模块被超管关掉，其内容不进搜索结果（否则搜到却点不动）。
+        // 实时读库拿开关（session 里是登录快照）；未登录=公开可搜全部；超管全放行。
+        DreamUser me = com.dream.basketball.utils.SecUtil.getLoginUserToSession(request);
+        DreamUser meFresh = me == null ? null : userMapper.selectById(me.getUserId());
+        boolean isSuper = meFresh != null
+                && com.dream.basketball.config.Role.fromUserRole(meFresh.getUserRole()) == com.dream.basketball.config.Role.SUPER_MANAGER;
+        boolean featData = meFresh == null || isSuper || !"0".equals(meFresh.getFeatData());   // Dream Union：球员/球队
+        boolean featForum = meFresh == null || isSuper || !"0".equals(meFresh.getFeatForum()); // 百家说：论坛帖
+        boolean featNews = meFresh == null || isSuper || !"0".equals(meFresh.getFeatNews());   // 新闻：官方资讯
+
+        // 球员：按名字模糊（仅当 Dream Union 对本人开放）
         List<Map<String, Object>> players = new ArrayList<>();
-        for (DreamPlayer p : playerService.list(new QueryWrapper<DreamPlayer>()
-                .like("PLAYER_NAME", kw).last("limit " + GROUP_LIMIT))) {
-            Map<String, Object> m = new HashMap<>();
-            m.put("playerId", p.getPlayerId());
-            m.put("playerName", p.getPlayerName());
-            m.put("playerNumber", p.getPlayerNumber());
-            players.add(m);
+        if (featData) {
+            for (DreamPlayer p : playerService.list(new QueryWrapper<DreamPlayer>()
+                    .like("PLAYER_NAME", kw).last("limit " + GROUP_LIMIT))) {
+                Map<String, Object> m = new HashMap<>();
+                m.put("playerId", p.getPlayerId());
+                m.put("playerName", p.getPlayerName());
+                m.put("playerNumber", p.getPlayerNumber());
+                players.add(m);
+            }
         }
         data.put("players", players);
 
-        // 新闻 / 资讯：ES 相关度前 N（标题前缀加权）。论坛结果滤掉无权浏览的私密专题帖（防泄露）
-        java.util.Set<String> hidden = topicPerms.hiddenTopicIds(
-                com.dream.basketball.utils.SecUtil.getLoginUserToSession(request));
+        // 新闻 / 资讯：ES 相关度前 N（标题前缀加权）。论坛结果滤掉无权浏览的私密/不可见专题帖（防泄露）
+        java.util.Set<String> hidden = topicPerms.hiddenTopicIds(me);
         hidden.addAll(topicPerms.unlistedTopicIds()); // 不可见专题：帖子对所有人都不进搜索
         // 隐藏帖：搜索里对所有人都不出现（管理者从专题列表管；ES 里没有 HIDDEN 字段，按 id 集合滤）
         java.util.Set<String> hiddenIds = new java.util.HashSet<>();
@@ -78,18 +89,26 @@ public class SearchController {
                         .select("NEWS_ID").eq("HIDDEN", "1"))) {
             hiddenIds.add(dn.getNewsId());
         }
-        List<News> forum = newsService.searchNews(kw, NEWS_CHANNEL_FORUM, GROUP_LIMIT + hidden.size() + hiddenIds.size());
-        forum = forum.stream()
-                .filter(n -> hidden.isEmpty() || n.getTopicId() == null || !hidden.contains(n.getTopicId()))
-                .filter(n -> !hiddenIds.contains(n.getNewsId()))
-                .collect(java.util.stream.Collectors.toList());
-        if (forum.size() > GROUP_LIMIT) {
-            forum = forum.subList(0, GROUP_LIMIT);
+        // 论坛帖：仅当「百家说」对本人开放
+        List<News> forum = new ArrayList<>();
+        if (featForum) {
+            forum = newsService.searchNews(kw, NEWS_CHANNEL_FORUM, GROUP_LIMIT + hidden.size() + hiddenIds.size());
+            forum = forum.stream()
+                    .filter(n -> hidden.isEmpty() || n.getTopicId() == null || !hidden.contains(n.getTopicId()))
+                    .filter(n -> !hiddenIds.contains(n.getNewsId()))
+                    .collect(java.util.stream.Collectors.toList());
+            if (forum.size() > GROUP_LIMIT) {
+                forum = forum.subList(0, GROUP_LIMIT);
+            }
         }
-        List<News> official = newsService.searchNews(kw, NEWS_CHANNEL_OFFICIAL, GROUP_LIMIT + hiddenIds.size());
-        official = official.stream().filter(n -> !hiddenIds.contains(n.getNewsId())).collect(java.util.stream.Collectors.toList());
-        if (official.size() > GROUP_LIMIT) {
-            official = official.subList(0, GROUP_LIMIT);
+        // 官方新闻：仅当「新闻」对本人开放
+        List<News> official = new ArrayList<>();
+        if (featNews) {
+            official = newsService.searchNews(kw, NEWS_CHANNEL_OFFICIAL, GROUP_LIMIT + hiddenIds.size());
+            official = official.stream().filter(n -> !hiddenIds.contains(n.getNewsId())).collect(java.util.stream.Collectors.toList());
+            if (official.size() > GROUP_LIMIT) {
+                official = official.subList(0, GROUP_LIMIT);
+            }
         }
         data.put("news", slimNews(official));
         data.put("forum", slimNews(forum));

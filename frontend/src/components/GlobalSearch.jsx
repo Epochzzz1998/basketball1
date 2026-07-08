@@ -3,6 +3,7 @@ import { Empty, Input, Modal, Spin, Tag } from 'antd'
 import { EnterOutlined, FileTextOutlined, ReadOutlined, SearchOutlined, UserOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { searchApi } from '../api/search'
+import { useAuth } from '../auth/AuthContext'
 import useIsMobile from '../hooks/useIsMobile'
 import { NBA_TEAM_NAMES, teamRegion } from '../pages/players/rankConfig'
 
@@ -41,8 +42,8 @@ function matchTeams(kw) {
     })
 }
 
-/** 打平成 [{group}, {item}...] 的列表，方便键盘上下移动 */
-function flatten(d, kw) {
+/** 打平成 [{group}, {item}...] 的列表，方便键盘上下移动。canData=false 时不出球队组（数据分析模块对该用户未开放） */
+function flatten(d, kw, canData) {
   const out = []
   const push = (group, items) => {
     if (!items?.length) return
@@ -59,7 +60,7 @@ function flatten(d, kw) {
       </span>
     ),
   })))
-  push('球队', matchTeams(kw))
+  push('球队', canData ? matchTeams(kw) : [])
   const newsNode = (n, icon) => (
     <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
       {icon}
@@ -94,6 +95,9 @@ function flatten(d, kw) {
 export default function GlobalSearch() {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
+  const { user } = useAuth()
+  // 数据分析(Dream Union)是否对本人开放：未开放则前端不出球队组（球员组由后端一并过滤）
+  const canData = !user || user.isSuperManager || user.featData !== false
   const [open, setOpen] = useState(false)
   const [hoverTrigger, setHoverTrigger] = useState(false)
   const [kw, setKw] = useState('')
@@ -105,7 +109,7 @@ export default function GlobalSearch() {
   const wrapRef = useRef(null)
   const inputRef = useRef(null)
 
-  const rows = useMemo(() => flatten(data, kw), [data, kw])
+  const rows = useMemo(() => flatten(data, kw, canData), [data, kw, canData])
   const itemIdx = useMemo(() => rows.map((r, i) => (r.kind === 'item' ? i : -1)).filter((i) => i >= 0), [rows])
 
   // 顶栏触发胶囊外层：剥掉 ProLayout 动作项的 hover 类（灰底保险丝，双保险）
@@ -214,7 +218,7 @@ export default function GlobalSearch() {
         }}
       >
         <SearchOutlined style={{ color: hoverTrigger ? '#fa541c' : '#aaa', transition: 'color .2s' }} />
-        {!isMobile && <span style={{ flex: 1 }}>搜索球员 / 球队 / 资讯</span>}
+        {!isMobile && <span style={{ flex: 1 }}>搜索…</span>}
         {!isMobile && <span style={kbd}>/</span>}
       </div>
 
@@ -236,7 +240,7 @@ export default function GlobalSearch() {
           value={kw}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder="搜索球员 / 球队 / 新闻 / 资讯 / 用户…"
+          placeholder="输入关键词搜索…"
           prefix={<SearchOutlined style={{ color: '#fa541c', fontSize: 18, marginRight: 6 }} />}
           style={{ padding: '14px 18px', fontSize: 16, borderBottom: '1px solid #f0f0f0', borderRadius: 0 }}
         />

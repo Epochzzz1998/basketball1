@@ -92,7 +92,7 @@ export default function TopicEditModal({ open, onClose, onSaved, topic }) {
     >
       <Form form={form} layout="vertical" style={{ marginTop: 8 }}>
         <Form.Item name="name" label="专题名称" rules={[{ required: true, message: '请输入名称' }]}>
-          <Input placeholder="如：湖人专区" maxLength={40} showCount />
+          <Input placeholder="如：读书交流区、资源分享区" maxLength={40} showCount />
         </Form.Item>
         <Form.Item name="description" label="简介">
           <Input.TextArea placeholder="一句话介绍这个专题" maxLength={200} autoSize={{ minRows: 2, maxRows: 4 }} />
