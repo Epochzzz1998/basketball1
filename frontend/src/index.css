@@ -83,4 +83,14 @@ body {
     font-size: 15px;
     line-height: 1.75;
   }
+
+  /* 移动端输入框字号 ≥16px：iOS/Safari 在字号 <16px 时聚焦输入框会自动放大页面，
+     设成 16 即可避免（比 user-scalable=no 好，不影响其它地方双指缩放）。 */
+  .ant-input,
+  textarea.ant-input,
+  .ant-input-affix-wrapper input,
+  .ant-select-selection-search-input,
+  .ant-input-number-input {
+    font-size: 16px;
+  }
 }

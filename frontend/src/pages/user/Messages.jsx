@@ -490,9 +490,10 @@ export default function Messages() {
 
   return (
     <Card
-      // 移动端：负边距收掉外层大部分留白、贴近屏幕边；卡片增高填满可视区，减少底部留白
+      // 移动端：负边距收掉外层大部分留白、贴近屏幕边；高度走下面 .pm-body 的媒体查询（dvh）
       style={{ borderRadius: isMobile ? 12 : 16, overflow: 'hidden', margin: isMobile ? '-4px -6px 0' : 0 }}
-      styles={{ body: { padding: 0, height: isMobile ? 'calc(100vh - 84px)' : 'max(480px, calc(100vh - 140px))', display: 'flex' } }}
+      classNames={{ body: 'pm-body' }}
+      styles={{ body: { padding: 0, height: 'max(480px, calc(100vh - 140px))', display: 'flex' } }}
     >
       <style>{`
         .pm-conv:hover { background: #f5f6f8 !important; }
@@ -500,6 +501,10 @@ export default function Messages() {
         .pm-msg:hover .pm-recall { opacity: 1; }
         .pm-scroll::-webkit-scrollbar { width: 6px; }
         .pm-scroll::-webkit-scrollbar-thumb { background: rgba(0,0,0,.12); border-radius: 3px; }
+        /* 移动端用 dvh(动态视口高度,排除浏览器地址栏/工具栏)让卡片正好填满可视区,输入框不被顶出屏幕、无右侧滚动;不支持 dvh 的退回 vh */
+        @media (max-width: 767px) {
+          .pm-body { height: calc(100vh - 80px) !important; height: calc(100dvh - 80px) !important; }
+        }
       `}</style>
 
       {/* 左栏：会话列表（移动端全宽；选中会话后隐藏，切到聊天窗） */}
