@@ -6,7 +6,7 @@ import { TrophyFilled } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import AllPlayerSeasonStats from './AllPlayerSeasonStats'
 import { teamApi } from '../../api/team'
-import { NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, fmtNum, playoffRecord, seasonYearLabel, teamRegion } from './rankConfig'
+import { NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, fmtNum, playoffRecord, seasonYearLabel, seasonShort, teamRegion } from './rankConfig'
 import SeasonPicker from '../../components/SeasonPicker'
 import useIsMobile from '../../hooks/useIsMobile'
 
@@ -287,9 +287,9 @@ function PlayoffHistory({ teamCode }) {
 
   const columns = [
     {
-      title: '赛季', dataIndex: 'seasonNum', width: 104,
+      title: '赛季', dataIndex: 'seasonNum', width: 76,
       sorter: (a, b) => a.seasonNum - b.seasonNum, defaultSortOrder: 'descend',
-      render: (v) => seasonYearLabel(v).replace(' 赛季', ''),
+      render: (v) => seasonShort(v),
     },
     {
       title: '成绩', dataIndex: 'playoffResult', width: 92,
@@ -411,9 +411,9 @@ function TeamHistory({ teamCode }) {
 
   const columns = [
     {
-      title: '赛季', dataIndex: 'seasonNum', width: 104,
+      title: '赛季', dataIndex: 'seasonNum', width: 76,
       sorter: (a, b) => a.seasonNum - b.seasonNum, defaultSortOrder: 'descend',
-      render: (v) => seasonYearLabel(v).replace(' 赛季', ''),
+      render: (v) => seasonShort(v),
     },
     { title: '胜', dataIndex: 'wins', width: 48, align: 'right', sorter: (a, b) => a.wins - b.wins },
     { title: '负', dataIndex: 'losses', width: 48, align: 'right', sorter: (a, b) => a.losses - b.losses },

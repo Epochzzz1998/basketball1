@@ -4,6 +4,12 @@
 export const seasonYearLabel = (n) =>
   n === 50 ? '生涯场均' : `${2007 + Number(n)}-${2008 + Number(n)} 赛季`
 
+// 数据表的赛季列用：只留年份后两位，如 2008-2009 → 08-09（生涯档=生涯）
+export const seasonShort = (n) =>
+  Number(n) === 50
+    ? '生涯'
+    : `${String(2007 + Number(n)).slice(-2)}-${String(2008 + Number(n)).slice(-2)}`
+
 export const seasonOptions = [
   ...Array.from({ length: 16 }, (_, i) => ({ value: i + 1, label: seasonYearLabel(i + 1) })),
   { value: 50, label: '生涯场均' },
