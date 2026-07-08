@@ -155,10 +155,11 @@ public class NewsController extends BaseUtils {
         data.put("level", level);
         data.put("anchorId", StringUtils.isNotBlank(anchorId) ? anchorId : NO_ANCHOR);
         data.put("canManage", canManagePost(viewer, news)); // 能否给该帖置顶/加精
-        // 题主标识用：该帖所属专题的 owner（官方新闻无专题→null）
+        // 题主标识用：该帖所属专题的题主（官方新闻无专题→null）。支持多题主：topicOwnerIds 为全部题主 id
         if (news != null && StringUtils.isNotBlank(news.getTopicId())) {
             com.dream.basketball.entity.ForumTopic t = topicPerms.getTopic(news.getTopicId());
             data.put("topicOwnerId", t == null ? null : t.getOwnerId());
+            data.put("topicOwnerIds", t == null ? null : new java.util.ArrayList<>(topicPerms.ownerIds(t)));
         }
         return new Result<>(0, "成功", data);
     }

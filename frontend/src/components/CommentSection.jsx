@@ -119,7 +119,7 @@ function CommentAttachments({ attachmentsJson }) {
  * - 子回复用 listComments({commentRelId}) 拉取；commentNum 是该评论的回复数。
  * 评论内容是纯文本（React 自动转义）；@昵称渲染成链接；末尾渲染图片/文件附件。
  */
-function CommentNode({ comment, newsId, depth = 0, authorId, topicOwnerId, locked }) {
+function CommentNode({ comment, newsId, depth = 0, authorId, topicOwnerIds, locked }) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
@@ -201,7 +201,7 @@ function CommentNode({ comment, newsId, depth = 0, authorId, topicOwnerId, locke
             ? <a onClick={() => navigate(`/users/${c.userId}`)} style={{ fontWeight: 600, color: '#333', fontSize: 14 }}>{c.userName || '匿名'}</a>
             : <b style={{ fontSize: 14 }}>{c.userName || '匿名'}</b>}
           {c.superManager && <SuperAdminBadge />}
-          {topicOwnerId && c.userId === topicOwnerId && <TopicOwnerBadge />}
+          {topicOwnerIds?.includes(c.userId) && <TopicOwnerBadge />}
           {authorId && c.userId === authorId && <OpBadge />}
           {c.verifiedPlayerId && (
             <Tooltip title="认证球员 · 点击看生涯数据">
@@ -267,7 +267,7 @@ function CommentNode({ comment, newsId, depth = 0, authorId, topicOwnerId, locke
         {showReplies && replies.length > 0 && (
           <div style={{ borderLeft: '2px solid #f0f0f0', paddingLeft: 14, marginTop: 4 }}>
             {replies.map((r) => (
-              <CommentNode key={r.commentId} comment={r} newsId={newsId} depth={depth + 1} authorId={authorId} topicOwnerId={topicOwnerId} locked={locked} />
+              <CommentNode key={r.commentId} comment={r} newsId={newsId} depth={depth + 1} authorId={authorId} topicOwnerIds={topicOwnerIds} locked={locked} />
             ))}
           </div>
         )}
@@ -280,7 +280,7 @@ function CommentNode({ comment, newsId, depth = 0, authorId, topicOwnerId, locke
  * 帖子下的评论区。顶层评论（level='1'，按楼层）+ 发表评论 + 递归楼中楼。
  * 注意：发评论/点赞接口返回旧版 {result,msg}；点赞计数据后端 delta 乐观更新。
  */
-export default function CommentSection({ newsId, authorId, authorName, topicOwnerId, locked }) {
+export default function CommentSection({ newsId, authorId, authorName, topicOwnerIds, locked }) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
@@ -382,7 +382,7 @@ export default function CommentSection({ newsId, authorId, authorName, topicOwne
       {loading ? (
         <div style={{ textAlign: 'center', padding: 24 }}><Spin /></div>
       ) : shown.length ? (
-        shown.map((c) => <CommentNode key={c.commentId} comment={c} newsId={newsId} authorId={authorId} topicOwnerId={topicOwnerId} locked={locked} />)
+        shown.map((c) => <CommentNode key={c.commentId} comment={c} newsId={newsId} authorId={authorId} topicOwnerIds={topicOwnerIds} locked={locked} />)
       ) : (
         <Empty
           image={Empty.PRESENTED_IMAGE_SIMPLE}

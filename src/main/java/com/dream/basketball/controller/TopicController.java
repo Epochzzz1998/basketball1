@@ -1,5 +1,6 @@
 package com.dream.basketball.controller;
 
+import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.dream.basketball.common.Result;
 import com.dream.basketball.config.RequiresRole;
@@ -101,6 +102,19 @@ public class TopicController {
         m.put("ownerId", t.getOwnerId());
         DreamUser owner = t.getOwnerId() == null ? null : userMapper.selectById(t.getOwnerId());
         m.put("ownerName", owner == null ? null : owner.getUserNickname());
+        // 多题主：ownerIds（全部题主 id，供帖子/评论的题主标识与「只看题主」筛选）+ owners（带昵称/头像，供展示与超管管理）
+        Set<String> ownerIdSet = perms.ownerIds(t);
+        m.put("ownerIds", new ArrayList<>(ownerIdSet));
+        List<Map<String, Object>> owners = new ArrayList<>();
+        for (String oid : ownerIdSet) {
+            DreamUser ou = userMapper.selectById(oid);
+            Map<String, Object> o = new HashMap<>();
+            o.put("userId", oid);
+            o.put("userNickname", ou == null ? oid : ou.getUserNickname());
+            o.put("avatar", ou == null ? null : ou.getAvatar());
+            owners.add(o);
+        }
+        m.put("owners", owners);
         m.put("visibility", t.getVisibility());
         m.put("listed", !"0".equals(t.getListed())); // 是否在百家说露出（默认 true）
         m.put("openPost", ON.equals(t.getOpenPost()));
@@ -142,6 +156,7 @@ public class TopicController {
         t.setName(name.trim());
         t.setDescription(StringUtils.trimToEmpty(description));
         t.setOwnerId(ownerId);
+        t.setOwnerIds(JSON.toJSONString(Collections.singletonList(ownerId)));
         t.setVisibility(TopicPermissionService.PRIVATE.equals(visibility) ? TopicPermissionService.PRIVATE : TopicPermissionService.PUBLIC);
         t.setOpenPost(ON.equals(openPost) ? ON : OFF);
         t.setOpenComment(ON.equals(openComment) ? ON : OFF);
@@ -184,11 +199,39 @@ public class TopicController {
         if (listed != null) {
             t.setListed("0".equals(listed) ? "0" : "1"); // 题主/管理员切换是否在百家说露出
         }
-        // 只有 admin 能转让 owner
+        // 只有 admin 能转让 owner（转让=改为单一题主；多题主走 /topic/setOwners）
         if (StringUtils.isNotBlank(ownerId) && Role.fromUserRole(me.getUserRole()) == Role.SUPER_MANAGER
                 && userMapper.selectById(ownerId) != null) {
             t.setOwnerId(ownerId);
+            t.setOwnerIds(JSON.toJSONString(Collections.singletonList(ownerId)));
         }
+        topicMapper.updateById(t);
+        return new Result<>(0, "已保存", null);
+    }
+
+    /**
+     * 设置该专题的题主（可多个，超管专用）。ownerIds 为逗号分隔的用户 id；去重、校验存在、至少一个。
+     * 首个作为主题主写入 OWNER_ID（兼容/展示），全部写入 OWNER_IDS。
+     */
+    @RequiresRole(Role.SUPER_MANAGER)
+    @PostMapping("/setOwners")
+    public Object setOwners(String topicId, String ownerIds) {
+        ForumTopic t = perms.getTopic(topicId);
+        if (t == null) {
+            return new Result<>(1, "专题不存在", null);
+        }
+        List<String> valid = new ArrayList<>();
+        for (String raw : StringUtils.split(StringUtils.trimToEmpty(ownerIds), ',')) {
+            String id = raw.trim();
+            if (!id.isEmpty() && !valid.contains(id) && userMapper.selectById(id) != null) {
+                valid.add(id);
+            }
+        }
+        if (valid.isEmpty()) {
+            return new Result<>(1, "至少要指定一个有效的题主", null);
+        }
+        t.setOwnerId(valid.get(0));
+        t.setOwnerIds(JSON.toJSONString(valid));
         topicMapper.updateById(t);
         return new Result<>(0, "已保存", null);
     }

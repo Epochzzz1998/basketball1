@@ -1,5 +1,6 @@
 package com.dream.basketball.config;
 
+import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.dream.basketball.entity.DreamUser;
 import com.dream.basketball.entity.ForumTopic;
@@ -11,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -61,10 +63,41 @@ public class TopicPermissionService {
                 .eq("TOPIC_ID", topicId).eq("USER_ID", user.getUserId()));
     }
 
-    /** admin or the topic's owner */
+    /**
+     * 该专题的题主集合（支持多题主）：以 OWNER_IDS(JSON 数组) 为准；为空/脏数据时回退到单个 OWNER_ID。
+     * 保序去重，首位即主题主。
+     */
+    public Set<String> ownerIds(ForumTopic t) {
+        Set<String> ids = new LinkedHashSet<>();
+        if (t == null) {
+            return ids;
+        }
+        String raw = t.getOwnerIds();
+        if (StringUtils.isNotBlank(raw)) {
+            try {
+                for (Object o : JSON.parseArray(raw)) {
+                    if (o != null && StringUtils.isNotBlank(o.toString())) {
+                        ids.add(o.toString());
+                    }
+                }
+            } catch (Exception ignore) {
+                // 脏数据：回退到单 owner
+            }
+        }
+        if (ids.isEmpty() && StringUtils.isNotBlank(t.getOwnerId())) {
+            ids.add(t.getOwnerId());
+        }
+        return ids;
+    }
+
+    /** 用户是否为该专题题主（多题主之一）。 */
+    public boolean isOwner(DreamUser user, ForumTopic t) {
+        return user != null && t != null && ownerIds(t).contains(user.getUserId());
+    }
+
+    /** admin or one of the topic's owners */
     public boolean canManage(DreamUser user, ForumTopic t) {
-        return t != null && user != null
-                && (isAdmin(user) || StringUtils.equals(user.getUserId(), t.getOwnerId()));
+        return t != null && user != null && (isAdmin(user) || isOwner(user, t));
     }
 
     public boolean canView(DreamUser user, ForumTopic t) {
@@ -155,7 +188,7 @@ public class TopicPermissionService {
         Set<String> viewable = new HashSet<>();
         if (user != null) {
             for (ForumTopic t : privates) {
-                if (StringUtils.equals(user.getUserId(), t.getOwnerId())) {
+                if (ownerIds(t).contains(user.getUserId())) {
                     viewable.add(t.getTopicId());
                 }
             }

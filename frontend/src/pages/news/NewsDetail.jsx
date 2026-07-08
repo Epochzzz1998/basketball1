@@ -100,7 +100,7 @@ export default function NewsDetail() {
   const isMobile = useIsMobile()
   const [news, setNews] = useState(null)
   const [canManage, setCanManage] = useState(false) // 能否置顶/加精（owner/manager+）
-  const [topicOwnerId, setTopicOwnerId] = useState(null) // 该帖所属专题的 owner（题主标识用）
+  const [topicOwnerIds, setTopicOwnerIds] = useState([]) // 该帖所属专题的题主集合（题主标识用，支持多题主）
   const [authorStats, setAuthorStats] = useState(null) // 作者数据小结（发帖/精华/置顶/获赞）
   const [loading, setLoading] = useState(true)
 
@@ -126,7 +126,7 @@ export default function NewsDetail() {
     setLoading(true)
     newsApi
       .getNews(newsId, userInformationId)
-      .then((data) => { if (alive) { setNews(data?.news || null); setCanManage(!!data?.canManage); setTopicOwnerId(data?.topicOwnerId || null) } })
+      .then((data) => { if (alive) { setNews(data?.news || null); setCanManage(!!data?.canManage); setTopicOwnerIds(data?.topicOwnerIds || []) } })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
   }, [newsId, userInformationId])
@@ -227,7 +227,7 @@ export default function NewsDetail() {
                         : <span style={{ fontWeight: 700, fontSize: 15 }}>{news.author || '匿名'}</span>}
                       <OpBadge />
                       {news.authorSuperManager && <SuperAdminBadge />}
-                      {topicOwnerId && news.authorId === topicOwnerId && <TopicOwnerBadge />}
+                      {topicOwnerIds?.includes(news.authorId) && <TopicOwnerBadge />}
                       {news.authorVerifiedPlayerId && (
                         <Tag color="gold" style={{ marginInlineEnd: 0, cursor: 'pointer' }} onClick={() => navigate(`/players/${news.authorVerifiedPlayerId}`)}>
                           <TrophyFilled /> {news.authorVerifiedPlayerName || '认证球员'}
@@ -314,7 +314,7 @@ export default function NewsDetail() {
                 </div>
 
                 <Divider style={{ margin: '18px 0 0' }} />
-                <CommentSection newsId={newsId} authorId={news.authorId} authorName={news.author} topicOwnerId={topicOwnerId} locked={news.locked === '1'} />
+                <CommentSection newsId={newsId} authorId={news.authorId} authorName={news.author} topicOwnerIds={topicOwnerIds} locked={news.locked === '1'} />
               </>
             ) : (
               <Empty description="资讯不存在或已删除">

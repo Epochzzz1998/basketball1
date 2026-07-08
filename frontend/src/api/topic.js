@@ -18,6 +18,8 @@ export const topicApi = {
   get: (topicId, userInformationId) => http.get('/topic/get', { params: { topicId, userInformationId } }),
   create: (payload) => http.post('/topic/create', form(payload)),
   update: (payload) => http.post('/topic/update', form(payload)),
+  // 设置题主（可多个，超管专用）：ownerIds 为逗号分隔的用户 id
+  setOwners: (topicId, ownerIds) => http.post('/topic/setOwners', form({ topicId, ownerIds })),
   remove: (topicId) => http.delete('/topic/delete', { params: { topicId } }),
   members: (topicId) => http.get('/topic/members', { params: { topicId } }),
   setMember: (payload) => http.post('/topic/setMember', form(payload)),

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Avatar, Button, Checkbox, Empty, Modal, Popconfirm, Select, Spin, message } from 'antd'
-import { DeleteOutlined } from '@ant-design/icons'
+import { CloseCircleFilled, CrownFilled, DeleteOutlined } from '@ant-design/icons'
 import { topicApi } from '../api/topic'
 import { searchApi } from '../api/search'
+import { useAuth } from '../auth/AuthContext'
 import useIsMobile from '../hooks/useIsMobile'
 
 /**
@@ -19,11 +20,16 @@ const bool = (b) => (b ? '1' : '0')
 
 export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
   const isMobile = useIsMobile()
+  const { user } = useAuth()
+  const isSuper = !!user?.isSuperManager
   const [rows, setRows] = useState(null)
   const [reqs, setReqs] = useState([])
   const [reqFlags, setReqFlags] = useState({}) // { requestId: {comment, post} } 审批时勾选给哪些权限
   const [opts, setOpts] = useState([])
+  const [owners, setOwners] = useState([]) // 题主列表 [{userId,userNickname,avatar}]，超管管理
+  const [ownerOpts, setOwnerOpts] = useState([])
   const timer = useRef()
+  const ownerTimer = useRef()
 
   const load = () => {
     setRows(null)
@@ -36,8 +42,39 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
       list.forEach((x) => { f[x.requestId] = { comment: true, post: false } })
       setReqFlags(f)
     }).catch(() => setReqs([]))
+    if (isSuper) topicApi.get(topicId).then((d) => setOwners(d?.owners || [])).catch(() => {})
   }
   useEffect(() => { if (open && topicId) load() }, [open, topicId])
+
+  // ===== 题主管理（超管专用，可多人）=====
+  const commitOwners = async (ids) => {
+    if (!ids.length) return message.warning('至少要保留一个题主')
+    try {
+      await topicApi.setOwners(topicId, ids.join(','))
+      load()
+      onChange?.() // 让上层刷新题主标识/横幅
+      message.success('已更新题主')
+    } catch { /* 拦截器已提示 */ }
+  }
+  const addOwner = (userId) => {
+    setOwnerOpts([])
+    if (owners.some((o) => o.userId === userId)) return message.info('该用户已是题主')
+    commitOwners([...owners.map((o) => o.userId), userId])
+  }
+  const removeOwner = (userId) => {
+    if (owners.length <= 1) return message.warning('至少要保留一个题主')
+    commitOwners(owners.filter((o) => o.userId !== userId).map((o) => o.userId))
+  }
+  const ownerSearch = (kw) => {
+    clearTimeout(ownerTimer.current)
+    if (!kw.trim()) return setOwnerOpts([])
+    ownerTimer.current = setTimeout(async () => {
+      try {
+        const list = await searchApi.mentionUsers(kw)
+        setOwnerOpts((list || []).map((u) => ({ value: u.userId, label: u.userNickname, avatar: u.avatar })))
+      } catch { setOwnerOpts([]) }
+    }, 250)
+  }
 
   const setReqFlag = (rid, key, val) => setReqFlags((f) => ({ ...f, [rid]: { ...f[rid], [key]: val } }))
 
@@ -91,6 +128,46 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
 
   return (
     <Modal open={open} onCancel={onClose} footer={null} title="成员权限管理" width={560} destroyOnClose>
+      {/* 题主管理（超管专用，可多人） */}
+      {isSuper && (
+        <div style={{ marginBottom: 16, background: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: 10, padding: '10px 14px' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#389e0d', marginBottom: 10 }}>
+            <CrownFilled style={{ marginRight: 6 }} />题主（可多人 · 超管指派）
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+            {owners.map((o) => (
+              <span key={o.userId} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid #d9f7be', borderRadius: 16, padding: '2px 8px 2px 2px' }}>
+                {o.avatar ? <Avatar size={22} src={o.avatar} /> : <Avatar size={22} style={{ background: avatarColor(o.userNickname), fontSize: 11 }}>{String(o.userNickname || '?')[0].toUpperCase()}</Avatar>}
+                <span style={{ fontSize: 13 }}>{o.userNickname}</span>
+                {owners.length > 1 && (
+                  <CloseCircleFilled onClick={() => removeOwner(o.userId)} style={{ color: '#ccc', cursor: 'pointer', fontSize: 15 }} />
+                )}
+              </span>
+            ))}
+          </div>
+          <Select
+            showSearch
+            filterOption={false}
+            value={null}
+            placeholder="搜索用户设为题主…"
+            style={{ width: '100%' }}
+            onSearch={ownerSearch}
+            onSelect={addOwner}
+            notFoundContent={null}
+            options={ownerOpts.map((o) => ({
+              value: o.value,
+              label: (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  {o.avatar ? <Avatar size={20} src={o.avatar} /> : <Avatar size={20} style={{ background: avatarColor(o.label), fontSize: 11 }}>{String(o.label || '?')[0].toUpperCase()}</Avatar>}
+                  {o.label}
+                </span>
+              ),
+            }))}
+          />
+          <div style={{ fontSize: 11, color: '#95de64', marginTop: 6 }}>题主对该专题有完整管理权（改设置、管成员、置顶/隐藏帖），发帖/评论会带「题主」标；至少保留一人。</div>
+        </div>
+      )}
+
       {/* 待审批申请 */}
       {reqs.length > 0 && (
         <div style={{ marginBottom: 16, background: '#fffbe6', border: '1px solid #ffe58f', borderRadius: 10, padding: '10px 14px' }}>

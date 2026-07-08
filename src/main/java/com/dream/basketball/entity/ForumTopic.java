@@ -36,6 +36,13 @@ public class ForumTopic extends Model<ForumTopic> implements Serializable {
     @TableField("OWNER_ID")
     private String ownerId;
 
+    /**
+     * 题主集合（JSON 数组，如 ["id1","id2"]）：一个专题可有多个题主，均由超管指派。
+     * OWNER_ID 保留为主题主（列表首位）作兼容/展示；此列为空时回退到 {OWNER_ID}。
+     */
+    @TableField("OWNER_IDS")
+    private String ownerIds;
+
     /** 'public' | 'private' */
     @TableField("VISIBILITY")
     private String visibility;
@@ -95,6 +102,14 @@ public class ForumTopic extends Model<ForumTopic> implements Serializable {
 
     public void setOwnerId(String ownerId) {
         this.ownerId = ownerId;
+    }
+
+    public String getOwnerIds() {
+        return ownerIds;
+    }
+
+    public void setOwnerIds(String ownerIds) {
+        this.ownerIds = ownerIds;
     }
 
     public String getVisibility() {

@@ -57,7 +57,7 @@ const avatarColor = (name) => {
 const hotOf = (p) => (p.goodNum ?? 0) * 2 + (p.commentNum ?? 0) * 3
 
 /** 单条帖子卡：头像 + 标题/摘要/元信息 + 首图缩略图 */
-function PostCard({ post, topicOwnerId }) {
+function PostCard({ post, topicOwnerIds }) {
   const cover = coverOf(post.content)
   const excerpt = textOf(post.content)
   return (
@@ -82,7 +82,7 @@ function PostCard({ post, topicOwnerId }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#999', flexWrap: 'wrap' }}>
           <span style={{ color: '#333', fontWeight: 600, fontSize: 13 }}>{post.author || '匿名'}</span>
           {post.authorSuperManager && <SuperAdminBadge />}
-          {topicOwnerId && post.authorId === topicOwnerId && <TopicOwnerBadge />}
+          {topicOwnerIds?.includes(post.authorId) && <TopicOwnerBadge />}
           {post.authorVerifiedPlayerId && (
             <Tag color="gold" style={{ marginInlineEnd: 0 }}><TrophyFilled /> {post.authorVerifiedPlayerName || '认证球员'}</Tag>
           )}
@@ -210,7 +210,7 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
       : rows
     // 精华：只看加精帖；只看题主：前端按专题 owner 的 authorId 过滤（列表已全量在手）
     if (view === '精华') hit = hit.filter((p) => p.essence === '1')
-    if (view === '只看题主' && topic?.ownerId) hit = hit.filter((p) => p.authorId === topic.ownerId)
+    if (view === '只看题主' && topic?.ownerIds?.length) hit = hit.filter((p) => topic.ownerIds.includes(p.authorId))
     const sorted = view === '最热'
       ? [...hit].sort((a, b) => hotOf(b) - hotOf(a) || dayjs(b.publishDate).valueOf() - dayjs(a.publishDate).valueOf())
       : hit // 后端已按（置顶优先 + 发布时间倒序）排好
@@ -296,7 +296,7 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
                 { label: '最新', value: '最新', icon: <ClockCircleOutlined /> },
                 { label: '最热', value: '最热', icon: <FireOutlined /> },
                 { label: '精华', value: '精华', icon: <StarOutlined /> },
-                ...(isTopic && topic?.ownerId ? [{ label: '题主', value: '只看题主', icon: <CrownOutlined /> }] : []),
+                ...(isTopic && topic?.ownerIds?.length ? [{ label: '题主', value: '只看题主', icon: <CrownOutlined /> }] : []),
               ]}
             />
             <span style={{ flex: 1 }} />
@@ -310,7 +310,7 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
             </div>
           ) : paged.length ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {paged.map((p) => <PostCard key={p.newsId} post={p} topicOwnerId={isTopic ? topic?.ownerId : null} />)}
+              {paged.map((p) => <PostCard key={p.newsId} post={p} topicOwnerIds={isTopic ? topic?.ownerIds : null} />)}
             </div>
           ) : (
             <Card style={{ borderRadius: 14 }}>
