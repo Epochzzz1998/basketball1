@@ -346,7 +346,7 @@ export default function Home() {
 
       {/* 页头：标题 + 全页赛季选择 */}
       <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12, margin: '2px 2px 4px' }}>
-        <span style={{ fontSize: 21, fontWeight: 800 }}>🏀 联盟总览</span>
+        <span style={{ fontSize: 21, fontWeight: 800 }}>🏀 联盟概览</span>
         <span style={{ flex: 1 }} />
         <SeasonPicker value={seasonNum} onChange={setSeasonNum} includeCareer={false} />
       </div>

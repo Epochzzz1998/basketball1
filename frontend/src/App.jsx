@@ -1,5 +1,6 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import AppLayout from './layout/AppLayout'
+import { useAuth } from './auth/AuthContext'
 import ProtectedRoute from './router/ProtectedRoute'
 import RoleRoute from './router/RoleRoute'
 import Login from './pages/Login'
@@ -34,6 +35,17 @@ import UserManage from './pages/admin/UserManage'
  * - 公开页直接放；需登录的用 <ProtectedRoute>；需角色的用 <RoleRoute>。
  * 业务页现用 <Placeholder> 占位，P5-2 逐屏替换为真实页面。
  */
+/** 落地页：默认进百家说；若该用户被禁用百家说，顺延到下一个可用模块，避免与守卫来回弹造成循环。 */
+function HomeRedirect() {
+  const { user } = useAuth()
+  const canUse = (f) => !user || user.isSuperManager || user[f] !== false
+  const to = canUse('featForum') ? '/news'
+    : canUse('featData') ? '/league'
+    : canUse('featNews') ? '/official'
+    : user ? '/me' : '/login'
+  return <Navigate to={to} replace />
+}
+
 export default function App() {
   return (
     <Routes>
@@ -42,7 +54,9 @@ export default function App() {
       <Route path="/403" element={<Forbidden />} />
 
       <Route path="/" element={<AppLayout />}>
-        <Route index element={<Home />} />
+        {/* 落地页=百家说（论坛）；旧的篮球看板挪到 /league（Dream Union 里的「联盟概览」） */}
+        <Route index element={<HomeRedirect />} />
+        <Route path="league" element={<Home />} />
 
         {/* 公开浏览 */}
         <Route path="players" element={<PlayersHome />} />

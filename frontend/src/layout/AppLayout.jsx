@@ -85,7 +85,7 @@ export default function AppLayout() {
     if (!user || user.isSuperManager) return
     const p = location.pathname
     const blocked =
-      (user.featData === false && (p.startsWith('/players') || p.startsWith('/rankings') || p.startsWith('/compare'))) ||
+      (user.featData === false && (p.startsWith('/players') || p.startsWith('/rankings') || p.startsWith('/compare') || p.startsWith('/league'))) ||
       (user.featNews === false && p.startsWith('/official')) ||
       (user.featForum === false && p.startsWith('/news')) ||
       (user.featPm === false && p.startsWith('/messages'))
@@ -99,14 +99,16 @@ export default function AppLayout() {
     () => ({
       path: '/',
       routes: [
-        { path: '/', name: '首页', icon: <HomeOutlined /> },
-        // Dream Union：篮球数据分析模块（可扩展），几个子项收进来，与百家说/新闻同级
+        // 百家说（论坛）是落地页与首要入口，放最前
+        ...(canUse('featForum') ? [{ path: '/news', name: '百家说', icon: <ReadOutlined /> }] : []),
+        // Dream Union：篮球数据分析模块（可扩展），「联盟概览」(旧首页看板) 打头，与百家说/新闻同级
         ...(canUse('featData')
           ? [{
               path: '/dream-union',
               name: 'Dream Union',
               icon: <FundOutlined />,
               routes: [
+                { path: '/league', name: '联盟概览', icon: <HomeOutlined /> },
                 { path: '/players', name: '数据概览', icon: <TeamOutlined /> },
                 { path: '/rankings', name: '联盟排行', icon: <TrophyOutlined /> },
                 { path: '/compare', name: '球员对比', icon: <SwapOutlined /> },
@@ -114,7 +116,6 @@ export default function AppLayout() {
             }]
           : []),
         ...(canUse('featNews') ? [{ path: '/official', name: '新闻', icon: <NotificationOutlined /> }] : []),
-        ...(canUse('featForum') ? [{ path: '/news', name: '百家说', icon: <ReadOutlined /> }] : []),
         ...(user && canUse('featPm') ? [{ path: '/messages', name: '私信', icon: <MessageOutlined /> }] : []),
         ...(user?.isSuperManager
           ? [
