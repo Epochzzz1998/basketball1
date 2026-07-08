@@ -210,6 +210,11 @@ export default function Messages() {
     return () => { vv.removeEventListener('resize', update); vv.removeEventListener('scroll', update) }
   }, [])
 
+  // 键盘弹出/收起（可视区高度变化）时，把消息列表拉到最新一条——否则收缩后看不到最新消息
+  useEffect(() => {
+    if (peerId && vp.h != null) scrollBottom(true)
+  }, [vp.h, peerId, scrollBottom])
+
   const markRead = useCallback((pid) => {
     pmApi.markRead(pid)
       .then(() => window.dispatchEvent(new Event('pm-unread-changed')))
