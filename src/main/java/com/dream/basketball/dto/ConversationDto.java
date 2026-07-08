@@ -20,6 +20,9 @@ public class ConversationDto {
     /** 对方头衔（逗号/JSON 串），会话头展示在名字旁 */
     private String peerTitles;
 
+    /** 对方是否超级管理员，会话头展示超管标 */
+    private Boolean peerSuperManager;
+
     /** last visible message content (blank when that message is recalled) */
     private String lastContent;
 

@@ -9,6 +9,7 @@ import { searchApi } from '../../api/search'
 import { useAuth } from '../../auth/AuthContext'
 import EmojiPicker from '../../components/EmojiPicker'
 import UserTitles from '../../components/UserTitles'
+import { SuperAdminBadge } from '../../components/RoleBadges'
 import { humanSize } from '../../components/CommentComposer'
 
 // 附件：图片走 image/*，文件走常见文档白名单；单条最多 9 个
@@ -189,7 +190,7 @@ export default function Messages() {
     userApi.profile(peerId)
       .then((d) => {
         if (alive && d?.user) {
-          setFreshPeer({ peerId, peerNickname: d.user.userNickname || '用户', peerAvatar: d.user.avatar, peerTitles: d.user.titles })
+          setFreshPeer({ peerId, peerNickname: d.user.userNickname || '用户', peerAvatar: d.user.avatar, peerTitles: d.user.titles, peerSuperManager: d.user.userRole === 'superManager' })
         }
       })
       .catch(() => {})
@@ -561,6 +562,7 @@ export default function Messages() {
                   <Link to={`/users/${peerId}`} style={{ fontWeight: 700, fontSize: 15, color: '#222' }}>
                     {activePeer?.peerNickname || '用户'}
                   </Link>
+                  {activePeer?.peerSuperManager && <SuperAdminBadge />}
                   <UserTitles titles={activePeer?.peerTitles} size="sm" />
                 </div>
                 <div style={{ fontSize: 11, color: onlineMap[peerId] ? '#52c41a' : '#aaa', marginTop: 1 }}>

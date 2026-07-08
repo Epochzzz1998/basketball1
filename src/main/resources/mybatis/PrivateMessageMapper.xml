@@ -21,6 +21,7 @@
                u.USER_NICKNAME                     AS peerNickname,
                u.AVATAR                            AS peerAvatar,
                u.TITLES                            AS peerTitles,
+               (u.USER_ROLE = 'superManager')      AS peerSuperManager,
                IF(v.RECALLED = '1', '', v.CONTENT) AS lastContent,
                v.SEND_TIME                         AS lastTime,
                (v.SENDER_ID = #{me})               AS lastFromMe,
