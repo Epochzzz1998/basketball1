@@ -338,7 +338,13 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
                 <div style={{ fontSize: 13, color: '#8c8c8c', margin: '6px 0 14px' }}>
                   {official ? '面向全站的权威发布（管理员）' : '聊比赛、聊球员、聊数据，发一帖和大家讨论'}
                 </div>
-                <Button type="primary" block icon={<EditOutlined />} onClick={goPost}>
+                <Button
+                  type="primary"
+                  block
+                  icon={<EditOutlined />}
+                  onClick={goPost}
+                  style={official ? { background: '#2f54eb', borderColor: '#2f54eb' } : undefined}
+                >
                   {official ? '发布新闻' : user ? '发帖' : '登录后发帖'}
                 </Button>
               </Card>

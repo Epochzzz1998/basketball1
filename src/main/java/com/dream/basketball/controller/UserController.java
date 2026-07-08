@@ -116,6 +116,8 @@ public class UserController extends BaseUtils {
         dreamUser.setUserStatus(Constants.USABLE);
         dreamUser.setUserRole(Constants.NORMAL_USER);
         dreamUser.setPlayerIdentification(Constants.UNIDENTIFICATION);
+        // 新用户默认不开放「数据分析(Dream Union)」模块；新闻/百家说/私信不设(null=开放)。超管可在用户管理里放开。
+        dreamUser.setFeatData("0");
         userService.save(dreamUser);
         return handlerResultJson(true, "注册成功！");
     }

@@ -643,7 +643,7 @@ export default function Messages() {
                       send()
                     }
                   }}
-                  placeholder="输入消息，Enter 发送，Shift+Enter 换行"
+                  placeholder="发消息…"
                   maxLength={500}
                   autoSize={{ minRows: 1, maxRows: 5 }}
                   variant="filled"
