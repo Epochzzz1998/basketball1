@@ -3,7 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- interactive-widget=resizes-content：安卓/Chrome 上软键盘弹出时把视口本身缩小（而不是遮住内容），
+         配合 dvh/visualViewport 让页面自适应、不被顶着滚。iOS 不支持该项、无害，靠 visualViewport 兜底。 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
     <title>Dream Everything</title>
   </head>
   <body>

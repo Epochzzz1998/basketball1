@@ -197,6 +197,19 @@ export default function Messages() {
     return () => { alive = false }
   }, [peerId, convs])
 
+  // 移动端软键盘：追踪「可视视口」(visualViewport)。进聊天窗后把它做成贴着可视区的全屏固定层，
+  // 键盘弹出时可视区收缩、层随之收缩，输入框顶在键盘上方，整页不滚动、顶部会话头不跑（iOS 尤其需要）。
+  const [vp, setVp] = useState({ h: null, top: 0 })
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const update = () => setVp({ h: vv.height, top: vv.offsetTop })
+    update()
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => { vv.removeEventListener('resize', update); vv.removeEventListener('scroll', update) }
+  }, [])
+
   const markRead = useCallback((pid) => {
     pmApi.markRead(pid)
       .then(() => window.dispatchEvent(new Event('pm-unread-changed')))
@@ -547,6 +560,10 @@ export default function Messages() {
             'linear-gradient(180deg, #fbfbfc 0%, #f1f2f5 100%)',
           ].join(','),
           backgroundSize: '100% 100%, 100% 100%, 22px 22px, 100% 100%',
+          // 移动端进聊天窗：固定成贴合可视视口的全屏层，随软键盘收缩，整页不滚动、会话头不跑
+          ...(isMobile && peerId && vp.h != null
+            ? { position: 'fixed', left: 0, top: vp.top, width: '100%', height: vp.h, zIndex: 1000 }
+            : {}),
         }}
       >
         {!peerId ? (
