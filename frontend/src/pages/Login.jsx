@@ -34,7 +34,7 @@ export default function Login() {
   }
 
   return (
-    <AuthShell title="欢迎回来" subtitle="登录后可发帖、评论、点赞，还能申请球员身份认证">
+    <AuthShell title="欢迎回来" subtitle="登录后畅聊百家说：发帖、评论、私信">
       <Form onFinish={onFinish} size="large">
         <Form.Item name="loginName" rules={[{ required: true, message: '请输入登录名' }]}>
           <Input variant="filled" prefix={<UserOutlined style={{ color: '#b3b3b3' }} />} placeholder="登录名" autoComplete="off" />

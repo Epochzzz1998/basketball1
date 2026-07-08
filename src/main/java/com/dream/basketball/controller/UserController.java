@@ -132,6 +132,11 @@ public class UserController extends BaseUtils {
     @GetMapping("/current")
     public Object current(HttpServletRequest request) {
         DreamUser u = SecUtil.getLoginUserToSession(request);
+        // 权限/功能开关实时读 DB（session 存的是登录时快照）：超管改了开关，用户刷新一次即生效，不用重登
+        DreamUser fresh = u == null ? null : userService.getById(u.getUserId());
+        if (fresh != null) {
+            u = fresh;
+        }
         Role role = Role.fromUserRole(u.getUserRole());
         Map<String, Object> data = new HashMap<>();
         data.put("userId", u.getUserId());
@@ -145,6 +150,11 @@ public class UserController extends BaseUtils {
         data.put("canBrowse", !"0".equals(u.getCanBrowse()));
         data.put("canComment", !"0".equals(u.getCanComment()));
         data.put("canPost", !"0".equals(u.getCanPost()));
+        // 功能模块可用性（前端据此显隐导航菜单）
+        data.put("featData", !"0".equals(u.getFeatData()));
+        data.put("featNews", !"0".equals(u.getFeatNews()));
+        data.put("featForum", !"0".equals(u.getFeatForum()));
+        data.put("featPm", !"0".equals(u.getFeatPm()));
         return new Result<>(0, "成功", data);
     }
 
@@ -186,6 +196,10 @@ public class UserController extends BaseUtils {
             m.put("canBrowse", !"0".equals(u.getCanBrowse()));
             m.put("canComment", !"0".equals(u.getCanComment()));
             m.put("canPost", !"0".equals(u.getCanPost()));
+            m.put("featData", !"0".equals(u.getFeatData()));
+            m.put("featNews", !"0".equals(u.getFeatNews()));
+            m.put("featForum", !"0".equals(u.getFeatForum()));
+            m.put("featPm", !"0".equals(u.getFeatPm()));
             m.put("isSuperManager", Role.fromUserRole(u.getUserRole()) == Role.SUPER_MANAGER);
             rows.add(m);
         }
@@ -196,6 +210,7 @@ public class UserController extends BaseUtils {
     @RequiresRole(Role.SUPER_MANAGER)
     @PostMapping("/setUserPerms")
     public Object setUserPerms(String userId, String enabled, String canBrowse, String canComment, String canPost,
+                              String featData, String featNews, String featForum, String featPm,
                               HttpServletRequest request) {
         DreamUser target = StringUtils.isBlank(userId) ? null : userService.getById(userId);
         if (target == null) {
@@ -219,6 +234,18 @@ public class UserController extends BaseUtils {
         }
         if (canPost != null) {
             uw.set("CAN_POST", "1".equals(canPost) ? "1" : "0");
+        }
+        if (featData != null) {
+            uw.set("FEAT_DATA", "1".equals(featData) ? "1" : "0");
+        }
+        if (featNews != null) {
+            uw.set("FEAT_NEWS", "1".equals(featNews) ? "1" : "0");
+        }
+        if (featForum != null) {
+            uw.set("FEAT_FORUM", "1".equals(featForum) ? "1" : "0");
+        }
+        if (featPm != null) {
+            uw.set("FEAT_PM", "1".equals(featPm) ? "1" : "0");
         }
         userService.update(uw);
         return handlerResultJson(true, "已保存");

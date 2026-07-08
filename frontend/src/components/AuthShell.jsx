@@ -71,20 +71,18 @@ function BrandPanel() {
 
       <div style={{ flex: 1 }} />
 
-      <div style={{ fontSize: 30, fontWeight: 800, lineHeight: 1.45 }}>
-        属于我们的
+      <div style={{ fontSize: 32, fontWeight: 800, lineHeight: 1.4 }}>
+        见你所见
         <br />
-        篮球宇宙
+        想你所想
       </div>
       <div style={{ opacity: 0.85, marginTop: 12, fontSize: 14, lineHeight: 1.8 }}>
-        16 个赛季 · 球员数据 · 荣誉殿堂
-        <br />
-        新闻资讯 · 论坛互动 · 球员认证
+        百家说社区 · 发帖 · 评论 · 私信
       </div>
       <div style={{ display: 'flex', gap: 10, marginTop: 26, flexWrap: 'wrap' }}>
-        <span style={chip}>数据总览</span>
-        <span style={chip}>联盟排行</span>
-        <span style={chip}>社区互动</span>
+        <span style={chip}>百家说</span>
+        <span style={chip}>专题</span>
+        <span style={chip}>私信</span>
       </div>
     </div>
   )

@@ -6,6 +6,7 @@ import {
   MessageOutlined,
   SwapOutlined,
   DatabaseOutlined,
+  FundOutlined,
   HomeOutlined,
   LogoutOutlined,
   NotificationOutlined,
@@ -78,17 +79,43 @@ export default function AppLayout() {
     return () => disconnectPmSocket()
   }, [user])
 
+  // 功能模块被禁用的用户，若深链进入该模块的页面（菜单已隐藏，这里兜底），重定向回首页。
+  // 超管与未登录访客不受限（访客看公开站点）。按路径前缀判断，覆盖各子页。
+  useEffect(() => {
+    if (!user || user.isSuperManager) return
+    const p = location.pathname
+    const blocked =
+      (user.featData === false && (p.startsWith('/players') || p.startsWith('/rankings') || p.startsWith('/compare'))) ||
+      (user.featNews === false && p.startsWith('/official')) ||
+      (user.featForum === false && p.startsWith('/news')) ||
+      (user.featPm === false && p.startsWith('/messages'))
+    if (blocked) navigate('/', { replace: true })
+  }, [location.pathname, user, navigate])
+
+  // 功能模块可用性（按用户）：超管始终可见（便于管理）；未登录按公开可见；
+  // flag 未定义（后端还没下发/老数据）时默认显示，保证前后兼容。关掉的模块整块从导航隐藏。
+  const canUse = (flag) => !user || user.isSuperManager || user[flag] !== false
   const route = useMemo(
     () => ({
       path: '/',
       routes: [
         { path: '/', name: '首页', icon: <HomeOutlined /> },
-        { path: '/players', name: '数据概览', icon: <TeamOutlined /> },
-        { path: '/rankings', name: '联盟排行', icon: <TrophyOutlined /> },
-        { path: '/compare', name: '球员对比', icon: <SwapOutlined /> },
-        { path: '/official', name: '新闻', icon: <NotificationOutlined /> },
-        { path: '/news', name: '百家说', icon: <ReadOutlined /> },
-        ...(user ? [{ path: '/messages', name: '私信', icon: <MessageOutlined /> }] : []),
+        // Dream Union：篮球数据分析模块（可扩展），几个子项收进来，与百家说/新闻同级
+        ...(canUse('featData')
+          ? [{
+              path: '/dream-union',
+              name: 'Dream Union',
+              icon: <FundOutlined />,
+              routes: [
+                { path: '/players', name: '数据概览', icon: <TeamOutlined /> },
+                { path: '/rankings', name: '联盟排行', icon: <TrophyOutlined /> },
+                { path: '/compare', name: '球员对比', icon: <SwapOutlined /> },
+              ],
+            }]
+          : []),
+        ...(canUse('featNews') ? [{ path: '/official', name: '新闻', icon: <NotificationOutlined /> }] : []),
+        ...(canUse('featForum') ? [{ path: '/news', name: '百家说', icon: <ReadOutlined /> }] : []),
+        ...(user && canUse('featPm') ? [{ path: '/messages', name: '私信', icon: <MessageOutlined /> }] : []),
         ...(user?.isSuperManager
           ? [
               { path: '/admin/players', name: '球员管理', icon: <DatabaseOutlined /> },

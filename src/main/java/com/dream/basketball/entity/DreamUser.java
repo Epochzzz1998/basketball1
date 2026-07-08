@@ -69,6 +69,16 @@ public class DreamUser extends Model<DreamUser> implements Serializable {
     @TableField("CAN_POST")
     private String canPost;
 
+    /** 功能模块可用性（按用户，super-admin 控制）：'0'=不可用（导航里整块隐藏该模块）/ null|'1'=可用 */
+    @TableField("FEAT_DATA")
+    private String featData;   // Dream Union 数据分析（数据概览/联盟排行/球员对比）
+    @TableField("FEAT_NEWS")
+    private String featNews;   // 新闻
+    @TableField("FEAT_FORUM")
+    private String featForum;  // 百家说
+    @TableField("FEAT_PM")
+    private String featPm;     // 私信
+
     /** '1' = 在公开主页隐藏我的发帖（仅本人可见） */
     @TableField("HIDE_POSTS")
     private String hidePosts;
@@ -107,6 +117,38 @@ public class DreamUser extends Model<DreamUser> implements Serializable {
 
     public void setCanPost(String canPost) {
         this.canPost = canPost;
+    }
+
+    public String getFeatData() {
+        return featData;
+    }
+
+    public void setFeatData(String featData) {
+        this.featData = featData;
+    }
+
+    public String getFeatNews() {
+        return featNews;
+    }
+
+    public void setFeatNews(String featNews) {
+        this.featNews = featNews;
+    }
+
+    public String getFeatForum() {
+        return featForum;
+    }
+
+    public void setFeatForum(String featForum) {
+        this.featForum = featForum;
+    }
+
+    public String getFeatPm() {
+        return featPm;
+    }
+
+    public void setFeatPm(String featPm) {
+        this.featPm = featPm;
     }
 
     public String getHidePosts() {

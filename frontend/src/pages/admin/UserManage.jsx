@@ -7,8 +7,9 @@ import { useAuth } from '../../auth/AuthContext'
 
 /**
  * 全局用户管理（超级管理员）。管理所有注册用户的**全局**权限（不是某个专题）：
- * 是否可登录 / 浏览论坛新闻 / 发言 / 发帖。超管账号与自己不可修改。
- * 每个开关即改即存（POST /user/setUserPerms）。
+ * - 动作权限：是否可登录 / 浏览论坛新闻 / 发言 / 发帖；
+ * - 功能模块：能否使用 数据分析(Dream Union) / 新闻 / 百家说 / 私信（关掉则该用户导航里整块隐藏、深链也进不去）。
+ * 超管账号与自己不可修改。每个开关即改即存（POST /user/setUserPerms）。
  */
 
 const fmt = (v) => (v ? dayjs(v).format('YYYY-MM-DD HH:mm') : '—')
@@ -64,6 +65,11 @@ export default function UserManage() {
     { title: '可浏览', dataIndex: 'canBrowse', width: 80, align: 'center', search: false, render: (_, r) => permSwitch(r, 'canBrowse', r.canBrowse) },
     { title: '可发言', dataIndex: 'canComment', width: 80, align: 'center', search: false, render: (_, r) => permSwitch(r, 'canComment', r.canComment) },
     { title: '可发帖', dataIndex: 'canPost', width: 80, align: 'center', search: false, render: (_, r) => permSwitch(r, 'canPost', r.canPost) },
+    // 功能模块开关：关掉则该用户导航里整块隐藏（数据分析=Dream Union 那一组）
+    { title: '数据分析', dataIndex: 'featData', width: 90, align: 'center', search: false, render: (_, r) => permSwitch(r, 'featData', r.featData) },
+    { title: '新闻', dataIndex: 'featNews', width: 70, align: 'center', search: false, render: (_, r) => permSwitch(r, 'featNews', r.featNews) },
+    { title: '百家说', dataIndex: 'featForum', width: 80, align: 'center', search: false, render: (_, r) => permSwitch(r, 'featForum', r.featForum) },
+    { title: '私信', dataIndex: 'featPm', width: 70, align: 'center', search: false, render: (_, r) => permSwitch(r, 'featPm', r.featPm) },
   ]
 
   return (
@@ -73,6 +79,7 @@ export default function UserManage() {
       headerTitle="用户管理"
       columns={columns}
       search={{ labelWidth: 'auto' }}
+      scroll={{ x: 'max-content' }}
       pagination={{ pageSize: 20 }}
       request={async (params) => {
         const res = await userApi.adminList({

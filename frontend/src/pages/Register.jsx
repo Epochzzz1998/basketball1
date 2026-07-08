@@ -34,7 +34,7 @@ export default function Register() {
   const iconStyle = { color: '#b3b3b3' }
 
   return (
-    <AuthShell title="创建账号" subtitle="注册后加入讨论：发帖、评论、点赞一条龙">
+    <AuthShell title="创建账号" subtitle="注册加入百家说，一起发帖聊天">
       <Form onFinish={onFinish} size="large">
         <Form.Item name="loginName" rules={[{ required: true, message: '请输入登录名' }]}>
           <Input variant="filled" prefix={<UserOutlined style={iconStyle} />} placeholder="登录名（用于登录，注册后不可改）" autoComplete="off" />
