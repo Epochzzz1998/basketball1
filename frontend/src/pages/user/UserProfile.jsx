@@ -8,6 +8,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { userApi } from '../../api/user'
 import { searchApi } from '../../api/search'
 import { useAuth } from '../../auth/AuthContext'
+import UserTitles from '../../components/UserTitles'
 
 /**
  * 用户主页（/users/:userId，公开）。他人视角：资料横幅 + 统计条 + 帖子/评论。
@@ -319,6 +320,7 @@ export default function UserProfile() {
                   <TrophyFilled /> 认证球员{user.playerName ? ` · ${user.playerName}` : ''}
                 </Tag>
               )}
+              <UserTitles titles={user.titles} />
               {isSelf && pending && (
                 <>
                   <Tag color="orange">认证审核中{user.playerName ? ` · ${user.playerName}` : ''}</Tag>

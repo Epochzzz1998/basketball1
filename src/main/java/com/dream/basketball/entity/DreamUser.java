@@ -79,6 +79,10 @@ public class DreamUser extends Model<DreamUser> implements Serializable {
     @TableField("FEAT_PM")
     private String featPm;     // 私信
 
+    /** 头衔（super-admin 分配，逗号分隔，可多个；与球员认证并存）。展示在用户名旁，如 "元老,技术大牛" */
+    @TableField("TITLES")
+    private String titles;
+
     /** '1' = 在公开主页隐藏我的发帖（仅本人可见） */
     @TableField("HIDE_POSTS")
     private String hidePosts;
@@ -149,6 +153,14 @@ public class DreamUser extends Model<DreamUser> implements Serializable {
 
     public void setFeatPm(String featPm) {
         this.featPm = featPm;
+    }
+
+    public String getTitles() {
+        return titles;
+    }
+
+    public void setTitles(String titles) {
+        this.titles = titles;
     }
 
     public String getHidePosts() {

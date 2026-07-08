@@ -22,4 +22,7 @@ public class NewsDto extends News {
     private String authorVerifiedPlayerId;
     private String authorVerifiedPlayerName;
 
+    /** 作者头衔（逗号分隔，读时填充），展示在作者名旁 */
+    private String authorTitles;
+
 }

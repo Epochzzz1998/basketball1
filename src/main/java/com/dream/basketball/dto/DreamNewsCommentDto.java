@@ -17,6 +17,9 @@ public class DreamNewsCommentDto extends DreamNewsComment {
     /** 认证球员姓名（徽章展示用） */
     private String verifiedPlayerName;
 
+    /** 评论者头衔（逗号分隔，读时填充），展示在评论者名旁 */
+    private String titles;
+
     /** 评论者头像 URL（与认证标识同一把批量查询回填） */
     private String commenterAvatar;
 

@@ -27,6 +27,7 @@ import Messages from './pages/user/Messages'
 import UserProfile from './pages/user/UserProfile'
 import VerifyBindings from './pages/admin/VerifyBindings'
 import UserManage from './pages/admin/UserManage'
+import UserManageDetail from './pages/admin/UserManageDetail'
 
 /**
  * 路由表（P5-1 骨架）。
@@ -84,6 +85,7 @@ export default function App() {
         {/* 需 superManager */}
         <Route path="admin/verify" element={<RoleRoute role="superManager"><VerifyBindings /></RoleRoute>} />
         <Route path="admin/users" element={<RoleRoute role="superManager"><UserManage /></RoleRoute>} />
+        <Route path="admin/users/:userId" element={<RoleRoute role="superManager"><UserManageDetail /></RoleRoute>} />
         <Route path="admin/players" element={<RoleRoute role="superManager"><PlayerManage /></RoleRoute>} />
         <Route path="admin/players/:playerId/stats" element={<RoleRoute role="superManager"><PlayerStatsManage /></RoleRoute>} />
 

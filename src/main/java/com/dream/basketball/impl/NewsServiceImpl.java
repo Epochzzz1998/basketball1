@@ -265,6 +265,7 @@ public class NewsServiceImpl implements NewsService {
                 n.setAuthor(u.getUserNickname());
             }
             n.setAuthorAvatar(u.getAvatar());
+            n.setAuthorTitles(u.getTitles()); // 头衔（逗号分隔）
             n.setAuthorSuperManager(com.dream.basketball.config.Role.fromUserRole(u.getUserRole())
                     == com.dream.basketball.config.Role.SUPER_MANAGER);
             if (com.dream.basketball.utils.Constants.IDENTIFICATION.equals(u.getPlayerIdentification())
@@ -284,6 +285,7 @@ public class NewsServiceImpl implements NewsService {
         BoolQueryBuilder kw = new BoolQueryBuilder();
         kw.should(QueryBuilders.matchPhrasePrefixQuery("title", keyword).boost(3f));
         kw.should(QueryBuilders.matchQuery("title", keyword).boost(2f));
+        kw.should(QueryBuilders.matchQuery("tags", keyword).boost(2f)); // 帖子标签也可被搜到
         kw.should(QueryBuilders.matchQuery("content", keyword));
         kw.should(QueryBuilders.matchQuery("author", keyword));
         kw.minimumShouldMatch(1);
@@ -385,6 +387,7 @@ public class NewsServiceImpl implements NewsService {
                 c.setUserName(u.getUserNickname());
             }
             c.setCommenterAvatar(u.getAvatar());
+            c.setTitles(u.getTitles()); // 头衔（逗号分隔）
             c.setSuperManager(com.dream.basketball.config.Role.fromUserRole(u.getUserRole())
                     == com.dream.basketball.config.Role.SUPER_MANAGER);
             if (com.dream.basketball.utils.Constants.IDENTIFICATION.equals(u.getPlayerIdentification())

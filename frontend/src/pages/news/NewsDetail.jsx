@@ -8,6 +8,7 @@ import { newsApi } from '../../api/news'
 import { useAuth } from '../../auth/AuthContext'
 import CommentSection from '../../components/CommentSection'
 import { SuperAdminBadge, TopicOwnerBadge, OpBadge } from '../../components/RoleBadges'
+import UserTitles from '../../components/UserTitles'
 import useIsMobile from '../../hooks/useIsMobile'
 
 /**
@@ -232,6 +233,7 @@ export default function NewsDetail() {
                           <TrophyFilled /> {news.authorVerifiedPlayerName || '认证球员'}
                         </Tag>
                       )}
+                      <UserTitles titles={news.authorTitles} size="sm" />
                       {official && <Tag color="blue" style={{ marginInlineEnd: 0 }}>官方</Tag>}
                       {news.top === '1' && <Tag color="red" style={{ marginInlineEnd: 0 }}>置顶</Tag>}
                       {news.essence === '1' && <Tag color="volcano" style={{ marginInlineEnd: 0 }}>精华</Tag>}
@@ -345,6 +347,7 @@ export default function NewsDetail() {
                         <TrophyFilled /> {news.authorVerifiedPlayerName || '认证球员'}
                       </Tag>
                     )}
+                    <UserTitles titles={news.authorTitles} size="sm" />
                   </div>
                   <div style={{ fontSize: 12, color: '#999', marginTop: 2 }}>{official ? '官方新闻作者' : '论坛作者'}</div>
                 </div>

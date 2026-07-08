@@ -155,6 +155,7 @@ public class UserController extends BaseUtils {
         data.put("featNews", !"0".equals(u.getFeatNews()));
         data.put("featForum", !"0".equals(u.getFeatForum()));
         data.put("featPm", !"0".equals(u.getFeatPm()));
+        data.put("titles", u.getTitles()); // 头衔（逗号分隔）
         return new Result<>(0, "成功", data);
     }
 
@@ -200,6 +201,7 @@ public class UserController extends BaseUtils {
             m.put("featNews", !"0".equals(u.getFeatNews()));
             m.put("featForum", !"0".equals(u.getFeatForum()));
             m.put("featPm", !"0".equals(u.getFeatPm()));
+            m.put("titles", u.getTitles());
             m.put("isSuperManager", Role.fromUserRole(u.getUserRole()) == Role.SUPER_MANAGER);
             rows.add(m);
         }
@@ -248,6 +250,65 @@ public class UserController extends BaseUtils {
             uw.set("FEAT_PM", "1".equals(featPm) ? "1" : "0");
         }
         userService.update(uw);
+        return handlerResultJson(true, "已保存");
+    }
+
+    /** 用户管理详情（超管）：一个用户的全部可管理项，供"点进用户"的详情页用。 */
+    @RequiresRole(Role.SUPER_MANAGER)
+    @GetMapping("/adminDetail")
+    public Object adminDetail(String userId) {
+        DreamUser u = StringUtils.isBlank(userId) ? null : userService.getById(userId);
+        if (u == null) {
+            return new Result<>(1, "用户不存在", null);
+        }
+        Map<String, Object> m = new HashMap<>();
+        m.put("userId", u.getUserId());
+        m.put("userNickname", u.getUserNickname());
+        m.put("userName", u.getUserName());
+        m.put("loginName", u.getLoginName());
+        m.put("avatar", u.getAvatar());
+        m.put("userRole", u.getUserRole());
+        m.put("isSuperManager", Role.fromUserRole(u.getUserRole()) == Role.SUPER_MANAGER);
+        m.put("registTime", u.getRegistTime());
+        m.put("lastLoginTime", u.getLastLoginTime());
+        m.put("enabled", !Constants.DISABLE.equals(u.getUserStatus()));
+        m.put("canBrowse", !"0".equals(u.getCanBrowse()));
+        m.put("canComment", !"0".equals(u.getCanComment()));
+        m.put("canPost", !"0".equals(u.getCanPost()));
+        m.put("featData", !"0".equals(u.getFeatData()));
+        m.put("featNews", !"0".equals(u.getFeatNews()));
+        m.put("featForum", !"0".equals(u.getFeatForum()));
+        m.put("featPm", !"0".equals(u.getFeatPm()));
+        m.put("titles", u.getTitles());
+        // 认证球员（只读展示；认证流程在 /admin/verify 管）
+        m.put("verified", Constants.IDENTIFICATION.equals(u.getPlayerIdentification()));
+        m.put("playerId", u.getPlayerId());
+        return new Result<>(0, "成功", m);
+    }
+
+    /** 分配头衔（超管）：整表替换该用户的头衔集（逗号分隔）。头衔是荣誉标签、非权限，可给任何人（含超管/自己），可多个。 */
+    @RequiresRole(Role.SUPER_MANAGER)
+    @PostMapping("/setUserTitles")
+    public Object setUserTitles(String userId, String titles) {
+        DreamUser target = StringUtils.isBlank(userId) ? null : userService.getById(userId);
+        if (target == null) {
+            return handlerResultJson(false, "用户不存在");
+        }
+        java.util.LinkedHashSet<String> set = new java.util.LinkedHashSet<>();
+        if (StringUtils.isNotBlank(titles)) {
+            for (String t : titles.split(",")) {
+                String s = t.trim();
+                if (!s.isEmpty() && s.length() <= 20) {
+                    set.add(s);
+                }
+                if (set.size() >= 10) { // 最多 10 个
+                    break;
+                }
+            }
+        }
+        String cleaned = set.isEmpty() ? null : String.join(",", set);
+        userService.update(new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<DreamUser>()
+                .eq("USER_ID", userId).set("TITLES", cleaned));
         return handlerResultJson(true, "已保存");
     }
 

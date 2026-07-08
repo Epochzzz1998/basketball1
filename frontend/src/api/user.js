@@ -30,11 +30,15 @@ export const userApi = {
     http.post('/user/reviewBinding', new URLSearchParams({ userId, approve })),
   // 超管：认证审核历史（分页）
   verifyHistory: (params) => http.get('/user/verifyHistory', { params }),
-  // 超管：全局用户管理——列表 + 设置某用户的登录/浏览/发言/发帖权限
+  // 超管：全局用户管理——列表 / 单个用户详情 / 设置权限 / 分配头衔
   adminList: (params) => http.get('/user/adminList', { params }),
+  adminDetail: (userId) => http.get('/user/adminDetail', { params: { userId } }),
   setUserPerms: (payload) => {
     const body = new URLSearchParams()
     Object.entries(payload).forEach(([k, v]) => { if (v != null) body.append(k, v) })
     return http.post('/user/setUserPerms', body)
   },
+  // 头衔：整表替换该用户的头衔集（逗号分隔串；空串=清空）
+  setUserTitles: (userId, titles) =>
+    http.post('/user/setUserTitles', new URLSearchParams({ userId, titles: titles || '' })),
 }

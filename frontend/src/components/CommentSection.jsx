@@ -7,6 +7,7 @@ import { newsApi } from '../api/news'
 import { useAuth } from '../auth/AuthContext'
 import CommentComposer, { humanSize } from './CommentComposer'
 import { SuperAdminBadge, TopicOwnerBadge, OpBadge } from './RoleBadges'
+import UserTitles from './UserTitles'
 import useIsMobile from '../hooks/useIsMobile'
 
 const fmt = (v) => (v ? dayjs(v).format('YYYY-MM-DD HH:mm') : '')
@@ -213,6 +214,7 @@ function CommentNode({ comment, newsId, depth = 0, authorId, topicOwnerId, locke
               </Tag>
             </Tooltip>
           )}
+          <UserTitles titles={c.titles} size="sm" />
           {c.floor != null && <span style={{ fontSize: 12, color: '#bbb' }}>#{c.floor}</span>}
           <span style={{ fontSize: 12, color: '#bbb' }}>{fmt(c.commentDate)}</span>
         </div>

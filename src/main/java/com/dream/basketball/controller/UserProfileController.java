@@ -85,6 +85,7 @@ public class UserProfileController {
         user.put("userNickname", u.getUserNickname());
         user.put("userRole", u.getUserRole());
         user.put("avatar", u.getAvatar());
+        user.put("titles", u.getTitles()); // 头衔（逗号分隔），主页展示在名字旁
         user.put("registTime", u.getRegistTime());
         user.put("lastLoginTime", u.getLastLoginTime());
         // 原始隐藏开关（本人视角用来回显开关状态）

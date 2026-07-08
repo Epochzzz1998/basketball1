@@ -11,6 +11,7 @@ import { useAuth } from '../../auth/AuthContext'
 import TopicMemberModal from '../../components/TopicMemberModal'
 import TopicApplyButton from '../../components/TopicApplyButton'
 import { SuperAdminBadge, TopicOwnerBadge } from '../../components/RoleBadges'
+import UserTitles from '../../components/UserTitles'
 import useIsMobile from '../../hooks/useIsMobile'
 
 /**
@@ -97,6 +98,7 @@ function PostCard({ post, topicOwnerId }) {
           {post.authorVerifiedPlayerId && (
             <Tag color="gold" style={{ marginInlineEnd: 0 }}><TrophyFilled /> {post.authorVerifiedPlayerName || '认证球员'}</Tag>
           )}
+          <UserTitles titles={post.authorTitles} size="sm" />
           <span>{timeAgo(post.publishDate)}</span>
           {String(post.tags || '').split(',').map((t) => t.trim()).filter(Boolean).slice(0, 4).map((t) => (
             <Tag key={t} style={{ marginInlineEnd: 0 }} bordered={false}>{t}</Tag>
