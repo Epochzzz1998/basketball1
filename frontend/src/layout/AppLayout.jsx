@@ -140,7 +140,7 @@ export default function AppLayout() {
       fixedHeader
       fixSiderbar
       title="Dream Everything"
-      logo={<span style={{ fontSize: 26, lineHeight: 1 }}>🏀</span>}
+      logo={false}
       siderWidth={216}
       location={{ pathname: location.pathname }}
       route={route}
