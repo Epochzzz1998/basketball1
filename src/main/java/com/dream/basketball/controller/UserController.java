@@ -286,7 +286,14 @@ public class UserController extends BaseUtils {
         return new Result<>(0, "成功", m);
     }
 
-    /** 分配头衔（超管）：整表替换该用户的头衔集（逗号分隔）。头衔是荣誉标签、非权限，可给任何人（含超管/自己），可多个。 */
+    /** 头衔颜色白名单（antd Tag 预设色）。非白名单一律兜底成 blue。 */
+    private static final java.util.List<String> TITLE_COLORS = java.util.Arrays.asList(
+            "red", "volcano", "orange", "gold", "lime", "green", "cyan", "blue", "geekblue", "purple", "magenta");
+
+    /**
+     * 分配头衔（超管）：整表替换该用户的头衔集。入参 titles 是 JSON 数组 [{"t":"文字","c":"颜色"}]，可多个。
+     * 逐项校验（文字非空且≤20、颜色须在白名单）、按文字去重、最多 10 个，再存规范 JSON。头衔是荣誉标签、非权限，可给任何人（含超管/自己）。
+     */
     @RequiresRole(Role.SUPER_MANAGER)
     @PostMapping("/setUserTitles")
     public Object setUserTitles(String userId, String titles) {
@@ -294,19 +301,34 @@ public class UserController extends BaseUtils {
         if (target == null) {
             return handlerResultJson(false, "用户不存在");
         }
-        java.util.LinkedHashSet<String> set = new java.util.LinkedHashSet<>();
+        com.alibaba.fastjson.JSONArray out = new com.alibaba.fastjson.JSONArray();
+        java.util.Set<String> seen = new java.util.HashSet<>();
         if (StringUtils.isNotBlank(titles)) {
-            for (String t : titles.split(",")) {
-                String s = t.trim();
-                if (!s.isEmpty() && s.length() <= 20) {
-                    set.add(s);
+            try {
+                com.alibaba.fastjson.JSONArray arr = com.alibaba.fastjson.JSON.parseArray(titles);
+                for (int i = 0; i < arr.size() && out.size() < 10; i++) {
+                    com.alibaba.fastjson.JSONObject o = arr.getJSONObject(i);
+                    if (o == null) {
+                        continue;
+                    }
+                    String t = o.getString("t");
+                    if (t == null || (t = t.trim()).isEmpty() || t.length() > 20 || !seen.add(t)) {
+                        continue;
+                    }
+                    String c = o.getString("c");
+                    if (c == null || !TITLE_COLORS.contains(c)) {
+                        c = "blue"; // 非法颜色兜底
+                    }
+                    com.alibaba.fastjson.JSONObject e = new com.alibaba.fastjson.JSONObject();
+                    e.put("t", t);
+                    e.put("c", c);
+                    out.add(e);
                 }
-                if (set.size() >= 10) { // 最多 10 个
-                    break;
-                }
+            } catch (Exception ignore) {
+                // 解析失败：当作清空
             }
         }
-        String cleaned = set.isEmpty() ? null : String.join(",", set);
+        String cleaned = out.isEmpty() ? null : out.toJSONString();
         userService.update(new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<DreamUser>()
                 .eq("USER_ID", userId).set("TITLES", cleaned));
         return handlerResultJson(true, "已保存");
