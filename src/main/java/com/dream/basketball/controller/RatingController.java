@@ -50,10 +50,19 @@ public class RatingController {
     @Autowired
     private TopicPermissionService topicPerms;
 
+    /** 打分对象配图：只收 http(s)/站内相对路径（与评论附件同规则，挡 javascript: 之类），超长/不合法一律置空 */
+    private String sanitizeImageUrl(String imageUrl) {
+        String url = StringUtils.trimToNull(imageUrl);
+        if (url == null || url.length() > 255 || !url.matches("^(https?://|/).*")) {
+            return null;
+        }
+        return url;
+    }
+
     /** 开打分项（楼主）：commentId 为空=主贴项（发帖时调用）；否则必须是楼主自己发的该帖一级楼。 */
     @RequiresRole(Role.USER)
     @PostMapping("/create")
-    public Object create(String newsId, String commentId, String subject, HttpServletRequest request) {
+    public Object create(String newsId, String commentId, String subject, String imageUrl, HttpServletRequest request) {
         DreamUser me = SecUtil.getLoginUserToSession(request);
         DreamNews news = StringUtils.isBlank(newsId) ? null : dreamNewsService.getById(newsId);
         if (news == null) {
@@ -85,6 +94,7 @@ public class RatingController {
         item.setNewsId(newsId);
         item.setCommentId(StringUtils.trimToNull(commentId));
         item.setSubject(sub);
+        item.setImageUrl(sanitizeImageUrl(imageUrl));
         item.setCreateBy(me.getUserId());
         item.setCreateTime(new Date());
         itemMapper.insert(item);
@@ -97,7 +107,7 @@ public class RatingController {
      */
     @RequiresRole(Role.USER)
     @PostMapping("/openFloor")
-    public Object openFloor(String newsId, String subject, String content, HttpServletRequest request) {
+    public Object openFloor(String newsId, String subject, String content, String imageUrl, HttpServletRequest request) {
         DreamUser me = SecUtil.getLoginUserToSession(request);
         DreamNews news = StringUtils.isBlank(newsId) ? null : dreamNewsService.getById(newsId);
         if (news == null) {
@@ -120,7 +130,7 @@ public class RatingController {
             return commentResult;
         }
         // comment() 把生成的 commentId 写回了同一个实体，据此挂打分项
-        return create(newsId, c.getCommentId(), sub, request);
+        return create(newsId, c.getCommentId(), sub, imageUrl, request);
     }
 
     /** 打分/改分（登录）：1-5 星，一人一票，再打=改分。锁定帖不能再打；私密专题要有浏览权。 */
@@ -205,6 +215,7 @@ public class RatingController {
             m.put("itemId", it.getItemId());
             m.put("commentId", it.getCommentId());
             m.put("subject", it.getSubject());
+            m.put("imageUrl", it.getImageUrl());
             Map<String, Object> agg = aggByItem.get(it.getItemId());
             m.put("avg", agg == null ? 0 : agg.get("avg"));
             m.put("count", agg == null ? 0 : agg.get("count"));

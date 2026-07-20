@@ -1,8 +1,49 @@
-import { Popconfirm, Rate, message } from 'antd'
-import { DeleteOutlined, StarFilled } from '@ant-design/icons'
+import { useState } from 'react'
+import { Button, Image, Popconfirm, Rate, Upload, message } from 'antd'
+import { CloseCircleFilled, DeleteOutlined, PictureOutlined, StarFilled } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import useIsMobile from '../hooks/useIsMobile'
+
+/**
+ * 打分对象配图选择器（开分表单用，发帖页/评论区共用）：一张图，传完显示缩略 + 右上角移除。
+ * upload(file) => Promise<url>（外部决定传到哪，通常 newsApi.uploadNewsImage 归到帖子目录）。
+ */
+export function RatingImagePicker({ value, onChange, upload }) {
+  const [uploading, setUploading] = useState(false)
+  if (value) {
+    return (
+      <span style={{ position: 'relative', display: 'inline-block' }}>
+        <img src={value} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid #ffd591', display: 'block' }} />
+        <CloseCircleFilled
+          onClick={() => onChange('')}
+          style={{ position: 'absolute', top: -6, right: -6, color: '#bbb', cursor: 'pointer', fontSize: 15, background: '#fff', borderRadius: '50%' }}
+        />
+      </span>
+    )
+  }
+  return (
+    <Upload
+      accept="image/*"
+      showUploadList={false}
+      customRequest={async ({ file, onSuccess, onError }) => {
+        setUploading(true)
+        try {
+          const url = await upload(file)
+          if (url) onChange(url)
+          onSuccess?.(url)
+        } catch (e) {
+          message.error('图片上传失败')
+          onError?.(e)
+        } finally {
+          setUploading(false)
+        }
+      }}
+    >
+      <Button size="small" icon={<PictureOutlined />} loading={uploading}>配图（可选）</Button>
+    </Upload>
+  )
+}
 
 /**
  * 打分卡：均分大字 + 只读星（半星）+ 人数 + 5→1 星分布条 + 我的评分行（点星打/改）。
@@ -44,32 +85,44 @@ export default function RatingCard({ item, onVote, onDelete, canDelete, disabled
         )}
       </div>
 
-      {/* 均分 + 星 + 人数 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 26, fontWeight: 800, color: '#fa8c16', lineHeight: 1 }}>
-          {count ? avg.toFixed(1) : '-'}
-        </span>
-        <Rate disabled allowHalf value={count ? Math.round(avg * 2) / 2 : 0} style={{ fontSize: 16 }} />
-        <span style={{ fontSize: 12, color: '#999' }}>{count} 人参与</span>
-      </div>
-
-      {/* 5→1 星分布条 */}
-      {count > 0 && (
-        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {[5, 4, 3, 2, 1].map((s) => {
-            const n = dist[s] || dist[String(s)] || 0
-            return (
-              <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#999' }}>
-                <span style={{ width: 22, textAlign: 'right' }}>{s} 星</span>
-                <div style={{ flex: 1, height: 6, background: '#fff1d6', borderRadius: 3, overflow: 'hidden' }}>
-                  <div style={{ width: `${count ? (n / count) * 100 : 0}%`, height: '100%', background: '#ffa940', borderRadius: 3 }} />
-                </div>
-                <span style={{ width: 26 }}>{n}</span>
-              </div>
-            )
-          })}
+      {/* 配图（可点大图）+ 均分/分布：有图时左图右分 */}
+      <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+        {item.imageUrl && (
+          <Image
+            src={item.imageUrl}
+            width={isMobile ? 76 : 92}
+            height={isMobile ? 76 : 92}
+            style={{ objectFit: 'cover', borderRadius: 10, flexShrink: 0, background: '#fff1d6' }}
+          />
+        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {/* 均分 + 星 + 人数 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 26, fontWeight: 800, color: '#fa8c16', lineHeight: 1 }}>
+              {count ? avg.toFixed(1) : '-'}
+            </span>
+            <Rate disabled allowHalf value={count ? Math.round(avg * 2) / 2 : 0} style={{ fontSize: 16 }} />
+            <span style={{ fontSize: 12, color: '#999' }}>{count} 人参与</span>
+          </div>
+          {/* 5→1 星分布条 */}
+          {count > 0 && (
+            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {[5, 4, 3, 2, 1].map((s) => {
+                const n = dist[s] || dist[String(s)] || 0
+                return (
+                  <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#999' }}>
+                    <span style={{ width: 22, textAlign: 'right' }}>{s} 星</span>
+                    <div style={{ flex: 1, height: 6, background: '#fff1d6', borderRadius: 3, overflow: 'hidden' }}>
+                      <div style={{ width: `${count ? (n / count) * 100 : 0}%`, height: '100%', background: '#ffa940', borderRadius: 3 }} />
+                    </div>
+                    <span style={{ width: 26 }}>{n}</span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* 我的评分 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, paddingTop: 10, borderTop: '1px dashed #ffe2b8', flexWrap: 'wrap' }}>

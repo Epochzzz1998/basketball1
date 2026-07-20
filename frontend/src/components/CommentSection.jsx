@@ -6,7 +6,7 @@ import dayjs from 'dayjs'
 import { newsApi } from '../api/news'
 import { useAuth } from '../auth/AuthContext'
 import CommentComposer, { humanSize } from './CommentComposer'
-import RatingCard from './RatingCard'
+import RatingCard, { RatingImagePicker } from './RatingCard'
 import { SuperAdminBadge, TopicOwnerBadge, OpBadge } from './RoleBadges'
 import UserTitles from './UserTitles'
 import useIsMobile from '../hooks/useIsMobile'
@@ -444,6 +444,7 @@ export default function CommentSection({
   const [ratingOpen, setRatingOpen] = useState(false) // 楼主"开启打分"面板
   const [ratingSubject, setRatingSubject] = useState('')
   const [ratingNote, setRatingNote] = useState('')
+  const [ratingImage, setRatingImage] = useState('') // 打分对象配图 URL（可选）
   const [ratingSaving, setRatingSaving] = useState(false)
 
   // 楼主开打分楼：NewsDetail 调 openFloor + 刷新打分项，这里刷新楼列表让新楼出现
@@ -452,11 +453,12 @@ export default function CommentSection({
     if (!sub) return message.warning('请填写打分对象')
     setRatingSaving(true)
     try {
-      await onOpenRating?.(sub, ratingNote.trim())
+      await onOpenRating?.(sub, ratingNote.trim(), ratingImage)
       message.success('已开启打分')
       setRatingOpen(false)
       setRatingSubject('')
       setRatingNote('')
+      setRatingImage('')
       load()
     } catch { /* 拦截器已弹错 */ } finally {
       setRatingSaving(false)
@@ -545,14 +547,17 @@ export default function CommentSection({
             <StarFilled style={{ marginRight: 6 }} />开启新打分（会以一条新楼发布）
           </div>
           <Space direction="vertical" style={{ width: '100%' }} size={8}>
-            <Input
-              placeholder="要为谁 / 什么打分？（必填，如：保罗）"
-              maxLength={30}
-              showCount
-              value={ratingSubject}
-              onChange={(e) => setRatingSubject(e.target.value)}
-              style={{ maxWidth: 360 }}
-            />
+            <Space align="start" wrap>
+              <Input
+                placeholder="要为谁 / 什么打分？（必填，如：保罗）"
+                maxLength={30}
+                showCount
+                value={ratingSubject}
+                onChange={(e) => setRatingSubject(e.target.value)}
+                style={{ width: 260 }}
+              />
+              <RatingImagePicker value={ratingImage} onChange={setRatingImage} upload={(f) => newsApi.uploadNewsImage(f, newsId)} />
+            </Space>
             <Input
               placeholder="说明文字（可选，作为楼的内容）"
               maxLength={200}

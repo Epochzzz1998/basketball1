@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button, Card, Form, Input, Select, Space, message } from 'antd'
 import RichTextEditor from '../../components/RichTextEditor'
+import { RatingImagePicker } from '../../components/RatingCard'
 import { newsApi } from '../../api/news'
 import { ratingApi } from '../../api/rating'
 import { searchApi } from '../../api/search'
@@ -43,6 +44,7 @@ export default function NewsEdit() {
   const [topicName, setTopicName] = useState('')
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving] = useState(false)
+  const [ratingImg, setRatingImg] = useState('') // 打分对象配图 URL（可选）
   const newsIdRef = useRef(routeId || crypto.randomUUID())
   const isMobile = useIsMobile()
 
@@ -95,7 +97,7 @@ export default function NewsEdit() {
       const ratingSubject = (values.ratingSubject || '').trim()
       if (!isEdit && ratingSubject) {
         try {
-          await ratingApi.create({ newsId: newsIdRef.current, subject: ratingSubject })
+          await ratingApi.create({ newsId: newsIdRef.current, subject: ratingSubject, imageUrl: ratingImg || undefined })
         } catch { message.warning('帖子已发出，但打分开启失败，可在评论区重新开启') }
       }
       message.success('已保存')
@@ -133,11 +135,15 @@ export default function NewsEdit() {
         {/* 开启打分（可选，仅新帖）：填了对象即在主贴挂一个 1-5 星打分项；之后楼主还能在评论区继续开 */}
         {!isEdit && (
           <Form.Item
-            name="ratingSubject"
             label="开启打分（可选）"
-            tooltip="填写打分对象即开启 1-5 星打分（如：格里芬）。发帖后你还可以在评论区继续为其他对象开分"
+            tooltip="填写打分对象即开启 1-5 星打分（如：格里芬），可配一张图。发帖后你还可以在评论区继续为其他对象开分"
           >
-            <Input placeholder="要为谁 / 什么打分？留空则不开启" maxLength={30} showCount style={{ maxWidth: 360 }} />
+            <Space align="start" wrap>
+              <Form.Item name="ratingSubject" noStyle>
+                <Input placeholder="要为谁 / 什么打分？留空则不开启" maxLength={30} showCount style={{ width: isMobile ? 260 : 320 }} />
+              </Form.Item>
+              <RatingImagePicker value={ratingImg} onChange={setRatingImg} upload={(f) => newsApi.uploadNewsImage(f, newsIdRef.current)} />
+            </Space>
           </Form.Item>
         )}
         <Form.Item label="正文" required>

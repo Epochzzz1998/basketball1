@@ -168,9 +168,9 @@ export default function NewsDetail() {
     } catch { /* 拦截器已弹错 */ }
   }
 
-  // 楼主在评论区开打分楼：发一条一级楼 + 挂打分项，成功后刷新打分项（楼列表由 CommentSection 自己刷）
-  const openRating = async (subject, content) => {
-    await ratingApi.openFloor({ newsId, subject, content })
+  // 楼主在评论区开打分楼：发一条一级楼 + 挂打分项（可配图），成功后刷新打分项（楼列表由 CommentSection 自己刷）
+  const openRating = async (subject, content, imageUrl) => {
+    await ratingApi.openFloor({ newsId, subject, content, imageUrl: imageUrl || undefined })
     const rows = await ratingApi.list(newsId).catch(() => null)
     if (Array.isArray(rows)) setRatingItems(rows)
   }

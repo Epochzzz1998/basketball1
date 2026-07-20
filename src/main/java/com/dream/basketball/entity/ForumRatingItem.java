@@ -32,6 +32,10 @@ public class ForumRatingItem extends Model<ForumRatingItem> implements Serializa
     @TableField("SUBJECT")
     private String subject;
 
+    /** optional picture of the rated subject; uploaded via /news/upload so it lives (and dies) with the post's folder */
+    @TableField("IMAGE_URL")
+    private String imageUrl;
+
     @TableField("CREATE_BY")
     private String createBy;
 
@@ -68,6 +72,14 @@ public class ForumRatingItem extends Model<ForumRatingItem> implements Serializa
 
     public void setSubject(String subject) {
         this.subject = subject;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
     }
 
     public String getCreateBy() {
