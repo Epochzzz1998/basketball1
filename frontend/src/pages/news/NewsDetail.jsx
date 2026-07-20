@@ -5,8 +5,10 @@ import { ArrowLeftOutlined, DeleteOutlined, DislikeOutlined, EyeInvisibleOutline
 import dayjs from 'dayjs'
 import DOMPurify from 'dompurify'
 import { newsApi } from '../../api/news'
+import { ratingApi } from '../../api/rating'
 import { useAuth } from '../../auth/AuthContext'
 import CommentSection from '../../components/CommentSection'
+import RatingCard from '../../components/RatingCard'
 import { SuperAdminBadge, TopicOwnerBadge, OpBadge } from '../../components/RoleBadges'
 import UserTitles from '../../components/UserTitles'
 import useIsMobile from '../../hooks/useIsMobile'
@@ -101,6 +103,7 @@ export default function NewsDetail() {
   const [news, setNews] = useState(null)
   const [canManage, setCanManage] = useState(false) // 能否置顶/加精（owner/manager+）
   const [topicOwnerIds, setTopicOwnerIds] = useState([]) // 该帖所属专题的题主集合（题主标识用，支持多题主）
+  const [ratingItems, setRatingItems] = useState([]) // 该帖打分项（主贴的 + 楼上挂的），单一数据源
   const [authorStats, setAuthorStats] = useState(null) // 作者数据小结（发帖/精华/置顶/获赞）
   const [loading, setLoading] = useState(true)
 
@@ -139,6 +142,46 @@ export default function NewsDetail() {
     newsApi.authorStats(aid).then((s) => { if (alive) setAuthorStats(s || null) }).catch(() => {})
     return () => { alive = false }
   }, [news?.authorId])
+
+  // 打分项：拉全帖的（主贴项 + 各楼挂的），按 commentId 分发渲染
+  useEffect(() => {
+    let alive = true
+    ratingApi.list(newsId).then((rows) => { if (alive) setRatingItems(Array.isArray(rows) ? rows : []) }).catch(() => {})
+    return () => { alive = false }
+  }, [newsId])
+
+  // 打分/改分：接口回该项最新聚合，就地替换
+  const voteRating = async (itemId, score) => {
+    try {
+      const agg = await ratingApi.vote(itemId, score)
+      setRatingItems((items) => items.map((it) => (it.itemId === itemId ? { ...it, ...agg } : it)))
+      message.success('已打分')
+    } catch { /* 拦截器已弹错 */ }
+  }
+
+  // 删打分项（超管或楼主）
+  const deleteRating = async (itemId) => {
+    try {
+      await ratingApi.remove(itemId)
+      setRatingItems((items) => items.filter((it) => it.itemId !== itemId))
+      message.success('已删除')
+    } catch { /* 拦截器已弹错 */ }
+  }
+
+  // 楼主在评论区开打分楼：发一条一级楼 + 挂打分项，成功后刷新打分项（楼列表由 CommentSection 自己刷）
+  const openRating = async (subject, content) => {
+    await ratingApi.openFloor({ newsId, subject, content })
+    const rows = await ratingApi.list(newsId).catch(() => null)
+    if (Array.isArray(rows)) setRatingItems(rows)
+  }
+
+  const isAuthor = !!user && !!news && user.userId === news.authorId
+  const ratingCanDelete = !!user && (user.isSuperManager || isAuthor)
+  const postRatingItems = ratingItems.filter((it) => !it.commentId)
+  const ratingByComment = {}
+  for (const it of ratingItems) {
+    if (it.commentId) ratingByComment[it.commentId] = it
+  }
 
   // 置顶/精华/封锁/隐藏（可并存）：成功就地更新；失败由 http 拦截器统一弹错（接口回统一 Result，成功时 data 为空，不能靠 res.result 判断）
   const toggleFlag = async (flag) => {
@@ -303,6 +346,22 @@ export default function NewsDetail() {
                   </div>
                 )}
 
+                {/* 主贴打分项（楼上挂的在各楼里渲染） */}
+                {postRatingItems.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 22 }}>
+                    {postRatingItems.map((it) => (
+                      <RatingCard
+                        key={it.itemId}
+                        item={it}
+                        onVote={voteRating}
+                        onDelete={deleteRating}
+                        canDelete={ratingCanDelete}
+                        disabled={news.locked === '1'}
+                      />
+                    ))}
+                  </div>
+                )}
+
                 {/* 顶/踩 */}
                 <div style={{ display: 'flex', justifyContent: 'center', gap: 14, margin: '26px 0 8px' }}>
                   <Button shape="round" size="large" icon={<LikeOutlined />} onClick={() => likePost('good')}>
@@ -314,7 +373,19 @@ export default function NewsDetail() {
                 </div>
 
                 <Divider style={{ margin: '18px 0 0' }} />
-                <CommentSection newsId={newsId} authorId={news.authorId} authorName={news.author} topicOwnerIds={topicOwnerIds} locked={news.locked === '1'} />
+                <CommentSection
+                  newsId={newsId}
+                  authorId={news.authorId}
+                  authorName={news.author}
+                  topicOwnerIds={topicOwnerIds}
+                  locked={news.locked === '1'}
+                  ratingByComment={ratingByComment}
+                  onVoteRating={voteRating}
+                  onDeleteRating={deleteRating}
+                  ratingCanDelete={ratingCanDelete}
+                  canOpenRating={isAuthor}
+                  onOpenRating={openRating}
+                />
               </>
             ) : (
               <Empty description="资讯不存在或已删除">

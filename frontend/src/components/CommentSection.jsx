@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Avatar, Button, Empty, Image, Pagination, Space, Spin, Tag, Tooltip, message } from 'antd'
-import { DislikeOutlined, FileOutlined, LikeOutlined, LockOutlined, TrophyFilled, UserOutlined } from '@ant-design/icons'
+import { Avatar, Button, Empty, Image, Input, Pagination, Space, Spin, Tag, Tooltip, message } from 'antd'
+import { DislikeOutlined, FileOutlined, LikeOutlined, LockOutlined, StarFilled, TrophyFilled, UserOutlined } from '@ant-design/icons'
 import { Link, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { newsApi } from '../api/news'
 import { useAuth } from '../auth/AuthContext'
 import CommentComposer, { humanSize } from './CommentComposer'
+import RatingCard from './RatingCard'
 import { SuperAdminBadge, TopicOwnerBadge, OpBadge } from './RoleBadges'
 import UserTitles from './UserTitles'
 import useIsMobile from '../hooks/useIsMobile'
@@ -299,7 +300,7 @@ function FloorReplies({ floorId, newsId, authorId, topicOwnerIds, locked, bump, 
  * 一层楼（一级评论）：楼主体 + 点赞/点踩/回复 + 展开楼内平铺回复（FloorReplies）。
  * "N 条回复"用全部子孙数（后端按 ROOT_ID 统计的 totalReplyNum）。
  */
-function FloorNode({ comment, newsId, authorId, topicOwnerIds, locked }) {
+function FloorNode({ comment, newsId, authorId, topicOwnerIds, locked, ratingItem, onVoteRating, onDeleteRating, ratingCanDelete }) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
@@ -362,6 +363,19 @@ function FloorNode({ comment, newsId, authorId, topicOwnerIds, locked }) {
         {/* 图片/文件附件 */}
         <CommentAttachments attachmentsJson={c.attachments} />
 
+        {/* 该楼挂的打分项（楼主开的打分楼） */}
+        {ratingItem && (
+          <div style={{ marginTop: 8 }}>
+            <RatingCard
+              item={ratingItem}
+              onVote={onVoteRating}
+              onDelete={onDeleteRating}
+              canDelete={ratingCanDelete}
+              disabled={locked}
+            />
+          </div>
+        )}
+
         {/* 操作行 */}
         <Space size={2} wrap={isMobile} style={{ marginLeft: -8, marginTop: 4 }}>
           <Button type="text" size="small" style={{ color: '#8c8c8c' }} icon={<LikeOutlined />} onClick={() => like('good')}>
@@ -417,13 +431,37 @@ function FloorNode({ comment, newsId, authorId, topicOwnerIds, locked }) {
  * 帖子下的评论区。顶层评论（level='1'，按楼层）+ 发表评论；楼内回复平铺展示（贴吧式）。
  * 注意：发评论/点赞接口返回旧版 {result,msg}；点赞计数据后端 delta 乐观更新。
  */
-export default function CommentSection({ newsId, authorId, authorName, topicOwnerIds, locked }) {
+export default function CommentSection({
+  newsId, authorId, authorName, topicOwnerIds, locked,
+  ratingByComment = {}, onVoteRating, onDeleteRating, ratingCanDelete, canOpenRating, onOpenRating,
+}) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
   const [comments, setComments] = useState([])
   const [loading, setLoading] = useState(false)
   const [onlyAuthor, setOnlyAuthor] = useState(false) // 只看楼主：仅展示楼主的顶层评论（其回复照常）
+  const [ratingOpen, setRatingOpen] = useState(false) // 楼主"开启打分"面板
+  const [ratingSubject, setRatingSubject] = useState('')
+  const [ratingNote, setRatingNote] = useState('')
+  const [ratingSaving, setRatingSaving] = useState(false)
+
+  // 楼主开打分楼：NewsDetail 调 openFloor + 刷新打分项，这里刷新楼列表让新楼出现
+  const submitRating = async () => {
+    const sub = ratingSubject.trim()
+    if (!sub) return message.warning('请填写打分对象')
+    setRatingSaving(true)
+    try {
+      await onOpenRating?.(sub, ratingNote.trim())
+      message.success('已开启打分')
+      setRatingOpen(false)
+      setRatingSubject('')
+      setRatingNote('')
+      load()
+    } catch { /* 拦截器已弹错 */ } finally {
+      setRatingSaving(false)
+    }
+  }
 
   // 只看楼主时按楼主 userId 过滤顶层评论；回复不受影响（各楼展开时单独拉取）
   const shown = onlyAuthor && authorId ? comments.filter((c) => c.userId === authorId) : comments
@@ -465,6 +503,22 @@ export default function CommentSection({ newsId, authorId, authorName, topicOwne
           {onlyAuthor ? '楼主评论' : '全部评论'} <span style={{ color: '#999', fontWeight: 400, fontSize: 14 }}>({shown.length})</span>
         </div>
         <span style={{ flex: 1 }} />
+        {canOpenRating && !locked && (
+          <span
+            onClick={() => setRatingOpen((v) => !v)}
+            title="以一条新楼开启一个打分项（仅楼主）"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer', userSelect: 'none',
+              padding: '4px 14px', borderRadius: 999, fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap',
+              color: ratingOpen ? '#fff' : '#fa8c16',
+              background: ratingOpen ? '#fa8c16' : '#fff7e6',
+              border: `1px solid ${ratingOpen ? '#fa8c16' : '#ffd591'}`,
+              transition: 'all .15s',
+            }}
+          >
+            <StarFilled /> 开启打分
+          </span>
+        )}
         {authorId && (
           <span
             onClick={() => setOnlyAuthor((v) => !v)}
@@ -483,6 +537,37 @@ export default function CommentSection({ newsId, authorId, authorName, topicOwne
           </span>
         )}
       </div>
+
+      {/* 楼主开打分面板：对象必填 + 说明可选，发布=发一条新楼并挂上打分项 */}
+      {ratingOpen && canOpenRating && !locked && (
+        <div style={{ background: '#fff7e6', border: '1px solid #ffd591', borderRadius: 12, padding: '14px 16px', marginBottom: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#d46b08', marginBottom: 10 }}>
+            <StarFilled style={{ marginRight: 6 }} />开启新打分（会以一条新楼发布）
+          </div>
+          <Space direction="vertical" style={{ width: '100%' }} size={8}>
+            <Input
+              placeholder="要为谁 / 什么打分？（必填，如：保罗）"
+              maxLength={30}
+              showCount
+              value={ratingSubject}
+              onChange={(e) => setRatingSubject(e.target.value)}
+              style={{ maxWidth: 360 }}
+            />
+            <Input
+              placeholder="说明文字（可选，作为楼的内容）"
+              maxLength={200}
+              value={ratingNote}
+              onChange={(e) => setRatingNote(e.target.value)}
+            />
+            <Space>
+              <Button type="primary" size="small" loading={ratingSaving} onClick={submitRating} style={{ background: '#fa8c16', borderColor: '#fa8c16' }}>
+                发布打分楼
+              </Button>
+              <Button size="small" onClick={() => setRatingOpen(false)}>取消</Button>
+            </Space>
+          </Space>
+        </div>
+      )}
 
       {locked ? (
         <div
@@ -519,7 +604,20 @@ export default function CommentSection({ newsId, authorId, authorName, topicOwne
       {loading ? (
         <div style={{ textAlign: 'center', padding: 24 }}><Spin /></div>
       ) : shown.length ? (
-        shown.map((c) => <FloorNode key={c.commentId} comment={c} newsId={newsId} authorId={authorId} topicOwnerIds={topicOwnerIds} locked={locked} />)
+        shown.map((c) => (
+          <FloorNode
+            key={c.commentId}
+            comment={c}
+            newsId={newsId}
+            authorId={authorId}
+            topicOwnerIds={topicOwnerIds}
+            locked={locked}
+            ratingItem={ratingByComment[c.commentId]}
+            onVoteRating={onVoteRating}
+            onDeleteRating={onDeleteRating}
+            ratingCanDelete={ratingCanDelete}
+          />
+        ))
       ) : (
         <Empty
           image={Empty.PRESENTED_IMAGE_SIMPLE}

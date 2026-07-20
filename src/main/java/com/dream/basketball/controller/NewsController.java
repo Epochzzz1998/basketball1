@@ -1,5 +1,6 @@
 package com.dream.basketball.controller;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.dream.basketball.common.Result;
 import com.dream.basketball.config.RequiresRole;
 import com.dream.basketball.config.Role;
@@ -58,6 +59,10 @@ public class NewsController extends BaseUtils {
 
     @Autowired
     private com.dream.basketball.config.TopicPermissionService topicPerms;
+    @Autowired
+    private com.dream.basketball.mapper.ForumRatingItemMapper ratingItemMapper;
+    @Autowired
+    private com.dream.basketball.mapper.ForumRatingVoteMapper ratingVoteMapper;
 
     @Autowired
     private com.dream.basketball.config.UserPermService userPerms;
@@ -227,6 +232,17 @@ public class NewsController extends BaseUtils {
         newsService.deleteNewsListByIds(newsId, News.class);
         dreamNewsService.deleteSyncEs(newsId);
         FileUtils.deleteUploadFolder(uploadPath, newsId.trim());
+        // 连带删打分：先按帖下的打分项删票，再删项
+        java.util.List<com.dream.basketball.entity.ForumRatingItem> ratingItems = ratingItemMapper.selectList(
+                new QueryWrapper<com.dream.basketball.entity.ForumRatingItem>().eq("NEWS_ID", newsId));
+        if (!ratingItems.isEmpty()) {
+            java.util.List<String> itemIds = new java.util.ArrayList<>();
+            for (com.dream.basketball.entity.ForumRatingItem it : ratingItems) {
+                itemIds.add(it.getItemId());
+            }
+            ratingVoteMapper.delete(new QueryWrapper<com.dream.basketball.entity.ForumRatingVote>().in("ITEM_ID", itemIds));
+            ratingItemMapper.delete(new QueryWrapper<com.dream.basketball.entity.ForumRatingItem>().eq("NEWS_ID", newsId));
+        }
         return handlerResultJson(true, "已删除");
     }
 
@@ -372,7 +388,8 @@ public class NewsController extends BaseUtils {
             userInformationService.saveUserInformation(me.getUserId(), me.getUserNickname(), mentionedId,
                     com.dream.basketball.utils.Constants.MENTION_NEWS, news.getNewsId(), "", "", "", "", "");
         }
-        return handlerResultJson(true, "操作成功！");
+        // 返回 newsId：发帖时前端要用它关联"开启打分"等后续动作
+        return new Result<>(0, "操作成功！", news.getNewsId());
     }
 
     /**
