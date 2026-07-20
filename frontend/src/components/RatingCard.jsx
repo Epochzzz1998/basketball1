@@ -1,23 +1,30 @@
 import { useState } from 'react'
-import { Button, Image, Popconfirm, Rate, Upload, message } from 'antd'
-import { CloseCircleFilled, DeleteOutlined, PictureOutlined, StarFilled } from '@ant-design/icons'
+import { Image, Popconfirm, Rate, Upload, message } from 'antd'
+import { CloseCircleFilled, DeleteOutlined, LoadingOutlined, PictureOutlined, StarFilled } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import useIsMobile from '../hooks/useIsMobile'
 
 /**
- * 打分对象配图选择器（开分表单用，发帖页/评论区共用）：一张图，传完显示缩略 + 右上角移除。
+ * 打分对象配图选择器（开分表单用，发帖页/评论区共用）：虚线上传方块（橙色调，与打分卡同系），
+ * 传完原位变缩略图 + 右上角移除，前后同尺寸不跳动。
  * upload(file) => Promise<url>（外部决定传到哪，通常 newsApi.uploadNewsImage 归到帖子目录）。
  */
+const PICKER_SIZE = 64
+
 export function RatingImagePicker({ value, onChange, upload }) {
   const [uploading, setUploading] = useState(false)
   if (value) {
     return (
       <span style={{ position: 'relative', display: 'inline-block' }}>
-        <img src={value} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid #ffd591', display: 'block' }} />
+        <img
+          src={value}
+          alt=""
+          style={{ width: PICKER_SIZE, height: PICKER_SIZE, objectFit: 'cover', borderRadius: 10, border: '1px solid #ffd591', display: 'block' }}
+        />
         <CloseCircleFilled
           onClick={() => onChange('')}
-          style={{ position: 'absolute', top: -6, right: -6, color: '#bbb', cursor: 'pointer', fontSize: 15, background: '#fff', borderRadius: '50%' }}
+          style={{ position: 'absolute', top: -7, right: -7, color: '#00000073', cursor: 'pointer', fontSize: 16, background: '#fff', borderRadius: '50%' }}
         />
       </span>
     )
@@ -40,7 +47,19 @@ export function RatingImagePicker({ value, onChange, upload }) {
         }
       }}
     >
-      <Button size="small" icon={<PictureOutlined />} loading={uploading}>配图（可选）</Button>
+      <style>{'.rating-img-picker:hover{border-color:#fa8c16 !important;background:#fff3e0 !important;color:#d46b08 !important}'}</style>
+      <div
+        className="rating-img-picker"
+        style={{
+          width: PICKER_SIZE, height: PICKER_SIZE, boxSizing: 'border-box',
+          border: '1.5px dashed #ffc069', background: '#fffaf0', borderRadius: 10,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          color: '#fa8c16', cursor: 'pointer', transition: 'all .15s', userSelect: 'none',
+        }}
+      >
+        {uploading ? <LoadingOutlined style={{ fontSize: 18 }} /> : <PictureOutlined style={{ fontSize: 18 }} />}
+        <span style={{ fontSize: 11, marginTop: 3 }}>{uploading ? '上传中' : '配图'}</span>
+      </div>
     </Upload>
   )
 }
