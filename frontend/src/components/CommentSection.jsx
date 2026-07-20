@@ -548,7 +548,7 @@ export default function CommentSection({
           </div>
           <Space direction="vertical" style={{ width: '100%' }} size={10}>
             <Input
-              placeholder="要为谁 / 什么打分？（必填，如：保罗）"
+              placeholder="想为什么打分？（必填）"
               maxLength={30}
               showCount
               value={ratingSubject}

@@ -164,7 +164,7 @@ export default function NewsEdit() {
                   </a>
                 </div>
                 <Form.Item name="ratingSubject" noStyle>
-                  <Input placeholder="要为谁 / 什么打分？（如：格里芬）" maxLength={30} showCount style={{ maxWidth: 360, display: 'block' }} />
+                  <Input placeholder="想为什么打分？" maxLength={30} showCount style={{ maxWidth: 360, display: 'block' }} />
                 </Form.Item>
                 <div style={{ marginTop: 10 }}>
                   <RatingImagePicker value={ratingImg} onChange={setRatingImg} upload={(f) => newsApi.uploadNewsImage(f, newsIdRef.current)} />
