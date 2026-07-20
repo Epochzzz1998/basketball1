@@ -546,18 +546,16 @@ export default function CommentSection({
           <div style={{ fontSize: 13, fontWeight: 700, color: '#d46b08', marginBottom: 10 }}>
             <StarFilled style={{ marginRight: 6 }} />开启新打分（会以一条新楼发布）
           </div>
-          <Space direction="vertical" style={{ width: '100%' }} size={8}>
-            <Space align="start" wrap>
-              <Input
-                placeholder="要为谁 / 什么打分？（必填，如：保罗）"
-                maxLength={30}
-                showCount
-                value={ratingSubject}
-                onChange={(e) => setRatingSubject(e.target.value)}
-                style={{ width: 260 }}
-              />
-              <RatingImagePicker value={ratingImage} onChange={setRatingImage} upload={(f) => newsApi.uploadNewsImage(f, newsId)} />
-            </Space>
+          <Space direction="vertical" style={{ width: '100%' }} size={10}>
+            <Input
+              placeholder="要为谁 / 什么打分？（必填，如：保罗）"
+              maxLength={30}
+              showCount
+              value={ratingSubject}
+              onChange={(e) => setRatingSubject(e.target.value)}
+              style={{ maxWidth: 360, display: 'block' }}
+            />
+            <RatingImagePicker value={ratingImage} onChange={setRatingImage} upload={(f) => newsApi.uploadNewsImage(f, newsId)} />
             <Input
               placeholder="说明文字（可选，作为楼的内容）"
               maxLength={200}

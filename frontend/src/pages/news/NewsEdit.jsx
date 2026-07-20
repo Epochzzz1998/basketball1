@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button, Card, Form, Input, Select, Space, message } from 'antd'
+import { StarFilled } from '@ant-design/icons'
 import RichTextEditor from '../../components/RichTextEditor'
 import { RatingImagePicker } from '../../components/RatingCard'
 import { newsApi } from '../../api/news'
@@ -44,6 +45,7 @@ export default function NewsEdit() {
   const [topicName, setTopicName] = useState('')
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving] = useState(false)
+  const [ratingOpen, setRatingOpen] = useState(false) // 开分填写卡展开态（默认只显示按钮）
   const [ratingImg, setRatingImg] = useState('') // 打分对象配图 URL（可选）
   const newsIdRef = useRef(routeId || crypto.randomUUID())
   const isMobile = useIsMobile()
@@ -94,7 +96,7 @@ export default function NewsEdit() {
         content,
       })
       // 发帖时开启打分（可选，仅新帖）：帖子存好后把打分项挂上；失败不阻断发帖
-      const ratingSubject = (values.ratingSubject || '').trim()
+      const ratingSubject = ratingOpen ? (values.ratingSubject || '').trim() : ''
       if (!isEdit && ratingSubject) {
         try {
           await ratingApi.create({ newsId: newsIdRef.current, subject: ratingSubject, imageUrl: ratingImg || undefined })
@@ -133,18 +135,44 @@ export default function NewsEdit() {
           </Form.Item>
         </Space>
         {/* 开启打分（可选，仅新帖）：填了对象即在主贴挂一个 1-5 星打分项；之后楼主还能在评论区继续开 */}
+        {/* 开启打分（可选，仅新帖）：默认只是一个按钮，点开才出填写卡；收起即放弃并清空 */}
         {!isEdit && (
-          <Form.Item
-            label="开启打分（可选）"
-            tooltip="填写打分对象即开启 1-5 星打分（如：格里芬），可配一张图。发帖后你还可以在评论区继续为其他对象开分"
-          >
-            <Space align="start" wrap>
-              <Form.Item name="ratingSubject" noStyle>
-                <Input placeholder="要为谁 / 什么打分？留空则不开启" maxLength={30} showCount style={{ width: isMobile ? 260 : 320 }} />
-              </Form.Item>
-              <RatingImagePicker value={ratingImg} onChange={setRatingImg} upload={(f) => newsApi.uploadNewsImage(f, newsIdRef.current)} />
-            </Space>
-          </Form.Item>
+          <div style={{ marginBottom: 24 }}>
+            {!ratingOpen ? (
+              <span
+                onClick={() => setRatingOpen(true)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none',
+                  padding: '5px 16px', borderRadius: 999, fontSize: 13, fontWeight: 500,
+                  color: '#fa8c16', background: '#fff7e6', border: '1px solid #ffd591', transition: 'all .15s',
+                }}
+              >
+                <StarFilled /> 开启打分（可选）
+              </span>
+            ) : (
+              <div style={{ background: '#fff7e6', border: '1px solid #ffd591', borderRadius: 12, padding: '14px 16px', maxWidth: 480 }}>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#d46b08' }}>
+                    <StarFilled style={{ marginRight: 6 }} />开启打分（随帖子一起发布）
+                  </span>
+                  <span style={{ flex: 1 }} />
+                  <a
+                    onClick={() => { setRatingOpen(false); setRatingImg(''); form.setFieldsValue({ ratingSubject: undefined }) }}
+                    style={{ fontSize: 12, color: '#bfbfbf' }}
+                  >
+                    收起不开
+                  </a>
+                </div>
+                <Form.Item name="ratingSubject" noStyle>
+                  <Input placeholder="要为谁 / 什么打分？（如：格里芬）" maxLength={30} showCount style={{ maxWidth: 360, display: 'block' }} />
+                </Form.Item>
+                <div style={{ marginTop: 10 }}>
+                  <RatingImagePicker value={ratingImg} onChange={setRatingImg} upload={(f) => newsApi.uploadNewsImage(f, newsIdRef.current)} />
+                </div>
+                <div style={{ fontSize: 11, color: '#d3a15f', marginTop: 8 }}>1-5 星打分，可配一张图；发帖后还能在评论区继续为其他对象开分</div>
+              </div>
+            )}
+          </div>
         )}
         <Form.Item label="正文" required>
           <RichTextEditor
