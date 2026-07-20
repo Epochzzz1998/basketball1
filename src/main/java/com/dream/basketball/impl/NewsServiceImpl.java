@@ -334,7 +334,55 @@ public class NewsServiceImpl implements NewsService {
             dreamNewsCommentDtos.add(dreamNewsCommentDto);
         }
         fillVerifiedPlayer(dreamNewsCommentDtos);
+        // 楼列表（一级评论）：补每层楼的全部子孙回复数（按 ROOT_ID 一把 GROUP BY）
+        if ("1".equals(params.getLevel())) {
+            fillTotalReplyNum(dreamNewsCommentDtos);
+        }
         return dreamNewsCommentDtos;
+    }
+
+    /** 评论行的读时批量回填（头像/当前昵称/认证/头衔/超管 + @ 当前名），供平铺回复接口复用 */
+    public void fillCommenterInfo(List<DreamNewsCommentDto> comments) {
+        fillVerifiedPlayer(comments);
+    }
+
+    /** 沿父链爬到所属楼（一级评论）的 id：父是一级/无父→父即楼；父已有 ROOT_ID→继承；否则继续向上（限 20 层防环） */
+    private String resolveRootId(String parentId) {
+        DreamNewsComment p = dreamNewsCommentService.getById(parentId);
+        int guard = 0;
+        while (p != null && guard++ < 20) {
+            if ("1".equals(p.getLevel()) || StringUtils.isBlank(p.getCommentRelId())) {
+                return p.getCommentId();
+            }
+            if (StringUtils.isNotBlank(p.getRootId())) {
+                return p.getRootId();
+            }
+            p = dreamNewsCommentService.getById(p.getCommentRelId());
+        }
+        return null;
+    }
+
+    /** 给楼列表批量填 totalReplyNum：COUNT(*) GROUP BY ROOT_ID 一把出全部楼的回复总数 */
+    private void fillTotalReplyNum(List<DreamNewsCommentDto> floors) {
+        java.util.Set<String> ids = new java.util.HashSet<>();
+        for (DreamNewsCommentDto c : floors) {
+            if (StringUtils.isNotBlank(c.getCommentId())) {
+                ids.add(c.getCommentId());
+            }
+        }
+        if (ids.isEmpty()) {
+            return;
+        }
+        java.util.Map<String, Integer> counts = new java.util.HashMap<>();
+        for (java.util.Map<String, Object> m : dreamNewsCommentService.listMaps(
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<DreamNewsComment>()
+                        .select("ROOT_ID AS rootId", "COUNT(*) AS cnt")
+                        .in("ROOT_ID", ids).groupBy("ROOT_ID"))) {
+            counts.put(String.valueOf(m.get("rootId")), ((Number) m.get("cnt")).intValue());
+        }
+        for (DreamNewsCommentDto c : floors) {
+            c.setTotalReplyNum(counts.getOrDefault(c.getCommentId(), 0));
+        }
     }
 
     /** 批量回填评论者信息（一把 IN 查询）：头像 + 已认证（IDENTIFICATION=1）的绑定球员 ID/姓名 */
@@ -651,6 +699,10 @@ public class NewsServiceImpl implements NewsService {
         dreamNewsComment.setGoodNum(0);
         dreamNewsComment.setBadNum(0);
         dreamNewsComment.setFloor(dreamNewsCommentService.findMaxFloor(dreamNewsComment.getNewsId()));
+        // 楼内平铺用：回复挂到所属楼（一级评论）的根 id；一级评论自身 ROOT_ID 为空
+        if (StringUtils.isNotBlank(dreamNewsComment.getCommentRelId())) {
+            dreamNewsComment.setRootId(resolveRootId(dreamNewsComment.getCommentRelId()));
+        }
         // 同步帖子新闻的评论数
         DreamNews dreamNews = dreamNewsService.getById(dreamNewsComment.getNewsId());
         dreamNews.setCommentNum(dreamNews.getCommentNum() + 1);

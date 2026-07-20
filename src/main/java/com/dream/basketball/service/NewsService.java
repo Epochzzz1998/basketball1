@@ -29,6 +29,9 @@ public interface NewsService {
 
     public List<DreamNewsCommentDto> getCommentListByParams(DreamNewsCommentDto params);
 
+    /** Batch read-time enrichment for comment rows: avatar/current nickname/verified/titles/super-admin + mention names. */
+    public void fillCommenterInfo(List<DreamNewsCommentDto> comments);
+
     public Object good(String newsId, HttpServletRequest request);
 
     public Object bad(String newsId, HttpServletRequest request);

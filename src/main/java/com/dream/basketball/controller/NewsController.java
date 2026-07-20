@@ -120,6 +120,16 @@ public class NewsController extends BaseUtils {
         return handlerSuccessPageJson(0, "成功", (int) new PageInfo<>(rows).getTotal(), rows);
     }
 
+    /** 楼内回复平铺列表（公开）：一层楼的全部子孙回复按时间升序分页，带被回复人当前昵称（回复 @xxx 用） */
+    @GetMapping("/CommentFlatReplies")
+    public Object commentFlatReplies(String rootId, Integer page, Integer limit) {
+        PageHelper.startPage(page == null ? 1 : page, limit == null ? 10 : limit);
+        List<DreamNewsCommentDto> rows = dreamNewsCommentService.findFlatReplies(rootId);
+        int total = (int) new PageInfo<>(rows).getTotal();
+        newsService.fillCommenterInfo(rows);
+        return handlerSuccessPageJson(0, "成功", total, rows);
+    }
+
     /** 资讯详情（公开，但专题帖要有浏览权）；附带把对应消息通知标记为已读 */
     @GetMapping("/newsShow")
     public Object newsShow(String newsId, String level, String userInformationId, String anchorId, HttpServletRequest request) {

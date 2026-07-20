@@ -26,4 +26,13 @@ public class DreamNewsCommentDto extends DreamNewsComment {
     /** 评论者是否超级管理员（前端显示「超管」标识） */
     private Boolean superManager;
 
+    /** 楼（一级评论）的全部子孙回复数（按 ROOT_ID 统计，供"N 条回复"按钮与楼内分页） */
+    private Integer totalReplyNum;
+
+    /** 平铺楼内回复时：被回复人（直接父评论作者）的 userId */
+    private String replyToUserId;
+
+    /** 平铺楼内回复时：被回复人的当前昵称（SQL 直连 dream_user，改名自动同步） */
+    private String replyToName;
+
 }

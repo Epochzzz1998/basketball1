@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Avatar, Button, Empty, Image, Space, Spin, Tag, Tooltip, message } from 'antd'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Avatar, Button, Empty, Image, Pagination, Space, Spin, Tag, Tooltip, message } from 'antd'
 import { DislikeOutlined, FileOutlined, LikeOutlined, LockOutlined, TrophyFilled, UserOutlined } from '@ant-design/icons'
 import { Link, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
@@ -11,6 +11,9 @@ import UserTitles from './UserTitles'
 import useIsMobile from '../hooks/useIsMobile'
 
 const fmt = (v) => (v ? dayjs(v).format('YYYY-MM-DD HH:mm') : '')
+
+// 单楼回复的分页大小（超过则出分页器）
+const REPLY_PAGE_SIZE = 10
 
 // 无头像时按名字哈希出稳定彩底（与帖子列表同款规则）
 const avatarColor = (name) => {
@@ -113,24 +116,200 @@ function CommentAttachments({ attachmentsJson }) {
   )
 }
 
+// 评论者一行 meta：昵称 + 超管/题主/楼主/认证/头衔 +（楼层号）+ 时间
+function MetaRow({ c, authorId, topicOwnerIds, showFloor }) {
+  const navigate = useNavigate()
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      {c.userId
+        ? <a onClick={() => navigate(`/users/${c.userId}`)} style={{ fontWeight: 600, color: '#333', fontSize: 14 }}>{c.userName || '匿名'}</a>
+        : <b style={{ fontSize: 14 }}>{c.userName || '匿名'}</b>}
+      {c.superManager && <SuperAdminBadge />}
+      {topicOwnerIds?.includes(c.userId) && <TopicOwnerBadge />}
+      {authorId && c.userId === authorId && <OpBadge />}
+      {c.verifiedPlayerId && (
+        <Tooltip title="认证球员 · 点击看生涯数据">
+          <Tag
+            color="gold"
+            style={{ cursor: 'pointer', marginInlineEnd: 0, lineHeight: '18px' }}
+            onClick={() => navigate(`/players/${c.verifiedPlayerId}`)}
+          >
+            <TrophyFilled /> {c.verifiedPlayerName || '认证球员'}
+          </Tag>
+        </Tooltip>
+      )}
+      <UserTitles titles={c.titles} size="sm" />
+      {showFloor && c.floor != null && <span style={{ fontSize: 12, color: '#bbb' }}>#{c.floor}</span>}
+      <span style={{ fontSize: 12, color: '#bbb' }}>{fmt(c.commentDate)}</span>
+    </div>
+  )
+}
+
 /**
- * 单条评论节点（递归）。支持点赞/点踩、回复（内联 CommentComposer）、展开子回复（楼中楼左侧线缩进）。
- * - 回复：commentRelId=本评论 id、level=本 level+1（与后端 getCommentInit 一致）；
- * - 子回复用 listComments({commentRelId}) 拉取；commentNum 是该评论的回复数。
- * 评论内容是纯文本（React 自动转义）；@昵称渲染成链接；末尾渲染图片/文件附件。
+ * 一层楼的回复区：全部子孙回复平铺（贴吧式"xxx 回复 xxx：…"，不再逐层缩进），
+ * 时间升序 + 超过一页出分页器。回复楼内任意一条 → 新回复挂进本楼（记录被回复人）。
+ * bump 变化 = 楼上（直接回楼）发了新回复 → 跳到最后一页刷新，让新回复可见。
  */
-function CommentNode({ comment, newsId, depth = 0, authorId, topicOwnerIds, locked }) {
+function FloorReplies({ floorId, newsId, authorId, topicOwnerIds, locked, bump, onCountDelta }) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
-  const [c, setC] = useState(comment) // 本节点数据（含 goodNum/badNum/commentNum），就地更新
-  const [replyOpen, setReplyOpen] = useState(false)
-  const [showReplies, setShowReplies] = useState(false)
-  const [replies, setReplies] = useState([])
-  const [repliesLoaded, setRepliesLoaded] = useState(false)
-  const [loadingReplies, setLoadingReplies] = useState(false)
+  const [rows, setRows] = useState(null)
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [replyingId, setReplyingId] = useState(null)
+  const totalRef = useRef(0)
+  const bumpRef = useRef(bump)
 
   const requireLogin = () => { message.info('请先登录'); navigate('/login') }
+
+  const load = useCallback(async (p) => {
+    try {
+      const res = await newsApi.listFlatReplies({ rootId: floorId, page: p, limit: REPLY_PAGE_SIZE })
+      setRows(res.records || [])
+      setTotal(res.total || 0)
+      totalRef.current = res.total || 0
+      setPage(p)
+    } catch {
+      setRows((r) => r || [])
+    }
+  }, [floorId])
+
+  useEffect(() => { load(1) }, [load])
+
+  // 楼上直接回楼成功 → 跳最后一页展示新回复
+  useEffect(() => {
+    if (bump !== bumpRef.current) {
+      bumpRef.current = bump
+      load(Math.max(1, Math.ceil((totalRef.current + 1) / REPLY_PAGE_SIZE)))
+    }
+  }, [bump, load])
+
+  const like = async (item, type) => {
+    if (!user) return requireLogin()
+    const res = await (type === 'good' ? newsApi.goodComment(item.commentId) : newsApi.badComment(item.commentId))
+    if (res?.result) {
+      const d = res.delta || 0
+      setRows((list) => (list || []).map((r) => (r.commentId === item.commentId
+        ? { ...r, goodNum: (r.goodNum || 0) + (type === 'good' ? d : 0), badNum: (r.badNum || 0) + (type === 'bad' ? d : 0) }
+        : r)))
+      message.success(res.msg)
+    } else {
+      message.error(res?.msg || '操作失败')
+    }
+  }
+
+  // 回复楼内某条：commentRelId=那条的 id（保留"回复了谁"链条），成功后跳最后一页
+  const replyTo = async (item, { text, mentions, attachments }) => {
+    if (!user) { requireLogin(); return false }
+    const res = await newsApi.postComment({
+      newsId,
+      content: text,
+      commentRelId: item.commentId,
+      level: String((parseInt(item.level, 10) || 2) + 1),
+      ...(mentions.length ? { mentions: JSON.stringify(mentions) } : {}),
+      ...(attachments.length ? { attachments: JSON.stringify(attachments) } : {}),
+    })
+    if (res?.result) {
+      message.success(res.msg || '回复成功')
+      setReplyingId(null)
+      onCountDelta?.(1)
+      await load(Math.max(1, Math.ceil((totalRef.current + 1) / REPLY_PAGE_SIZE)))
+      return true
+    }
+    message.error(res?.msg || '回复失败')
+    return false
+  }
+
+  if (rows === null) return <div style={{ textAlign: 'center', padding: 14 }}><Spin size="small" /></div>
+  if (!rows.length) return null
+
+  return (
+    <div style={{ background: '#fafafa', borderRadius: 10, padding: isMobile ? '2px 10px' : '4px 14px', marginTop: 8 }}>
+      {rows.map((r) => (
+        <div key={r.commentId} style={{ display: 'flex', gap: 10, padding: '10px 0', borderBottom: '1px solid #f0f0f0' }}>
+          <UserAvatar name={r.userName} src={r.commenterAvatar} size={24} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <MetaRow c={r} authorId={authorId} topicOwnerIds={topicOwnerIds} />
+            {/* 平级楼层："A 回复 B：内容"。直接回楼的不带"回复 B"前缀 */}
+            <div style={{ margin: '4px 0 2px', whiteSpace: 'pre-wrap', color: '#262626', fontSize: 14, lineHeight: 1.7 }}>
+              {r.commentRelId && r.commentRelId !== floorId && r.replyToName && (
+                <span style={{ color: '#8c8c8c' }}>
+                  回复{' '}
+                  {r.replyToUserId
+                    ? <Link to={`/users/${r.replyToUserId}`} onClick={(e) => e.stopPropagation()} style={{ color: '#fa541c', fontWeight: 600 }}>@{r.replyToName}</Link>
+                    : <b>@{r.replyToName}</b>}
+                  ：
+                </span>
+              )}
+              {renderContent(r.content, r.mentions)}
+            </div>
+            <CommentAttachments attachmentsJson={r.attachments} />
+            <Space size={2} wrap={isMobile} style={{ marginLeft: -8, marginTop: 2 }}>
+              <Button type="text" size="small" style={{ color: '#8c8c8c' }} icon={<LikeOutlined />} onClick={() => like(r, 'good')}>
+                {r.goodNum ?? 0}
+              </Button>
+              <Button type="text" size="small" style={{ color: '#8c8c8c' }} icon={<DislikeOutlined />} onClick={() => like(r, 'bad')}>
+                {r.badNum ?? 0}
+              </Button>
+              {!locked && (
+                <Button
+                  type="text"
+                  size="small"
+                  style={{ color: replyingId === r.commentId ? '#fa541c' : '#8c8c8c' }}
+                  onClick={() => (user ? setReplyingId((id) => (id === r.commentId ? null : r.commentId)) : requireLogin())}
+                >
+                  回复
+                </Button>
+              )}
+            </Space>
+            {replyingId === r.commentId && (
+              <div style={{ marginTop: 8 }}>
+                <CommentComposer
+                  newsId={newsId}
+                  compact
+                  placeholder={`回复 ${r.userName || ''}（@ 提及 · 可发图片/文件/表情）`}
+                  submitText="发表回复"
+                  onSubmit={(payload) => replyTo(r, payload)}
+                  onCancel={() => setReplyingId(null)}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+      {total > REPLY_PAGE_SIZE && (
+        <div style={{ padding: '10px 0', display: 'flex', justifyContent: isMobile ? 'center' : 'flex-end' }}>
+          <Pagination
+            size="small"
+            simple={isMobile}
+            current={page}
+            pageSize={REPLY_PAGE_SIZE}
+            total={total}
+            showSizeChanger={false}
+            onChange={(p) => load(p)}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * 一层楼（一级评论）：楼主体 + 点赞/点踩/回复 + 展开楼内平铺回复（FloorReplies）。
+ * "N 条回复"用全部子孙数（后端按 ROOT_ID 统计的 totalReplyNum）。
+ */
+function FloorNode({ comment, newsId, authorId, topicOwnerIds, locked }) {
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const isMobile = useIsMobile()
+  const [c, setC] = useState(comment) // 本楼数据（含 goodNum/badNum/totalReplyNum），就地更新
+  const [replyOpen, setReplyOpen] = useState(false)
+  const [showReplies, setShowReplies] = useState(false)
+  const [bump, setBump] = useState(0) // 直接回楼成功 → +1，让 FloorReplies 跳最后一页刷新
+
+  const requireLogin = () => { message.info('请先登录'); navigate('/login') }
+  const replyCount = c.totalReplyNum ?? c.commentNum ?? 0
 
   const like = async (type) => {
     if (!user) return requireLogin()
@@ -144,23 +323,7 @@ function CommentNode({ comment, newsId, depth = 0, authorId, topicOwnerIds, lock
     }
   }
 
-  const loadReplies = async () => {
-    setLoadingReplies(true)
-    try {
-      const res = await newsApi.listComments({ commentRelId: c.commentId, page: 1, limit: 100 })
-      setReplies(res.records || [])
-      setRepliesLoaded(true)
-    } finally {
-      setLoadingReplies(false)
-    }
-  }
-
-  const toggleReplies = async () => {
-    if (!showReplies && !repliesLoaded) await loadReplies()
-    setShowReplies((s) => !s)
-  }
-
-  // 提交回复：成功返回 true 让 composer 清空
+  // 直接回楼：commentRelId=楼 id；成功后展开回复区并跳到最新
   const handleReply = async ({ text, mentions, attachments }) => {
     if (!user) { requireLogin(); return false }
     const res = await newsApi.postComment({
@@ -173,51 +336,21 @@ function CommentNode({ comment, newsId, depth = 0, authorId, topicOwnerIds, lock
     })
     if (res?.result) {
       message.success(res.msg || '回复成功')
-      setC((p) => ({ ...p, commentNum: (p.commentNum || 0) + 1 }))
-      await loadReplies()
-      setShowReplies(true)
+      setC((p) => ({ ...p, totalReplyNum: (p.totalReplyNum ?? p.commentNum ?? 0) + 1 }))
       setReplyOpen(false)
+      setShowReplies(true)
+      setBump((b) => b + 1)
       return true
     }
     message.error(res?.msg || '回复失败')
     return false
   }
 
-  const top = depth === 0
-
   return (
-    <div
-      style={{
-        display: 'flex', gap: 12, paddingTop: top ? 16 : 12,
-        paddingBottom: top ? 16 : 0,
-        borderBottom: top ? '1px solid #f5f5f5' : 'none',
-      }}
-    >
-      <UserAvatar name={c.userName} src={c.commenterAvatar} size={top ? 36 : 28} />
+    <div style={{ display: 'flex', gap: 12, paddingTop: 16, paddingBottom: 16, borderBottom: '1px solid #f5f5f5' }}>
+      <UserAvatar name={c.userName} src={c.commenterAvatar} size={36} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        {/* 头行：昵称 + 认证 + 楼层 + 时间 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          {c.userId
-            ? <a onClick={() => navigate(`/users/${c.userId}`)} style={{ fontWeight: 600, color: '#333', fontSize: 14 }}>{c.userName || '匿名'}</a>
-            : <b style={{ fontSize: 14 }}>{c.userName || '匿名'}</b>}
-          {c.superManager && <SuperAdminBadge />}
-          {topicOwnerIds?.includes(c.userId) && <TopicOwnerBadge />}
-          {authorId && c.userId === authorId && <OpBadge />}
-          {c.verifiedPlayerId && (
-            <Tooltip title="认证球员 · 点击看生涯数据">
-              <Tag
-                color="gold"
-                style={{ cursor: 'pointer', marginInlineEnd: 0, lineHeight: '18px' }}
-                onClick={() => navigate(`/players/${c.verifiedPlayerId}`)}
-              >
-                <TrophyFilled /> {c.verifiedPlayerName || '认证球员'}
-              </Tag>
-            </Tooltip>
-          )}
-          <UserTitles titles={c.titles} size="sm" />
-          {c.floor != null && <span style={{ fontSize: 12, color: '#bbb' }}>#{c.floor}</span>}
-          <span style={{ fontSize: 12, color: '#bbb' }}>{fmt(c.commentDate)}</span>
-        </div>
+        <MetaRow c={c} authorId={authorId} topicOwnerIds={topicOwnerIds} showFloor />
 
         {/* 内容（@昵称 渲染成可点链接） */}
         {c.content && (
@@ -242,14 +375,14 @@ function CommentNode({ comment, newsId, depth = 0, authorId, topicOwnerIds, lock
               回复
             </Button>
           )}
-          {c.commentNum > 0 && (
-            <Button type="link" size="small" onClick={toggleReplies} loading={loadingReplies}>
-              {showReplies ? '收起' : `${c.commentNum} 条回复`}
+          {replyCount > 0 && (
+            <Button type="link" size="small" onClick={() => setShowReplies((s) => !s)}>
+              {showReplies ? '收起' : `${replyCount} 条回复`}
             </Button>
           )}
         </Space>
 
-        {/* 内联回复框 */}
+        {/* 内联回复框（直接回楼） */}
         {replyOpen && (
           <div style={{ marginTop: 10 }}>
             <CommentComposer
@@ -263,13 +396,17 @@ function CommentNode({ comment, newsId, depth = 0, authorId, topicOwnerIds, lock
           </div>
         )}
 
-        {/* 楼中楼：左侧线缩进 */}
-        {showReplies && replies.length > 0 && (
-          <div style={{ borderLeft: '2px solid #f0f0f0', paddingLeft: 14, marginTop: 4 }}>
-            {replies.map((r) => (
-              <CommentNode key={r.commentId} comment={r} newsId={newsId} depth={depth + 1} authorId={authorId} topicOwnerIds={topicOwnerIds} locked={locked} />
-            ))}
-          </div>
+        {/* 楼内回复：平铺 + 分页（不再逐层缩进） */}
+        {showReplies && (
+          <FloorReplies
+            floorId={c.commentId}
+            newsId={newsId}
+            authorId={authorId}
+            topicOwnerIds={topicOwnerIds}
+            locked={locked}
+            bump={bump}
+            onCountDelta={(d) => setC((p) => ({ ...p, totalReplyNum: (p.totalReplyNum ?? p.commentNum ?? 0) + d }))}
+          />
         )}
       </div>
     </div>
@@ -277,7 +414,7 @@ function CommentNode({ comment, newsId, depth = 0, authorId, topicOwnerIds, lock
 }
 
 /**
- * 帖子下的评论区。顶层评论（level='1'，按楼层）+ 发表评论 + 递归楼中楼。
+ * 帖子下的评论区。顶层评论（level='1'，按楼层）+ 发表评论；楼内回复平铺展示（贴吧式）。
  * 注意：发评论/点赞接口返回旧版 {result,msg}；点赞计数据后端 delta 乐观更新。
  */
 export default function CommentSection({ newsId, authorId, authorName, topicOwnerIds, locked }) {
@@ -288,7 +425,7 @@ export default function CommentSection({ newsId, authorId, authorName, topicOwne
   const [loading, setLoading] = useState(false)
   const [onlyAuthor, setOnlyAuthor] = useState(false) // 只看楼主：仅展示楼主的顶层评论（其回复照常）
 
-  // 只看楼主时按楼主 userId 过滤顶层评论；回复不受影响（各评论展开时单独拉取）
+  // 只看楼主时按楼主 userId 过滤顶层评论；回复不受影响（各楼展开时单独拉取）
   const shown = onlyAuthor && authorId ? comments.filter((c) => c.userId === authorId) : comments
 
   const load = useCallback(async () => {
@@ -382,7 +519,7 @@ export default function CommentSection({ newsId, authorId, authorName, topicOwne
       {loading ? (
         <div style={{ textAlign: 'center', padding: 24 }}><Spin /></div>
       ) : shown.length ? (
-        shown.map((c) => <CommentNode key={c.commentId} comment={c} newsId={newsId} authorId={authorId} topicOwnerIds={topicOwnerIds} locked={locked} />)
+        shown.map((c) => <FloorNode key={c.commentId} comment={c} newsId={newsId} authorId={authorId} topicOwnerIds={topicOwnerIds} locked={locked} />)
       ) : (
         <Empty
           image={Empty.PRESENTED_IMAGE_SIMPLE}

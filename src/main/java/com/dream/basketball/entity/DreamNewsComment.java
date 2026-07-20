@@ -55,6 +55,14 @@ public class DreamNewsComment extends Model<DreamNewsComment> implements Seriali
     @TableField("LEVEL")
     private String level;
 
+    /**
+     * Root (level-1) comment id of the floor this reply belongs to; null for level-1 comments.
+     * Lets one query fetch a floor's whole reply subtree flat (replies shown Tieba-style, paged),
+     * instead of recursing level by level.
+     */
+    @TableField("ROOT_ID")
+    private String rootId;
+
     /** @-mentions picked from the dropdown, as JSON [{"id","name"}]; drives notifications + render links */
     @TableField("MENTIONS")
     private String mentions;
@@ -157,6 +165,14 @@ public class DreamNewsComment extends Model<DreamNewsComment> implements Seriali
 
     public void setLevel(String level) {
         this.level = level;
+    }
+
+    public String getRootId() {
+        return rootId;
+    }
+
+    public void setRootId(String rootId) {
+        this.rootId = rootId;
     }
 
     public String getMentions() {

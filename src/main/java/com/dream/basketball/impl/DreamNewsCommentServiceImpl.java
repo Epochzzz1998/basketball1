@@ -38,6 +38,11 @@ public class DreamNewsCommentServiceImpl extends ServiceImpl<DreamNewsCommentMap
         return baseMapper.findMaxFloor(newsId);
     }
 
+    /** 楼内全部子孙回复的平铺列表（时间升序；调用方用 PageHelper 分页） */
+    public List<DreamNewsCommentDto> findFlatReplies(String rootId) {
+        return baseMapper.findFlatReplies(rootId);
+    }
+
     /**
     * @Description: 数据库更新评论点赞
     * @param: [newsId, num]

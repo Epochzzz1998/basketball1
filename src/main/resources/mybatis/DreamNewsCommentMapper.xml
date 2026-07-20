@@ -9,4 +9,31 @@
         WHERE
             NEWS_ID = #{newsId}
     </select>
+
+    <!-- A floor's whole reply subtree flat (Tieba-style), oldest first; PageHelper pages it.
+         Joins the direct parent comment + its author for a live "回复 @xxx" nickname. -->
+    <select id="findFlatReplies" resultType="com.dream.basketball.dto.DreamNewsCommentDto">
+        SELECT
+            c.COMMENT_ID      AS commentId,
+            c.USER_ID         AS userId,
+            c.USER_NAME       AS userName,
+            c.CONTENT         AS content,
+            c.NEWS_ID         AS newsId,
+            c.COMMENT_DATE    AS commentDate,
+            c.GOOD_NUM        AS goodNum,
+            c.BAD_NUM         AS badNum,
+            c.COMMENT_REL_ID  AS commentRelId,
+            c.FLOOR           AS floor,
+            c.LEVEL           AS level,
+            c.ROOT_ID         AS rootId,
+            c.MENTIONS        AS mentions,
+            c.ATTACHMENTS     AS attachments,
+            p.USER_ID         AS replyToUserId,
+            pu.USER_NICKNAME  AS replyToName
+        FROM dream_news_comment c
+        LEFT JOIN dream_news_comment p ON c.COMMENT_REL_ID = p.COMMENT_ID
+        LEFT JOIN dream_user pu ON p.USER_ID = pu.USER_ID
+        WHERE c.ROOT_ID = #{rootId}
+        ORDER BY c.COMMENT_DATE ASC, c.FLOOR ASC
+    </select>
 </mapper>
