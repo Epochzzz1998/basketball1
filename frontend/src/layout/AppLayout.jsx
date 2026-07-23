@@ -222,13 +222,15 @@ export default function AppLayout() {
                     ],
                   }}
                 >
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '0 4px' }}>
-                    {/* 头像角标 = 消息未读 + 私信未读（两个入口都收进下拉了） */}
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: isMobile ? 6 : 8, cursor: 'pointer', padding: isMobile ? '0 2px 0 8px' : '0 4px' }}>
+                    {/* 头像角标 = 消息未读 + 私信未读（两个入口都收进下拉了）；移动端头像加大到 32 */}
                     <Badge count={unread + pmUnread} size="small" offset={[-2, 4]}>
-                      <Avatar size={28} src={user.avatar || undefined} icon={user.avatar ? undefined : <UserOutlined />} />
+                      <Avatar size={isMobile ? 32 : 28} src={user.avatar || undefined} icon={user.avatar ? undefined : <UserOutlined />} />
                     </Badge>
-                    {/* 窄屏顶栏太挤：昵称文字只在桌面显示，给刷新/搜索按钮腾位 */}
-                    {!isMobile && <span style={{ fontSize: 14 }}>{user.userNickname}</span>}
+                    {/* 昵称两端都显示；移动端限宽出省略号，防止把左边的刷新/搜索挤出屏（上次的病根） */}
+                    <span style={{ fontSize: isMobile ? 13 : 14, maxWidth: isMobile ? 72 : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {user.userNickname}
+                    </span>
                   </span>
                 </Dropdown>
               ),
@@ -238,7 +240,8 @@ export default function AppLayout() {
       // 搜索框在动作区（紧贴头像）；动作项自带的 hover 灰底由 index.css 里
       // 的 [class*='actions-item']:has(.global-search) 规则压掉
       actionsRender={() => [
-        // 常驻页面刷新（搜索左边）：与搜索触发器同款 32px 胶囊，flexShrink 0 防止窄屏被挤没
+        // 常驻页面刷新（搜索左边）：与搜索触发器同款 32px 胶囊，flexShrink 0 防止窄屏被挤没；
+        // marginRight 拉开与搜索图标的间距
         <span
           key="reload"
           onClick={() => window.location.reload()}
@@ -247,7 +250,7 @@ export default function AppLayout() {
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             width: 32, height: 32, flexShrink: 0, borderRadius: 16,
             border: '1px solid #e8e8e8', background: '#fff', color: '#aaa',
-            cursor: 'pointer', fontSize: 14,
+            cursor: 'pointer', fontSize: 14, marginRight: isMobile ? 8 : 4,
           }}
         >
           <ReloadOutlined />
