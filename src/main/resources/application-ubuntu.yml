@@ -40,6 +40,13 @@ spring:
     uris: http://elasticsearch:9200
     connection-timeout: 3s
 
+  # 登录态存 Redis：应用重启/重新部署不掉线；30 天不活跃才过期（滑动续期）
+  session:
+    store-type: redis
+    timeout: 30d
+    redis:
+      namespace: dream:session
+
   servlet:
     multipart:
       max-file-size: 5MB
@@ -47,6 +54,12 @@ spring:
 
 server:
   port: 8088
+  servlet:
+    session:
+      cookie:
+        # 持久 cookie：关浏览器不丢登录态（配合上面的 30 天服务端 session）
+        max-age: 30d
+        http-only: true
 
 cors:
   # P2-2: allowed origins for the future React client (Session + credentials).

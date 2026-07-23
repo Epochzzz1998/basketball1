@@ -37,6 +37,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
+        <!-- Sessions stored in Redis: survive app restarts/redeploys; long sliding TTL instead of in-memory 30min -->
+        <dependency>
+            <groupId>org.springframework.session</groupId>
+            <artifactId>spring-session-data-redis</artifactId>
+        </dependency>
         <!--elasticsearch-->
         <dependency>
             <groupId>org.springframework.boot</groupId>
