@@ -56,17 +56,22 @@ function PostList({ posts, hidden }) {
             </Space>
           }
         >
-          <Space size={8} style={{ minWidth: 0 }}>
+          {/* 单行布局：标签不缩、标题占剩余宽度超长省略——长短标题行高一致，不再把右侧数据挤换行 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
             {p.newsChannel === 'official'
-              ? <Tag color="orange" style={{ flexShrink: 0 }}>官方</Tag>
-              : <Tag style={{ flexShrink: 0 }}>{p.topicName ? `论坛 · ${p.topicName}` : '论坛'}</Tag>}
+              ? <Tag color="orange" style={{ flexShrink: 0, marginInlineEnd: 0 }}>官方</Tag>
+              : (
+                <Tag style={{ flexShrink: 0, marginInlineEnd: 0, maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {p.topicName ? `论坛 · ${p.topicName}` : '论坛'}
+                </Tag>
+              )}
             <Link
               to={`/news/${p.newsId}`}
-              style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              style={{ flex: 1, minWidth: 0, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
             >
               {p.title}
             </Link>
-          </Space>
+          </div>
         </List.Item>
       )}
     />
@@ -90,9 +95,15 @@ function CommentTrail({ comments, hidden }) {
             {Number(c.level) > 1 && <Tag color="cyan" style={{ marginRight: 6 }}>回复</Tag>}
             {c.content}
           </div>
-          <div style={{ color: '#999', fontSize: 12, marginTop: 6 }}>
+          {/* meta 行永远单行：帖名限宽省略，长短标题样式一致 */}
+          <div style={{ color: '#999', fontSize: 12, marginTop: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {c.newsTitle
-              ? <>在 <Link to={`/news/${c.newsId}`}>《{c.newsTitle}》</Link> 下</>
+              ? (
+                <>在 <Link
+                  to={`/news/${c.newsId}`}
+                  style={{ display: 'inline-block', maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'bottom' }}
+                >《{c.newsTitle}》</Link> 下</>
+              )
               : <span>原帖已删除</span>}
             <span style={{ margin: '0 8px' }}>·</span>{fmtDate(c.commentDate)}
             <span style={{ margin: '0 8px' }}>·</span><LikeOutlined /> {c.goodNum ?? 0}
@@ -122,17 +133,22 @@ function FavoriteList({ favorites, hidden, isSelf, onUnfavorite }) {
             </Space>
           }
         >
-          <Space size={8} style={{ minWidth: 0 }}>
+          {/* 单行布局：标签不缩、标题占剩余宽度超长省略——长短标题行高一致，不再把右侧数据挤换行 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
             {p.newsChannel === 'official'
-              ? <Tag color="orange" style={{ flexShrink: 0 }}>官方</Tag>
-              : <Tag style={{ flexShrink: 0 }}>{p.topicName ? `论坛 · ${p.topicName}` : '论坛'}</Tag>}
+              ? <Tag color="orange" style={{ flexShrink: 0, marginInlineEnd: 0 }}>官方</Tag>
+              : (
+                <Tag style={{ flexShrink: 0, marginInlineEnd: 0, maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {p.topicName ? `论坛 · ${p.topicName}` : '论坛'}
+                </Tag>
+              )}
             <Link
               to={`/news/${p.newsId}`}
-              style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              style={{ flex: 1, minWidth: 0, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
             >
               {p.title}
             </Link>
-          </Space>
+          </div>
         </List.Item>
       )}
     />
