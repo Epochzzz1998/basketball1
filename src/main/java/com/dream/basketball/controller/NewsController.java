@@ -283,7 +283,9 @@ public class NewsController extends BaseUtils {
             return Role.fromUserRole(me.getUserRole()).covers(Role.MANAGER);
         }
         if (StringUtils.isNotBlank(news.getTopicId())) {
-            return topicPerms.canManage(me, topicPerms.getTopic(news.getTopicId()));
+            com.dream.basketball.entity.ForumTopic t = topicPerms.getTopic(news.getTopicId());
+            // 小题主拥有题主的治理权，但不能动题主发的帖（canActOn 对 admin/题主恒真）
+            return topicPerms.canManage(me, t) && topicPerms.canActOn(me, t, news.getAuthorId());
         }
         return Role.fromUserRole(me.getUserRole()).covers(Role.MANAGER);
     }

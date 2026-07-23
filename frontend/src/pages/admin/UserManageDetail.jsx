@@ -165,6 +165,7 @@ export default function UserManageDetail() {
         {permRow('浏览论坛 / 新闻', 'canBrowse')}
         {permRow('发言（评论）', 'canComment')}
         {permRow('发帖', 'canPost')}
+        {permRow('创建专题', 'canCreateTopic', '默认允许，每人最多 5 个；创建后本人自动成为题主')}
       </Card>
 
       {/* 功能模块 */}

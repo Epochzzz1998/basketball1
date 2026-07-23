@@ -95,9 +95,50 @@ public class TopicPermissionService {
         return user != null && t != null && ownerIds(t).contains(user.getUserId());
     }
 
-    /** admin or one of the topic's owners */
+    /**
+     * 该专题的小题主集合（SUB_OWNER_IDS JSON 数组，最多 3 人）。
+     * 与题主重叠的 id 视为题主（从小题主集合里剔除）。
+     */
+    public Set<String> subOwnerIds(ForumTopic t) {
+        Set<String> ids = new LinkedHashSet<>();
+        if (t == null || StringUtils.isBlank(t.getSubOwnerIds())) {
+            return ids;
+        }
+        try {
+            for (Object o : JSON.parseArray(t.getSubOwnerIds())) {
+                if (o != null && StringUtils.isNotBlank(o.toString())) {
+                    ids.add(o.toString());
+                }
+            }
+        } catch (Exception ignore) {
+            // 脏数据当作没有小题主
+        }
+        ids.removeAll(ownerIds(t));
+        return ids;
+    }
+
+    /** 用户是否为该专题小题主。 */
+    public boolean isSubOwner(DreamUser user, ForumTopic t) {
+        return user != null && t != null && subOwnerIds(t).contains(user.getUserId());
+    }
+
+    /** admin / 题主 / 小题主（小题主拥有题主的全部管理权限，目标敏感的操作再走 canActOn） */
     public boolean canManage(DreamUser user, ForumTopic t) {
-        return t != null && user != null && (isAdmin(user) || isOwner(user, t));
+        return t != null && user != null && (isAdmin(user) || isOwner(user, t) || isSubOwner(user, t));
+    }
+
+    /**
+     * 目标敏感的管理操作裁判：actor 能否对 targetUserId（帖子作者/成员/申请人）执行管理动作。
+     * admin 与题主对所有人可为；小题主对除题主外的所有人可为（唯一限制：不能动题主）。
+     */
+    public boolean canActOn(DreamUser actor, ForumTopic t, String targetUserId) {
+        if (actor == null || t == null) {
+            return false;
+        }
+        if (isAdmin(actor) || isOwner(actor, t)) {
+            return true;
+        }
+        return isSubOwner(actor, t) && !ownerIds(t).contains(targetUserId);
     }
 
     public boolean canView(DreamUser user, ForumTopic t) {

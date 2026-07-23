@@ -28,8 +28,12 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
   const [opts, setOpts] = useState([])
   const [owners, setOwners] = useState([]) // 题主列表 [{userId,userNickname,avatar}]，超管管理
   const [ownerOpts, setOwnerOpts] = useState([])
+  const [subOwners, setSubOwners] = useState([]) // 小题主列表（最多 3 人），题主/超管管理
+  const [canEditSub, setCanEditSub] = useState(false)
+  const [subOpts, setSubOpts] = useState([])
   const timer = useRef()
   const ownerTimer = useRef()
+  const subTimer = useRef()
 
   const load = () => {
     setRows(null)
@@ -42,7 +46,11 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
       list.forEach((x) => { f[x.requestId] = { comment: true, post: false } })
       setReqFlags(f)
     }).catch(() => setReqs([]))
-    if (isSuper) topicApi.get(topicId).then((d) => setOwners(d?.owners || [])).catch(() => {})
+    topicApi.get(topicId).then((d) => {
+      setOwners(d?.owners || [])
+      setSubOwners(d?.subOwners || [])
+      setCanEditSub(!!d?.canEditSubOwners)
+    }).catch(() => {})
   }
   useEffect(() => { if (open && topicId) load() }, [open, topicId])
 
@@ -73,6 +81,36 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
         const list = await searchApi.mentionUsers(kw)
         setOwnerOpts((list || []).map((u) => ({ value: u.userId, label: u.userNickname, avatar: u.avatar })))
       } catch { setOwnerOpts([]) }
+    }, 250)
+  }
+
+  // ===== 小题主管理（题主/超管，最多 3 人）=====
+  const commitSubOwners = async (ids) => {
+    try {
+      await topicApi.setSubOwners(topicId, ids.join(','))
+      load()
+      onChange?.()
+      message.success('已更新小题主')
+    } catch { /* 拦截器已提示 */ }
+  }
+  const addSubOwner = (userId) => {
+    setSubOpts([])
+    if (subOwners.some((o) => o.userId === userId)) return message.info('该用户已是小题主')
+    if (owners.some((o) => o.userId === userId)) return message.info('该用户已是题主，无需设为小题主')
+    if (subOwners.length >= 3) return message.warning('每个专题最多 3 个小题主')
+    commitSubOwners([...subOwners.map((o) => o.userId), userId])
+  }
+  const removeSubOwner = (userId) => {
+    commitSubOwners(subOwners.filter((o) => o.userId !== userId).map((o) => o.userId))
+  }
+  const subSearch = (kw) => {
+    clearTimeout(subTimer.current)
+    if (!kw.trim()) return setSubOpts([])
+    subTimer.current = setTimeout(async () => {
+      try {
+        const list = await searchApi.mentionUsers(kw)
+        setSubOpts((list || []).map((u) => ({ value: u.userId, label: u.userNickname, avatar: u.avatar })))
+      } catch { setSubOpts([]) }
     }, 250)
   }
 
@@ -165,6 +203,46 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
             }))}
           />
           <div style={{ fontSize: 11, color: '#95de64', marginTop: 6 }}>题主对该专题有完整管理权（改设置、管成员、置顶/隐藏帖），发帖/评论会带「题主」标；至少保留一人。</div>
+        </div>
+      )}
+
+      {/* 小题主管理（题主/超管，最多 3 人） */}
+      {canEditSub && (
+        <div style={{ marginBottom: 16, background: '#e6f4ff', border: '1px solid #91caff', borderRadius: 10, padding: '10px 14px' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#0958d9', marginBottom: 10 }}>
+            <CrownFilled style={{ marginRight: 6 }} />小题主（最多 3 人 · 题主指派）
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+            {subOwners.length ? subOwners.map((o) => (
+              <span key={o.userId} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid #bae0ff', borderRadius: 16, padding: '2px 8px 2px 2px' }}>
+                {o.avatar ? <Avatar size={22} src={o.avatar} /> : <Avatar size={22} style={{ background: avatarColor(o.userNickname), fontSize: 11 }}>{String(o.userNickname || '?')[0].toUpperCase()}</Avatar>}
+                <span style={{ fontSize: 13 }}>{o.userNickname}</span>
+                <CloseCircleFilled onClick={() => removeSubOwner(o.userId)} style={{ color: '#ccc', cursor: 'pointer', fontSize: 15 }} />
+              </span>
+            )) : <span style={{ fontSize: 12, color: '#69b1ff' }}>还没有小题主</span>}
+          </div>
+          {subOwners.length < 3 && (
+            <Select
+              showSearch
+              filterOption={false}
+              value={null}
+              placeholder="搜索用户设为小题主…"
+              style={{ width: '100%' }}
+              onSearch={subSearch}
+              onSelect={addSubOwner}
+              notFoundContent={null}
+              options={subOpts.map((o) => ({
+                value: o.value,
+                label: (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    {o.avatar ? <Avatar size={20} src={o.avatar} /> : <Avatar size={20} style={{ background: avatarColor(o.label), fontSize: 11 }}>{String(o.label || '?')[0].toUpperCase()}</Avatar>}
+                    {o.label}
+                  </span>
+                ),
+              }))}
+            />
+          )}
+          <div style={{ fontSize: 11, color: '#69b1ff', marginTop: 6 }}>小题主拥有题主的全部管理权限（管成员、审批、置顶/隐藏/删帖），唯一区别：不能对题主进行任何操作。</div>
         </div>
       )}
 

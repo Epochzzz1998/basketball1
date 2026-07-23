@@ -20,6 +20,8 @@ export const topicApi = {
   update: (payload) => http.post('/topic/update', form(payload)),
   // 设置题主（可多个，超管专用）：ownerIds 为逗号分隔的用户 id
   setOwners: (topicId, ownerIds) => http.post('/topic/setOwners', form({ topicId, ownerIds })),
+  // 设置小题主（题主/超管，最多 3 人）：subOwnerIds 为逗号分隔的用户 id，空串=清空
+  setSubOwners: (topicId, subOwnerIds) => http.post('/topic/setSubOwners', form({ topicId, subOwnerIds: subOwnerIds || '' })),
   remove: (topicId) => http.delete('/topic/delete', { params: { topicId } }),
   members: (topicId) => http.get('/topic/members', { params: { topicId } }),
   setMember: (payload) => http.post('/topic/setMember', form(payload)),

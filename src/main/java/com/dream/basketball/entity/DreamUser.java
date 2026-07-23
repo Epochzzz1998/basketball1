@@ -69,6 +69,10 @@ public class DreamUser extends Model<DreamUser> implements Serializable {
     @TableField("CAN_POST")
     private String canPost;
 
+    /** may create forum topics (max 5 per user): null/'1'=allowed (default), '0'=denied by super admin */
+    @TableField("CAN_CREATE_TOPIC")
+    private String canCreateTopic;
+
     /** 功能模块可用性（按用户，super-admin 控制）：'0'=不可用（导航里整块隐藏该模块）/ null|'1'=可用 */
     @TableField("FEAT_DATA")
     private String featData;   // Dream Union 数据分析（数据概览/联盟排行/球员对比）
@@ -157,6 +161,14 @@ public class DreamUser extends Model<DreamUser> implements Serializable {
 
     public void setCanPost(String canPost) {
         this.canPost = canPost;
+    }
+
+    public String getCanCreateTopic() {
+        return canCreateTopic;
+    }
+
+    public void setCanCreateTopic(String canCreateTopic) {
+        this.canCreateTopic = canCreateTopic;
     }
 
     public String getFeatData() {

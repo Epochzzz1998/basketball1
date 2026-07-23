@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Avatar, Checkbox, Form, Input, Modal, Radio, Select, Switch, message } from 'antd'
 import { topicApi } from '../api/topic'
 import { searchApi } from '../api/search'
+import { useAuth } from '../auth/AuthContext'
 
 /**
  * 建 / 改专题弹窗。
@@ -18,6 +19,8 @@ const avatarColor = (name) => {
 
 export default function TopicEditModal({ open, onClose, onSaved, topic }) {
   const isEdit = !!topic
+  const { user } = useAuth()
+  const isSuper = !!user?.isSuperManager // 超管建专题可代指定 owner；普通用户创建后自己即题主
   const [form] = Form.useForm()
   const [visibility, setVisibility] = useState('public')
   const [opts, setOpts] = useState([])
@@ -97,7 +100,7 @@ export default function TopicEditModal({ open, onClose, onSaved, topic }) {
         <Form.Item name="description" label="简介">
           <Input.TextArea placeholder="一句话介绍这个专题" maxLength={200} autoSize={{ minRows: 2, maxRows: 4 }} />
         </Form.Item>
-        {!isEdit && (
+        {!isEdit && isSuper && (
           <Form.Item name="ownerId" label="专题 owner（负责管理成员权限）" rules={[{ required: true, message: '请指定一个 owner' }]}>
             <Select
               showSearch

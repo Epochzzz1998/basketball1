@@ -5,6 +5,7 @@ import {
   ArrowLeftOutlined,
   BellOutlined,
   MessageOutlined,
+  ReloadOutlined,
   SwapOutlined,
   DatabaseOutlined,
   FundOutlined,
@@ -24,6 +25,7 @@ import GlobalSearch from '../components/GlobalSearch'
 import { userInformationApi } from '../api/userInformation'
 import { pmApi } from '../api/pm'
 import { connectPmSocket, disconnectPmSocket } from '../realtime/pmSocket'
+import useIsMobile from '../hooks/useIsMobile'
 
 /**
  * 整体外壳（P5-3 美化）：ProLayout 的 mix 布局 = 顶栏品牌 + 可折叠侧栏菜单，
@@ -38,8 +40,11 @@ export default function AppLayout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const isMobile = useIsMobile()
   const [unread, setUnread] = useState(0)
   const [pmUnread, setPmUnread] = useState(0)
+  // 受控折叠：移动端默认收起（抽屉关闭）；点菜单项后主动收回抽屉（ProLayout 默认不收）
+  const [collapsed, setCollapsed] = useState(typeof window !== 'undefined' && window.innerWidth < 768)
 
   // 未读数：登录后取一次，路由变化轻量刷新；'unread-changed' 事件（如一键已读后）立即刷新；
   // 私信未读另走一路：'pm-event'（WS 推送到达）和 'pm-unread-changed'（聊天页标已读后）触发
@@ -162,9 +167,12 @@ export default function AppLayout() {
       siderWidth={216}
       location={{ pathname: location.pathname }}
       route={route}
+      collapsed={collapsed}
+      onCollapse={setCollapsed}
       menuItemRender={(item, dom) => {
         if (!item.path) return dom
-        return <Link to={item.path}>{dom}</Link>
+        // 移动端：点完菜单项自动把抽屉收回去
+        return <Link to={item.path} onClick={() => { if (isMobile) setCollapsed(true) }}>{dom}</Link>
       }}
       avatarProps={
         user
@@ -229,6 +237,15 @@ export default function AppLayout() {
       // 搜索框在动作区（紧贴头像）；动作项自带的 hover 灰底由 index.css 里
       // 的 [class*='actions-item']:has(.global-search) 规则压掉
       actionsRender={() => [
+        // 常驻页面刷新（搜索左边）
+        <span
+          key="reload"
+          onClick={() => window.location.reload()}
+          title="刷新页面"
+          style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer', padding: '0 6px', color: '#595959', fontSize: 15 }}
+        >
+          <ReloadOutlined />
+        </span>,
         <GlobalSearch key="global-search" />,
         ...(user
           ? []

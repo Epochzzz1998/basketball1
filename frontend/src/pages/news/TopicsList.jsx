@@ -60,7 +60,8 @@ export default function TopicsList() {
             <div style={{ fontSize: isMobile ? 18 : 23, fontWeight: 800 }}>百家说</div>
             <div style={{ opacity: 0.88, marginTop: 6, fontSize: 13 }}>见你所见，想你所想</div>
           </div>
-          {user?.isSuperManager && (
+          {/* 人人可建（默认允许，超管可按用户关闭；每人限 5 个，后端校验） */}
+          {user && (
             <Button size="large" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)} style={{ fontWeight: 600 }}>
               新建专题
             </Button>
@@ -133,7 +134,7 @@ export default function TopicsList() {
       ) : (
         <Card style={{ borderRadius: 14 }}>
           <Empty description="还没有专题">
-            {user?.isSuperManager && <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>新建专题</Button>}
+            {user && <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>新建专题</Button>}
           </Empty>
         </Card>
       )}

@@ -214,7 +214,7 @@ public class UserController extends BaseUtils {
     @RequiresRole(Role.SUPER_MANAGER)
     @PostMapping("/setUserPerms")
     public Object setUserPerms(String userId, String enabled, String canBrowse, String canComment, String canPost,
-                              String featData, String featNews, String featForum, String featPm,
+                              String canCreateTopic, String featData, String featNews, String featForum, String featPm,
                               HttpServletRequest request) {
         DreamUser target = StringUtils.isBlank(userId) ? null : userService.getById(userId);
         if (target == null) {
@@ -238,6 +238,9 @@ public class UserController extends BaseUtils {
         }
         if (canPost != null) {
             uw.set("CAN_POST", "1".equals(canPost) ? "1" : "0");
+        }
+        if (canCreateTopic != null) {
+            uw.set("CAN_CREATE_TOPIC", "1".equals(canCreateTopic) ? "1" : "0");
         }
         if (featData != null) {
             uw.set("FEAT_DATA", "1".equals(featData) ? "1" : "0");
@@ -277,6 +280,7 @@ public class UserController extends BaseUtils {
         m.put("canBrowse", !"0".equals(u.getCanBrowse()));
         m.put("canComment", !"0".equals(u.getCanComment()));
         m.put("canPost", !"0".equals(u.getCanPost()));
+        m.put("canCreateTopic", !"0".equals(u.getCanCreateTopic()));
         m.put("featData", !"0".equals(u.getFeatData()));
         m.put("featNews", !"0".equals(u.getFeatNews()));
         m.put("featForum", !"0".equals(u.getFeatForum()));

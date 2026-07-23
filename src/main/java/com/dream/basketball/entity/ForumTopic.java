@@ -43,6 +43,13 @@ public class ForumTopic extends Model<ForumTopic> implements Serializable {
     @TableField("OWNER_IDS")
     private String ownerIds;
 
+    /**
+     * 小题主集合（JSON 数组，最多 3 人）：拥有题主的全部管理权限，
+     * 唯一区别是不能对题主（OWNER_IDS 里的人）做任何操作。题主/超管指派。
+     */
+    @TableField("SUB_OWNER_IDS")
+    private String subOwnerIds;
+
     /** 'public' | 'private' */
     @TableField("VISIBILITY")
     private String visibility;
@@ -110,6 +117,14 @@ public class ForumTopic extends Model<ForumTopic> implements Serializable {
 
     public void setOwnerIds(String ownerIds) {
         this.ownerIds = ownerIds;
+    }
+
+    public String getSubOwnerIds() {
+        return subOwnerIds;
+    }
+
+    public void setSubOwnerIds(String subOwnerIds) {
+        this.subOwnerIds = subOwnerIds;
     }
 
     public String getVisibility() {

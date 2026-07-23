@@ -115,6 +115,20 @@ public class TopicController {
             owners.add(o);
         }
         m.put("owners", owners);
+        // 小题主：拥有题主全部管理权限、唯独不能动题主；题主/超管指派，每专题最多 3 人
+        Set<String> subIdSet = perms.subOwnerIds(t);
+        m.put("subOwnerIds", new ArrayList<>(subIdSet));
+        List<Map<String, Object>> subOwners = new ArrayList<>();
+        for (String sid : subIdSet) {
+            DreamUser su = userMapper.selectById(sid);
+            Map<String, Object> s = new HashMap<>();
+            s.put("userId", sid);
+            s.put("userNickname", su == null ? sid : su.getUserNickname());
+            s.put("avatar", su == null ? null : su.getAvatar());
+            subOwners.add(s);
+        }
+        m.put("subOwners", subOwners);
+        m.put("canEditSubOwners", me != null && (Role.fromUserRole(me.getUserRole()) == Role.SUPER_MANAGER || perms.isOwner(me, t)));
         m.put("visibility", t.getVisibility());
         m.put("listed", !"0".equals(t.getListed())); // 是否在百家说露出（默认 true）
         m.put("openPost", ON.equals(t.getOpenPost()));
@@ -138,18 +152,37 @@ public class TopicController {
         return m;
     }
 
-    // ===== 建 / 改 / 删（admin 建删，admin+owner 改设置） =====
+    // ===== 建 / 改 / 删（人人可建限 5 个，admin 删，admin+题主+小题主 改设置） =====
 
-    /** 建专题（admin）：必须指定 owner。 */
-    @RequiresRole(Role.SUPER_MANAGER)
+    /**
+     * 建专题：普通用户也可建（默认允许，超管可在用户管理里关掉），每人最多 5 个，
+     * 创建者自动成为题主；超管不限量，且可代指定 owner。
+     */
+    @RequiresRole(Role.USER)
     @PostMapping("/create")
     public Object create(String name, String description, String ownerId, String visibility,
                          String openPost, String openComment, String listed, HttpServletRequest request) {
         if (StringUtils.isBlank(name)) {
             return new Result<>(1, "专题名称不能为空", null);
         }
-        if (StringUtils.isBlank(ownerId) || userMapper.selectById(ownerId) == null) {
-            return new Result<>(1, "请指定一个有效的专题 owner", null);
+        DreamUser me = SecUtil.getLoginUserToSession(request);
+        boolean isSuper = Role.fromUserRole(me.getUserRole()) == Role.SUPER_MANAGER;
+        if (isSuper) {
+            // 超管沿用旧流程：必须显式指定 owner
+            if (StringUtils.isBlank(ownerId) || userMapper.selectById(ownerId) == null) {
+                return new Result<>(1, "请指定一个有效的专题 owner", null);
+            }
+        } else {
+            // 普通用户：owner 只能是自己；受"允许创建话题"开关与 5 个上限约束（现读 DB，超管一改即生效）
+            DreamUser fresh = userMapper.selectById(me.getUserId());
+            if (fresh == null || "0".equals(fresh.getCanCreateTopic())) {
+                return new Result<>(1, "管理员已限制你创建专题", null);
+            }
+            Integer owned = topicMapper.selectCount(new QueryWrapper<ForumTopic>().eq("OWNER_ID", me.getUserId()));
+            if (owned != null && owned >= 5) {
+                return new Result<>(1, "每人最多创建 5 个专题", null);
+            }
+            ownerId = me.getUserId();
         }
         ForumTopic t = new ForumTopic();
         t.setTopicId(UUID.randomUUID().toString());
@@ -236,6 +269,37 @@ public class TopicController {
         return new Result<>(0, "已保存", null);
     }
 
+    /**
+     * 设置该专题的小题主（题主或超管，最多 3 人）。subOwnerIds 为逗号分隔的用户 id；
+     * 去重、校验存在、剔除已是题主的 id；传空=清空。
+     */
+    @RequiresRole(Role.USER)
+    @PostMapping("/setSubOwners")
+    public Object setSubOwners(String topicId, String subOwnerIds, HttpServletRequest request) {
+        DreamUser me = SecUtil.getLoginUserToSession(request);
+        ForumTopic t = perms.getTopic(topicId);
+        if (t == null) {
+            return new Result<>(1, "专题不存在", null);
+        }
+        if (!(Role.fromUserRole(me.getUserRole()) == Role.SUPER_MANAGER || perms.isOwner(me, t))) {
+            return new Result<>(1, "只有题主可以设置小题主", null);
+        }
+        Set<String> owners = perms.ownerIds(t);
+        List<String> valid = new ArrayList<>();
+        for (String raw : StringUtils.split(StringUtils.trimToEmpty(subOwnerIds), ',')) {
+            String id = raw.trim();
+            if (!id.isEmpty() && !valid.contains(id) && !owners.contains(id) && userMapper.selectById(id) != null) {
+                valid.add(id);
+            }
+        }
+        if (valid.size() > 3) {
+            return new Result<>(1, "每个专题最多 3 个小题主", null);
+        }
+        t.setSubOwnerIds(JSON.toJSONString(valid));
+        topicMapper.updateById(t);
+        return new Result<>(0, "已保存", null);
+    }
+
     /** 删专题（admin）：仅当专题下没有帖子时可删（避免帖子失去归属）。 */
     @RequiresRole(Role.SUPER_MANAGER)
     @DeleteMapping("/delete")
@@ -290,6 +354,10 @@ public class TopicController {
         }
         if (StringUtils.isBlank(userId) || userMapper.selectById(userId) == null) {
             return new Result<>(1, "用户不存在", null);
+        }
+        // 小题主不能动题主的成员行
+        if (!perms.canActOn(SecUtil.getLoginUserToSession(request), t, userId)) {
+            return new Result<>(1, "小题主不能对题主进行操作", null);
         }
         boolean post = ON.equals(canPost);
         boolean comment = ON.equals(canComment);
@@ -385,6 +453,9 @@ public class TopicController {
         if (t == null || !perms.canManage(me, t)) {
             return new Result<>(1, "无权审批该专题", null);
         }
+        if (!perms.canActOn(me, t, r.getUserId())) {
+            return new Result<>(1, "小题主不能对题主进行操作", null);
+        }
         boolean pass = ON.equals(approve);
         r.setStatus(pass ? "approved" : "rejected");
         r.setHandleTime(new Date());
@@ -417,13 +488,17 @@ public class TopicController {
         return new Result<>(0, pass ? "已通过" : "已驳回", null);
     }
 
-    /** 移除一个成员（admin 或 owner）。 */
+    /** 移除一个成员（admin / 题主 / 小题主；小题主不能移除题主）。 */
     @RequiresRole(Role.USER)
     @PostMapping("/removeMember")
     public Object removeMember(String topicId, String userId, HttpServletRequest request) {
+        DreamUser me = SecUtil.getLoginUserToSession(request);
         ForumTopic t = perms.getTopic(topicId);
-        if (t == null || !perms.canManage(SecUtil.getLoginUserToSession(request), t)) {
+        if (t == null || !perms.canManage(me, t)) {
             return new Result<>(1, "无权管理该专题", null);
+        }
+        if (!perms.canActOn(me, t, userId)) {
+            return new Result<>(1, "小题主不能对题主进行操作", null);
         }
         memberMapper.delete(new QueryWrapper<ForumTopicMember>().eq("TOPIC_ID", topicId).eq("USER_ID", userId));
         return new Result<>(0, "已移除", null);
