@@ -101,3 +101,9 @@ body {
     font-size: 16px !important;
   }
 }
+
+/* 订阅的专题折叠区要紧跟菜单项：去掉 ProLayout 给侧栏菜单的 min-height:100%
+   （否则菜单撑满整栏，menuContentRender 追加的内容被顶到可视区之下，"看不见但在 DOM 里"） */
+.ant-pro-sider ul.ant-pro-sider-menu {
+  min-height: 0 !important;
+}
