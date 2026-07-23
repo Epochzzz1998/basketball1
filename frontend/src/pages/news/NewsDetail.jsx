@@ -195,12 +195,19 @@ export default function NewsDetail() {
   }
 
   // 置顶/精华/封锁/隐藏（可并存）：成功就地更新；失败由 http 拦截器统一弹错（接口回统一 Result，成功时 data 为空，不能靠 res.result 判断）
+  // 提示按「哪个操作 + 开还是关」给对应文案，不再笼统说"已更新"
+  const FLAG_MSGS = {
+    top: ['已置顶', '已取消置顶'],
+    essence: ['已设为精华', '已取消精华'],
+    locked: ['已锁定，帖子转为只读', '已解除锁定'],
+    hidden: ['已隐藏，仅管理者可见', '已取消隐藏'],
+  }
   const toggleFlag = async (flag) => {
     const cur = news?.[flag] === '1'
     try {
       await newsApi.setFlag(newsId, flag, cur ? '0' : '1')
       setNews((n) => (n ? { ...n, [flag]: cur ? '0' : '1' } : n))
-      message.success('已更新')
+      message.success((FLAG_MSGS[flag] || ['已更新', '已更新'])[cur ? 1 : 0])
     } catch { /* 拦截器已弹错 */ }
   }
 
