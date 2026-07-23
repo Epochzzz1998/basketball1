@@ -62,6 +62,9 @@ public class UserProfileController {
     @Autowired
     private com.dream.basketball.mapper.UserFollowMapper followMapper;
 
+    @Autowired
+    private com.dream.basketball.mapper.UserBlockMapper blockMapper;
+
     @Value("${picPath.uploadPath:}")
     private String uploadPath;
 
@@ -176,6 +179,10 @@ public class UserProfileController {
         data.put("following", profileViewer != null && followMapper.selectCount(
                 new QueryWrapper<com.dream.basketball.entity.UserFollow>()
                         .eq("FOLLOWER_ID", profileViewer.getUserId()).eq("FOLLOWEE_ID", userId)) > 0);
+        // 我是否拉黑了 TA（他人主页的拉黑/解除按钮用）
+        data.put("blockedByMe", profileViewer != null && blockMapper.selectCount(
+                new QueryWrapper<com.dream.basketball.entity.UserBlock>()
+                        .eq("USER_ID", profileViewer.getUserId()).eq("BLOCKED_ID", userId)) > 0);
         return new Result<>(0, "成功", data);
     }
 
@@ -253,6 +260,17 @@ public class UserProfileController {
             uw.set("HIDE_COMMENTS", "1".equals(hideComments) ? "1" : "0");
         }
         userMapper.update(null, uw);
+        return new Result<>(0, "已保存", null);
+    }
+
+    /** 私信权限（本人）：all=所有人可发，following=仅我关注的人可发 */
+    @RequiresRole(Role.USER)
+    @PostMapping("/setPmPolicy")
+    public Result<Object> setPmPolicy(String policy, HttpServletRequest request) {
+        DreamUser me = SecUtil.getLoginUserToSession(request);
+        String value = "following".equals(policy) ? "following" : "all";
+        userMapper.update(null, new UpdateWrapper<DreamUser>()
+                .eq("USER_ID", me.getUserId()).set("PM_POLICY", value));
         return new Result<>(0, "已保存", null);
     }
 

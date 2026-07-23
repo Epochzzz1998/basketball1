@@ -3,10 +3,11 @@ import {
   Avatar, Button, Card, Col, Empty, Form, Grid, Input, List, Modal, Popconfirm,
   Row, Select, Space, Spin, Statistic, Switch, Tabs, Tag, Upload, message,
 } from 'antd'
-import { CameraOutlined, CheckOutlined, CommentOutlined, EditOutlined, LikeOutlined, LockOutlined, MessageOutlined, PlusOutlined, TrophyFilled } from '@ant-design/icons'
+import { CameraOutlined, CheckOutlined, CommentOutlined, EditOutlined, LikeOutlined, LockOutlined, MessageOutlined, PlusOutlined, StopOutlined, TrophyFilled } from '@ant-design/icons'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { userApi } from '../../api/user'
 import { followApi } from '../../api/follow'
+import { blockApi } from '../../api/block'
 import { searchApi } from '../../api/search'
 import { useAuth } from '../../auth/AuthContext'
 import UserTitles from '../../components/UserTitles'
@@ -208,6 +209,50 @@ function FollowListModal({ userId, tab, onClose, onTabChange }) {
   )
 }
 
+// 黑名单管理弹窗（仅本人）：列表 + 逐个解除
+function BlocklistModal({ open, onClose }) {
+  const [rows, setRows] = useState(null)
+
+  useEffect(() => {
+    if (!open) return
+    setRows(null)
+    blockApi.list().then((r) => setRows(Array.isArray(r) ? r : [])).catch(() => setRows([]))
+  }, [open])
+
+  const unblock = async (userId) => {
+    try {
+      await blockApi.toggle(userId)
+      setRows((list) => (list || []).filter((r) => r.userId !== userId))
+      message.success('已解除拉黑')
+    } catch { /* 拦截器已提示 */ }
+  }
+
+  return (
+    <Modal open={open} footer={null} onCancel={onClose} title="黑名单管理" width={420}>
+      {rows === null ? (
+        <div style={{ textAlign: 'center', padding: 30 }}><Spin /></div>
+      ) : rows.length ? (
+        <div style={{ maxHeight: 420, overflowY: 'auto' }}>
+          {rows.map((r) => (
+            <div key={r.userId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 4px', borderBottom: '1px solid #fafafa' }}>
+              <Avatar size={34} src={r.avatar || undefined} style={{ background: '#999', fontWeight: 700, flexShrink: 0 }}>
+                {String(r.userNickname || '?')[0].toUpperCase()}
+              </Avatar>
+              <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>
+                {r.userNickname}
+              </span>
+              <Button size="small" onClick={() => unblock(r.userId)}>解除拉黑</Button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="黑名单是空的" />
+      )}
+      <div style={{ fontSize: 12, color: '#bbb', marginTop: 10 }}>被拉黑的用户无法给你发私信、无法关注你；帖子和评论互相仍可见。</div>
+    </Modal>
+  )
+}
+
 export default function UserProfile() {
   const { userId } = useParams()
   const navigate = useNavigate()
@@ -220,7 +265,8 @@ export default function UserProfile() {
   const [saving, setSaving] = useState(false)
   const [avatarFile, setAvatarFile] = useState(null)     // 暂存的新头像，点"保存"才上传
   const [avatarPreview, setAvatarPreview] = useState(null)
-  const [followTab, setFollowTab] = useState(null) // null=关 | 'following' | 'followers'（关注/粉丝列表弹窗）
+  const [followTab, setFollowTab] = useState(null)
+  const [blocklistOpen, setBlocklistOpen] = useState(false) // 本人黑名单管理弹窗 // null=关 | 'following' | 'followers'（关注/粉丝列表弹窗）
   const [editForm] = Form.useForm()
   const [pwdForm] = Form.useForm()
 
@@ -256,7 +302,7 @@ export default function UserProfile() {
   }
   if (data === null) return <Spin style={{ display: 'block', margin: '80px auto' }} size="large" />
 
-  const { user, stats, posts, comments, postsHidden, commentsHidden, followerCount, followingCount, following } = data
+  const { user, stats, posts, comments, postsHidden, commentsHidden, followerCount, followingCount, following, blockedByMe } = data
   const role = ROLE_META[user.userRole]
   const displayName = user.userNickname || user.userName
   const verified = user.identStatus === 1
@@ -331,7 +377,16 @@ export default function UserProfile() {
     } catch { /* 拦截器已提示 */ }
   }
 
-  // 横幅操作按钮：本人=编辑资料/改密码；他人=关注 + 发私信。桌面绝对定位右上角，移动端挪到横幅下方
+  // 拉黑/解除：拉黑会自动解除双向关注（后端处理），本地同步刷新状态
+  const toggleBlock = async () => {
+    try {
+      const res = await blockApi.toggle(userId)
+      setData((d) => (d ? { ...d, blockedByMe: res.blocked, ...(res.blocked ? { following: false } : {}) } : d))
+      message.success(res.blocked ? '已拉黑，对方无法再私信或关注你' : '已解除拉黑')
+    } catch { /* 拦截器已提示 */ }
+  }
+
+  // 横幅操作按钮：本人=编辑资料/改密码；他人=关注 + 发私信 + 拉黑。桌面绝对定位右上角，移动端挪到横幅下方
   const actionBtns = isSelf ? (
     <>
       <Button ghost size="small" icon={<EditOutlined />} onClick={() => { editForm.setFieldsValue({ userNickname: displayName }); setEditOpen(true) }}>
@@ -355,6 +410,17 @@ export default function UserProfile() {
       <Button ghost size="small" icon={<MessageOutlined />} onClick={() => navigate(`/messages?peerId=${userId}`)}>
         发私信
       </Button>
+      <Popconfirm
+        title={blockedByMe ? '解除拉黑该用户？' : '拉黑该用户？'}
+        description={blockedByMe ? undefined : '拉黑后对方无法私信或关注你，并解除你们的相互关注'}
+        okText={blockedByMe ? '解除' : '拉黑'}
+        okButtonProps={blockedByMe ? undefined : { danger: true }}
+        onConfirm={toggleBlock}
+      >
+        <Button ghost size="small" icon={<StopOutlined />} style={{ opacity: blockedByMe ? 1 : 0.75 }}>
+          {blockedByMe ? '已拉黑' : '拉黑'}
+        </Button>
+      </Popconfirm>
     </>
   ) : null
 
@@ -447,6 +513,9 @@ export default function UserProfile() {
       {/* 关注/粉丝列表 */}
       <FollowListModal userId={userId} tab={followTab} onClose={() => setFollowTab(null)} onTabChange={setFollowTab} />
 
+      {/* 黑名单管理（仅本人） */}
+      {isSelf && <BlocklistModal open={blocklistOpen} onClose={() => setBlocklistOpen(false)} />}
+
       {/* 内容区 */}
       <Card styles={{ body: { padding: '8px 20px 16px' } }}>
         {/* 本人：主页隐私开关（隐藏后他人看不到，自己仍可见） */}
@@ -462,6 +531,19 @@ export default function UserProfile() {
               <span style={{ fontSize: 13 }}>隐藏我的评论</span>
             </span>
             <span style={{ fontSize: 12, color: '#bbb' }}>仅对他人隐藏，你自己仍能看到</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 13, color: '#8c8c8c' }}>谁能私信我</span>
+              <Select
+                size="small"
+                value={user.pmPolicy === 'following' ? 'following' : 'all'}
+                style={{ width: 138 }}
+                options={[{ value: 'all', label: '所有人' }, { value: 'following', label: '仅我关注的人' }]}
+                onChange={async (v) => {
+                  try { await userApi.setPmPolicy(v); message.success('已保存'); load() } catch { /* 已提示 */ }
+                }}
+              />
+            </span>
+            <a style={{ fontSize: 13 }} onClick={() => setBlocklistOpen(true)}>黑名单管理</a>
           </div>
         )}
         <Tabs

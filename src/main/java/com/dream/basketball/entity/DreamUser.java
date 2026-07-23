@@ -91,6 +91,18 @@ public class DreamUser extends Model<DreamUser> implements Serializable {
     @TableField("HIDE_COMMENTS")
     private String hideComments;
 
+    /** who may DM me: null/'all' = anyone; 'following' = only people I follow */
+    @TableField("PM_POLICY")
+    private String pmPolicy;
+
+    public String getPmPolicy() {
+        return pmPolicy;
+    }
+
+    public void setPmPolicy(String pmPolicy) {
+        this.pmPolicy = pmPolicy;
+    }
+
     public String getAvatar() {
         return avatar;
     }

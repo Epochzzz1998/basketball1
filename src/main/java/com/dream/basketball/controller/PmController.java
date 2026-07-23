@@ -56,6 +56,12 @@ public class PmController extends BaseUtils {
     @Autowired
     private com.dream.basketball.config.PresenceService presenceService;
 
+    @Autowired
+    private com.dream.basketball.mapper.UserBlockMapper blockMapper;
+
+    @Autowired
+    private com.dream.basketball.mapper.UserFollowMapper followMapper;
+
     @org.springframework.beans.factory.annotation.Value("${picPath.uploadPath:}")
     private String uploadPath;
 
@@ -90,6 +96,21 @@ public class PmController extends BaseUtils {
         DreamUser peer = userMapper.selectById(receiverId);
         if (peer == null) {
             return new Result<>(1, "用户不存在", null);
+        }
+        // 私信隐私：①我拉黑了对方 → 明说；②对方拉黑了我 → 委婉统一话术（不暴露被拉黑）；
+        // ③对方设"仅我关注的人可发" → 要求对方已关注我
+        if (blockMapper.selectCount(new QueryWrapper<com.dream.basketball.entity.UserBlock>()
+                .eq("USER_ID", me).eq("BLOCKED_ID", receiverId)) > 0) {
+            return new Result<>(1, "你已拉黑对方，先到 TA 的主页解除拉黑", null);
+        }
+        if (blockMapper.selectCount(new QueryWrapper<com.dream.basketball.entity.UserBlock>()
+                .eq("USER_ID", receiverId).eq("BLOCKED_ID", me)) > 0) {
+            return new Result<>(1, "对方设置了私信权限，暂时无法发送", null);
+        }
+        if ("following".equals(peer.getPmPolicy())
+                && followMapper.selectCount(new QueryWrapper<com.dream.basketball.entity.UserFollow>()
+                        .eq("FOLLOWER_ID", receiverId).eq("FOLLOWEE_ID", me)) == 0) {
+            return new Result<>(1, "对方仅接收 TA 关注的人的私信", null);
         }
 
         DreamPrivateMessage msg = new DreamPrivateMessage();

@@ -14,6 +14,8 @@ export const userApi = {
     Object.entries(payload).forEach(([k, v]) => { if (v != null) body.append(k, v) })
     return http.post('/user/setActivityPrivacy', body)
   },
+  // 本人：私信权限 policy = 'all'（所有人可发）| 'following'（仅我关注的人可发）
+  setPmPolicy: (policy) => http.post('/user/setPmPolicy', new URLSearchParams({ policy })),
   uploadAvatar: (file) => {
     const fd = new FormData()
     fd.append('file', file)

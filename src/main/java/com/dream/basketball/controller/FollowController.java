@@ -35,6 +35,8 @@ public class FollowController {
     private UserMapper userMapper;
     @Autowired
     private UserInformationService userInformationService;
+    @Autowired
+    private com.dream.basketball.mapper.UserBlockMapper blockMapper;
 
     private boolean edgeExists(String followerId, String followeeId) {
         return followMapper.selectCount(new QueryWrapper<UserFollow>()
@@ -52,6 +54,15 @@ public class FollowController {
         }
         if (StringUtils.equals(me.getUserId(), userId)) {
             return new Result<>(1, "不能关注自己", null);
+        }
+        // 拉黑关系下不允许建立关注（任一方向）
+        if (blockMapper.selectCount(new QueryWrapper<com.dream.basketball.entity.UserBlock>()
+                .eq("USER_ID", userId).eq("BLOCKED_ID", me.getUserId())) > 0
+                || blockMapper.selectCount(new QueryWrapper<com.dream.basketball.entity.UserBlock>()
+                        .eq("USER_ID", me.getUserId()).eq("BLOCKED_ID", userId)) > 0) {
+            if (!edgeExists(me.getUserId(), userId)) {
+                return new Result<>(1, "当前无法关注该用户", null);
+            }
         }
         boolean following;
         if (edgeExists(me.getUserId(), userId)) {
