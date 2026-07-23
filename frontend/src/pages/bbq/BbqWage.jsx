@@ -3,7 +3,7 @@ import {
   Avatar, Button, Calendar, Card, Col, Empty, Input, InputNumber, Modal, Popconfirm, Row, Select, Spin, Switch, TimePicker, message,
 } from 'antd'
 import {
-  DeleteOutlined, EditOutlined, FireOutlined, LeftOutlined, PlusOutlined, RightOutlined, UserOutlined,
+  DeleteOutlined, DollarOutlined, EditOutlined, FireOutlined, LeftOutlined, PlusOutlined, RightOutlined, UserOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { bbqApi } from '../../api/bbq'
@@ -55,6 +55,9 @@ export default function BbqWage() {
   const [saving, setSaving] = useState(false)
   // 编辑旧记录时，行里可能引用已删除/已改价的串——快照价按这里回显
   const [snapPrices, setSnapPrices] = useState({})
+  // 结清：预览列表（确认弹窗），null=关闭
+  const [settleRows, setSettleRows] = useState(null)
+  const [settling, setSettling] = useState(false)
 
   const dateStr = selected.format('YYYY-MM-DD')
   const monthStr = selected.format('YYYY-MM')
@@ -195,6 +198,26 @@ export default function BbqWage() {
     } catch { /* 已提示 */ }
   }
 
+  // ===== 结清：按当前筛选（不筛选=全部有未结清账的人，含已离店的），先预览确认再执行 =====
+  const scopeIds = filterIds.length ? JSON.stringify(filterIds) : undefined
+  const openSettle = async () => {
+    try {
+      const rows = await bbqApi.settlePreview(scopeIds)
+      if (!Array.isArray(rows) || rows.length === 0) return message.info('没有可结清的记录')
+      setSettleRows(rows)
+    } catch { /* 已提示 */ }
+  }
+  const doSettle = async () => {
+    setSettling(true)
+    try {
+      const r = await bbqApi.settleConfirm(scopeIds)
+      message.success(`已结清 ${r?.users ?? ''} 人，共 ${money(r?.amount)}`)
+      setSettleRows(null)
+      loadMonth()
+      loadDay()
+    } catch { /* 已提示 */ } finally { setSettling(false) }
+  }
+
   // ===== 日历格子：桌面=姓名+金额胶囊（最多 2 条），移动端=小圆点（格子太小装不下胶囊） =====
   const cellRender = (date, info) => {
     if (info.type !== 'date') return info.originNode
@@ -219,11 +242,13 @@ export default function BbqWage() {
             style={{
               display: 'flex', alignItems: 'center', gap: 5,
               fontSize: 11, lineHeight: '17px', padding: '1px 8px', borderRadius: 999,
-              background: '#fffbe6', border: '1px solid #ffe58f', color: AMBER_DARK,
+              background: r.settled ? '#f5f5f5' : '#fffbe6',
+              border: `1px solid ${r.settled ? '#e8e8e8' : '#ffe58f'}`,
+              color: r.settled ? '#999' : AMBER_DARK,
               overflow: 'hidden', whiteSpace: 'nowrap', fontWeight: 500,
             }}
           >
-            <span style={{ width: 5, height: 5, borderRadius: '50%', background: AMBER, flexShrink: 0 }} />
+            <span style={{ width: 5, height: 5, borderRadius: '50%', background: r.settled ? '#bfbfbf' : AMBER, flexShrink: 0 }} />
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.userNickname} {money(r.total)}</span>
           </div>
         ))}
@@ -256,7 +281,7 @@ export default function BbqWage() {
         </div>
       </div>
 
-      {/* 店员筛选（多选，默认全部） */}
+      {/* 店员筛选（多选，默认全部）+ 结清按钮（结清范围跟随筛选） */}
       <Card style={{ borderRadius: 16, marginBottom: 16 }} styles={{ body: { padding: '10px 16px' } }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 13, color: '#666', fontWeight: 600, flexShrink: 0 }}>筛选店员</span>
@@ -270,6 +295,9 @@ export default function BbqWage() {
             optionFilterProp="label"
             options={staff.map((s) => ({ value: s.userId, label: s.userNickname }))}
           />
+          <Button icon={<DollarOutlined />} onClick={openSettle} style={{ color: AMBER_DARK, borderColor: '#ffd666', background: '#fffbe6', fontWeight: 600 }}>
+            结清薪资{filterIds.length > 0 ? '（按筛选）' : ''}
+          </Button>
         </div>
       </Card>
 
@@ -332,8 +360,8 @@ export default function BbqWage() {
                     <div
                       key={r.recordId}
                       style={{
-                        padding: '11px 13px', borderRadius: 12, background: '#fffdf5',
-                        borderLeft: `4px solid ${AMBER}`, boxShadow: '0 1px 3px rgba(0,0,0,.06)',
+                        padding: '11px 13px', borderRadius: 12, background: r.settled ? '#fafafa' : '#fffdf5',
+                        borderLeft: `4px solid ${r.settled ? '#d9d9d9' : AMBER}`, boxShadow: '0 1px 3px rgba(0,0,0,.06)',
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -341,13 +369,17 @@ export default function BbqWage() {
                         <span style={{ fontWeight: 700, fontSize: 14, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {r.userNickname}
                         </span>
-                        <span style={{ fontWeight: 800, fontSize: 15, color: AMBER_DARK, flexShrink: 0 }}>{money(r.total)}</span>
-                        <span style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 2 }}>
-                          <EditOutlined style={{ color: '#999', cursor: 'pointer' }} onClick={() => openEdit(r)} />
-                          <Popconfirm title="删除这条记录？" onConfirm={() => doDelete(r)} okText="删除" cancelText="取消">
-                            <DeleteOutlined style={{ color: '#bbb', cursor: 'pointer' }} />
-                          </Popconfirm>
-                        </span>
+                        {r.settled && <span style={{ fontSize: 11, color: '#999', background: '#f0f0f0', borderRadius: 999, padding: '1px 8px', flexShrink: 0 }}>已结清</span>}
+                        <span style={{ fontWeight: 800, fontSize: 15, color: r.settled ? '#8c8c8c' : AMBER_DARK, flexShrink: 0 }}>{money(r.total)}</span>
+                        {/* 已结清的记录锁定：不给编辑/删除入口（后端也拒） */}
+                        {!r.settled && (
+                          <span style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 2 }}>
+                            <EditOutlined style={{ color: '#999', cursor: 'pointer' }} onClick={() => openEdit(r)} />
+                            <Popconfirm title="删除这条记录？" onConfirm={() => doDelete(r)} okText="删除" cancelText="取消">
+                              <DeleteOutlined style={{ color: '#bbb', cursor: 'pointer' }} />
+                            </Popconfirm>
+                          </span>
+                        )}
                       </div>
                       <div style={{ color: '#8c8c8c', fontSize: 12, marginTop: 6, lineHeight: 1.8 }}>
                         {r.startTime}–{overnight(r.startTime, r.endTime) ? `次日${r.endTime}` : r.endTime}
@@ -485,6 +517,42 @@ export default function BbqWage() {
               <span style={{ fontWeight: 800, marginLeft: 8 }}>= {money(preview.total)}</span>
             </div>
           )}
+        </div>
+      </Modal>
+
+      {/* 结清确认弹窗：罗列要结清的人与金额，确认后记录锁死 */}
+      <Modal
+        title="确定结清这些人的薪资？"
+        open={!!settleRows}
+        onCancel={() => setSettleRows(null)}
+        onOk={doSettle}
+        okText="确认结清"
+        cancelText="取消"
+        confirmLoading={settling}
+        width={isMobile ? '100%' : 480}
+      >
+        <div style={{ color: '#999', fontSize: 13, marginBottom: 10 }}>
+          结算范围：{filterIds.length > 0 ? '当前筛选的店员' : '所有有未结清账的人（含已离店的）'}，
+          从上次结清后（没结过就从最早记录）到今天。<b>结清后这些记录将锁定，不能再改、不能删。</b>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {(settleRows || []).map((s, i) => (
+            <div key={s.userId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 2px', borderTop: i === 0 ? 'none' : '1px solid #f5f5f5' }}>
+              <Avatar size={26} src={s.avatar || undefined} icon={s.avatar ? undefined : <UserOutlined />} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 650, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.userNickname}</div>
+                <div style={{ color: '#999', fontSize: 12 }}>{s.fromDate === s.toDate ? s.fromDate : `${s.fromDate} ~ ${s.toDate}`} · {s.recordCount} 条</div>
+              </div>
+              <span style={{ fontWeight: 800, color: AMBER_DARK, flexShrink: 0 }}>{money(s.amount)}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', marginTop: 10, paddingTop: 10, borderTop: '1px dashed #f0f0f0' }}>
+          <span style={{ fontSize: 13, color: '#666' }}>合计 {(settleRows || []).length} 人</span>
+          <span style={{ flex: 1 }} />
+          <span style={{ fontWeight: 800, fontSize: 17, color: AMBER_DARK }}>
+            {money((settleRows || []).reduce((sum, s) => sum + Number(s.amount || 0), 0))}
+          </span>
         </div>
       </Modal>
     </>

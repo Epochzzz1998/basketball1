@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.dream.basketball.common.Result;
 import com.dream.basketball.config.RequiresRole;
 import com.dream.basketball.config.Role;
+import com.dream.basketball.entity.BbqSettlement;
 import com.dream.basketball.entity.BbqSkewerType;
 import com.dream.basketball.entity.BbqStaff;
 import com.dream.basketball.entity.BbqWageRecord;
@@ -55,6 +56,8 @@ public class BbqController {
     private BbqWageRecordMapper wageMapper;
     @Autowired
     private BbqWageSkewerMapper wageSkewerMapper;
+    @Autowired
+    private com.dream.basketball.mapper.BbqSettlementMapper settlementMapper;
     @Autowired
     private UserFollowMapper followMapper;
     @Autowired
@@ -615,6 +618,276 @@ public class BbqController {
         wageSkewerMapper.delete(new QueryWrapper<BbqWageSkewer>().eq("RECORD_ID", recordId));
         wageMapper.deleteById(recordId);
         return new Result<>(0, "已删除", null);
+    }
+
+    // ===== settlement =====
+
+    /** unsettled records up to today (Melbourne), optionally scoped to userIds (JSON array) */
+    private List<BbqWageRecord> unsettledScope(String userIds) {
+        String today = java.time.LocalDate.now(java.time.ZoneId.of("Australia/Melbourne")).toString();
+        QueryWrapper<BbqWageRecord> qw = new QueryWrapper<BbqWageRecord>()
+                .isNull("SETTLE_ID").le("WORK_DATE", today);
+        if (StringUtils.isNotBlank(userIds)) {
+            List<String> ids = new ArrayList<>();
+            try {
+                for (Object o : JSON.parseArray(userIds)) {
+                    if (o != null && StringUtils.isNotBlank(o.toString())) {
+                        ids.add(o.toString());
+                    }
+                }
+            } catch (Exception e) {
+                return null;
+            }
+            if (!ids.isEmpty()) {
+                qw.in("USER_ID", ids);
+            }
+        }
+        return wageMapper.selectList(qw.orderByAsc("USER_ID", "WORK_DATE"));
+    }
+
+    /** per-user rollup of unsettled records, nickname-resolved, for both preview and confirm */
+    private List<Map<String, Object>> rollupByUser(List<BbqWageRecord> records) {
+        Map<String, List<BbqWageRecord>> byUser = new LinkedHashMap<>();
+        for (BbqWageRecord r : records) {
+            byUser.computeIfAbsent(r.getUserId(), (k) -> new ArrayList<>()).add(r);
+        }
+        Map<String, DreamUser> users = usersById(byUser.keySet());
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (Map.Entry<String, List<BbqWageRecord>> e : byUser.entrySet()) {
+            BigDecimal amount = BigDecimal.ZERO;
+            String from = null;
+            String to = null;
+            for (BbqWageRecord r : e.getValue()) {
+                amount = amount.add(r.getTotal());
+                if (from == null || r.getWorkDate().compareTo(from) < 0) {
+                    from = r.getWorkDate();
+                }
+                if (to == null || r.getWorkDate().compareTo(to) > 0) {
+                    to = r.getWorkDate();
+                }
+            }
+            Map<String, Object> m = new HashMap<>();
+            m.put("userId", e.getKey());
+            DreamUser u = users.get(e.getKey());
+            m.put("userNickname", u == null ? e.getKey() : u.getUserNickname());
+            m.put("avatar", u == null ? null : u.getAvatar());
+            m.put("fromDate", from);
+            m.put("toDate", to);
+            m.put("recordCount", e.getValue().size());
+            m.put("amount", amount);
+            out.add(m);
+        }
+        return out;
+    }
+
+    /**
+     * 结清预览（店长）：确认弹窗用——要结清哪些人、各多少钱。范围=未结清且日期≤今天的记录；
+     * userIds（JSON 数组）为空 = 所有有未结清账的人（包括已离店的，余账仍可结）。
+     */
+    @RequiresRole(Role.USER)
+    @GetMapping("/settle/preview")
+    public Object settlePreview(String userIds, HttpServletRequest request) {
+        DreamUser me = SecUtil.getLoginUserToSession(request);
+        if (!isManager(me)) {
+            return new Result<>(1, "只有店长可以操作", null);
+        }
+        List<BbqWageRecord> records = unsettledScope(userIds);
+        if (records == null) {
+            return new Result<>(1, "筛选数据格式错误", null);
+        }
+        return new Result<>(0, "成功", rollupByUser(records));
+    }
+
+    /**
+     * 结清（店长）：与预览同一口径重算（以点击时的库内数据为准），一人落一张 bbq_settlement 凭据，
+     * 相关记录盖上 SETTLE_ID——从此不可改不可删。未来日期的记录不结（留在下一次）。
+     */
+    @RequiresRole(Role.USER)
+    @PostMapping("/settle/confirm")
+    public Object settleConfirm(String userIds, HttpServletRequest request) {
+        DreamUser me = SecUtil.getLoginUserToSession(request);
+        if (!isManager(me)) {
+            return new Result<>(1, "只有店长可以操作", null);
+        }
+        List<BbqWageRecord> records = unsettledScope(userIds);
+        if (records == null) {
+            return new Result<>(1, "筛选数据格式错误", null);
+        }
+        if (records.isEmpty()) {
+            return new Result<>(1, "没有可结清的记录", null);
+        }
+        List<Map<String, Object>> rollup = rollupByUser(records);
+        Map<String, List<String>> idsByUser = new HashMap<>();
+        for (BbqWageRecord r : records) {
+            idsByUser.computeIfAbsent(r.getUserId(), (k) -> new ArrayList<>()).add(r.getRecordId());
+        }
+        BigDecimal grand = BigDecimal.ZERO;
+        int recordTotal = 0;
+        for (Map<String, Object> m : rollup) {
+            String uid = (String) m.get("userId");
+            BbqSettlement s = new BbqSettlement();
+            s.setSettleId(UUID.randomUUID().toString());
+            s.setUserId(uid);
+            s.setFromDate((String) m.get("fromDate"));
+            s.setToDate((String) m.get("toDate"));
+            s.setAmount((BigDecimal) m.get("amount"));
+            s.setRecordCount((Integer) m.get("recordCount"));
+            s.setSettledBy(me.getUserId());
+            s.setSettleTime(new Date());
+            settlementMapper.insert(s);
+            wageMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<BbqWageRecord>()
+                    .in("RECORD_ID", idsByUser.get(uid)).set("SETTLE_ID", s.getSettleId()));
+            grand = grand.add(s.getAmount());
+            recordTotal += s.getRecordCount();
+        }
+        Map<String, Object> out = new HashMap<>();
+        out.put("users", rollup.size());
+        out.put("records", recordTotal);
+        out.put("amount", grand);
+        return new Result<>(0, "已结清 " + rollup.size() + " 人、共 " + money(grand), out);
+    }
+
+    // ===== ledger =====
+
+    /**
+     * 台账（店内成员）：店长=全店当月（每日柱状 + 员工占比 + 薪资结构 + 每人聚合行 + 未结清），
+     * 店员=只有自己（结构 + 自己的记录明细）。数字全在这里算好，前端只画。
+     */
+    // NB: path must NOT be exactly "/ledger" — that's the SPA page route; a same-path GET here
+    // would swallow browser navigation before the SPA fallback (bit us once via headless check)
+    @RequiresRole(Role.USER)
+    @GetMapping("/ledger/data")
+    public Object ledger(String month, HttpServletRequest request) {
+        DreamUser me = SecUtil.getLoginUserToSession(request);
+        String role = roleOf(me.getUserId());
+        if (role == null) {
+            return new Result<>(1, "你不是店里的成员", null);
+        }
+        boolean manager = "manager".equals(role);
+        if (month == null || !month.matches("^\\d{4}-\\d{2}$")) {
+            return new Result<>(1, "月份格式应为 yyyy-MM", null);
+        }
+        QueryWrapper<BbqWageRecord> qw = new QueryWrapper<BbqWageRecord>()
+                .likeRight("WORK_DATE", month + "-").orderByAsc("WORK_DATE", "START_TIME");
+        if (!manager) {
+            qw.eq("USER_ID", me.getUserId());
+        }
+        List<BbqWageRecord> records = wageMapper.selectList(qw);
+        // all-time unsettled (per user), same visibility scope
+        QueryWrapper<BbqWageRecord> uqw = new QueryWrapper<BbqWageRecord>().isNull("SETTLE_ID");
+        if (!manager) {
+            uqw.eq("USER_ID", me.getUserId());
+        }
+        Map<String, BigDecimal> unsettledByUser = new HashMap<>();
+        BigDecimal unsettledTotal = BigDecimal.ZERO;
+        for (BbqWageRecord r : wageMapper.selectList(uqw)) {
+            unsettledByUser.merge(r.getUserId(), r.getTotal(), BigDecimal::add);
+            unsettledTotal = unsettledTotal.add(r.getTotal());
+        }
+        // month aggregates
+        Map<String, BigDecimal> dailyTotals = new TreeMap<>();
+        Map<String, Map<String, Object>> perUser = new LinkedHashMap<>();
+        BigDecimal monthTotal = BigDecimal.ZERO;
+        BigDecimal baseSum = BigDecimal.ZERO;
+        BigDecimal skewerSum = BigDecimal.ZERO;
+        BigDecimal deductSum = BigDecimal.ZERO;
+        for (BbqWageRecord r : records) {
+            BigDecimal base = r.getTotal().add(r.getDeduct()).subtract(r.getSkewerPay());
+            monthTotal = monthTotal.add(r.getTotal());
+            baseSum = baseSum.add(base);
+            skewerSum = skewerSum.add(r.getSkewerPay());
+            deductSum = deductSum.add(r.getDeduct());
+            dailyTotals.merge(r.getWorkDate(), r.getTotal(), BigDecimal::add);
+            Map<String, Object> u = perUser.computeIfAbsent(r.getUserId(), (k) -> {
+                Map<String, Object> m = new HashMap<>();
+                m.put("userId", k);
+                m.put("days", 0);
+                m.put("minutes", 0);
+                m.put("base", BigDecimal.ZERO);
+                m.put("skewer", BigDecimal.ZERO);
+                m.put("deduct", BigDecimal.ZERO);
+                m.put("total", BigDecimal.ZERO);
+                return m;
+            });
+            int worked = toMinutes(r.getEndTime()) - toMinutes(r.getStartTime());
+            if (worked <= 0) {
+                worked += 24 * 60;
+            }
+            int paid = Math.max(0, worked - ("1".equals(r.getMeal()) ? MEAL_MINUTES : 0));
+            u.put("days", (Integer) u.get("days") + 1);
+            u.put("minutes", (Integer) u.get("minutes") + paid);
+            u.put("base", ((BigDecimal) u.get("base")).add(base));
+            u.put("skewer", ((BigDecimal) u.get("skewer")).add(r.getSkewerPay()));
+            u.put("deduct", ((BigDecimal) u.get("deduct")).add(r.getDeduct()));
+            u.put("total", ((BigDecimal) u.get("total")).add(r.getTotal()));
+        }
+        Map<String, DreamUser> users = usersById(perUser.keySet());
+        List<Map<String, Object>> userRows = new ArrayList<>();
+        for (Map<String, Object> m : perUser.values()) {
+            String uid = (String) m.get("userId");
+            DreamUser u = users.get(uid);
+            m.put("userNickname", u == null ? uid : u.getUserNickname());
+            m.put("avatar", u == null ? null : u.getAvatar());
+            m.put("unsettled", unsettledByUser.getOrDefault(uid, BigDecimal.ZERO));
+            userRows.add(m);
+        }
+        userRows.sort((a, b) -> ((BigDecimal) b.get("total")).compareTo((BigDecimal) a.get("total")));
+        List<Map<String, Object>> daily = new ArrayList<>();
+        for (Map.Entry<String, BigDecimal> e : dailyTotals.entrySet()) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("date", e.getKey());
+            m.put("total", e.getValue());
+            daily.add(m);
+        }
+        Map<String, Object> out = new HashMap<>();
+        out.put("role", role);
+        out.put("monthTotal", monthTotal);
+        out.put("baseSum", baseSum);
+        out.put("skewerSum", skewerSum);
+        out.put("deductSum", deductSum);
+        out.put("unsettledTotal", unsettledTotal);
+        out.put("daily", daily);
+        out.put("users", userRows);
+        // staff see their own per-record detail (incl. skewer lines) to verify the books
+        if (!manager) {
+            List<String> recordIds = new ArrayList<>();
+            for (BbqWageRecord r : records) {
+                recordIds.add(r.getRecordId());
+            }
+            Map<String, List<Map<String, Object>>> skewersByRecord = new HashMap<>();
+            if (!recordIds.isEmpty()) {
+                for (BbqWageSkewer w : wageSkewerMapper.selectList(new QueryWrapper<BbqWageSkewer>().in("RECORD_ID", recordIds))) {
+                    Map<String, Object> sm = new HashMap<>();
+                    sm.put("name", w.getNameSnap());
+                    sm.put("price", w.getPriceSnap());
+                    sm.put("num", w.getNum());
+                    skewersByRecord.computeIfAbsent(w.getRecordId(), (k) -> new ArrayList<>()).add(sm);
+                }
+            }
+            List<Map<String, Object>> recOut = new ArrayList<>();
+            for (BbqWageRecord r : records) {
+                Map<String, Object> m = new HashMap<>();
+                m.put("recordId", r.getRecordId());
+                m.put("date", r.getWorkDate());
+                m.put("startTime", r.getStartTime());
+                m.put("endTime", r.getEndTime());
+                m.put("hourlyRate", r.getHourlyRate());
+                m.put("meal", "1".equals(r.getMeal()));
+                m.put("deduct", r.getDeduct());
+                m.put("deductReason", r.getDeductReason());
+                m.put("skewerPay", r.getSkewerPay());
+                m.put("total", r.getTotal());
+                m.put("settled", StringUtils.isNotBlank(r.getSettleId()));
+                m.put("skewers", skewersByRecord.getOrDefault(r.getRecordId(), new ArrayList<>()));
+                recOut.add(m);
+            }
+            out.put("records", recOut);
+        }
+        return new Result<>(0, "成功", out);
+    }
+
+    private String money(BigDecimal v) {
+        return "$" + v.setScale(2, RoundingMode.HALF_UP).toPlainString();
     }
 
     private int toMinutes(String hhmm) {
