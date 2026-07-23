@@ -38,9 +38,8 @@ export default function TopicPosts() {
   if (!topic) {
     return (
       <Card style={{ borderRadius: 14 }}>
-        <Empty description="专题不存在或已删除">
-          <Button onClick={() => navigate('/news')}>返回专题列表</Button>
-        </Empty>
+        {/* 返回走外层布局的全局返回按钮 */}
+        <Empty description="专题不存在或已删除" />
       </Card>
     )
   }
@@ -56,7 +55,6 @@ export default function TopicPosts() {
           <br />你没有浏览该专题的权限，可向专题 owner（{topic.ownerName || '未知'}）申请加入。
         </div>
         <Space wrap={isMobile}>
-          <Button onClick={() => navigate('/news')}>返回专题列表</Button>
           <TopicApplyButton topic={topic} onApplied={() => load(true)} />
         </Space>
       </Card>

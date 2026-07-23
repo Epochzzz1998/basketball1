@@ -447,9 +447,7 @@ export default function NewsDetail() {
                 />
               </>
             ) : (
-              <Empty description="资讯不存在或已删除">
-                <Button onClick={() => navigate(-1)}>返回</Button>
-              </Empty>
+              <Empty description="资讯不存在或已删除" />
             )}
           </Skeleton>
         </Card>

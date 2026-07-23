@@ -345,9 +345,8 @@ export default function UserProfile() {
   if (failed) {
     return (
       <Card>
-        <Empty description="用户不存在或已注销">
-          <Button onClick={() => navigate(-1)}>← 返回</Button>
-        </Empty>
+        {/* 返回走外层布局的全局返回按钮 */}
+        <Empty description="用户不存在或已注销" />
       </Card>
     )
   }
