@@ -302,7 +302,7 @@ export default function UserProfile() {
   }
   if (data === null) return <Spin style={{ display: 'block', margin: '80px auto' }} size="large" />
 
-  const { user, stats, posts, comments, postsHidden, commentsHidden, followerCount, followingCount, following, blockedByMe } = data
+  const { user, stats, posts, comments, postsHidden, commentsHidden, followerCount, followingCount, following, blockedByMe, followsHidden } = data
   const role = ROLE_META[user.userRole]
   const displayName = user.userNickname || user.userName
   const verified = user.identStatus === 1
@@ -497,12 +497,12 @@ export default function UserProfile() {
             <Statistic title="获赞" value={stats.likes ?? 0} valueStyle={{ color: '#fa541c' }} prefix={<LikeOutlined />} />
           </Col>
           <Col xs={8} sm={4}>
-            <div onClick={() => setFollowTab('following')} style={{ cursor: 'pointer' }} title="查看关注列表">
+            <div onClick={() => (followsHidden ? message.info('该用户未公开关注和粉丝') : setFollowTab('following'))} style={{ cursor: 'pointer' }} title="查看关注列表">
               <Statistic title="关注" value={followingCount ?? 0} />
             </div>
           </Col>
           <Col xs={8} sm={4}>
-            <div onClick={() => setFollowTab('followers')} style={{ cursor: 'pointer' }} title="查看粉丝列表">
+            <div onClick={() => (followsHidden ? message.info('该用户未公开关注和粉丝') : setFollowTab('followers'))} style={{ cursor: 'pointer' }} title="查看粉丝列表">
               <Statistic title="粉丝" value={followerCount ?? 0} />
             </div>
           </Col>
@@ -529,6 +529,10 @@ export default function UserProfile() {
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               <Switch size="small" checked={!!user.hideComments} onChange={(c) => togglePrivacy('hideComments', c)} />
               <span style={{ fontSize: 13 }}>隐藏我的评论</span>
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Switch size="small" checked={user.hideFollows === '1'} onChange={(c) => togglePrivacy('hideFollows', c)} />
+              <span style={{ fontSize: 13 }}>隐藏关注/粉丝</span>
             </span>
             <span style={{ fontSize: 12, color: '#bbb' }}>仅对他人隐藏，你自己仍能看到</span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>

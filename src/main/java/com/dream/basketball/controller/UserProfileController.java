@@ -183,6 +183,9 @@ public class UserProfileController {
         data.put("blockedByMe", profileViewer != null && blockMapper.selectCount(
                 new QueryWrapper<com.dream.basketball.entity.UserBlock>()
                         .eq("USER_ID", profileViewer.getUserId()).eq("BLOCKED_ID", userId)) > 0);
+        // 他人视角：该用户是否隐藏了关注/粉丝列表（计数照常展示，列表点不开）
+        boolean isProfileSelf = profileViewer != null && StringUtils.equals(profileViewer.getUserId(), userId);
+        data.put("followsHidden", !isProfileSelf && "1".equals(u.getHideFollows()));
         return new Result<>(0, "成功", data);
     }
 
@@ -250,7 +253,7 @@ public class UserProfileController {
     /** 主页隐私（仅本人）：是否隐藏我的发帖 / 评论。传哪个改哪个（'1' 隐藏 / '0' 显示）。 */
     @RequiresRole(Role.USER)
     @PostMapping("/setActivityPrivacy")
-    public Result<Object> setActivityPrivacy(String hidePosts, String hideComments, HttpServletRequest request) {
+    public Result<Object> setActivityPrivacy(String hidePosts, String hideComments, String hideFollows, HttpServletRequest request) {
         DreamUser me = SecUtil.getLoginUserToSession(request);
         UpdateWrapper<DreamUser> uw = new UpdateWrapper<DreamUser>().eq("USER_ID", me.getUserId());
         if (hidePosts != null) {
@@ -258,6 +261,9 @@ public class UserProfileController {
         }
         if (hideComments != null) {
             uw.set("HIDE_COMMENTS", "1".equals(hideComments) ? "1" : "0");
+        }
+        if (hideFollows != null) {
+            uw.set("HIDE_FOLLOWS", "1".equals(hideFollows) ? "1" : "0");
         }
         userMapper.update(null, uw);
         return new Result<>(0, "已保存", null);

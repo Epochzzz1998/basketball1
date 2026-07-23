@@ -95,6 +95,18 @@ public class DreamUser extends Model<DreamUser> implements Serializable {
     @TableField("PM_POLICY")
     private String pmPolicy;
 
+    /** '1' = hide my following/followers lists from others (counts stay visible, lists don't) */
+    @TableField("HIDE_FOLLOWS")
+    private String hideFollows;
+
+    public String getHideFollows() {
+        return hideFollows;
+    }
+
+    public void setHideFollows(String hideFollows) {
+        this.hideFollows = hideFollows;
+    }
+
     public String getPmPolicy() {
         return pmPolicy;
     }

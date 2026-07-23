@@ -102,11 +102,18 @@ public class FollowController {
         return new Result<>(0, "成功", out);
     }
 
-    /** 关注列表/粉丝列表（公开）：type=following|followers；行带昵称/头像/互关/我是否已关注。 */
+    /** 关注列表/粉丝列表：type=following|followers；行带昵称/头像/互关/我是否已关注。
+     *  对方设了「隐藏关注/粉丝」时仅本人可看（计数不受影响）。 */
     @GetMapping("/list")
     public Object list(String userId, String type, HttpServletRequest request) {
         if (StringUtils.isBlank(userId)) {
             return new Result<>(1, "参数缺失", null);
+        }
+        DreamUser owner = userMapper.selectById(userId);
+        DreamUser asker = SecUtil.getLoginUserToSession(request);
+        if (owner != null && "1".equals(owner.getHideFollows())
+                && (asker == null || !StringUtils.equals(asker.getUserId(), userId))) {
+            return new Result<>(1, "该用户未公开关注和粉丝列表", null);
         }
         boolean followers = "followers".equals(type);
         List<UserFollow> edges = followMapper.selectList(new QueryWrapper<UserFollow>()
