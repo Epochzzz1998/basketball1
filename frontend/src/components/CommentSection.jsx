@@ -504,7 +504,7 @@ export default function CommentSection({
   const [comments, setComments] = useState([])
   const [loading, setLoading] = useState(false)
   const [onlyAuthor, setOnlyAuthor] = useState(false) // 只看楼主：仅展示楼主的顶层评论（其回复照常）
-  const [sortBy, setSortBy] = useState('time') // time=按时间（最新在前）| hot=按热度（点赞最多在前）
+  const [sortBy, setSortBy] = useState('hot') // 默认按热度（点赞最多在前）；time=按时间（最新在前）
   const [ratingOpen, setRatingOpen] = useState(false) // 楼主"开启打分"面板
   const [ratingSubject, setRatingSubject] = useState('')
   const [ratingNote, setRatingNote] = useState('')
