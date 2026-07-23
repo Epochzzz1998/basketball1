@@ -64,7 +64,8 @@ server:
 cors:
   # P2-2: allowed origins for the future React client (Session + credentials).
   # Add localhost dev origins here too if you run React locally against this server.
-  allowed-origins: https://dream-app.the-epoch.org
+  # Domain migration: old + new (www + apex) run in parallel; drop the old one after the 301 settles.
+  allowed-origins: https://dream-app.the-epoch.org,https://www.dream-everything.com,https://dream-everything.com
 
 mybatis-plus:
   mapper-locations: classpath*:mybatis/*.xml
