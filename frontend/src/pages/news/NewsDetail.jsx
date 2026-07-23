@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Avatar, Button, Card, Col, Divider, Empty, Popconfirm, Row, Skeleton, Tag, message } from 'antd'
-import { ArrowLeftOutlined, DeleteOutlined, DislikeOutlined, EyeInvisibleOutlined, FireOutlined, FormOutlined, LikeOutlined, LockOutlined, PushpinFilled, RightOutlined, StarFilled, TagsOutlined, TrophyFilled } from '@ant-design/icons'
+import { DeleteOutlined, DislikeOutlined, EyeInvisibleOutlined, FireOutlined, FormOutlined, LikeOutlined, LockOutlined, PushpinFilled, RightOutlined, StarFilled, TagsOutlined, TrophyFilled, UnlockOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import DOMPurify from 'dompurify'
 import { newsApi } from '../../api/news'
 import { ratingApi } from '../../api/rating'
+import { topicApi } from '../../api/topic'
 import { useAuth } from '../../auth/AuthContext'
 import CommentSection from '../../components/CommentSection'
 import RatingCard from '../../components/RatingCard'
@@ -103,6 +104,7 @@ export default function NewsDetail() {
   const [news, setNews] = useState(null)
   const [canManage, setCanManage] = useState(false) // 能否置顶/加精（owner/manager+）
   const [topicOwnerIds, setTopicOwnerIds] = useState([]) // 该帖所属专题的题主集合（题主标识用，支持多题主）
+  const [topic, setTopic] = useState(null) // 帖子所属专题（页面最上方的信息卡，与论坛横幅同款）
   const [ratingItems, setRatingItems] = useState([]) // 该帖打分项（主贴的 + 楼上挂的），单一数据源
   const [fav, setFav] = useState({ favorited: false, count: 0 }) // 收藏状态 + 收藏数
   const [authorStats, setAuthorStats] = useState(null) // 作者数据小结（发帖/精华/置顶/获赞）
@@ -134,6 +136,15 @@ export default function NewsDetail() {
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
   }, [newsId, userInformationId])
+
+  // 帖子所属专题信息（顶部信息卡用）：论坛帖才有 topicId，官方新闻没有
+  useEffect(() => {
+    const tid = news?.topicId
+    if (!tid) { setTopic(null); return }
+    let alive = true
+    topicApi.get(tid).then((d) => { if (alive) setTopic(d || null) }).catch(() => { if (alive) setTopic(null) })
+    return () => { alive = false }
+  }, [news?.topicId])
 
   // 作者数据小结（右栏卡片用）：随作者变化拉取
   useEffect(() => {
@@ -242,6 +253,30 @@ export default function NewsDetail() {
   const tags = String(news?.tags || '').split(',').map((t) => t.trim()).filter(Boolean)
 
   return (
+    <>
+    {/* 帖子所属专题信息卡：与论坛列表横幅同款品牌橙，整卡可点进专题 */}
+    {topic && (
+      <div
+        onClick={() => navigate(`/news/topic/${news.topicId}`)}
+        style={{
+          position: 'relative', overflow: 'hidden', borderRadius: 16, color: '#fff', cursor: 'pointer',
+          padding: isMobile ? '12px 14px' : '16px 22px', marginBottom: 16,
+          background: 'linear-gradient(120deg, #fa541c 0%, #d4380d 60%, #ad2102 100%)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: isMobile ? 15 : 17, fontWeight: 800 }}>{topic.name}</span>
+          {topic.visibility === 'private'
+            ? <Tag icon={<LockOutlined />} style={{ marginInlineEnd: 0 }}>私密</Tag>
+            : <Tag icon={<UnlockOutlined />} color="green" style={{ marginInlineEnd: 0 }}>公开</Tag>}
+          <span style={{ flex: 1 }} />
+          <span style={{ fontSize: 12, opacity: 0.85, whiteSpace: 'nowrap' }}>进入专题 <RightOutlined /></span>
+        </div>
+        {topic.description && (
+          <div style={{ opacity: 0.88, marginTop: 4, fontSize: 12.5, maxWidth: 720 }}>{topic.description}</div>
+        )}
+      </div>
+    )}
     <Row gutter={[16, 16]}>
       <Col xs={24} lg={17}>
         <Card style={{ borderRadius: 16 }} styles={{ body: { padding: isMobile ? '16px 14px' : '24px 30px' } }}>
@@ -249,11 +284,8 @@ export default function NewsDetail() {
             {news ? (
               <>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
-                  <a onClick={() => navigate(-1)} style={{ color: '#888', fontSize: 13 }}>
-                    <ArrowLeftOutlined /> 返回
-                  </a>
                   <span style={{ flex: 1 }} />
-                  {/* 编辑：作者本人或 manager+（后端 save 同款校验）。低调文字链接，和「返回」对称 */}
+                  {/* 编辑：作者本人或 manager+（后端 save 同款校验）。低调文字链接（全局返回按钮在外层布局） */}
                   {user && (user.userId === news.authorId || user.isManagerOrOver) && (
                     <a
                       onClick={() => navigate(`/news/edit/${newsId}`)}
@@ -472,5 +504,6 @@ export default function NewsDetail() {
         </div>
       </Col>
     </Row>
+    </>
   )
 }

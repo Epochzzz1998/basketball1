@@ -45,6 +45,11 @@ public class UserInformationServiceImpl extends ServiceImpl<UserInformationMappe
     */
     @Override
     public void saveUserInformation(String operatorId, String operatorName, String receiverId, String msgType, String msgId, String msgIdSecond, String msgIdThird, String level, String commentContent, String commentRelRelId){
+        // 自己对自己内容的操作不产生提示（给自己帖子点赞/评论自己的帖子等）；无接收者的也跳过。
+        // 这里是全站消息的唯一入口，一处拦截各调用方（点赞 MQ 消费者/评论/@/关注/专题）全部生效。
+        if (StringUtils.isBlank(receiverId) || StringUtils.equals(operatorId, receiverId)) {
+            return;
+        }
         UserInformation userInformation = getMsgContentInit(msgType, msgId, commentContent);
         userInformation.setUserInformationId(UUID.randomUUID().toString());
         userInformation.setMsgType(msgType);

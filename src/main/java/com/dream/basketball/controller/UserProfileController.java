@@ -69,6 +69,9 @@ public class UserProfileController {
     private com.dream.basketball.mapper.NewsFavoriteMapper favoriteMapper;
 
     @Autowired
+    private com.dream.basketball.mapper.ForumTopicMapper forumTopicMapper;
+
+    @Autowired
     private com.dream.basketball.config.TopicPermissionService topicPerms;
 
     @Value("${picPath.uploadPath:}")
@@ -127,6 +130,15 @@ public class UserProfileController {
         }
         postsQw.orderByDesc("PUBLISH_DATE").last("limit " + LIST_LIMIT);
         List<DreamNews> posts = hidePosts ? new ArrayList<>() : dreamNewsMapper.selectList(postsQw);
+        // 论坛帖标出所属话题名（批量查一次）；官方新闻无话题
+        Map<String, String> topicNameMap = new HashMap<>();
+        List<String> postTopicIds = posts.stream().map(DreamNews::getTopicId)
+                .filter(StringUtils::isNotBlank).distinct().collect(Collectors.toList());
+        if (!postTopicIds.isEmpty()) {
+            for (com.dream.basketball.entity.ForumTopic t : forumTopicMapper.selectBatchIds(postTopicIds)) {
+                topicNameMap.put(t.getTopicId(), t.getName());
+            }
+        }
         List<Map<String, Object>> postList = new ArrayList<>();
         for (DreamNews n : posts) {
             Map<String, Object> m = new HashMap<>();
@@ -136,6 +148,7 @@ public class UserProfileController {
             m.put("goodNum", n.getGoodNum());
             m.put("commentNum", n.getCommentNum());
             m.put("newsChannel", n.getNewsChannel());
+            m.put("topicName", topicNameMap.get(n.getTopicId()));
             postList.add(m);
         }
 
@@ -193,14 +206,19 @@ public class UserProfileController {
                 if (n == null || "1".equals(n.getHidden())) {
                     continue;
                 }
-                if (StringUtils.isNotBlank(n.getTopicId())
-                        && !topicPerms.canView(favViewer, topicPerms.getTopic(n.getTopicId()))) {
-                    continue;
+                String favTopicName = null;
+                if (StringUtils.isNotBlank(n.getTopicId())) {
+                    com.dream.basketball.entity.ForumTopic ft = topicPerms.getTopic(n.getTopicId());
+                    if (!topicPerms.canView(favViewer, ft)) {
+                        continue;
+                    }
+                    favTopicName = ft == null ? null : ft.getName();
                 }
                 Map<String, Object> m = new HashMap<>();
                 m.put("newsId", n.getNewsId());
                 m.put("title", n.getTitle());
                 m.put("newsChannel", n.getNewsChannel());
+                m.put("topicName", favTopicName);
                 m.put("publishDate", n.getPublishDate());
                 m.put("goodNum", n.getGoodNum());
                 m.put("commentNum", n.getCommentNum());

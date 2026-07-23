@@ -59,7 +59,7 @@ function PostList({ posts, hidden }) {
           <Space size={8} style={{ minWidth: 0 }}>
             {p.newsChannel === 'official'
               ? <Tag color="orange" style={{ flexShrink: 0 }}>官方</Tag>
-              : <Tag style={{ flexShrink: 0 }}>论坛</Tag>}
+              : <Tag style={{ flexShrink: 0 }}>{p.topicName ? `论坛 · ${p.topicName}` : '论坛'}</Tag>}
             <Link
               to={`/news/${p.newsId}`}
               style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
@@ -125,7 +125,7 @@ function FavoriteList({ favorites, hidden, isSelf, onUnfavorite }) {
           <Space size={8} style={{ minWidth: 0 }}>
             {p.newsChannel === 'official'
               ? <Tag color="orange" style={{ flexShrink: 0 }}>官方</Tag>
-              : <Tag style={{ flexShrink: 0 }}>论坛</Tag>}
+              : <Tag style={{ flexShrink: 0 }}>{p.topicName ? `论坛 · ${p.topicName}` : '论坛'}</Tag>}
             <Link
               to={`/news/${p.newsId}`}
               style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ProLayout } from '@ant-design/pro-components'
 import { Avatar, Badge, Button, Dropdown } from 'antd'
 import {
+  ArrowLeftOutlined,
   BellOutlined,
   MessageOutlined,
   SwapOutlined,
@@ -116,7 +117,7 @@ export default function AppLayout() {
             }]
           : []),
         ...(canUse('featNews') ? [{ path: '/official', name: '新闻', icon: <NotificationOutlined /> }] : []),
-        ...(user && canUse('featPm') ? [{ path: '/messages', name: '私信', icon: <MessageOutlined /> }] : []),
+        // 私信入口在右上角头像下拉里（不占侧栏）
         ...(user?.isSuperManager
           ? [
               { path: '/admin/players', name: '球员管理', icon: <DatabaseOutlined /> },
@@ -134,6 +135,23 @@ export default function AppLayout() {
     navigate('/login')
   }
 
+  // 全局返回按钮：一级页面（侧栏导航直达的根路径）不显示，其余页面统一在内容区左上角。
+  // 优先走站内历史（-1 即"上一级"）；直链进入无历史时，剥路径段回落到最近的已知上级。
+  const NAV_ROOTS = ['/', '/news', '/league', '/players', '/rankings', '/compare', '/official', '/messages', '/login', '/register', '/403', '/admin/players', '/admin/users', '/admin/verify']
+  const showBack = !NAV_ROOTS.includes(location.pathname)
+  const goBack = () => {
+    if (window.history.state && window.history.state.idx > 0) {
+      navigate(-1)
+      return
+    }
+    let p = location.pathname
+    while (p.length > 1) {
+      p = p.replace(/\/[^/]*$/, '') || '/'
+      if (NAV_ROOTS.includes(p)) break
+    }
+    navigate(p || '/', { replace: true })
+  }
+
   return (
     <ProLayout
       layout="mix"
@@ -146,11 +164,7 @@ export default function AppLayout() {
       route={route}
       menuItemRender={(item, dom) => {
         if (!item.path) return dom
-        // 私信项挂未读角标（实时 pmUnread）
-        const node = item.path === '/messages' && pmUnread > 0
-          ? <span style={{ display: 'inline-flex', alignItems: 'center', width: '100%' }}>{dom}<Badge count={pmUnread} size="small" style={{ marginLeft: 'auto' }} /></span>
-          : dom
-        return <Link to={item.path}>{node}</Link>
+        return <Link to={item.path}>{dom}</Link>
       }}
       avatarProps={
         user
@@ -170,6 +184,20 @@ export default function AppLayout() {
                         label: '个人主页',
                         onClick: () => navigate(`/users/${user.userId}`),
                       },
+                      // 私信：从侧栏挪回头像下拉，未读数实时角标
+                      ...(canUse('featPm')
+                        ? [{
+                            key: 'pm',
+                            icon: <MessageOutlined />,
+                            label: (
+                              <span>
+                                私信
+                                <Badge count={pmUnread} size="small" style={{ marginLeft: 8 }} />
+                              </span>
+                            ),
+                            onClick: () => navigate('/messages'),
+                          }]
+                        : []),
                       {
                         key: 'messages',
                         icon: <BellOutlined />,
@@ -187,7 +215,8 @@ export default function AppLayout() {
                   }}
                 >
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '0 4px' }}>
-                    <Badge count={unread} size="small" offset={[-2, 4]}>
+                    {/* 头像角标 = 消息未读 + 私信未读（两个入口都收进下拉了） */}
+                    <Badge count={unread + pmUnread} size="small" offset={[-2, 4]}>
                       <Avatar size={28} src={user.avatar || undefined} icon={user.avatar ? undefined : <UserOutlined />} />
                     </Badge>
                     <span style={{ fontSize: 14 }}>{user.userNickname}</span>
@@ -218,6 +247,14 @@ export default function AppLayout() {
       {/* 内容区是 flex 列容器：flex 子项上 margin:auto 会把宽度压成"内容宽"再居中，
           必须显式 width:100% 才能占满（maxWidth 只在超宽屏才生效） */}
       <div className="app-content" style={{ padding: 20, maxWidth: 1440, margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
+        {showBack && (
+          <a
+            onClick={goBack}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#666', fontSize: 13, marginBottom: 10, cursor: 'pointer', userSelect: 'none' }}
+          >
+            <ArrowLeftOutlined /> 返回
+          </a>
+        )}
         <Outlet />
       </div>
     </ProLayout>
