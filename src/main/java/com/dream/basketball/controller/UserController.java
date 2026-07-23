@@ -38,6 +38,8 @@ public class UserController extends BaseUtils {
 
     @Autowired
     private UserService userService;
+    @Autowired
+    private com.dream.basketball.mapper.BbqStaffMapper bbqStaffMapper;
 
     /**
      * 登录：先校验单次验证码（P2-2），再核对账号/密码（BCrypt，旧 MD5 透明升级，P2-3）。
@@ -158,6 +160,9 @@ public class UserController extends BaseUtils {
         data.put("featForum", !"0".equals(u.getFeatForum()));
         data.put("featPm", !"0".equals(u.getFeatPm()));
         data.put("featSchedule", !"0".equals(u.getFeatSchedule()));
+        // 耿阿姨烤串的店内角色（'manager'|'staff'|null）：店长见全部菜单，店员只见自己的台账
+        com.dream.basketball.entity.BbqStaff bbq = bbqStaffMapper.selectById(u.getUserId());
+        data.put("bbqRole", bbq == null ? null : bbq.getStaffRole());
         data.put("titles", u.getTitles()); // 头衔（逗号分隔）
         return new Result<>(0, "成功", data);
     }
@@ -204,7 +209,6 @@ public class UserController extends BaseUtils {
             m.put("featNews", !"0".equals(u.getFeatNews()));
             m.put("featForum", !"0".equals(u.getFeatForum()));
             m.put("featPm", !"0".equals(u.getFeatPm()));
-        m.put("featSchedule", !"0".equals(u.getFeatSchedule()));
             m.put("featSchedule", !"0".equals(u.getFeatSchedule()));
             m.put("titles", u.getTitles());
             m.put("isSuperManager", Role.fromUserRole(u.getUserRole()) == Role.SUPER_MANAGER);
@@ -292,6 +296,8 @@ public class UserController extends BaseUtils {
         m.put("featForum", !"0".equals(u.getFeatForum()));
         m.put("featPm", !"0".equals(u.getFeatPm()));
         m.put("featSchedule", !"0".equals(u.getFeatSchedule()));
+        com.dream.basketball.entity.BbqStaff bbq = bbqStaffMapper.selectById(u.getUserId());
+        m.put("bbqRole", bbq == null ? null : bbq.getStaffRole());
         m.put("titles", u.getTitles());
         // 认证球员（只读展示；认证流程在 /admin/verify 管）
         m.put("verified", Constants.IDENTIFICATION.equals(u.getPlayerIdentification()));

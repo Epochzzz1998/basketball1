@@ -4,6 +4,7 @@ import { Avatar, Button, Card, Divider, Input, Popover, Spin, Switch, Tag, messa
 import { ArrowLeftOutlined, CrownFilled, TrophyFilled } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { userApi } from '../../api/user'
+import { bbqApi } from '../../api/bbq'
 import { useAuth } from '../../auth/AuthContext'
 import { parseTitles, TITLE_PALETTE, TITLE_HEX } from '../../utils/titles'
 
@@ -165,12 +166,36 @@ export default function UserManageDetail() {
       </Card>
 
       {/* 功能模块 */}
-      <Card title="功能模块" style={{ borderRadius: 12 }} extra={<span style={{ color: '#999', fontSize: 12 }}>关掉则该用户导航里整块隐藏、深链也进不去</span>}>
+      <Card title="功能模块" style={{ borderRadius: 12, marginBottom: 16 }} extra={<span style={{ color: '#999', fontSize: 12 }}>关掉则该用户导航里整块隐藏、深链也进不去</span>}>
         {permRow('数据分析', 'featData', 'Dream Union：数据概览 / 联盟排行 / 球员对比')}
         {permRow('新闻', 'featNews')}
         {permRow('百家说', 'featForum')}
         {permRow('私信', 'featPm')}
         {permRow('日程', 'featSchedule')}
+      </Card>
+
+      {/* 耿阿姨烤串：店长任免（角色在 bbq_staff 表，不是功能开关；对超管/自己也可操作） */}
+      <Card title="耿阿姨烤串" style={{ borderRadius: 12 }} extra={<span style={{ color: '#999', fontSize: 12 }}>店员由店长在店内「成员管理」添加，这里只管店长任免</span>}>
+        <div style={{ display: 'flex', alignItems: 'center', padding: '9px 0' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <span style={{ fontWeight: 600 }}>店长</span>
+            <span style={{ color: '#999', fontSize: 12, marginLeft: 8 }}>
+              当前身份：{data.bbqRole === 'manager' ? '店长' : data.bbqRole === 'staff' ? '店员' : '未入店'}
+              　·　店长共管全店账本；解除后降为店员
+            </span>
+          </div>
+          <Switch
+            checked={data.bbqRole === 'manager'}
+            onChange={async (c) => {
+              setData((d) => ({ ...d, bbqRole: c ? 'manager' : 'staff' }))
+              try {
+                await bbqApi.adminSetManager(userId, c)
+                message.success(c ? '已任命为店长' : '已解除店长（降为店员）')
+                load()
+              } catch { load() }
+            }}
+          />
+        </div>
       </Card>
     </>
   )

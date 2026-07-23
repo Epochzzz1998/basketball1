@@ -6,11 +6,14 @@ import {
   BellOutlined,
   CalendarOutlined,
   CaretRightOutlined,
+  DollarOutlined,
+  FireOutlined,
   MessageOutlined,
   ReloadOutlined,
   SwapOutlined,
   DatabaseOutlined,
   FundOutlined,
+  TagsOutlined,
   HomeOutlined,
   LogoutOutlined,
   NotificationOutlined,
@@ -123,6 +126,15 @@ export default function AppLayout() {
     if (blocked) navigate('/', { replace: true })
   }, [location.pathname, user, navigate])
 
+  // 耿阿姨烤串按店内角色（bbqRole）而非功能开关：一期只有店长有页面，非店长深链一律弹回。
+  // 超管也不豁免——想看就到用户管理里任命自己当店长（后端逐接口校验，这里只是少一次白屏）。
+  useEffect(() => {
+    if (!user) return
+    if (location.pathname.startsWith('/bbq') && user.bbqRole !== 'manager') {
+      navigate('/', { replace: true })
+    }
+  }, [location.pathname, user, navigate])
+
   // 功能模块可用性（按用户）：超管始终可见（便于管理）；未登录按公开可见；
   // flag 未定义（后端还没下发/老数据）时默认显示，保证前后兼容。关掉的模块整块从导航隐藏。
   const canUse = (flag) => !user || user.isSuperManager || user[flag] !== false
@@ -149,6 +161,19 @@ export default function AppLayout() {
         ...(canUse('featNews') ? [{ path: '/official', name: '新闻', icon: <NotificationOutlined /> }] : []),
         // 日程（登录用户；按用户可关）
         ...(user && canUse('featSchedule') ? [{ path: '/schedule', name: '日程', icon: <CalendarOutlined /> }] : []),
+        // 耿阿姨烤串（店长专属，单店薪资管理；店员的台账在二期）
+        ...(user?.bbqRole === 'manager'
+          ? [{
+              path: '/bbq',
+              name: '耿阿姨烤串',
+              icon: <FireOutlined />,
+              routes: [
+                { path: '/bbq/wage', name: '薪资计算', icon: <DollarOutlined /> },
+                { path: '/bbq/members', name: '成员管理', icon: <TeamOutlined /> },
+                { path: '/bbq/skewers', name: '串价设置', icon: <TagsOutlined /> },
+              ],
+            }]
+          : []),
         // 私信入口在右上角头像下拉里（不占侧栏）
         ...(user?.isSuperManager
           ? [
@@ -169,7 +194,7 @@ export default function AppLayout() {
 
   // 全局返回按钮：一级页面（侧栏导航直达的根路径）不显示，其余页面统一在内容区左上角。
   // 优先走站内历史（-1 即"上一级"）；直链进入无历史时，剥路径段回落到最近的已知上级。
-  const NAV_ROOTS = ['/', '/news', '/league', '/players', '/rankings', '/compare', '/official', '/messages', '/schedule', '/login', '/register', '/403', '/admin/players', '/admin/users', '/admin/verify']
+  const NAV_ROOTS = ['/', '/news', '/league', '/players', '/rankings', '/compare', '/official', '/messages', '/schedule', '/bbq/wage', '/bbq/members', '/bbq/skewers', '/login', '/register', '/403', '/admin/players', '/admin/users', '/admin/verify']
   const showBack = !NAV_ROOTS.includes(location.pathname)
   const goBack = () => {
     if (window.history.state && window.history.state.idx > 0) {
