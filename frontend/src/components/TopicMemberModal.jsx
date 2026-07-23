@@ -54,24 +54,16 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
   }
   useEffect(() => { if (open && topicId) load() }, [open, topicId])
 
-  // ===== 题主管理（超管专用，可多人）=====
-  const commitOwners = async (ids) => {
-    if (!ids.length) return message.warning('至少要保留一个题主')
-    try {
-      await topicApi.setOwners(topicId, ids.join(','))
-      load()
-      onChange?.() // 让上层刷新题主标识/横幅
-      message.success('已更新题主')
-    } catch { /* 拦截器已提示 */ }
-  }
-  const addOwner = (userId) => {
+  // ===== 题主管理（超管专用，有且只有一个）=====
+  const replaceOwner = async (userId) => {
     setOwnerOpts([])
     if (owners.some((o) => o.userId === userId)) return message.info('该用户已是题主')
-    commitOwners([...owners.map((o) => o.userId), userId])
-  }
-  const removeOwner = (userId) => {
-    if (owners.length <= 1) return message.warning('至少要保留一个题主')
-    commitOwners(owners.filter((o) => o.userId !== userId).map((o) => o.userId))
+    try {
+      await topicApi.setOwners(topicId, userId)
+      load()
+      onChange?.() // 让上层刷新题主标识/横幅
+      message.success('已更换题主')
+    } catch { /* 拦截器已提示 */ }
   }
   const ownerSearch = (kw) => {
     clearTimeout(ownerTimer.current)
@@ -166,20 +158,17 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
 
   return (
     <Modal open={open} onCancel={onClose} footer={null} title="成员权限管理" width={560} destroyOnClose>
-      {/* 题主管理（超管专用，可多人） */}
+      {/* 题主管理（超管专用，有且只有一个） */}
       {isSuper && (
         <div style={{ marginBottom: 16, background: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: 10, padding: '10px 14px' }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#389e0d', marginBottom: 10 }}>
-            <CrownFilled style={{ marginRight: 6 }} />题主（可多人 · 超管指派）
+            <CrownFilled style={{ marginRight: 6 }} />题主（唯一 · 超管指派）
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
-            {owners.map((o) => (
-              <span key={o.userId} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid #d9f7be', borderRadius: 16, padding: '2px 8px 2px 2px' }}>
+            {owners.slice(0, 1).map((o) => (
+              <span key={o.userId} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid #d9f7be', borderRadius: 16, padding: '2px 10px 2px 2px' }}>
                 {o.avatar ? <Avatar size={22} src={o.avatar} /> : <Avatar size={22} style={{ background: avatarColor(o.userNickname), fontSize: 11 }}>{String(o.userNickname || '?')[0].toUpperCase()}</Avatar>}
                 <span style={{ fontSize: 13 }}>{o.userNickname}</span>
-                {owners.length > 1 && (
-                  <CloseCircleFilled onClick={() => removeOwner(o.userId)} style={{ color: '#ccc', cursor: 'pointer', fontSize: 15 }} />
-                )}
               </span>
             ))}
           </div>
@@ -187,10 +176,10 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
             showSearch
             filterOption={false}
             value={null}
-            placeholder="搜索用户设为题主…"
+            placeholder="搜索用户更换题主…"
             style={{ width: '100%' }}
             onSearch={ownerSearch}
-            onSelect={addOwner}
+            onSelect={replaceOwner}
             notFoundContent={null}
             options={ownerOpts.map((o) => ({
               value: o.value,
@@ -202,7 +191,7 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
               ),
             }))}
           />
-          <div style={{ fontSize: 11, color: '#95de64', marginTop: 6 }}>题主对该专题有完整管理权（改设置、管成员、置顶/隐藏帖），发帖/评论会带「题主」标；至少保留一人。</div>
+          <div style={{ fontSize: 11, color: '#95de64', marginTop: 6 }}>题主有且只有一个，对该专题有完整管理权；在此选择新用户即为更换（原题主自动卸任，若新题主原是小题主会自动移出名单）。</div>
         </div>
       )}
 

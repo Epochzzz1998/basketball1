@@ -589,60 +589,66 @@ export default function CommentSection({
 
   return (
     <div style={{ marginTop: 22 }}>
+      {/* 头部：桌面=标题+右对齐胶囊一行；移动端=标题一行、三个胶囊自成一行（紧凑尺寸，不换行乱堆） */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
-        <div style={{ fontSize: 16, fontWeight: 700 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, whiteSpace: 'nowrap' }}>
           {onlyAuthor ? '楼主评论' : '全部评论'} <span style={{ color: '#999', fontWeight: 400, fontSize: 14 }}>({shown.length})</span>
         </div>
-        <span style={{ flex: 1 }} />
-        {canOpenRating && !locked && (
-          <span
-            onClick={() => setRatingOpen((v) => !v)}
-            title="以一条新楼开启一个打分项（仅楼主）"
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer', userSelect: 'none',
-              padding: '4px 14px', borderRadius: 999, fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap',
-              color: ratingOpen ? '#fff' : '#fa8c16',
-              background: ratingOpen ? '#fa8c16' : '#fff7e6',
-              border: `1px solid ${ratingOpen ? '#fa8c16' : '#ffd591'}`,
-              transition: 'all .15s',
-            }}
-          >
-            <StarFilled /> 开启打分
-          </span>
-        )}
-        {canOpenRating && !locked && (
-          <span
-            onClick={() => setPollOpen((v) => !v)}
-            title="以一条新楼发起一个投票（仅楼主）"
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer', userSelect: 'none',
-              padding: '4px 14px', borderRadius: 999, fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap',
-              color: pollOpen ? '#fff' : '#1677ff',
-              background: pollOpen ? '#1677ff' : '#e6f4ff',
-              border: `1px solid ${pollOpen ? '#1677ff' : '#91caff'}`,
-              transition: 'all .15s',
-            }}
-          >
-            <BarChartOutlined /> 发起投票
-          </span>
-        )}
-        {authorId && (
-          <span
-            onClick={() => setOnlyAuthor((v) => !v)}
-            title={onlyAuthor ? '显示全部评论' : '只看楼主的评论'}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer', userSelect: 'none',
-              padding: '4px 14px', borderRadius: 999, fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap',
-              color: onlyAuthor ? '#fff' : '#8c8c8c',
-              background: onlyAuthor ? '#fa541c' : '#f5f5f5',
-              border: `1px solid ${onlyAuthor ? '#fa541c' : '#ececec'}`,
-              boxShadow: onlyAuthor ? '0 2px 8px rgba(250,84,28,.25)' : 'none',
-              transition: 'all .15s',
-            }}
-          >
-            <UserOutlined /> 只看楼主
-          </span>
-        )}
+        {!isMobile && <span style={{ flex: 1 }} />}
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 10, width: isMobile ? '100%' : 'auto' }}>
+          {canOpenRating && !locked && (
+            <span
+              onClick={() => setRatingOpen((v) => !v)}
+              title="以一条新楼开启一个打分项（仅楼主）"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer', userSelect: 'none',
+                padding: isMobile ? '4px 10px' : '4px 14px', borderRadius: 999,
+                fontSize: isMobile ? 12 : 13, fontWeight: 500, whiteSpace: 'nowrap',
+                color: ratingOpen ? '#fff' : '#fa8c16',
+                background: ratingOpen ? '#fa8c16' : '#fff7e6',
+                border: `1px solid ${ratingOpen ? '#fa8c16' : '#ffd591'}`,
+                transition: 'all .15s',
+              }}
+            >
+              <StarFilled /> 开启打分
+            </span>
+          )}
+          {canOpenRating && !locked && (
+            <span
+              onClick={() => setPollOpen((v) => !v)}
+              title="以一条新楼发起一个投票（仅楼主）"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer', userSelect: 'none',
+                padding: isMobile ? '4px 10px' : '4px 14px', borderRadius: 999,
+                fontSize: isMobile ? 12 : 13, fontWeight: 500, whiteSpace: 'nowrap',
+                color: pollOpen ? '#fff' : '#1677ff',
+                background: pollOpen ? '#1677ff' : '#e6f4ff',
+                border: `1px solid ${pollOpen ? '#1677ff' : '#91caff'}`,
+                transition: 'all .15s',
+              }}
+            >
+              <BarChartOutlined /> 发起投票
+            </span>
+          )}
+          {authorId && (
+            <span
+              onClick={() => setOnlyAuthor((v) => !v)}
+              title={onlyAuthor ? '显示全部评论' : '只看楼主的评论'}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer', userSelect: 'none',
+                padding: isMobile ? '4px 10px' : '4px 14px', borderRadius: 999,
+                fontSize: isMobile ? 12 : 13, fontWeight: 500, whiteSpace: 'nowrap',
+                color: onlyAuthor ? '#fff' : '#8c8c8c',
+                background: onlyAuthor ? '#fa541c' : '#f5f5f5',
+                border: `1px solid ${onlyAuthor ? '#fa541c' : '#ececec'}`,
+                boxShadow: onlyAuthor ? '0 2px 8px rgba(250,84,28,.25)' : 'none',
+                transition: 'all .15s',
+              }}
+            >
+              <UserOutlined /> 只看楼主
+            </span>
+          )}
+        </div>
       </div>
 
       {/* 楼主开打分面板：对象必填 + 说明可选，发布=发一条新楼并挂上打分项 */}

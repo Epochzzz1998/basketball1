@@ -243,8 +243,8 @@ public class TopicController {
     }
 
     /**
-     * 设置该专题的题主（可多个，超管专用）。ownerIds 为逗号分隔的用户 id；去重、校验存在、至少一个。
-     * 首个作为主题主写入 OWNER_ID（兼容/展示），全部写入 OWNER_IDS。
+     * 更换该专题的题主（超管专用）。题主**有且只有一个**：ownerIds 传一个用户 id，
+     * 原题主自动卸任；新题主若在小题主名单里则自动移出（题主身份覆盖小题主）。
      */
     @RequiresRole(Role.SUPER_MANAGER)
     @PostMapping("/setOwners")
@@ -260,13 +260,25 @@ public class TopicController {
                 valid.add(id);
             }
         }
-        if (valid.isEmpty()) {
-            return new Result<>(1, "至少要指定一个有效的题主", null);
+        if (valid.size() != 1) {
+            return new Result<>(1, "题主有且只有一个，请指定一个有效用户", null);
         }
-        t.setOwnerId(valid.get(0));
-        t.setOwnerIds(JSON.toJSONString(valid));
+        String ownerId = valid.get(0);
+        t.setOwnerId(ownerId);
+        t.setOwnerIds(JSON.toJSONString(Collections.singletonList(ownerId)));
+        // 新题主从小题主名单里除名（避免占用 3 个名额之一）
+        if (StringUtils.isNotBlank(t.getSubOwnerIds())) {
+            try {
+                List<String> subs = JSON.parseArray(t.getSubOwnerIds(), String.class);
+                if (subs.remove(ownerId)) {
+                    t.setSubOwnerIds(JSON.toJSONString(subs));
+                }
+            } catch (Exception ignore) {
+                // 脏数据不动
+            }
+        }
         topicMapper.updateById(t);
-        return new Result<>(0, "已保存", null);
+        return new Result<>(0, "已更换题主", null);
     }
 
     /**
