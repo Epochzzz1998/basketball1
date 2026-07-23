@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Avatar, Button, Empty, Image, Input, Pagination, Popconfirm, Space, Spin, Tag, Tooltip, message } from 'antd'
-import { DislikeOutlined, FileOutlined, LikeOutlined, LockOutlined, StarFilled, TrophyFilled, UserOutlined } from '@ant-design/icons'
+import { BarChartOutlined, DislikeOutlined, FileOutlined, LikeOutlined, LockOutlined, StarFilled, TrophyFilled, UserOutlined } from '@ant-design/icons'
 import { Link, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { newsApi } from '../api/news'
 import { useAuth } from '../auth/AuthContext'
 import CommentComposer, { humanSize } from './CommentComposer'
 import RatingCard, { RatingImagePicker } from './RatingCard'
+import PollCard from './PollCard'
 import { SuperAdminBadge, TopicOwnerBadge, OpBadge } from './RoleBadges'
 import UserTitles from './UserTitles'
 import useIsMobile from '../hooks/useIsMobile'
@@ -280,7 +281,7 @@ function FloorReplies({ floorId, newsId, authorId, topicOwnerIds, locked, bump, 
               )}
               {user && user.userId === r.userId && (
                 <Popconfirm title="删除这条回复？" okText="删除" cancelText="取消" onConfirm={() => del(r)}>
-                  <Button type="text" size="small" style={{ color: '#8c8c8c' }}>删除</Button>
+                  <Button type="text" size="small" style={{ color: '#ff4d4f' }}>删除</Button>
                 </Popconfirm>
               )}
             </Space>
@@ -321,7 +322,7 @@ function FloorReplies({ floorId, newsId, authorId, topicOwnerIds, locked, bump, 
  * 一层楼（一级评论）：楼主体 + 点赞/点踩/回复 + 展开楼内平铺回复（FloorReplies）。
  * "N 条回复"用全部子孙数（后端按 ROOT_ID 统计的 totalReplyNum）。
  */
-function FloorNode({ comment, newsId, authorId, topicOwnerIds, locked, ratingItem, onVoteRating, onDeleteRating, ratingCanDelete, onRemoved }) {
+function FloorNode({ comment, newsId, authorId, topicOwnerIds, locked, ratingItem, onVoteRating, onDeleteRating, ratingCanDelete, pollItem, onVotePoll, onDeletePoll, onRemoved }) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
@@ -411,6 +412,19 @@ function FloorNode({ comment, newsId, authorId, topicOwnerIds, locked, ratingIte
           </div>
         )}
 
+        {/* 该楼挂的投票（楼主开的投票楼） */}
+        {c.deleted !== '1' && pollItem && (
+          <div style={{ marginTop: 8 }}>
+            <PollCard
+              item={pollItem}
+              onVote={onVotePoll}
+              onDelete={onDeletePoll}
+              canDelete={ratingCanDelete}
+              disabled={locked}
+            />
+          </div>
+        )}
+
         {/* 操作行；墓碑楼只留"N 条回复"展开 */}
         {c.deleted === '1' ? (
           replyCount > 0 && (
@@ -438,7 +452,7 @@ function FloorNode({ comment, newsId, authorId, topicOwnerIds, locked, ratingIte
           )}
           {user && user.userId === c.userId && (
             <Popconfirm title="删除这条评论？" okText="删除" cancelText="取消" onConfirm={del}>
-              <Button type="text" size="small" style={{ color: '#8c8c8c' }}>删除</Button>
+              <Button type="text" size="small" style={{ color: '#ff4d4f' }}>删除</Button>
             </Popconfirm>
           )}
         </Space>
@@ -482,6 +496,7 @@ function FloorNode({ comment, newsId, authorId, topicOwnerIds, locked, ratingIte
 export default function CommentSection({
   newsId, authorId, authorName, topicOwnerIds, locked,
   ratingByComment = {}, onVoteRating, onDeleteRating, ratingCanDelete, canOpenRating, onOpenRating,
+  pollByComment = {}, onVotePoll, onDeletePoll, onOpenPoll,
 }) {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -494,6 +509,11 @@ export default function CommentSection({
   const [ratingNote, setRatingNote] = useState('')
   const [ratingImage, setRatingImage] = useState('') // 打分对象配图 URL（可选）
   const [ratingSaving, setRatingSaving] = useState(false)
+  const [pollOpen, setPollOpen] = useState(false) // 楼主"发起投票"面板
+  const [pollSubject, setPollSubject] = useState('')
+  const [pollNote, setPollNote] = useState('')
+  const [pollOptions, setPollOptions] = useState(['', '']) // 2-10 个选项
+  const [pollSaving, setPollSaving] = useState(false)
 
   // 楼主开打分楼：NewsDetail 调 openFloor + 刷新打分项，这里刷新楼列表让新楼出现
   const submitRating = async () => {
@@ -510,6 +530,27 @@ export default function CommentSection({
       load()
     } catch { /* 拦截器已弹错 */ } finally {
       setRatingSaving(false)
+    }
+  }
+
+  // 楼主开投票楼：校验后交给 NewsDetail 的 openPoll（openFloor + 刷新投票项），这里刷新楼列表
+  const submitPoll = async () => {
+    const sub = pollSubject.trim()
+    if (!sub) return message.warning('请填写投票主题')
+    const opts = pollOptions.map((o) => o.trim()).filter(Boolean)
+    if (opts.length < 2) return message.warning('至少要 2 个选项')
+    if (new Set(opts).size !== opts.length) return message.warning('选项不能重复')
+    setPollSaving(true)
+    try {
+      await onOpenPoll?.(sub, opts, pollNote.trim())
+      message.success('已发起投票')
+      setPollOpen(false)
+      setPollSubject('')
+      setPollNote('')
+      setPollOptions(['', ''])
+      load()
+    } catch { /* 拦截器已弹错 */ } finally {
+      setPollSaving(false)
     }
   }
 
@@ -569,6 +610,22 @@ export default function CommentSection({
             <StarFilled /> 开启打分
           </span>
         )}
+        {canOpenRating && !locked && (
+          <span
+            onClick={() => setPollOpen((v) => !v)}
+            title="以一条新楼发起一个投票（仅楼主）"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer', userSelect: 'none',
+              padding: '4px 14px', borderRadius: 999, fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap',
+              color: pollOpen ? '#fff' : '#1677ff',
+              background: pollOpen ? '#1677ff' : '#e6f4ff',
+              border: `1px solid ${pollOpen ? '#1677ff' : '#91caff'}`,
+              transition: 'all .15s',
+            }}
+          >
+            <BarChartOutlined /> 发起投票
+          </span>
+        )}
         {authorId && (
           <span
             onClick={() => setOnlyAuthor((v) => !v)}
@@ -615,6 +672,53 @@ export default function CommentSection({
                 发布打分楼
               </Button>
               <Button size="small" onClick={() => setRatingOpen(false)}>取消</Button>
+            </Space>
+          </Space>
+        </div>
+      )}
+
+      {/* 楼主发起投票面板：主题必填 + 2-10 个选项 + 说明可选，发布=发一条新楼并挂上投票 */}
+      {pollOpen && canOpenRating && !locked && (
+        <div style={{ background: '#e6f4ff', border: '1px solid #91caff', borderRadius: 12, padding: '14px 16px', marginBottom: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#0958d9', marginBottom: 10 }}>
+            <BarChartOutlined style={{ marginRight: 6 }} />发起新投票（会以一条新楼发布）
+          </div>
+          <Space direction="vertical" style={{ width: '100%' }} size={10}>
+            <Input
+              placeholder="想投什么？（必填）"
+              maxLength={30}
+              showCount
+              value={pollSubject}
+              onChange={(e) => setPollSubject(e.target.value)}
+              style={{ maxWidth: 360, display: 'block' }}
+            />
+            {pollOptions.map((opt, i) => (
+              <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', maxWidth: 360 }}>
+                <Input
+                  placeholder={`选项 ${i + 1}`}
+                  maxLength={20}
+                  value={opt}
+                  onChange={(e) => setPollOptions((arr) => arr.map((x, j) => (j === i ? e.target.value : x)))}
+                />
+                {pollOptions.length > 2 && (
+                  <Button size="small" type="text" danger onClick={() => setPollOptions((arr) => arr.filter((_, j) => j !== i))}>删</Button>
+                )}
+              </div>
+            ))}
+            {pollOptions.length < 10 && (
+              <Button size="small" onClick={() => setPollOptions((arr) => [...arr, ''])} style={{ width: 120 }}>+ 添加选项</Button>
+            )}
+            <Input
+              placeholder="说明文字（可选，作为楼的内容）"
+              maxLength={200}
+              value={pollNote}
+              onChange={(e) => setPollNote(e.target.value)}
+            />
+            <Space>
+              <Button type="primary" size="small" loading={pollSaving} onClick={submitPoll}>
+                发布投票楼
+              </Button>
+              <Button size="small" onClick={() => setPollOpen(false)}>取消</Button>
             </Space>
           </Space>
         </div>
@@ -667,6 +771,9 @@ export default function CommentSection({
             onVoteRating={onVoteRating}
             onDeleteRating={onDeleteRating}
             ratingCanDelete={ratingCanDelete}
+            pollItem={pollByComment[c.commentId]}
+            onVotePoll={onVotePoll}
+            onDeletePoll={onDeletePoll}
             onRemoved={(id) => setComments((list) => list.filter((x) => x.commentId !== id))}
           />
         ))

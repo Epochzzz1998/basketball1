@@ -6,10 +6,12 @@ import dayjs from 'dayjs'
 import DOMPurify from 'dompurify'
 import { newsApi } from '../../api/news'
 import { ratingApi } from '../../api/rating'
+import { pollApi } from '../../api/poll'
 import { topicApi } from '../../api/topic'
 import { useAuth } from '../../auth/AuthContext'
 import CommentSection from '../../components/CommentSection'
 import RatingCard from '../../components/RatingCard'
+import PollCard from '../../components/PollCard'
 import { SuperAdminBadge, TopicOwnerBadge, OpBadge } from '../../components/RoleBadges'
 import UserTitles from '../../components/UserTitles'
 import useIsMobile from '../../hooks/useIsMobile'
@@ -106,6 +108,7 @@ export default function NewsDetail() {
   const [topicOwnerIds, setTopicOwnerIds] = useState([]) // 该帖所属专题的题主集合（题主标识用，支持多题主）
   const [topic, setTopic] = useState(null) // 帖子所属专题（页面最上方的信息卡，与论坛横幅同款）
   const [ratingItems, setRatingItems] = useState([]) // 该帖打分项（主贴的 + 楼上挂的），单一数据源
+  const [pollItems, setPollItems] = useState([]) // 该帖投票项（同打分的持有方式）
   const [fav, setFav] = useState({ favorited: false, count: 0 }) // 收藏状态 + 收藏数
   const [authorStats, setAuthorStats] = useState(null) // 作者数据小结（发帖/精华/置顶/获赞）
   const [loading, setLoading] = useState(true)
@@ -162,6 +165,13 @@ export default function NewsDetail() {
     return () => { alive = false }
   }, [newsId])
 
+  // 投票项：与打分同款装载
+  useEffect(() => {
+    let alive = true
+    pollApi.list(newsId).then((rows) => { if (alive) setPollItems(Array.isArray(rows) ? rows : []) }).catch(() => {})
+    return () => { alive = false }
+  }, [newsId])
+
   // 打分/改分：接口回该项最新聚合，就地替换
   const voteRating = async (itemId, score) => {
     try {
@@ -187,6 +197,27 @@ export default function NewsDetail() {
     if (Array.isArray(rows)) setRatingItems(rows)
   }
 
+  // 投票三连（与打分同款）：投/改票、删项、评论区开投票楼
+  const votePoll = async (itemId, optionIndex) => {
+    try {
+      const agg = await pollApi.vote(itemId, optionIndex)
+      setPollItems((items) => items.map((it) => (it.itemId === itemId ? { ...it, ...agg } : it)))
+      message.success('已投票')
+    } catch { /* 拦截器已弹错 */ }
+  }
+  const deletePoll = async (itemId) => {
+    try {
+      await pollApi.remove(itemId)
+      setPollItems((items) => items.filter((it) => it.itemId !== itemId))
+      message.success('已删除')
+    } catch { /* 拦截器已弹错 */ }
+  }
+  const openPoll = async (subject, options, content) => {
+    await pollApi.openFloor({ newsId, subject, options: JSON.stringify(options), content })
+    const rows = await pollApi.list(newsId).catch(() => null)
+    if (Array.isArray(rows)) setPollItems(rows)
+  }
+
   // 收藏/取消收藏：登录后 toggle，接口回最新状态
   const toggleFavorite = async () => {
     if (!user) { message.info('请先登录'); navigate('/login'); return }
@@ -203,6 +234,12 @@ export default function NewsDetail() {
   const ratingByComment = {}
   for (const it of ratingItems) {
     if (it.commentId) ratingByComment[it.commentId] = it
+  }
+  // 投票分发（同打分）
+  const postPollItems = pollItems.filter((it) => !it.commentId)
+  const pollByComment = {}
+  for (const it of pollItems) {
+    if (it.commentId) pollByComment[it.commentId] = it
   }
 
   // 置顶/精华/封锁/隐藏（可并存）：成功就地更新；失败由 http 拦截器统一弹错（接口回统一 Result，成功时 data 为空，不能靠 res.result 判断）
@@ -412,6 +449,22 @@ export default function NewsDetail() {
                   </div>
                 )}
 
+                {/* 主贴挂的投票（发帖时发起的） */}
+                {postPollItems.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: postRatingItems.length ? 12 : 22 }}>
+                    {postPollItems.map((it) => (
+                      <PollCard
+                        key={it.itemId}
+                        item={it}
+                        onVote={votePoll}
+                        onDelete={deletePoll}
+                        canDelete={ratingCanDelete}
+                        disabled={news.locked === '1'}
+                      />
+                    ))}
+                  </div>
+                )}
+
                 {/* 顶/踩/收藏 */}
                 <div style={{ display: 'flex', justifyContent: 'center', gap: 14, margin: '26px 0 8px', flexWrap: 'wrap' }}>
                   <Button shape="round" size="large" icon={<LikeOutlined />} onClick={() => likePost('good')}>
@@ -444,6 +497,10 @@ export default function NewsDetail() {
                   ratingCanDelete={ratingCanDelete}
                   canOpenRating={isAuthor}
                   onOpenRating={openRating}
+                  pollByComment={pollByComment}
+                  onVotePoll={votePoll}
+                  onDeletePoll={deletePoll}
+                  onOpenPoll={openPoll}
                 />
               </>
             ) : (

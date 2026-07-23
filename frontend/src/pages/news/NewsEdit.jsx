@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button, Card, Form, Input, Select, Space, message } from 'antd'
-import { StarFilled } from '@ant-design/icons'
+import { BarChartOutlined, StarFilled } from '@ant-design/icons'
 import RichTextEditor from '../../components/RichTextEditor'
 import { RatingImagePicker } from '../../components/RatingCard'
 import { newsApi } from '../../api/news'
 import { ratingApi } from '../../api/rating'
+import { pollApi } from '../../api/poll'
 import { searchApi } from '../../api/search'
 import { topicApi } from '../../api/topic'
 import { useAuth } from '../../auth/AuthContext'
@@ -41,6 +42,9 @@ export default function NewsEdit() {
   const [saving, setSaving] = useState(false)
   const [ratingOpen, setRatingOpen] = useState(false) // 开分填写卡展开态（默认只显示按钮）
   const [ratingImg, setRatingImg] = useState('') // 打分对象配图 URL（可选）
+  const [pollOpen, setPollOpen] = useState(false) // 发起投票填写卡展开态
+  const [pollSubject, setPollSubject] = useState('')
+  const [pollOptions, setPollOptions] = useState(['', '']) // 2-10 个选项
   const newsIdRef = useRef(routeId || crypto.randomUUID())
   const isMobile = useIsMobile()
 
@@ -95,6 +99,14 @@ export default function NewsEdit() {
         try {
           await ratingApi.create({ newsId: newsIdRef.current, subject: ratingSubject, imageUrl: ratingImg || undefined })
         } catch { message.warning('帖子已发出，但打分开启失败，可在评论区重新开启') }
+      }
+      // 发帖时发起投票（可选，仅新帖）：同打分，失败不阻断发帖
+      const pollSub = pollOpen ? pollSubject.trim() : ''
+      const pollOpts = pollOptions.map((o) => o.trim()).filter(Boolean)
+      if (!isEdit && pollSub && pollOpts.length >= 2) {
+        try {
+          await pollApi.create({ newsId: newsIdRef.current, subject: pollSub, options: JSON.stringify(pollOpts) })
+        } catch { message.warning('帖子已发出，但投票发起失败，可在评论区重新发起') }
       }
       message.success('已保存')
       navigate(-1)
@@ -170,6 +182,65 @@ export default function NewsEdit() {
                   <RatingImagePicker value={ratingImg} onChange={setRatingImg} upload={(f) => newsApi.uploadNewsImage(f, newsIdRef.current)} />
                 </div>
                 <div style={{ fontSize: 11, color: '#d3a15f', marginTop: 8 }}>1-5 星打分，可配一张图；发帖后还能在评论区继续为其他对象开分</div>
+              </div>
+            )}
+          </div>
+        )}
+        {/* 发起投票（可选，仅新帖）：与打分同款折叠交互，蓝色系区分 */}
+        {!isEdit && (
+          <div style={{ marginBottom: 24 }}>
+            {!pollOpen ? (
+              <span
+                onClick={() => setPollOpen(true)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none',
+                  padding: '5px 16px', borderRadius: 999, fontSize: 13, fontWeight: 500,
+                  color: '#1677ff', background: '#e6f4ff', border: '1px solid #91caff', transition: 'all .15s',
+                }}
+              >
+                <BarChartOutlined /> 发起投票（可选）
+              </span>
+            ) : (
+              <div style={{ background: '#e6f4ff', border: '1px solid #91caff', borderRadius: 12, padding: '14px 16px', maxWidth: 480 }}>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#0958d9' }}>
+                    <BarChartOutlined style={{ marginRight: 6 }} />发起投票（随帖子一起发布）
+                  </span>
+                  <span style={{ flex: 1 }} />
+                  <a
+                    onClick={() => { setPollOpen(false); setPollSubject(''); setPollOptions(['', '']) }}
+                    style={{ fontSize: 12, color: '#bfbfbf' }}
+                  >
+                    收起不发
+                  </a>
+                </div>
+                <Input
+                  placeholder="想投什么？"
+                  maxLength={30}
+                  showCount
+                  value={pollSubject}
+                  onChange={(e) => setPollSubject(e.target.value)}
+                  style={{ maxWidth: 360, display: 'block' }}
+                />
+                <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 360 }}>
+                  {pollOptions.map((opt, i) => (
+                    <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <Input
+                        placeholder={`选项 ${i + 1}`}
+                        maxLength={20}
+                        value={opt}
+                        onChange={(e) => setPollOptions((arr) => arr.map((x, j) => (j === i ? e.target.value : x)))}
+                      />
+                      {pollOptions.length > 2 && (
+                        <Button size="small" type="text" danger onClick={() => setPollOptions((arr) => arr.filter((_, j) => j !== i))}>删</Button>
+                      )}
+                    </div>
+                  ))}
+                  {pollOptions.length < 10 && (
+                    <Button size="small" onClick={() => setPollOptions((arr) => [...arr, ''])} style={{ width: 120 }}>+ 添加选项</Button>
+                  )}
+                </div>
+                <div style={{ fontSize: 11, color: '#69b1ff', marginTop: 8 }}>2-10 个选项，单选、可改票；发帖后还能在评论区继续发起投票</div>
               </div>
             )}
           </div>

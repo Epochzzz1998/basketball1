@@ -85,6 +85,12 @@ public class NewsServiceImpl implements NewsService {
     @Autowired
     private com.dream.basketball.mapper.ForumRatingVoteMapper ratingVoteMapper;
 
+    @Autowired
+    private com.dream.basketball.mapper.ForumPollItemMapper pollItemMapper;
+
+    @Autowired
+    private com.dream.basketball.mapper.ForumPollVoteMapper pollVoteMapper;
+
     public void create(Class<?> clazz) {
         template.indexOps(clazz);
     }
@@ -706,6 +712,20 @@ public class NewsServiceImpl implements NewsService {
             ratingVoteMapper.delete(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<com.dream.basketball.entity.ForumRatingVote>()
                     .in("ITEM_ID", itemIds));
             ratingItemMapper.delete(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<com.dream.basketball.entity.ForumRatingItem>()
+                    .eq("COMMENT_ID", commentId));
+        }
+        // 楼上挂的投票同样随楼而去（先票后项）
+        java.util.List<com.dream.basketball.entity.ForumPollItem> pollItems = pollItemMapper.selectList(
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<com.dream.basketball.entity.ForumPollItem>()
+                        .eq("COMMENT_ID", commentId));
+        if (!pollItems.isEmpty()) {
+            java.util.List<String> pollIds = new java.util.ArrayList<>();
+            for (com.dream.basketball.entity.ForumPollItem it : pollItems) {
+                pollIds.add(it.getItemId());
+            }
+            pollVoteMapper.delete(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<com.dream.basketball.entity.ForumPollVote>()
+                    .in("ITEM_ID", pollIds));
+            pollItemMapper.delete(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<com.dream.basketball.entity.ForumPollItem>()
                     .eq("COMMENT_ID", commentId));
         }
         long children = dreamNewsCommentService.count(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<DreamNewsComment>()

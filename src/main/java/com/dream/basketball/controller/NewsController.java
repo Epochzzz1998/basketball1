@@ -61,6 +61,12 @@ public class NewsController extends BaseUtils {
     private com.dream.basketball.config.TopicPermissionService topicPerms;
     @Autowired
     private com.dream.basketball.mapper.ForumRatingItemMapper ratingItemMapper;
+
+    @Autowired
+    private com.dream.basketball.mapper.ForumPollItemMapper pollItemMapper;
+
+    @Autowired
+    private com.dream.basketball.mapper.ForumPollVoteMapper pollVoteMapper;
     @Autowired
     private com.dream.basketball.mapper.ForumRatingVoteMapper ratingVoteMapper;
     @Autowired
@@ -270,6 +276,17 @@ public class NewsController extends BaseUtils {
             }
             ratingVoteMapper.delete(new QueryWrapper<com.dream.basketball.entity.ForumRatingVote>().in("ITEM_ID", itemIds));
             ratingItemMapper.delete(new QueryWrapper<com.dream.basketball.entity.ForumRatingItem>().eq("NEWS_ID", newsId));
+        }
+        // 连带删投票：同打分，先票后项
+        java.util.List<com.dream.basketball.entity.ForumPollItem> pollItems = pollItemMapper.selectList(
+                new QueryWrapper<com.dream.basketball.entity.ForumPollItem>().eq("NEWS_ID", newsId));
+        if (!pollItems.isEmpty()) {
+            java.util.List<String> pollIds = new java.util.ArrayList<>();
+            for (com.dream.basketball.entity.ForumPollItem it : pollItems) {
+                pollIds.add(it.getItemId());
+            }
+            pollVoteMapper.delete(new QueryWrapper<com.dream.basketball.entity.ForumPollVote>().in("ITEM_ID", pollIds));
+            pollItemMapper.delete(new QueryWrapper<com.dream.basketball.entity.ForumPollItem>().eq("NEWS_ID", newsId));
         }
         return handlerResultJson(true, "已删除");
     }
