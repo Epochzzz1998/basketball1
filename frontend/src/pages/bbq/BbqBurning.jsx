@@ -101,8 +101,10 @@ export default function BbqBurning() {
     } catch { /* 已提示 */ }
   }
 
-  /** 一张榜：title/badge=第一名称号；rows [{userId, userNickname, avatar, value}]；fmt 值格式化 */
-  const Board = ({ boardKey, title, icon, champion, rows, fmt }) => (
+  /** 一张榜：title/badge=第一名称号；rows [{userId, userNickname, avatar, value}]；fmt 值格式化。
+   *  注意：这是"渲染函数"而非组件——若定义成父组件内部的组件，父组件每次重渲染都会换掉
+   *  组件身份导致整棵子树卸载重建，评论输入框每敲一个字就丢焦点、移动端键盘收起（踩过） */
+  const renderBoard = (boardKey, title, icon, champion, rows, fmt) => (
     <Card
       title={<span>{icon} {title}</span>}
       style={{ borderRadius: 16, height: '100%' }}
@@ -271,16 +273,16 @@ export default function BbqBurning() {
       ) : (
         <Row gutter={[16, 16]}>
           <Col xs={24} lg={12}>
-            <Board boardKey="hours" title="工时榜" icon="⏱" champion="劳模" rows={data.hours} fmt={fmtHours} />
+            {renderBoard('hours', '工时榜', '⏱', '劳模', data.hours, fmtHours)}
           </Col>
           <Col xs={24} lg={12}>
-            <Board boardKey="skewers" title="穿串榜" icon="🍢" champion="串王" rows={data.skewers} fmt={(v) => `${v} 串`} />
+            {renderBoard('skewers', '穿串榜', '🍢', '串王', data.skewers, (v) => `${v} 串`)}
           </Col>
           <Col xs={24} lg={12}>
-            <Board boardKey="latestOff" title="最晚下班榜" icon="🌙" champion="熬夜冠军" rows={data.latestOff} fmt={fmtOff} />
+            {renderBoard('latestOff', '最晚下班榜', '🌙', '熬夜冠军', data.latestOff, fmtOff)}
           </Col>
           <Col xs={24} lg={12}>
-            <Board boardKey="days" title="出勤天数榜" icon="📅" champion="全勤之星" rows={data.days} fmt={(v) => `${v} 天`} />
+            {renderBoard('days', '出勤天数榜', '📅', '全勤之星', data.days, (v) => `${v} 天`)}
           </Col>
         </Row>
       )}
