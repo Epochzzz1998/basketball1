@@ -14,6 +14,8 @@ const stripHtml = (s) => (s || '').replace(/<[^>]+>/g, '')
 const COMMENT_TYPES = ['goodComment', 'badComment', 'commentComment', 'mentionComment']
 // 专题类消息 msgId=专题 id，点进去跳专题页
 const TOPIC_TYPES = ['topicApply', 'topicApproved', 'topicRejected']
+// 日程类：remind 的 msgId=日期；assign 的 msgId=事件id、msgIdSecond=日期。点进日历对应那天（顺便标已读）
+const SCHEDULE_TYPES = ['scheduleAssign', 'scheduleRemind']
 const newsIdOf = (m) => (COMMENT_TYPES.includes(m.msgType) ? m.msgIdSecond : m.msgId)
 // 点击一条消息去哪：专题类→专题页，其余→帖子详情。都带 userInformationId 顺便标已读
 const linkOf = (m) =>
@@ -21,7 +23,9 @@ const linkOf = (m) =>
     ? `/users/${m.msgId}` // follow 的 msgId=关注者 id → 跳其主页（已读由消息页统一处理）
     : TOPIC_TYPES.includes(m.msgType)
       ? `/news/topic/${m.msgId}?userInformationId=${m.userInformationId}`
-      : `/news/${newsIdOf(m)}?userInformationId=${m.userInformationId}`
+      : SCHEDULE_TYPES.includes(m.msgType)
+        ? `/schedule?date=${m.msgType === 'scheduleRemind' ? m.msgId : (m.msgIdSecond || '')}&userInformationId=${m.userInformationId}`
+        : `/news/${newsIdOf(m)}?userInformationId=${m.userInformationId}`
 
 // 动作短语按 msgType 在前端固定构造（库里 commentNews/commentComment 的 contentMsg 存的是评论原文，
 // 不是短语——直接显示会变成「xxx "评论内容"」，很怪；这里统一映射，老消息也能正确显示）。
@@ -42,6 +46,8 @@ const actionTextOf = (m) => {
     case 'topicApply': return `申请加入你的专题${m.content ? `「${m.content}」` : ''}`
     case 'topicApproved': return `通过了你加入${m.content ? `「${m.content}」` : '专题'}的申请`
     case 'topicRejected': return `驳回了你加入${m.content ? `「${m.content}」` : '专题'}的申请`
+    case 'scheduleAssign': return '给你指派了一条日程'
+    case 'scheduleRemind': return '' // operatorName 即「日程提醒」，短语留空避免重复
     default: return m.contentMsg || ''
   }
 }
@@ -60,6 +66,8 @@ const detailOf = (m) => {
     case 'topicApply': return '点击进入专题，在成员管理里审批'
     case 'topicApproved': return '点击进入该专题'
     case 'topicRejected': return `专题：${s(m.content)}`
+    case 'scheduleAssign': return `日程：${s(m.content)} ｜ 点击查看当天日历`
+    case 'scheduleRemind': return s(m.content)
     default: return `原帖：${s(m.content)}` // goodNews / badNews
   }
 }

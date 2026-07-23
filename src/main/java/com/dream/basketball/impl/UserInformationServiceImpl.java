@@ -139,6 +139,10 @@ public class UserInformationServiceImpl extends ServiceImpl<UserInformationMappe
             content = dreamNews == null ? "原帖已删除！"
                     : (dreamNews.getContent().length() > 30 ? dreamNews.getContent().substring(0, 30) + "......" : dreamNews.getContent());
             contentMsg = "在帖子里@了您";
+        } else if (StringUtils.equals(SCHEDULE_ASSIGN, msgType) || StringUtils.equals(SCHEDULE_REMIND, msgType)) {
+            // 日程类：正文用调用方传入的摘要（指派=事件标题+日期；提醒=当日事件清单）；msgId=事件id/日期，前端据此跳日历
+            content = StringUtils.defaultIfBlank(commentContent, "日程");
+            contentMsg = StringUtils.equals(SCHEDULE_ASSIGN, msgType) ? "给你指派了一条日程" : "今日日程提醒";
         } else if (StringUtils.equals(TOPIC_APPLY, msgType) || StringUtils.equals(TOPIC_APPROVED, msgType)
                 || StringUtils.equals(TOPIC_REJECTED, msgType)) {
             // msgId=专题 id：content 存专题名，供"我的消息"展示与跳转

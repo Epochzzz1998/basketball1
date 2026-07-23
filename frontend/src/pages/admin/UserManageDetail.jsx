@@ -170,6 +170,7 @@ export default function UserManageDetail() {
         {permRow('新闻', 'featNews')}
         {permRow('百家说', 'featForum')}
         {permRow('私信', 'featPm')}
+        {permRow('日程', 'featSchedule')}
       </Card>
     </>
   )

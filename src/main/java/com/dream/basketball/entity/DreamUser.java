@@ -80,6 +80,8 @@ public class DreamUser extends Model<DreamUser> implements Serializable {
     private String featNews;   // 新闻
     @TableField("FEAT_FORUM")
     private String featForum;  // 百家说
+    @TableField("FEAT_SCHEDULE")
+    private String featSchedule;
     @TableField("FEAT_PM")
     private String featPm;     // 私信
 
@@ -197,6 +199,14 @@ public class DreamUser extends Model<DreamUser> implements Serializable {
 
     public String getFeatPm() {
         return featPm;
+    }
+
+    public String getFeatSchedule() {
+        return featSchedule;
+    }
+
+    public void setFeatSchedule(String featSchedule) {
+        this.featSchedule = featSchedule;
     }
 
     public void setFeatPm(String featPm) {

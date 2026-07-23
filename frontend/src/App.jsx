@@ -24,6 +24,7 @@ import NewsDetail from './pages/news/NewsDetail'
 import NewsEdit from './pages/news/NewsEdit'
 import MyMessages from './pages/user/MyMessages'
 import Messages from './pages/user/Messages'
+import Schedule from './pages/schedule/Schedule'
 import UserProfile from './pages/user/UserProfile'
 import VerifyBindings from './pages/admin/VerifyBindings'
 import UserManage from './pages/admin/UserManage'
@@ -81,6 +82,7 @@ export default function App() {
         {/* 需登录 */}
         <Route path="me" element={<ProtectedRoute><MyMessages /></ProtectedRoute>} />
         <Route path="messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
+        <Route path="schedule" element={<ProtectedRoute><Schedule /></ProtectedRoute>} />
 
         {/* 需 superManager */}
         <Route path="admin/verify" element={<RoleRoute role="superManager"><VerifyBindings /></RoleRoute>} />

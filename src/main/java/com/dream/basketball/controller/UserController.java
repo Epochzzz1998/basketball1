@@ -157,6 +157,7 @@ public class UserController extends BaseUtils {
         data.put("featNews", !"0".equals(u.getFeatNews()));
         data.put("featForum", !"0".equals(u.getFeatForum()));
         data.put("featPm", !"0".equals(u.getFeatPm()));
+        data.put("featSchedule", !"0".equals(u.getFeatSchedule()));
         data.put("titles", u.getTitles()); // 头衔（逗号分隔）
         return new Result<>(0, "成功", data);
     }
@@ -203,6 +204,8 @@ public class UserController extends BaseUtils {
             m.put("featNews", !"0".equals(u.getFeatNews()));
             m.put("featForum", !"0".equals(u.getFeatForum()));
             m.put("featPm", !"0".equals(u.getFeatPm()));
+        m.put("featSchedule", !"0".equals(u.getFeatSchedule()));
+            m.put("featSchedule", !"0".equals(u.getFeatSchedule()));
             m.put("titles", u.getTitles());
             m.put("isSuperManager", Role.fromUserRole(u.getUserRole()) == Role.SUPER_MANAGER);
             rows.add(m);
@@ -214,7 +217,7 @@ public class UserController extends BaseUtils {
     @RequiresRole(Role.SUPER_MANAGER)
     @PostMapping("/setUserPerms")
     public Object setUserPerms(String userId, String enabled, String canBrowse, String canComment, String canPost,
-                              String canCreateTopic, String featData, String featNews, String featForum, String featPm,
+                              String canCreateTopic, String featData, String featNews, String featForum, String featPm, String featSchedule,
                               HttpServletRequest request) {
         DreamUser target = StringUtils.isBlank(userId) ? null : userService.getById(userId);
         if (target == null) {
@@ -254,6 +257,9 @@ public class UserController extends BaseUtils {
         if (featPm != null) {
             uw.set("FEAT_PM", "1".equals(featPm) ? "1" : "0");
         }
+        if (featSchedule != null) {
+            uw.set("FEAT_SCHEDULE", "1".equals(featSchedule) ? "1" : "0");
+        }
         userService.update(uw);
         return handlerResultJson(true, "已保存");
     }
@@ -285,6 +291,7 @@ public class UserController extends BaseUtils {
         m.put("featNews", !"0".equals(u.getFeatNews()));
         m.put("featForum", !"0".equals(u.getFeatForum()));
         m.put("featPm", !"0".equals(u.getFeatPm()));
+        m.put("featSchedule", !"0".equals(u.getFeatSchedule()));
         m.put("titles", u.getTitles());
         // 认证球员（只读展示；认证流程在 /admin/verify 管）
         m.put("verified", Constants.IDENTIFICATION.equals(u.getPlayerIdentification()));

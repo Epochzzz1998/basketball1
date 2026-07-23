@@ -4,6 +4,7 @@ import { Avatar, Badge, Button, Dropdown } from 'antd'
 import {
   ArrowLeftOutlined,
   BellOutlined,
+  CalendarOutlined,
   MessageOutlined,
   ReloadOutlined,
   SwapOutlined,
@@ -94,7 +95,8 @@ export default function AppLayout() {
       (user.featData === false && (p.startsWith('/players') || p.startsWith('/rankings') || p.startsWith('/compare') || p.startsWith('/league'))) ||
       (user.featNews === false && p.startsWith('/official')) ||
       (user.featForum === false && p.startsWith('/news')) ||
-      (user.featPm === false && p.startsWith('/messages'))
+      (user.featPm === false && p.startsWith('/messages')) ||
+      (user.featSchedule === false && p.startsWith('/schedule'))
     if (blocked) navigate('/', { replace: true })
   }, [location.pathname, user, navigate])
 
@@ -122,6 +124,8 @@ export default function AppLayout() {
             }]
           : []),
         ...(canUse('featNews') ? [{ path: '/official', name: '新闻', icon: <NotificationOutlined /> }] : []),
+        // 日程（登录用户；按用户可关）
+        ...(user && canUse('featSchedule') ? [{ path: '/schedule', name: '日程', icon: <CalendarOutlined /> }] : []),
         // 私信入口在右上角头像下拉里（不占侧栏）
         ...(user?.isSuperManager
           ? [
@@ -142,7 +146,7 @@ export default function AppLayout() {
 
   // 全局返回按钮：一级页面（侧栏导航直达的根路径）不显示，其余页面统一在内容区左上角。
   // 优先走站内历史（-1 即"上一级"）；直链进入无历史时，剥路径段回落到最近的已知上级。
-  const NAV_ROOTS = ['/', '/news', '/league', '/players', '/rankings', '/compare', '/official', '/messages', '/login', '/register', '/403', '/admin/players', '/admin/users', '/admin/verify']
+  const NAV_ROOTS = ['/', '/news', '/league', '/players', '/rankings', '/compare', '/official', '/messages', '/schedule', '/login', '/register', '/403', '/admin/players', '/admin/users', '/admin/verify']
   const showBack = !NAV_ROOTS.includes(location.pathname)
   const goBack = () => {
     if (window.history.state && window.history.state.idx > 0) {

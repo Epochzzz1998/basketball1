@@ -42,6 +42,12 @@ public class Constants {
     /** @-mention inside a post body (someone @'d you in a news/forum post) */
     public static final String MENTION_NEWS = "mentionNews";
 
+    /** a schedule event was assigned to you (immediate, from the event creator) */
+    public static final String SCHEDULE_ASSIGN = "scheduleAssign";
+
+    /** 8am digest of today's schedule events you are responsible for */
+    public static final String SCHEDULE_REMIND = "scheduleRemind";
+
     /** someone applied to join your topic (to the topic owner) */
     public static final String TOPIC_APPLY = "topicApply";
 
