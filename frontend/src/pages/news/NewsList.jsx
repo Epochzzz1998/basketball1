@@ -336,7 +336,8 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
         <Col xs={24} lg={7}>
           <div style={{ position: isMobile ? 'static' : 'sticky', top: 76, display: 'flex', flexDirection: 'column', gap: 16 }}>
             <HotRail rows={rows} official={official} />
-            {canPost && (
+            {/* 发帖引导卡只在桌面右栏出现；移动端有固定底部按钮，避免页尾再重复一个 */}
+            {canPost && !isMobile && (
               <Card style={{ borderRadius: 14 }} styles={{ body: { padding: '18px 20px' } }}>
                 <div style={{ fontWeight: 700, fontSize: 15 }}>{official ? '发布新闻' : '有想说的？'}</div>
                 <div style={{ fontSize: 13, color: '#8c8c8c', margin: '6px 0 14px' }}>

@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Avatar, Badge, Button, Card, Grid, Image, Input, Modal, Popconfirm, Select, Spin, Tooltip, Upload, message } from 'antd'
-import { ArrowLeftOutlined, CloseCircleFilled, DeleteOutlined, EditOutlined, FileOutlined, PictureOutlined, RightOutlined, SendOutlined } from '@ant-design/icons'
+import { Avatar, Badge, Button, Card, Grid, Image, Input, Popconfirm, Spin, Tooltip, Upload, message } from 'antd'
+import { ArrowLeftOutlined, CloseCircleFilled, DeleteOutlined, FileOutlined, PictureOutlined, RightOutlined, SendOutlined } from '@ant-design/icons'
 import { Link, useSearchParams } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { pmApi } from '../../api/pm'
 import { userApi } from '../../api/user'
-import { searchApi } from '../../api/search'
 import { useAuth } from '../../auth/AuthContext'
 import EmojiPicker from '../../components/EmojiPicker'
 import UserTitles from '../../components/UserTitles'
@@ -128,10 +127,6 @@ export default function Messages() {
   const [uploading, setUploading] = useState(false)
   const [sending, setSending] = useState(false)
   const [onlineMap, setOnlineMap] = useState({}) // { userId: 是否在线 }
-  const [composeOpen, setComposeOpen] = useState(false) // 发起私信弹窗
-  const [composeOpts, setComposeOpts] = useState([]) // 搜到的用户候选
-  const [composeLoading, setComposeLoading] = useState(false)
-  const composeTimer = useRef(null)
 
   const scrollRef = useRef(null)
   const inputWrapRef = useRef(null)
@@ -266,26 +261,6 @@ export default function Messages() {
   const openConv = (pid) => {
     setPeerId(pid)
     setSearchParams(pid ? { peerId: pid } : {}, { replace: true })
-  }
-
-  // 发起私信：搜全站用户（按昵称，去掉自己），选中即打开会话（没聊过也能开）
-  const composeSearch = (kw) => {
-    if (composeTimer.current) clearTimeout(composeTimer.current)
-    const q = kw.trim()
-    if (!q) { setComposeOpts([]); return }
-    setComposeLoading(true)
-    composeTimer.current = setTimeout(() => {
-      searchApi.mentionUsers(q)
-        .then((list) => setComposeOpts((list || []).filter((u) => u.userId !== user.userId)))
-        .catch(() => setComposeOpts([]))
-        .finally(() => setComposeLoading(false))
-    }, 300)
-  }
-
-  const pickCompose = (uid) => {
-    setComposeOpen(false)
-    setComposeOpts([])
-    if (uid) openConv(uid)
   }
 
   const send = async () => {
@@ -536,9 +511,10 @@ export default function Messages() {
         <div style={{ padding: isMobile ? '12px 14px 10px' : '16px 18px 12px', borderBottom: '1px solid #f5f5f5', display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 800, fontSize: 18 }}>私信</div>
-            {convs?.length ? <div style={{ fontSize: 12, color: '#999', marginTop: 2 }}>{convs.length} 个会话</div> : null}
+            <div style={{ fontSize: 12, color: '#999', marginTop: 2 }}>
+              {convs?.length ? `${convs.length} 个会话 · ` : ''}到对方个人空间点「发私信」发起新会话
+            </div>
           </div>
-          <Button type="primary" size="small" icon={<EditOutlined />} onClick={() => setComposeOpen(true)}>发起</Button>
         </div>
         <div className="pm-scroll" style={{ flex: 1, overflowY: 'auto', paddingTop: 4 }}>
           {convs === null ? (
@@ -548,7 +524,7 @@ export default function Messages() {
           ) : (
             <div style={{ textAlign: 'center', color: '#bbb', marginTop: 70, padding: '0 20px' }}>
               <div style={{ fontSize: 40 }}>💬</div>
-              <div style={{ fontSize: 13, marginTop: 10, lineHeight: 1.7 }}>还没有会话<br />点右上角「发起」搜用户开聊</div>
+              <div style={{ fontSize: 13, marginTop: 10, lineHeight: 1.7 }}>还没有会话<br />想和谁聊，去 TA 的个人空间点「发私信」</div>
             </div>
           )}
         </div>
@@ -691,37 +667,6 @@ export default function Messages() {
         )}
       </div>
 
-      {/* 发起私信：搜全站用户，选中即开会话 */}
-      <Modal
-        open={composeOpen}
-        title="发起私信"
-        footer={null}
-        onCancel={() => { setComposeOpen(false); setComposeOpts([]) }}
-        destroyOnClose
-      >
-        <Select
-          showSearch
-          autoFocus
-          placeholder="搜索用户昵称…"
-          style={{ width: '100%' }}
-          size="large"
-          value={null}
-          filterOption={false}
-          onSearch={composeSearch}
-          onChange={pickCompose}
-          notFoundContent={composeLoading ? <div style={{ textAlign: 'center', padding: 12 }}><Spin size="small" /></div> : null}
-          options={composeOpts.map((u) => ({
-            value: u.userId,
-            label: (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                <UserAvatar name={u.userNickname} src={u.avatar} size={22} />
-                {u.userNickname}
-              </span>
-            ),
-          }))}
-        />
-        <div style={{ fontSize: 12, color: '#999', marginTop: 10 }}>选中用户即可开始聊天，没聊过也能直接发。</div>
-      </Modal>
     </Card>
   )
 }
