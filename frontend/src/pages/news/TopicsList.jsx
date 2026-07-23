@@ -49,7 +49,7 @@ export default function TopicsList() {
 
   return (
     <>
-      <style>{'.topic-card{transition:all .2s} .topic-card:hover{border-color:#ffbb96;box-shadow:0 6px 18px rgba(250,84,28,.1);transform:translateY(-2px)}'}</style>
+      <style>{'.topic-card-badge{display:block;width:100%;height:100%} .topic-card{transition:all .2s} .topic-card:hover{border-color:#ffbb96;box-shadow:0 6px 18px rgba(250,84,28,.1);transform:translateY(-2px)}'}</style>
 
       {/* 横幅 */}
       <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 16, color: '#fff', padding: isMobile ? '16px 14px' : '24px 28px', marginBottom: 18, background: 'linear-gradient(120deg, #fa541c 0%, #d4380d 60%, #ad2102 100%)' }}>
@@ -77,6 +77,8 @@ export default function TopicsList() {
             const priv = t.visibility === 'private'
             return (
               <Col key={t.topicId} xs={24} sm={12} lg={8}>
+                {/* 新活动红点（公开或已订阅的专题）：Badge 包整卡，红圈压在卡片右上角边缘 */}
+                <Badge count={t.newCount} size="small" offset={[-8, 8]} className="topic-card-badge">
                 <Card
                   className="topic-card"
                   style={{ borderRadius: 14, height: '100%', cursor: t.locked ? 'default' : 'pointer', opacity: t.locked ? 0.85 : 1 }}
@@ -85,11 +87,7 @@ export default function TopicsList() {
                 >
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                        <span style={{ fontSize: 17, fontWeight: 800, ...clamp(1), minWidth: 0 }}>{t.name}</span>
-                        {/* 新活动红点（公开或已订阅的专题；进过专题后从上次访问起累计他人发帖+评论） */}
-                        {t.newCount > 0 && <Badge count={t.newCount} size="small" style={{ flexShrink: 0 }} />}
-                      </div>
+                      <div style={{ fontSize: 17, fontWeight: 800, ...clamp(1) }}>{t.name}</div>
                       <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         {priv
                           ? <Tag icon={<LockOutlined />} color="default" style={{ marginInlineEnd: 0 }}>私密</Tag>
@@ -131,6 +129,7 @@ export default function TopicsList() {
                     )}
                   </div>
                 </Card>
+                </Badge>
               </Col>
             )
           })}
