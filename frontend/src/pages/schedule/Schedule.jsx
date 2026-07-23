@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Avatar, Button, Calendar, Card, Col, DatePicker, Empty, Input, InputNumber, Popconfirm, Popover, Row, Segmented, Select, Tag, TimePicker, message } from 'antd'
+import { Avatar, Button, Calendar, Card, Col, DatePicker, Empty, Input, InputNumber, Popconfirm, Popover, Row, Select, Tag, TimePicker, message } from 'antd'
 import {
   CalendarOutlined, CheckCircleFilled, CheckCircleOutlined, ClockCircleOutlined,
   DeleteOutlined, FieldTimeOutlined, LeftOutlined, PlusOutlined, RetweetOutlined, RightOutlined,
@@ -427,17 +427,31 @@ export default function Schedule() {
 
             {/* 新增表单 */}
             <div style={{ background: '#f6fffd', border: `1px dashed ${TEAL}55`, borderRadius: 12, padding: '12px 12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: TEAL_DARK }}>
-                  <PlusOutlined style={{ marginRight: 5 }} />给 {selected.format('M月D日')} 添加
-                </span>
-                <span style={{ flex: 1 }} />
-                <Segmented
-                  size="small"
-                  value={taskType}
-                  onChange={setTaskType}
-                  options={[{ label: '单日', value: 'day' }, { label: '截止任务', value: 'deadline' }, { label: '每日循环', value: 'rday' }, { label: '每周循环', value: 'rweek' }]}
-                />
+              <div style={{ fontSize: 13, fontWeight: 700, color: TEAL_DARK, marginBottom: 8 }}>
+                <PlusOutlined style={{ marginRight: 5 }} />给 {selected.format('M月D日')} 添加
+              </div>
+              {/* 任务类型：青色胶囊组（选中实心、未选描边），替代方块 Segmented */}
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+                {[['day', '单日'], ['deadline', '截止任务'], ['rday', '每日循环'], ['rweek', '每周循环']].map(([v, label]) => {
+                  const active = taskType === v
+                  return (
+                    <span
+                      key={v}
+                      onClick={() => setTaskType(v)}
+                      style={{
+                        cursor: 'pointer', userSelect: 'none', padding: '3px 13px', borderRadius: 999,
+                        fontSize: 12, fontWeight: active ? 700 : 400, whiteSpace: 'nowrap',
+                        color: active ? '#fff' : TEAL_DARK,
+                        background: active ? TEAL_DARK : '#fff',
+                        border: `1px solid ${active ? TEAL_DARK : `${TEAL}55`}`,
+                        boxShadow: active ? '0 2px 6px rgba(8,151,156,.25)' : 'none',
+                        transition: 'all .15s',
+                      }}
+                    >
+                      {label}
+                    </span>
+                  )
+                })}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <Input

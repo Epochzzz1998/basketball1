@@ -200,7 +200,7 @@ export default function AppLayout() {
       menuContentRender={(menuProps, defaultDom) => (
         <>
           {defaultDom}
-          {user && subs.length > 0 && !collapsed && (
+          {user && !collapsed && (
             <div style={{ margin: '6px 12px 14px', paddingTop: 10, borderTop: '1px dashed #f0f0f0' }}>
               <div
                 onClick={() => setSubsOpen((o) => !o)}
@@ -210,7 +210,12 @@ export default function AppLayout() {
                 订阅的专题
                 <span style={{ color: '#d9a05f', fontWeight: 400 }}>({subs.length})</span>
               </div>
-              {subsOpen && (
+              {subsOpen && subs.length === 0 && (
+                <div style={{ marginTop: 4, background: '#fffaf3', border: '1px dashed #ffe7ba', borderRadius: 10, padding: '10px 12px', fontSize: 12, color: '#d9a05f', lineHeight: 1.6 }}>
+                  还没有订阅。到已加入的专题页点「订阅」，就会常驻在这里
+                </div>
+              )}
+              {subsOpen && subs.length > 0 && (
                 <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2, background: '#fffaf3', border: '1px solid #ffe7ba', borderRadius: 10, padding: '6px 4px' }}>
                   {subs.map((t) => {
                     const active = location.pathname === `/news/topic/${t.topicId}`
