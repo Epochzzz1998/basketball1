@@ -11,12 +11,6 @@ import { topicApi } from '../../api/topic'
 import { useAuth } from '../../auth/AuthContext'
 import useIsMobile from '../../hooks/useIsMobile'
 
-// 富文本 @ 候选：把后端用户规约成编辑器面板要的 {id,name,avatar}
-const mentionSearch = async (kw) => {
-  const list = await searchApi.mentionUsers(kw)
-  return (list || []).map((u) => ({ id: u.userId, name: u.userNickname, avatar: u.avatar }))
-}
-
 // 标签推荐项（只是下拉建议，可自定义任意添加）：通用分类，不绑定具体主题
 const TAG_SUGGESTIONS = [
   '讨论', '分享', '求助', '公告', '资源', '教程', '反馈', '闲聊', '重磅', '精华',
@@ -185,7 +179,6 @@ export default function NewsEdit() {
             value={content}
             onChange={setContent}
             uploadImage={(file) => newsApi.uploadNewsImage(file, newsIdRef.current)}
-            mentionSearch={mentionSearch}
           />
         </Form.Item>
         <Space>

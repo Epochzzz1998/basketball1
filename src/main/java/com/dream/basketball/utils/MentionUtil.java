@@ -136,4 +136,106 @@ public final class MentionUtil {
         m.appendTail(sb);
         return sb.toString();
     }
+
+    // ===== 无联想 @：后端按"全量昵称、最长前缀匹配"识别纯文本里的 @昵称 =====
+
+    // 整个 mention span（含内容）或任意 HTML 标签——自动链接时按此切块，只对标签外的纯文本动手
+    private static final Pattern SPAN_OR_TAG =
+            Pattern.compile("(<span[^>]*data-w-e-type=\"mention\".*?</span>)|(<[^>]+>)", Pattern.DOTALL);
+
+    /** 在 nickToId（昵称→id）里找 text 从 from 起能匹配的最长昵称；无命中返回 null。 */
+    private static String longestNickAt(String text, int from, Map<String, String> nickToId) {
+        String best = null;
+        for (String nick : nickToId.keySet()) {
+            if (StringUtils.isNotBlank(nick) && text.startsWith(nick, from)
+                    && (best == null || nick.length() > best.length())) {
+                best = nick;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * 评论用：无联想输入下，按全站昵称对纯文本做 @ 识别（每个 @ 取最长匹配昵称）。
+     * 返回与旧机制同构的 [{"id","name"}] JSON（同一用户去重），无命中返回 null——
+     * 前端 renderContent 的"按 name 定位、cur 显示"逻辑原样生效。
+     */
+    public static String resolveTextMentions(String text, Map<String, String> nickToId) {
+        if (StringUtils.isBlank(text) || nickToId == null || nickToId.isEmpty()) {
+            return null;
+        }
+        JSONArray arr = new JSONArray();
+        Set<String> seen = new LinkedHashSet<>();
+        int i = text.indexOf('@');
+        while (i >= 0) {
+            String best = longestNickAt(text, i + 1, nickToId);
+            if (best != null) {
+                String id = nickToId.get(best);
+                if (seen.add(id)) {
+                    JSONObject o = new JSONObject();
+                    o.put("id", id);
+                    o.put("name", best);
+                    arr.add(o);
+                }
+                i = text.indexOf('@', i + 1 + best.length());
+            } else {
+                i = text.indexOf('@', i + 1);
+            }
+        }
+        return arr.isEmpty() ? null : arr.toJSONString();
+    }
+
+    /**
+     * 帖子正文（HTML）读时自动链接：把标签外文本里的 @昵称（命中全站昵称，最长优先）包成
+     * wangeditor 同款 mention span——前端既有的高亮/点击跳主页机制直接生效。
+     * 已有的 mention span（老帖联想选择产生）整块跳过不重复处理。
+     * 注意：文本里存的是发帖时的昵称，对方改名后旧文本匹配不到自然退化为纯文本（无害）。
+     */
+    public static String autoLinkNewsMentions(String html, Map<String, String> nickToId) {
+        if (StringUtils.isBlank(html) || nickToId == null || nickToId.isEmpty() || html.indexOf('@') < 0) {
+            return html;
+        }
+        Matcher m = SPAN_OR_TAG.matcher(html);
+        StringBuilder out = new StringBuilder();
+        int last = 0;
+        while (m.find()) {
+            out.append(linkTextSegment(html.substring(last, m.start()), nickToId));
+            out.append(m.group()); // 现有 span / 标签原样
+            last = m.end();
+        }
+        out.append(linkTextSegment(html.substring(last), nickToId));
+        return out.toString();
+    }
+
+    /** 对一段"标签外纯文本"做 @昵称 → mention span 替换。 */
+    private static String linkTextSegment(String seg, Map<String, String> nickToId) {
+        if (seg.indexOf('@') < 0) {
+            return seg;
+        }
+        StringBuilder sb = new StringBuilder();
+        int i = 0;
+        while (i < seg.length()) {
+            char c = seg.charAt(i);
+            if (c == '@') {
+                String best = longestNickAt(seg, i + 1, nickToId);
+                if (best != null) {
+                    JSONObject info = new JSONObject();
+                    info.put("id", nickToId.get(best));
+                    String encoded;
+                    try {
+                        encoded = java.net.URLEncoder.encode(info.toJSONString(), StandardCharsets.UTF_8.name());
+                    } catch (Exception e) {
+                        encoded = "";
+                    }
+                    sb.append("<span data-w-e-type=\"mention\" data-info=\"").append(encoded)
+                            .append("\">@").append(best).append("</span>");
+                    i += 1 + best.length();
+                    continue;
+                }
+            }
+            sb.append(c);
+            i++;
+        }
+        return sb.toString();
+    }
 }

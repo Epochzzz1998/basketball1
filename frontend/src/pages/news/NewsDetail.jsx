@@ -323,7 +323,7 @@ export default function NewsDetail() {
 
                 {/* 正文里的 @ 提及：wangeditor 存成 <span data-w-e-type="mention" data-info="{id}">，
                     这里描成橙色，点一下按 data-info 里的 id 跳该用户主页（事件委托，一个监听搞定） */}
-                <style>{'.rich-content [data-w-e-type="mention"]{color:#fa541c;font-weight:600;cursor:pointer}'}</style>
+                <style>{'.rich-content [data-w-e-type="mention"]{color:#1677ff;font-weight:600;cursor:pointer}'}</style>
                 {/* 正文是用户发帖的 HTML：发帖已对所有登录用户开放（不可信），渲染前必须用 DOMPurify 净化，防存储型 XSS */}
                 <div
                   className="rich-content"

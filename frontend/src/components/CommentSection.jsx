@@ -58,7 +58,7 @@ function renderContent(content, mentionsJson) {
           key={k++}
           to={`/users/${hit.id}`}
           onClick={(e) => e.stopPropagation()}
-          style={{ color: '#fa541c', fontWeight: 600 }}
+          style={{ color: '#1677ff', fontWeight: 600 }}
         >
           @{hit.cur || hit.name}
         </Link>,

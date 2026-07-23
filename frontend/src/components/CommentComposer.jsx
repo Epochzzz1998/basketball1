@@ -1,15 +1,14 @@
 import { useRef, useState } from 'react'
-import { Button, Image, Space, Tooltip, Upload, message } from 'antd'
+import { Button, Image, Input, Space, Tooltip, Upload, message } from 'antd'
 import { CloseCircleFilled, FileOutlined, PictureOutlined } from '@ant-design/icons'
-import MentionInput from './MentionInput'
 import EmojiPicker from './EmojiPicker'
 import { newsApi } from '../api/news'
 import useIsMobile from '../hooks/useIsMobile'
 
 /**
- * 评论/回复输入器：文本框（@ 提及）+ 工具栏（表情/图片/文件）+ 附件预览 + 提交。
- * 自持 text/mentions/attachments 状态；提交时把三者一起交给 onSubmit(async→boolean)，
- * 返回 true（成功）则清空。顶层评论框与楼中楼回复框共用这一个组件。
+ * 评论/回复输入器：文本框 + 工具栏（表情/图片/文件）+ 附件预览 + 提交。
+ * @ 不做联想——正文里直接写 @昵称，后端按全站昵称识别真实用户后渲染成可点的蓝字链接。
+ * 自持 text/attachments 状态；提交给 onSubmit(async→boolean)，返回 true（成功）则清空。
  */
 
 const IMG_ACCEPT = 'image/*'
@@ -26,7 +25,6 @@ export const humanSize = (n) => {
 export default function CommentComposer({ newsId, placeholder, submitText = '发表评论', onSubmit, onCancel, compact }) {
   const isMobile = useIsMobile()
   const [text, setText] = useState('')
-  const [mentions, setMentions] = useState([])
   const [attachments, setAttachments] = useState([])
   const [busy, setBusy] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -67,8 +65,8 @@ export default function CommentComposer({ newsId, placeholder, submitText = '发
     if (busy || (!text.trim() && !attachments.length)) return
     setBusy(true)
     try {
-      const ok = await onSubmit({ text: text.trim(), mentions, attachments })
-      if (ok) { setText(''); setMentions([]); setAttachments([]) }
+      const ok = await onSubmit({ text: text.trim(), mentions: [], attachments })
+      if (ok) { setText(''); setAttachments([]) }
     } finally {
       setBusy(false)
     }
@@ -78,11 +76,12 @@ export default function CommentComposer({ newsId, placeholder, submitText = '发
 
   return (
     <div ref={wrapRef}>
-      <MentionInput
+      <Input.TextArea
         value={text}
-        onChange={(t, m) => { setText(t); setMentions(m) }}
+        onChange={(e) => setText(e.target.value)}
         placeholder={placeholder}
         autoSize={{ minRows: compact ? 2 : 2, maxRows: 6 }}
+        maxLength={500}
       />
 
       {/* 附件预览：图片缩略图 / 文件卡，各带右上角移除 */}

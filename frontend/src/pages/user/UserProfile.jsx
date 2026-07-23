@@ -572,42 +572,60 @@ export default function UserProfile() {
 
       {/* 内容区 */}
       <Card styles={{ body: { padding: '8px 20px 16px' } }}>
-        {/* 本人：主页隐私开关（隐藏后他人看不到，自己仍可见） */}
-        {isSelf && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 18, padding: '6px 4px 12px', borderBottom: '1px solid #f5f5f5', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 13, color: '#8c8c8c' }}>主页隐私</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <Switch size="small" checked={!!user.hidePosts} onChange={(c) => togglePrivacy('hidePosts', c)} />
-              <span style={{ fontSize: 13 }}>隐藏我的发帖</span>
+        {/* 本人：主页隐私开关（隐藏后他人看不到，自己仍可见）。移动端 2×2 网格分区排列，桌面一行横排 */}
+        {isSelf && (() => {
+          const privacyItems = [
+            ['hidePosts', '隐藏我的发帖', !!user.hidePosts],
+            ['hideComments', '隐藏我的评论', !!user.hideComments],
+            ['hideFollows', '隐藏关注/粉丝', !!user.hideFollows],
+            ['hideFavorites', '隐藏我的收藏', !!user.hideFavorites],
+          ]
+          const sw = ([field, label, checked]) => (
+            <span key={field} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+              <Switch size="small" checked={checked} onChange={(c) => togglePrivacy(field, c)} />
+              <span style={{ fontSize: 13 }}>{label}</span>
             </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <Switch size="small" checked={!!user.hideComments} onChange={(c) => togglePrivacy('hideComments', c)} />
-              <span style={{ fontSize: 13 }}>隐藏我的评论</span>
-            </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <Switch size="small" checked={!!user.hideFollows} onChange={(c) => togglePrivacy('hideFollows', c)} />
-              <span style={{ fontSize: 13 }}>隐藏关注/粉丝</span>
-            </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <Switch size="small" checked={!!user.hideFavorites} onChange={(c) => togglePrivacy('hideFavorites', c)} />
-              <span style={{ fontSize: 13 }}>隐藏我的收藏</span>
-            </span>
-            <span style={{ fontSize: 12, color: '#bbb' }}>仅对他人隐藏，你自己仍能看到</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 13, color: '#8c8c8c' }}>谁能私信我</span>
-              <Select
-                size="small"
-                value={user.pmPolicy === 'following' ? 'following' : 'all'}
-                style={{ width: 138 }}
-                options={[{ value: 'all', label: '所有人' }, { value: 'following', label: '仅我关注的人' }]}
-                onChange={async (v) => {
-                  try { await userApi.setPmPolicy(v); message.success('已保存'); load() } catch { /* 已提示 */ }
-                }}
-              />
-            </span>
-            <a style={{ fontSize: 13 }} onClick={() => setBlocklistOpen(true)}>黑名单管理</a>
-          </div>
-        )}
+          )
+          const pmSelect = (
+            <Select
+              size="small"
+              value={user.pmPolicy === 'following' ? 'following' : 'all'}
+              style={{ width: 138 }}
+              options={[{ value: 'all', label: '所有人' }, { value: 'following', label: '仅我关注的人' }]}
+              onChange={async (v) => {
+                try { await userApi.setPmPolicy(v); message.success('已保存'); load() } catch { /* 已提示 */ }
+              }}
+            />
+          )
+          return isMobile ? (
+            <div style={{ padding: '6px 2px 14px', borderBottom: '1px solid #f5f5f5' }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+                <span style={{ fontSize: 13, color: '#8c8c8c', fontWeight: 500 }}>主页隐私</span>
+                <span style={{ flex: 1 }} />
+                <a style={{ fontSize: 13 }} onClick={() => setBlocklistOpen(true)}>黑名单管理</a>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', rowGap: 12, columnGap: 8 }}>
+                {privacyItems.map(sw)}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14 }}>
+                <span style={{ fontSize: 13, color: '#8c8c8c' }}>谁能私信我</span>
+                {pmSelect}
+              </div>
+              <div style={{ fontSize: 11, color: '#bbb', marginTop: 10 }}>仅对他人隐藏，你自己仍能看到</div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 18, padding: '6px 4px 12px', borderBottom: '1px solid #f5f5f5', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 13, color: '#8c8c8c' }}>主页隐私</span>
+              {privacyItems.map(sw)}
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 13, color: '#8c8c8c' }}>谁能私信我</span>
+                {pmSelect}
+              </span>
+              <a style={{ fontSize: 13, whiteSpace: 'nowrap' }} onClick={() => setBlocklistOpen(true)}>黑名单管理</a>
+              <span style={{ fontSize: 12, color: '#bbb' }}>仅对他人隐藏，你自己仍能看到</span>
+            </div>
+          )
+        })()}
         <Tabs
           defaultActiveKey="posts"
           items={[

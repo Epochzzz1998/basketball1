@@ -240,12 +240,15 @@ public class NewsServiceImpl implements NewsService {
                 playerNames.put(p.getPlayerId(), p.getPlayerName());
             }
         }
+        java.util.Map<String, String> nickToId = allNickToId(); // 循环外一次全量查（自动链接 @ 用）
         for (NewsDto n : newsList) {
             if (n == null) {
                 continue;
             }
             // 正文里的 @ 用当前昵称重写（改名后帖子正文里的 @ 也显示新名）
             n.setContent(com.dream.basketball.utils.MentionUtil.rewriteNewsMentionNames(n.getContent(), idToNick));
+            // 纯文本 @（无联想输入的新帖）：读时按全量昵称自动链接成 mention span，前端既有高亮/跳主页直接生效
+            n.setContent(com.dream.basketball.utils.MentionUtil.autoLinkNewsMentions(n.getContent(), nickToId));
             // 最后编辑者昵称（独立于作者：超管改他人帖时二者不同）
             if (StringUtils.isNotBlank(n.getLastEditorId())) {
                 DreamUser ed = userMap.get(n.getLastEditorId());
@@ -344,6 +347,18 @@ public class NewsServiceImpl implements NewsService {
     /** 评论行的读时批量回填（头像/当前昵称/认证/头衔/超管 + @ 当前名），供平铺回复接口复用 */
     public void fillCommenterInfo(List<DreamNewsCommentDto> comments) {
         fillVerifiedPlayer(comments);
+    }
+
+    /** 全站 昵称→userId（无联想 @ 识别用；用户量小，每次现查两列） */
+    private java.util.Map<String, String> allNickToId() {
+        java.util.Map<String, String> m = new java.util.HashMap<>();
+        for (DreamUser u : userMapper.selectList(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<DreamUser>()
+                .select("USER_ID", "USER_NICKNAME"))) {
+            if (u != null && StringUtils.isNotBlank(u.getUserNickname())) {
+                m.put(u.getUserNickname(), u.getUserId());
+            }
+        }
+        return m;
     }
 
     /** 沿父链爬到所属楼（一级评论）的 id：父是一级/无父→父即楼；父已有 ROOT_ID→继承；否则继续向上（限 20 层防环） */
@@ -695,6 +710,9 @@ public class NewsServiceImpl implements NewsService {
         dreamNewsComment.setUserId(dreamUser.getUserId());
         dreamNewsComment.setUserName(dreamUser.getUserNickname());
         dreamNewsComment.setAttachments(sanitizeAttachments(dreamNewsComment.getAttachments()));
+        // @ 识别（无联想输入）：忽略前端传值，后端按全量昵称最长前缀匹配解析文本里的 @昵称
+        dreamNewsComment.setMentions(com.dream.basketball.utils.MentionUtil.resolveTextMentions(
+                dreamNewsComment.getContent(), allNickToId()));
         dreamNewsComment.setCommentDate(new Date());
         dreamNewsComment.setGoodNum(0);
         dreamNewsComment.setBadNum(0);

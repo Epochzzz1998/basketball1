@@ -65,6 +65,8 @@ public class NewsController extends BaseUtils {
     private com.dream.basketball.mapper.ForumRatingVoteMapper ratingVoteMapper;
     @Autowired
     private com.dream.basketball.mapper.NewsFavoriteMapper favoriteMapper;
+    @Autowired
+    private com.dream.basketball.mapper.UserMapper userMapper;
 
     @Autowired
     private com.dream.basketball.config.UserPermService userPerms;
@@ -402,10 +404,19 @@ public class NewsController extends BaseUtils {
                     .set("LAST_EDIT_TIME", new java.util.Date())
                     .set("LAST_EDITOR_ID", me.getUserId()));
         }
-        // @-mention 通知：只给"这次新增"的被 @ 者发（编辑时老正文里已有的 @ 不重复打扰），排除作者本人
-        java.util.Set<String> mentionedNow = com.dream.basketball.utils.MentionUtil.parseNewsMentionIds(news.getContent());
+        // @-mention 通知：只给"这次新增"的被 @ 者发（编辑时老正文里已有的 @ 不重复打扰），排除作者本人。
+        // 无联想输入下正文 @ 是纯文本：先 autoLink 成 mention span 再统一解析（老帖的联想 span 也一并覆盖）
+        java.util.Map<String, String> nickToId = new HashMap<>();
+        for (DreamUser nu : userMapper.selectList(new QueryWrapper<DreamUser>().select("USER_ID", "USER_NICKNAME"))) {
+            if (nu != null && StringUtils.isNotBlank(nu.getUserNickname())) {
+                nickToId.put(nu.getUserNickname(), nu.getUserId());
+            }
+        }
+        java.util.Set<String> mentionedNow = com.dream.basketball.utils.MentionUtil.parseNewsMentionIds(
+                com.dream.basketball.utils.MentionUtil.autoLinkNewsMentions(news.getContent(), nickToId));
         java.util.Set<String> mentionedBefore = isExisting
-                ? com.dream.basketball.utils.MentionUtil.parseNewsMentionIds(existing.getContent())
+                ? com.dream.basketball.utils.MentionUtil.parseNewsMentionIds(
+                        com.dream.basketball.utils.MentionUtil.autoLinkNewsMentions(existing.getContent(), nickToId))
                 : java.util.Collections.emptySet();
         for (String mentionedId : mentionedNow) {
             if (mentionedBefore.contains(mentionedId) || StringUtils.equals(mentionedId, me.getUserId())) {
