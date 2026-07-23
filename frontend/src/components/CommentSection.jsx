@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Avatar, Button, Empty, Image, Input, Pagination, Space, Spin, Tag, Tooltip, message } from 'antd'
+import { Avatar, Button, Empty, Image, Input, Pagination, Popconfirm, Space, Spin, Tag, Tooltip, message } from 'antd'
 import { DislikeOutlined, FileOutlined, LikeOutlined, LockOutlined, StarFilled, TrophyFilled, UserOutlined } from '@ant-design/icons'
 import { Link, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
@@ -222,6 +222,20 @@ function FloorReplies({ floorId, newsId, authorId, topicOwnerIds, locked, bump, 
     return false
   }
 
+  // 删除楼内自己的回复：tombstone → 原位标灰"原评论已删除"；removed → 重拉当前页并同步楼上计数
+  const del = async (item) => {
+    const res = await newsApi.deleteComment(item.commentId)
+    if (!res?.result) return message.error(res?.msg || '删除失败')
+    message.success(res.msg || '已删除')
+    if (res.mode === 'tombstone') {
+      setRows((list) => (list || []).map((x) => (x.commentId === item.commentId ? { ...x, deleted: '1' } : x)))
+    } else {
+      onCountDelta?.(-1)
+      const newTotal = Math.max(0, totalRef.current - 1)
+      await load(Math.min(page, Math.max(1, Math.ceil(newTotal / REPLY_PAGE_SIZE) || 1)))
+    }
+  }
+
   if (rows === null) return <div style={{ textAlign: 'center', padding: 14 }}><Spin size="small" /></div>
   if (!rows.length) return null
 
@@ -229,12 +243,12 @@ function FloorReplies({ floorId, newsId, authorId, topicOwnerIds, locked, bump, 
     <div style={{ background: '#fafafa', borderRadius: 10, padding: isMobile ? '2px 10px' : '4px 14px', marginTop: 8 }}>
       {rows.map((r) => (
         <div key={r.commentId} style={{ display: 'flex', gap: 10, padding: '10px 0', borderBottom: '1px solid #f0f0f0' }}>
-          <UserAvatar name={r.userName} src={r.commenterAvatar} size={24} />
+          {r.deleted !== '1' && <UserAvatar name={r.userName} src={r.commenterAvatar} size={24} />}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <MetaRow c={r} authorId={authorId} topicOwnerIds={topicOwnerIds} />
-            {/* 平级楼层："A 回复 B：内容"。直接回楼的不带"回复 B"前缀 */}
-            <div style={{ margin: '4px 0 2px', whiteSpace: 'pre-wrap', color: '#262626', fontSize: 14, lineHeight: 1.7 }}>
-              {r.commentRelId && r.commentRelId !== floorId && r.replyToName && (
+            {r.deleted !== '1' && <MetaRow c={r} authorId={authorId} topicOwnerIds={topicOwnerIds} />}
+            {/* 平级楼层："A 回复 B：内容"。直接回楼的不带"回复 B"前缀；已删的整行变墓碑 */}
+            <div style={{ margin: '4px 0 2px', whiteSpace: 'pre-wrap', color: r.deleted === '1' ? '#bfbfbf' : '#262626', fontStyle: r.deleted === '1' ? 'italic' : 'normal', fontSize: r.deleted === '1' ? 13 : 14, lineHeight: 1.7 }}>
+              {r.deleted !== '1' && r.commentRelId && r.commentRelId !== floorId && r.replyToName && (
                 <span style={{ color: '#8c8c8c' }}>
                   回复{' '}
                   {r.replyToUserId
@@ -243,9 +257,10 @@ function FloorReplies({ floorId, newsId, authorId, topicOwnerIds, locked, bump, 
                   ：
                 </span>
               )}
-              {renderContent(r.content, r.mentions)}
+              {r.deleted === '1' ? '原评论已删除' : renderContent(r.content, r.mentions)}
             </div>
-            <CommentAttachments attachmentsJson={r.attachments} />
+            {r.deleted !== '1' && <CommentAttachments attachmentsJson={r.attachments} />}
+            {r.deleted !== '1' && (
             <Space size={2} wrap={isMobile} style={{ marginLeft: -8, marginTop: 2 }}>
               <Button type="text" size="small" style={{ color: '#8c8c8c' }} icon={<LikeOutlined />} onClick={() => like(r, 'good')}>
                 {r.goodNum ?? 0}
@@ -263,7 +278,13 @@ function FloorReplies({ floorId, newsId, authorId, topicOwnerIds, locked, bump, 
                   回复
                 </Button>
               )}
+              {user && user.userId === r.userId && (
+                <Popconfirm title="删除这条回复？" okText="删除" cancelText="取消" onConfirm={() => del(r)}>
+                  <Button type="text" size="small" style={{ color: '#8c8c8c' }}>删除</Button>
+                </Popconfirm>
+              )}
             </Space>
+            )}
             {replyingId === r.commentId && (
               <div style={{ marginTop: 8 }}>
                 <CommentComposer
@@ -300,7 +321,7 @@ function FloorReplies({ floorId, newsId, authorId, topicOwnerIds, locked, bump, 
  * 一层楼（一级评论）：楼主体 + 点赞/点踩/回复 + 展开楼内平铺回复（FloorReplies）。
  * "N 条回复"用全部子孙数（后端按 ROOT_ID 统计的 totalReplyNum）。
  */
-function FloorNode({ comment, newsId, authorId, topicOwnerIds, locked, ratingItem, onVoteRating, onDeleteRating, ratingCanDelete }) {
+function FloorNode({ comment, newsId, authorId, topicOwnerIds, locked, ratingItem, onVoteRating, onDeleteRating, ratingCanDelete, onRemoved }) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
@@ -347,24 +368,38 @@ function FloorNode({ comment, newsId, authorId, topicOwnerIds, locked, ratingIte
     return false
   }
 
+  // 删除本楼（仅作者本人）：有回复 → 原位墓碑；无回复 → 整楼从列表移除
+  const del = async () => {
+    const res = await newsApi.deleteComment(c.commentId)
+    if (!res?.result) return message.error(res?.msg || '删除失败')
+    message.success(res.msg || '已删除')
+    if (res.mode === 'removed') onRemoved?.(c.commentId)
+    else setC((p) => ({ ...p, deleted: '1' }))
+  }
+
   return (
     <div style={{ display: 'flex', gap: 12, paddingTop: 16, paddingBottom: 16, borderBottom: '1px solid #f5f5f5' }}>
-      <UserAvatar name={c.userName} src={c.commenterAvatar} size={36} />
+      {c.deleted === '1' ? <UserAvatar name="?" size={36} /> : <UserAvatar name={c.userName} src={c.commenterAvatar} size={36} />}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <MetaRow c={c} authorId={authorId} topicOwnerIds={topicOwnerIds} showFloor />
+        {c.deleted !== '1' && <MetaRow c={c} authorId={authorId} topicOwnerIds={topicOwnerIds} showFloor />}
+
+        {/* 墓碑：作者删了这层楼，但楼内回复保留 */}
+        {c.deleted === '1' && (
+          <div style={{ margin: '6px 0', color: '#bfbfbf', fontStyle: 'italic', fontSize: 14 }}>原评论已删除</div>
+        )}
 
         {/* 内容（@昵称 渲染成可点链接） */}
-        {c.content && (
+        {c.deleted !== '1' && c.content && (
           <div style={{ margin: '6px 0 6px', whiteSpace: 'pre-wrap', color: '#262626', fontSize: 14, lineHeight: 1.7 }}>
             {renderContent(c.content, c.mentions)}
           </div>
         )}
 
         {/* 图片/文件附件 */}
-        <CommentAttachments attachmentsJson={c.attachments} />
+        {c.deleted !== '1' && <CommentAttachments attachmentsJson={c.attachments} />}
 
         {/* 该楼挂的打分项（楼主开的打分楼） */}
-        {ratingItem && (
+        {c.deleted !== '1' && ratingItem && (
           <div style={{ marginTop: 8 }}>
             <RatingCard
               item={ratingItem}
@@ -376,7 +411,14 @@ function FloorNode({ comment, newsId, authorId, topicOwnerIds, locked, ratingIte
           </div>
         )}
 
-        {/* 操作行 */}
+        {/* 操作行；墓碑楼只留"N 条回复"展开 */}
+        {c.deleted === '1' ? (
+          replyCount > 0 && (
+            <Button type="link" size="small" style={{ paddingLeft: 0 }} onClick={() => setShowReplies((s) => !s)}>
+              {showReplies ? '收起' : `${replyCount} 条回复`}
+            </Button>
+          )
+        ) : (
         <Space size={2} wrap={isMobile} style={{ marginLeft: -8, marginTop: 4 }}>
           <Button type="text" size="small" style={{ color: '#8c8c8c' }} icon={<LikeOutlined />} onClick={() => like('good')}>
             {c.goodNum ?? 0}
@@ -394,7 +436,13 @@ function FloorNode({ comment, newsId, authorId, topicOwnerIds, locked, ratingIte
               {showReplies ? '收起' : `${replyCount} 条回复`}
             </Button>
           )}
+          {user && user.userId === c.userId && (
+            <Popconfirm title="删除这条评论？" okText="删除" cancelText="取消" onConfirm={del}>
+              <Button type="text" size="small" style={{ color: '#8c8c8c' }}>删除</Button>
+            </Popconfirm>
+          )}
         </Space>
+        )}
 
         {/* 内联回复框（直接回楼） */}
         {replyOpen && (
@@ -619,6 +667,7 @@ export default function CommentSection({
             onVoteRating={onVoteRating}
             onDeleteRating={onDeleteRating}
             ratingCanDelete={ratingCanDelete}
+            onRemoved={(id) => setComments((list) => list.filter((x) => x.commentId !== id))}
           />
         ))
       ) : (

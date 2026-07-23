@@ -59,6 +59,10 @@ public class Comment {
     @Field(type = FieldType.Keyword, index = false)
     private String attachments;
 
+    /** '1' = author-deleted tombstone — mirrors DreamNewsComment.deleted so the floor list carries it */
+    @Field(type = FieldType.Keyword, index = false)
+    private String deleted;
+
 }
 
 

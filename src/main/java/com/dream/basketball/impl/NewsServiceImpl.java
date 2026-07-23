@@ -79,6 +79,12 @@ public class NewsServiceImpl implements NewsService {
     @Autowired
     RabbitMqProducer rabbitMqProducer;
 
+    @Autowired
+    private com.dream.basketball.mapper.ForumRatingItemMapper ratingItemMapper;
+
+    @Autowired
+    private com.dream.basketball.mapper.ForumRatingVoteMapper ratingVoteMapper;
+
     public void create(Class<?> clazz) {
         template.indexOps(clazz);
     }
@@ -637,7 +643,7 @@ public class NewsServiceImpl implements NewsService {
         DreamNewsComment dreamNewsComment = dreamNewsCommentService.getById(commentId);
         if (dreamUser == null) {
             return handlerResultJson(false, "请先登录！");
-        } else if (dreamNewsComment == null) {
+        } else if (dreamNewsComment == null || "1".equals(dreamNewsComment.getDeleted())) {
             return handlerResultJson(false, "原评论已删除！");
         } else {
             String userId = dreamUser.getUserId();
@@ -661,7 +667,7 @@ public class NewsServiceImpl implements NewsService {
         DreamNewsComment dreamNewsComment = dreamNewsCommentService.getById(commentId);
         if (dreamUser == null) {
             return handlerResultJson(false, "请先登录！");
-        } else if (dreamNewsComment == null) {
+        } else if (dreamNewsComment == null || "1".equals(dreamNewsComment.getDeleted())) {
             return handlerResultJson(false, "原评论已删除！");
         } else {
             String userId = dreamUser.getUserId();
@@ -669,6 +675,88 @@ public class NewsServiceImpl implements NewsService {
             // rabbitmq处理评论点踩
             rabbitMqProducer.commentActionRmq(commentId, userId, whetherClicked, dreamUser, dreamNewsComment, "bad");
             return likeResult(whetherClicked, whetherClicked ? "好像说的也没那么离谱" : "我觉得这完全没道理");
+        }
+    }
+
+    /**
+     * 删除自己的评论。还有回复挂着（直接回复或整楼子孙）→ 保留行做墓碑（DELETED='1'，
+     * 渲染成"原评论已删除"，回复链不受影响）；没人回复过 → 彻底删除（库 + ES + 帖子评论数）。
+     * 楼上挂的打分项两种情况都一并清掉（先删票再删项）。
+     */
+    public Object deleteComment(String commentId, HttpServletRequest request) {
+        DreamUser me = SecUtil.getLoginUserToSession(request);
+        if (me == null) {
+            return handlerResultJson(false, "请先登录！");
+        }
+        DreamNewsComment c = dreamNewsCommentService.getById(commentId);
+        if (c == null || "1".equals(c.getDeleted())) {
+            return handlerResultJson(false, "原评论已删除！");
+        }
+        if (!me.getUserId().equals(c.getUserId())) {
+            return handlerResultJson(false, "只能删除自己的评论");
+        }
+        java.util.List<com.dream.basketball.entity.ForumRatingItem> items = ratingItemMapper.selectList(
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<com.dream.basketball.entity.ForumRatingItem>()
+                        .eq("COMMENT_ID", commentId));
+        if (!items.isEmpty()) {
+            java.util.List<String> itemIds = new java.util.ArrayList<>();
+            for (com.dream.basketball.entity.ForumRatingItem it : items) {
+                itemIds.add(it.getItemId());
+            }
+            ratingVoteMapper.delete(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<com.dream.basketball.entity.ForumRatingVote>()
+                    .in("ITEM_ID", itemIds));
+            ratingItemMapper.delete(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<com.dream.basketball.entity.ForumRatingItem>()
+                    .eq("COMMENT_ID", commentId));
+        }
+        long children = dreamNewsCommentService.count(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<DreamNewsComment>()
+                .eq("COMMENT_REL_ID", commentId).or().eq("ROOT_ID", commentId));
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("result", true);
+        if (children > 0) {
+            c.setDeleted("1");
+            dreamNewsCommentService.updateById(c);
+            // ES 同步：整行覆盖写回（带上 deleted），楼列表读 ES 才能显示墓碑
+            Comment es = JSONObject.parseObject(JSONObject.toJSONString(c), Comment.class);
+            if (es != null) {
+                saveComment(es);
+            }
+            resp.put("msg", "已删除");
+            resp.put("mode", "tombstone");
+        } else {
+            dreamNewsCommentService.removeById(commentId);
+            template.delete(commentId, Comment.class);
+            // 墓碑仍占一条可见记录所以不减数；只有彻删才同步帖子的评论数
+            decrementCommentNum(c.getNewsId());
+            // 连带回收：彻删后沿父链向上，把已无任何剩余回复的墓碑祖先一并清掉（防永久空墓碑楼）
+            String upId = c.getCommentRelId();
+            int guard = 0;
+            while (StringUtils.isNotBlank(upId) && guard++ < 20) {
+                DreamNewsComment up = dreamNewsCommentService.getById(upId);
+                if (up == null || !"1".equals(up.getDeleted())) {
+                    break;
+                }
+                long left = dreamNewsCommentService.count(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<DreamNewsComment>()
+                        .eq("COMMENT_REL_ID", upId).or().eq("ROOT_ID", upId));
+                if (left > 0) {
+                    break;
+                }
+                dreamNewsCommentService.removeById(upId);
+                template.delete(upId, Comment.class);
+                decrementCommentNum(up.getNewsId());
+                upId = up.getCommentRelId();
+            }
+            template.indexOps(Comment.class).refresh();
+            resp.put("msg", "已删除");
+            resp.put("mode", "removed");
+        }
+        return resp;
+    }
+
+    private void decrementCommentNum(String newsId) {
+        DreamNews news = dreamNewsService.getById(newsId);
+        if (news != null && news.getCommentNum() != null && news.getCommentNum() > 0) {
+            news.setCommentNum(news.getCommentNum() - 1);
+            dreamNewsService.saveOrUpdate(news);
         }
     }
 
@@ -705,6 +793,13 @@ public class NewsServiceImpl implements NewsService {
         if (postForGate != null && StringUtils.isNotBlank(postForGate.getTopicId())
                 && !topicPerms.canComment(dreamUser, topicPerms.getTopic(postForGate.getTopicId()))) {
             return handlerResultJson(false, "你在该专题没有评论权限");
+        }
+        // 回复：被回复的评论必须还在（未被作者删除）——防墓碑/已彻删评论下挂新回复
+        if (StringUtils.isNotBlank(dreamNewsComment.getCommentRelId())) {
+            DreamNewsComment parent = dreamNewsCommentService.getById(dreamNewsComment.getCommentRelId());
+            if (parent == null || "1".equals(parent.getDeleted())) {
+                return handlerResultJson(false, "原评论已删除，无法回复");
+            }
         }
         dreamNewsComment.setCommentId(UUID.randomUUID().toString());
         dreamNewsComment.setUserId(dreamUser.getUserId());

@@ -42,6 +42,9 @@ public interface NewsService {
 
     public Object comment(DreamNewsComment dreamNewsComment, HttpServletRequest request);
 
+    /** 删除自己的评论：有回复 → 墓碑保留（"原评论已删除"）；无回复 → 彻底删除 */
+    public Object deleteComment(String commentId, HttpServletRequest request);
+
     public News getInputAndEditNews(String newsId, HttpServletRequest request);
 
     public DreamNewsComment getCommentInit(String newsId, HttpServletRequest request, String level, String commentId);

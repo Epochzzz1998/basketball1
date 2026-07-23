@@ -488,6 +488,12 @@ public class NewsController extends BaseUtils {
         return newsService.comment(dreamNewsComment, request);
     }
 
+    /** 删除自己的评论：有回复 → 墓碑（该位置显示"原评论已删除"，回复保留）；无回复 → 彻底删除 */
+    @PostMapping("/deleteComment")
+    public Object deleteComment(String commentId, HttpServletRequest request) {
+        return newsService.deleteComment(commentId, request);
+    }
+
     /** 收藏/取消收藏（登录）：toggle。返回最新状态 + 该帖收藏数。 */
     @RequiresRole(Role.USER)
     @PostMapping("/favorite")

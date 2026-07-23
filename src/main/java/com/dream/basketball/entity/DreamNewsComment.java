@@ -71,6 +71,13 @@ public class DreamNewsComment extends Model<DreamNewsComment> implements Seriali
     @TableField("ATTACHMENTS")
     private String attachments;
 
+    /**
+     * '1' = author-deleted tombstone: the row is kept so replies under it survive
+     * ("原评论已删除" at render time); comments with no replies are hard-deleted instead.
+     */
+    @TableField("DELETED")
+    private String deleted;
+
     public String getCommentId() {
         return commentId;
     }
@@ -189,5 +196,13 @@ public class DreamNewsComment extends Model<DreamNewsComment> implements Seriali
 
     public void setAttachments(String attachments) {
         this.attachments = attachments;
+    }
+
+    public String getDeleted() {
+        return deleted;
+    }
+
+    public void setDeleted(String deleted) {
+        this.deleted = deleted;
     }
 }

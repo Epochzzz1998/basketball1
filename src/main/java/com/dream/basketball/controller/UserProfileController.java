@@ -140,8 +140,10 @@ public class UserProfileController {
         }
 
         // 评论足迹（带所在帖子标题；帖子可能已删 → 标题空由前端兜底）。隐藏时不下发列表。
+        // 已删评论（含墓碑）不进足迹
         List<DreamNewsComment> comments = hideComments ? new ArrayList<>() : dreamNewsCommentMapper.selectList(new QueryWrapper<DreamNewsComment>()
-                .eq("USER_ID", userId).orderByDesc("COMMENT_DATE").last("limit " + LIST_LIMIT));
+                .eq("USER_ID", userId).apply("(DELETED IS NULL OR DELETED <> '1')")
+                .orderByDesc("COMMENT_DATE").last("limit " + LIST_LIMIT));
         Map<String, String> titleMap = new HashMap<>();
         List<String> newsIds = comments.stream().map(DreamNewsComment::getNewsId)
                 .filter(StringUtils::isNotBlank).distinct().collect(Collectors.toList());

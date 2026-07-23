@@ -28,6 +28,7 @@
             c.ROOT_ID         AS rootId,
             c.MENTIONS        AS mentions,
             c.ATTACHMENTS     AS attachments,
+            c.DELETED         AS deleted,
             p.USER_ID         AS replyToUserId,
             pu.USER_NICKNAME  AS replyToName
         FROM dream_news_comment c

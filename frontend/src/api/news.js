@@ -54,6 +54,8 @@ export const newsApi = {
   badPost: (newsId) => http.post('/news/bad', new URLSearchParams({ newsId })),
   goodComment: (commentId) => http.post('/news/goodComment', new URLSearchParams({ commentId })),
   badComment: (commentId) => http.post('/news/badComment', new URLSearchParams({ commentId })),
+  // 删除自己的评论：旧版 {result, msg, mode}。mode='tombstone'（有回复，原位显示"原评论已删除"）| 'removed'（彻底删除）
+  deleteComment: (commentId) => http.post('/news/deleteComment', new URLSearchParams({ commentId })),
   // 置顶/精华/封锁：flag='top'|'essence'|'locked'，value='1' 开 / '0' 关（官方→manager+；论坛→专题管理者）
   setFlag: (newsId, flag, value) =>
     http.post('/news/setFlag', new URLSearchParams({ newsId, flag, value })),
