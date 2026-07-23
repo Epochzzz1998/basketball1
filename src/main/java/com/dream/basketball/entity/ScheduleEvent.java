@@ -28,9 +28,21 @@ public class ScheduleEvent extends Model<ScheduleEvent> implements Serializable 
     @TableField("EVENT_DATE")
     private String eventDate;
 
-    /** optional 'HH:mm'; null = all-day */
+    /** optional range-start 'HH:mm'; null = all-day / unspecified */
     @TableField("EVENT_TIME")
     private String eventTime;
+
+    /** deadline date 'yyyy-MM-dd' for multi-day (截止) tasks; null = same-day task */
+    @TableField("END_DATE")
+    private String endDate;
+
+    /** optional range-end 'HH:mm' — on END_DATE if set, else on EVENT_DATE */
+    @TableField("END_TIME")
+    private String endTime;
+
+    /** '1' = the one-shot overtime notice has been sent */
+    @TableField("OVERDUE_NOTIFIED")
+    private String overdueNotified;
 
     @TableField("TITLE")
     private String title;
@@ -83,6 +95,30 @@ public class ScheduleEvent extends Model<ScheduleEvent> implements Serializable 
 
     public void setEventTime(String eventTime) {
         this.eventTime = eventTime;
+    }
+
+    public String getEndDate() {
+        return endDate;
+    }
+
+    public void setEndDate(String endDate) {
+        this.endDate = endDate;
+    }
+
+    public String getEndTime() {
+        return endTime;
+    }
+
+    public void setEndTime(String endTime) {
+        this.endTime = endTime;
+    }
+
+    public String getOverdueNotified() {
+        return overdueNotified;
+    }
+
+    public void setOverdueNotified(String overdueNotified) {
+        this.overdueNotified = overdueNotified;
     }
 
     public String getTitle() {

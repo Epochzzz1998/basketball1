@@ -70,8 +70,12 @@ public class ScheduleController {
         if (month == null || !month.matches("^\\d{4}-\\d{2}$")) {
             return new Result<>(1, "月份格式应为 yyyy-MM", null);
         }
+        // 与该月有交集的都要（跨天任务可能起止跨月）：EVENT_DATE<=月末 且 (END_DATE>=月初 或 无END_DATE且EVENT_DATE>=月初)
+        String monthStart = month + "-01";
+        String monthEnd = month + "-31";
         List<ScheduleEvent> events = eventMapper.selectList(new QueryWrapper<ScheduleEvent>()
-                .likeRight("EVENT_DATE", month)
+                .le("EVENT_DATE", monthEnd)
+                .and(w -> w.ge("END_DATE", monthStart).or(x -> x.isNull("END_DATE").ge("EVENT_DATE", monthStart)))
                 .and(w -> w.eq("OWNER_ID", me.getUserId()).or().eq("ASSIGNEE_ID", me.getUserId()))
                 .orderByAsc("EVENT_DATE", "EVENT_TIME", "CREATE_TIME"));
         // 批量取相关用户（创建者 + 负责人）的昵称/头像
@@ -94,6 +98,8 @@ public class ScheduleController {
             m.put("eventId", e.getEventId());
             m.put("date", e.getEventDate());
             m.put("time", e.getEventTime());
+            m.put("endDate", e.getEndDate());
+            m.put("endTime", e.getEndTime());
             m.put("title", e.getTitle());
             m.put("note", e.getNote());
             m.put("done", "1".equals(e.getDone()));
@@ -140,11 +146,15 @@ public class ScheduleController {
         return new Result<>(0, "成功", out);
     }
 
-    /** 建事件（自己的日历）：标题必填；负责人可选（自己或关注我的人）；每天上限 20。 */
+    /**
+     * 建事件（自己的日历）：标题必填；时刻为可选**区间**（time~endTime）；
+     * endDate=截止日期 → 跨天"截止任务"（区间左端=开始日的 time，右端=截止日的 endTime）；
+     * 负责人可选（自己或关注我的人）；每天上限 20。
+     */
     @RequiresRole(Role.USER)
     @PostMapping("/create")
-    public Object create(String date, String time, String title, String note, String assigneeId,
-                         HttpServletRequest request) {
+    public Object create(String date, String time, String endTime, String endDate, String title, String note,
+                         String assigneeId, HttpServletRequest request) {
         DreamUser me = SecUtil.getLoginUserToSession(request);
         if (!validDate(date)) {
             return new Result<>(1, "日期格式应为 yyyy-MM-dd", null);
@@ -160,6 +170,26 @@ public class ScheduleController {
         String tm = StringUtils.trimToNull(time);
         if (tm != null && !validTime(tm)) {
             return new Result<>(1, "时间格式应为 HH:mm", null);
+        }
+        String etm = StringUtils.trimToNull(endTime);
+        if (etm != null && !validTime(etm)) {
+            return new Result<>(1, "结束时间格式应为 HH:mm", null);
+        }
+        String ed = StringUtils.trimToNull(endDate);
+        if (ed != null) {
+            if (!validDate(ed)) {
+                return new Result<>(1, "截止日期格式应为 yyyy-MM-dd", null);
+            }
+            if (ed.compareTo(date) < 0) {
+                return new Result<>(1, "截止日期不能早于开始日期", null);
+            }
+            if (ed.equals(date)) {
+                ed = null; // 同一天=普通单日任务
+            }
+        }
+        // 单日任务的时间区间要正着来
+        if (ed == null && tm != null && etm != null && etm.compareTo(tm) <= 0) {
+            return new Result<>(1, "结束时间要晚于开始时间", null);
         }
         String assignee = StringUtils.trimToNull(assigneeId);
         if (assignee != null) {
@@ -180,6 +210,8 @@ public class ScheduleController {
         e.setOwnerId(me.getUserId());
         e.setEventDate(date);
         e.setEventTime(tm);
+        e.setEndDate(ed);
+        e.setEndTime(etm);
         e.setTitle(t);
         e.setNote(n);
         e.setAssigneeId(assignee);
@@ -187,9 +219,15 @@ public class ScheduleController {
         eventMapper.insert(e);
         // 指派立即通知（指派给自己不打扰——saveUserInformation 的自操作守卫会拦，但这里显式判掉更清晰）
         if (assignee != null && !StringUtils.equals(assignee, me.getUserId())) {
+            String when = date + (tm == null ? "" : " " + tm);
+            if (ed != null) {
+                when += " → 截止 " + ed + (etm == null ? "" : " " + etm);
+            } else if (etm != null) {
+                when += "-" + etm;
+            }
             userInformationService.saveUserInformation(me.getUserId(), me.getUserNickname(), assignee,
                     Constants.SCHEDULE_ASSIGN, e.getEventId(), date, "", "",
-                    t + "（" + date + (tm == null ? "" : " " + tm) + "）", "");
+                    t + "（" + when + "）", "");
         }
         return new Result<>(0, "已添加", e.getEventId());
     }

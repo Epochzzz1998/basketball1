@@ -48,6 +48,9 @@ public class Constants {
     /** 8am digest of today's schedule events you are responsible for */
     public static final String SCHEDULE_REMIND = "scheduleRemind";
 
+    /** a schedule event passed its deadline without being done (one-shot) */
+    public static final String SCHEDULE_OVERDUE = "scheduleOverdue";
+
     /** someone applied to join your topic (to the topic owner) */
     public static final String TOPIC_APPLY = "topicApply";
 

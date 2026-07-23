@@ -15,7 +15,7 @@ const COMMENT_TYPES = ['goodComment', 'badComment', 'commentComment', 'mentionCo
 // 专题类消息 msgId=专题 id，点进去跳专题页
 const TOPIC_TYPES = ['topicApply', 'topicApproved', 'topicRejected']
 // 日程类：remind 的 msgId=日期；assign 的 msgId=事件id、msgIdSecond=日期。点进日历对应那天（顺便标已读）
-const SCHEDULE_TYPES = ['scheduleAssign', 'scheduleRemind']
+const SCHEDULE_TYPES = ['scheduleAssign', 'scheduleRemind', 'scheduleOverdue']
 const newsIdOf = (m) => (COMMENT_TYPES.includes(m.msgType) ? m.msgIdSecond : m.msgId)
 // 点击一条消息去哪：专题类→专题页，其余→帖子详情。都带 userInformationId 顺便标已读
 const linkOf = (m) =>
@@ -24,7 +24,7 @@ const linkOf = (m) =>
     : TOPIC_TYPES.includes(m.msgType)
       ? `/news/topic/${m.msgId}?userInformationId=${m.userInformationId}`
       : SCHEDULE_TYPES.includes(m.msgType)
-        ? `/schedule?date=${m.msgType === 'scheduleRemind' ? m.msgId : (m.msgIdSecond || '')}&userInformationId=${m.userInformationId}`
+        ? `/schedule?date=${m.msgType === 'scheduleAssign' ? (m.msgIdSecond || '') : m.msgId}&userInformationId=${m.userInformationId}`
         : `/news/${newsIdOf(m)}?userInformationId=${m.userInformationId}`
 
 // 动作短语按 msgType 在前端固定构造（库里 commentNews/commentComment 的 contentMsg 存的是评论原文，
@@ -48,6 +48,7 @@ const actionTextOf = (m) => {
     case 'topicRejected': return `驳回了你加入${m.content ? `「${m.content}」` : '专题'}的申请`
     case 'scheduleAssign': return '给你指派了一条日程'
     case 'scheduleRemind': return '' // operatorName 即「日程提醒」，短语留空避免重复
+    case 'scheduleOverdue': return ''
     default: return m.contentMsg || ''
   }
 }
@@ -68,6 +69,7 @@ const detailOf = (m) => {
     case 'topicRejected': return `专题：${s(m.content)}`
     case 'scheduleAssign': return `日程：${s(m.content)} ｜ 点击查看当天日历`
     case 'scheduleRemind': return s(m.content)
+    case 'scheduleOverdue': return `⚠️ ${s(m.content)}`
     default: return `原帖：${s(m.content)}` // goodNews / badNews
   }
 }
