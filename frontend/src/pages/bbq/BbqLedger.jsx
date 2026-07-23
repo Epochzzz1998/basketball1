@@ -3,6 +3,7 @@ import { Avatar, Button, Card, Col, Empty, Modal, Row, Spin, Tag } from 'antd'
 import { FireOutlined, LeftOutlined, RightOutlined, UserOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { bbqApi } from '../../api/bbq'
+import { useAuth } from '../../auth/AuthContext'
 import useIsMobile from '../../hooks/useIsMobile'
 
 /**
@@ -134,6 +135,7 @@ function Stat({ label, value, tone }) {
 
 export default function BbqLedger() {
   const isMobile = useIsMobile()
+  const { dn } = useAuth()
   const [mode, setMode] = useState('month') // 'month' | 'week'
   const [month, setMonth] = useState(dayjs())
   const [week, setWeek] = useState(mondayOf(dayjs())) // 周一锚点
@@ -181,7 +183,7 @@ export default function BbqLedger() {
   const countFmt = (v) => `${v} 串`
   const userPie = useMemo(() => {
     if (!data) return []
-    const rows = (data.users || []).map((u, i) => ({ label: u.userNickname, value: Number(u.total), color: PALETTE[i % PALETTE.length] }))
+    const rows = (data.users || []).map((u, i) => ({ label: dn(u.userId, u.userNickname), value: Number(u.total), color: PALETTE[i % PALETTE.length] }))
     if (rows.length <= 6) return rows
     const head = rows.slice(0, 5)
     const rest = rows.slice(5).reduce((s, r) => s + r.value, 0)
@@ -324,7 +326,7 @@ export default function BbqLedger() {
                   <div key={u.userId} style={{ padding: '11px 0', borderTop: i === 0 ? 'none' : '1px solid #f5f5f5' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <Avatar size={30} src={u.avatar || undefined} icon={u.avatar ? undefined : <UserOutlined />} />
-                      <span style={{ fontWeight: 700, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.userNickname}</span>
+                      <span style={{ fontWeight: 700, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dn(u.userId, u.userNickname)}</span>
                       <span style={{ fontWeight: 800, color: AMBER_DARK, flexShrink: 0 }}>{money(u.total)}</span>
                     </div>
                     <div style={{ color: '#8c8c8c', fontSize: 12, marginTop: 4, marginLeft: 40, display: 'flex', gap: 12, flexWrap: 'wrap' }}>

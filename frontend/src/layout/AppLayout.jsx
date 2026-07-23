@@ -133,7 +133,8 @@ export default function AppLayout() {
     if (!user) return
     const p = location.pathname
     if (!p.startsWith('/bbq')) return
-    const ok = p.startsWith('/bbq/ledger') ? !!user.bbqRole : user.bbqRole === 'manager'
+    const memberPage = p.startsWith('/bbq/ledger') || p.startsWith('/bbq/burning')
+    const ok = memberPage ? !!user.bbqRole : user.bbqRole === 'manager'
     if (!ok) navigate('/', { replace: true })
   }, [location.pathname, user, navigate])
 
@@ -172,6 +173,7 @@ export default function AppLayout() {
               routes: [
                 { path: '/bbq/wage', name: '薪资计算', icon: <DollarOutlined /> },
                 { path: '/bbq/ledger', name: '经营台账', icon: <BarChartOutlined /> },
+                { path: '/bbq/burning', name: 'Burning！', icon: <FireOutlined /> },
                 { path: '/bbq/members', name: '成员管理', icon: <TeamOutlined /> },
                 { path: '/bbq/skewers', name: '串价设置', icon: <TagsOutlined /> },
               ],
@@ -184,6 +186,7 @@ export default function AppLayout() {
               icon: <FireOutlined />,
               routes: [
                 { path: '/bbq/ledger', name: '我的薪资', icon: <BarChartOutlined /> },
+                { path: '/bbq/burning', name: 'Burning！', icon: <FireOutlined /> },
               ],
             }]
           : []),
@@ -207,7 +210,7 @@ export default function AppLayout() {
 
   // 全局返回按钮：一级页面（侧栏导航直达的根路径）不显示，其余页面统一在内容区左上角。
   // 优先走站内历史（-1 即"上一级"）；直链进入无历史时，剥路径段回落到最近的已知上级。
-  const NAV_ROOTS = ['/', '/news', '/league', '/players', '/rankings', '/compare', '/official', '/messages', '/schedule', '/bbq/wage', '/bbq/ledger', '/bbq/members', '/bbq/skewers', '/login', '/register', '/403', '/admin/players', '/admin/users', '/admin/verify']
+  const NAV_ROOTS = ['/', '/news', '/league', '/players', '/rankings', '/compare', '/official', '/messages', '/schedule', '/bbq/wage', '/bbq/ledger', '/bbq/burning', '/bbq/members', '/bbq/skewers', '/login', '/register', '/403', '/admin/players', '/admin/users', '/admin/verify']
   const showBack = !NAV_ROOTS.includes(location.pathname)
   const goBack = () => {
     if (window.history.state && window.history.state.idx > 0) {

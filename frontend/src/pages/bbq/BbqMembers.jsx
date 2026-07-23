@@ -17,7 +17,7 @@ const AMBER = '#d48806'
 const AMBER_DARK = '#ad6800'
 
 export default function BbqMembers() {
-  const { user } = useAuth()
+  const { user, dn } = useAuth()
   const isMobile = useIsMobile()
   const [rows, setRows] = useState(null)
   const [addOpen, setAddOpen] = useState(false)
@@ -102,7 +102,7 @@ export default function BbqMembers() {
                   <Avatar size={40} src={r.avatar || undefined} icon={r.avatar ? undefined : <UserOutlined />} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                      <span style={{ fontWeight: 700, fontSize: 15 }}>{r.userNickname}</span>
+                      <span style={{ fontWeight: 700, fontSize: 15 }}>{dn(r.userId, r.userNickname)}</span>
                       {isManager
                         ? <Tag color="gold" style={{ marginInlineEnd: 0 }}><CrownFilled /> 店长</Tag>
                         : <Tag style={{ marginInlineEnd: 0 }}>店员</Tag>}
@@ -116,10 +116,10 @@ export default function BbqMembers() {
                   </div>
                   {!isManager && (
                     <span style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                      <Popconfirm title={`提拔 ${r.userNickname} 为店长？`} description="店长共管全店账本，解除只能由超管操作" onConfirm={() => doPromote(r)} okText="提拔" cancelText="取消">
+                      <Popconfirm title={`提拔 ${dn(r.userId, r.userNickname)} 为店长？`} description="店长共管全店账本，解除只能由超管操作" onConfirm={() => doPromote(r)} okText="提拔" cancelText="取消">
                         <Button size="small" style={{ color: AMBER, borderColor: `${AMBER}88` }}>提拔为店长</Button>
                       </Popconfirm>
-                      <Popconfirm title={`移除 ${r.userNickname}？`} description="工资历史保留，之后可再添加" onConfirm={() => doRemove(r)} okText="移除" cancelText="取消">
+                      <Popconfirm title={`移除 ${dn(r.userId, r.userNickname)}？`} description="工资历史保留，之后可再添加" onConfirm={() => doRemove(r)} okText="移除" cancelText="取消">
                         <Button size="small" danger>移除</Button>
                       </Popconfirm>
                     </span>
@@ -151,7 +151,7 @@ export default function BbqMembers() {
           onChange={setPicked}
           showSearch
           optionFilterProp="label"
-          options={candidates.map((c) => ({ value: c.userId, label: c.userNickname }))}
+          options={candidates.map((c) => ({ value: c.userId, label: dn(c.userId, c.userNickname) }))}
           notFoundContent="没有可添加的人（关注你的人都已在店里）"
         />
       </Modal>

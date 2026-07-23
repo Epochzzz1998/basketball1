@@ -75,7 +75,7 @@ const timeLabel = (e) => {
 }
 
 export default function Schedule() {
-  const { user } = useAuth()
+  const { user, dn } = useAuth()
   const isMobile = useIsMobile()
   const [params] = useSearchParams()
   const paramDate = params.get('date')
@@ -410,10 +410,10 @@ export default function Schedule() {
                             {e.assigneeId && (
                               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#666', background: '#fff', border: '1px solid #ececec', borderRadius: 999, padding: '1px 9px 1px 2px' }}>
                                 <Avatar size={18} src={e.assigneeAvatar || undefined}>{String(e.assigneeName || '?')[0]}</Avatar>
-                                {e.assigneeId === selfId ? '我负责' : `${e.assigneeName} 负责`}
+                                {e.assigneeId === selfId ? '我负责' : `${dn(e.assigneeId, e.assigneeName)} 负责`}
                               </span>
                             )}
-                            {!e.mine && <span style={{ fontSize: 11, color: '#bbb' }}>来自 {e.ownerName}</span>}
+                            {!e.mine && <span style={{ fontSize: 11, color: '#bbb' }}>来自 {dn(e.ownerId, e.ownerName)}</span>}
                           </div>
                         )}
                       </div>
@@ -517,8 +517,8 @@ export default function Schedule() {
                     value: a.userId,
                     label: (
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                        <Avatar size={18} src={a.avatar || undefined}>{String(a.userNickname || '?')[0]}</Avatar>
-                        {a.userNickname}
+                        <Avatar size={18} src={a.avatar || undefined}>{String(dn(a.userId, a.userNickname) || '?')[0]}</Avatar>
+                        {dn(a.userId, a.userNickname)}
                       </span>
                     ),
                   }))}

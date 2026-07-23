@@ -3,13 +3,14 @@ import {
   Avatar, Button, Card, Col, Empty, Form, Grid, Input, List, Modal, Popconfirm,
   Row, Select, Space, Spin, Statistic, Switch, Tabs, Tag, Upload, message,
 } from 'antd'
-import { CameraOutlined, CheckOutlined, CommentOutlined, EditOutlined, LikeOutlined, LockOutlined, MessageOutlined, PlusOutlined, StopOutlined, TrophyFilled } from '@ant-design/icons'
+import { CameraOutlined, CheckOutlined, CommentOutlined, EditOutlined, LikeOutlined, LockOutlined, MessageOutlined, PlusOutlined, StopOutlined, TagOutlined, TrophyFilled } from '@ant-design/icons'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { newsApi } from '../../api/news'
 import { userApi } from '../../api/user'
 import { followApi } from '../../api/follow'
 import { blockApi } from '../../api/block'
 import { searchApi } from '../../api/search'
+import { remarkApi } from '../../api/remark'
 import { useAuth } from '../../auth/AuthContext'
 import UserTitles from '../../components/UserTitles'
 
@@ -218,6 +219,7 @@ function BindPlayerModal({ open, onCancel, onDone }) {
 // 关注/粉丝列表弹窗：行=头像+昵称+互关标，点击跳对方主页
 function FollowListModal({ userId, tab, onClose, onTabChange }) {
   const navigate = useNavigate()
+  const { dn } = useAuth()
   const [rows, setRows] = useState(null)
 
   useEffect(() => {
@@ -244,10 +246,10 @@ function FollowListModal({ userId, tab, onClose, onTabChange }) {
               style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 4px', borderBottom: '1px solid #fafafa', cursor: 'pointer' }}
             >
               <Avatar size={34} src={r.avatar || undefined} style={{ background: '#fa541c', fontWeight: 700, flexShrink: 0 }}>
-                {String(r.userNickname || '?')[0].toUpperCase()}
+                {String(dn(r.userId, r.userNickname) || '?')[0].toUpperCase()}
               </Avatar>
               <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>
-                {r.userNickname}
+                {dn(r.userId, r.userNickname)}
               </span>
               {r.mutual && <Tag color="green" style={{ marginInlineEnd: 0 }}>互相关注</Tag>}
             </div>
@@ -262,6 +264,7 @@ function FollowListModal({ userId, tab, onClose, onTabChange }) {
 
 // 黑名单管理弹窗（仅本人）：列表 + 逐个解除
 function BlocklistModal({ open, onClose }) {
+  const { dn } = useAuth()
   const [rows, setRows] = useState(null)
 
   useEffect(() => {
@@ -287,10 +290,10 @@ function BlocklistModal({ open, onClose }) {
           {rows.map((r) => (
             <div key={r.userId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 4px', borderBottom: '1px solid #fafafa' }}>
               <Avatar size={34} src={r.avatar || undefined} style={{ background: '#999', fontWeight: 700, flexShrink: 0 }}>
-                {String(r.userNickname || '?')[0].toUpperCase()}
+                {String(dn(r.userId, r.userNickname) || '?')[0].toUpperCase()}
               </Avatar>
               <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>
-                {r.userNickname}
+                {dn(r.userId, r.userNickname)}
               </span>
               <Button size="small" onClick={() => unblock(r.userId)}>解除拉黑</Button>
             </div>
@@ -307,10 +310,12 @@ function BlocklistModal({ open, onClose }) {
 export default function UserProfile() {
   const { userId } = useParams()
   const navigate = useNavigate()
-  const { user: me, refresh: refreshAuth } = useAuth()
+  const { user: me, refresh: refreshAuth, remarks } = useAuth()
   const [data, setData] = useState(null)
   const [failed, setFailed] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const [remarkOpen, setRemarkOpen] = useState(false)
+  const [remarkInput, setRemarkInput] = useState('')
   const [pwdOpen, setPwdOpen] = useState(false)
   const [bindOpen, setBindOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -469,6 +474,10 @@ export default function UserProfile() {
       <Button ghost size="small" icon={<MessageOutlined />} onClick={() => navigate(`/messages?peerId=${userId}`)}>
         发私信
       </Button>
+      {/* 备注：只有我自己看得到；设置后全站显示备注名，本页保留真名 */}
+      <Button ghost size="small" icon={<TagOutlined />} onClick={() => { setRemarkInput(remarks?.[userId] || ''); setRemarkOpen(true) }}>
+        {remarks?.[userId] ? '改备注' : '备注'}
+      </Button>
       <Popconfirm
         title={blockedByMe ? '解除拉黑该用户？' : '拉黑该用户？'}
         description={blockedByMe ? undefined : '拉黑后对方无法私信或关注你，并解除你们的相互关注'}
@@ -506,6 +515,12 @@ export default function UserProfile() {
           <div style={{ minWidth: 0 }}>
             <Space size={8} wrap align="center">
               <span style={{ fontSize: isMobile ? 20 : 26, fontWeight: 700 }}>{displayName}</span>
+              {/* 个人主页始终展示真名；我设了备注就在旁边挂个小标 */}
+              {!isSelf && remarks?.[userId] && (
+                <Tag style={{ background: 'rgba(255,255,255,.22)', border: 'none', color: '#fff' }}>
+                  <TagOutlined /> {remarks[userId]}
+                </Tag>
+              )}
               {role && <Tag color={role.color}>{role.label}</Tag>}
               {verified && user.playerId && (
                 <Tag color="gold" style={{ cursor: 'pointer' }} onClick={() => navigate(`/players/${user.playerId}`)}>
@@ -722,6 +737,36 @@ export default function UserProfile() {
       </Modal>
 
       <BindPlayerModal open={bindOpen} onCancel={() => setBindOpen(false)} onDone={() => { setBindOpen(false); load() }} />
+
+      {/* 设置备注：只有我自己看得到；清空保存 = 删除备注 */}
+      <Modal
+        title={`给 ${displayName} 设置备注`}
+        open={remarkOpen}
+        onCancel={() => setRemarkOpen(false)}
+        okText="保存"
+        cancelText="取消"
+        destroyOnClose
+        onOk={async () => {
+          try {
+            await remarkApi.set(userId, remarkInput.trim())
+            window.dispatchEvent(new Event('remarks-changed'))
+            message.success(remarkInput.trim() ? '已备注' : '已清除备注')
+            setRemarkOpen(false)
+          } catch { /* 已提示 */ }
+        }}
+      >
+        <Input
+          value={remarkInput}
+          onChange={(e) => setRemarkInput(e.target.value)}
+          placeholder="备注名（留空保存 = 清除备注）"
+          maxLength={20}
+          showCount
+          autoFocus
+        />
+        <div style={{ color: '#999', fontSize: 12, marginTop: 8 }}>
+          备注只有你自己看得到：设置后各处都显示备注名，TA 的个人主页仍显示真名。
+        </div>
+      </Modal>
     </>
   )
 }

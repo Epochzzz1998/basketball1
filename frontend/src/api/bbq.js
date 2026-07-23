@@ -35,4 +35,10 @@ export const bbqApi = {
   // 台账：店长=全店聚合，店员=自己的（含记录明细）。params: {month} 月视图或 {from, to} 周/区间视图。
   // 路径带 /data 后缀：GET /bbq/ledger 会和 SPA 页面路由撞车（后端接口优先于 SPA 兜底）
   ledger: (params) => http.get('/bbq/ledger/data', { params }),
+  // Burning！四榜（店内成员皆可看）：params 同台账；点赞 toggle；评论分页（每页 5 条）
+  burningBoard: (params) => http.get('/bbq/burning/board', { params }),
+  burningLike: (targetId) => http.post('/bbq/burning/like', form({ targetId })),
+  burningComments: (targetId, page) => http.get('/bbq/burning/comments', { params: { targetId, page } }),
+  burningComment: (targetId, content) => http.post('/bbq/burning/comment', form({ targetId, content })),
+  burningDeleteComment: (id) => http.post('/bbq/burning/deleteComment', form({ id })),
 }

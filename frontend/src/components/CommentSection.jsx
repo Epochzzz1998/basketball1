@@ -121,11 +121,12 @@ function CommentAttachments({ attachmentsJson }) {
 // 评论者一行 meta：昵称 + 超管/题主/楼主/认证/头衔 +（楼层号）+ 时间
 function MetaRow({ c, authorId, topicOwnerIds, showFloor }) {
   const navigate = useNavigate()
+  const { dn } = useAuth() // 备注名替换（仅展示层；徽章判断仍用 userId）
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
       {c.userId
-        ? <a onClick={() => navigate(`/users/${c.userId}`)} style={{ fontWeight: 600, color: '#333', fontSize: 14 }}>{c.userName || '匿名'}</a>
-        : <b style={{ fontSize: 14 }}>{c.userName || '匿名'}</b>}
+        ? <a onClick={() => navigate(`/users/${c.userId}`)} style={{ fontWeight: 600, color: '#333', fontSize: 14 }}>{dn(c.userId, c.userName) || '匿名'}</a>
+        : <b style={{ fontSize: 14 }}>{dn(c.userId, c.userName) || '匿名'}</b>}
       {c.superManager && <SuperAdminBadge />}
       {topicOwnerIds?.includes(c.userId) && <TopicOwnerBadge />}
       {authorId && c.userId === authorId && <OpBadge />}

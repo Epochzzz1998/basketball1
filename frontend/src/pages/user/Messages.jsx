@@ -111,7 +111,7 @@ function MessageAttachments({ attachmentsJson, mine }) {
 }
 
 export default function Messages() {
-  const { user } = useAuth()
+  const { user, dn } = useAuth()
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md // < 768px：会话列表/聊天窗单栏切换，不并排
   const [searchParams, setSearchParams] = useSearchParams()
@@ -374,12 +374,12 @@ export default function Messages() {
         }}
       >
         <Badge count={c.unread} size="small" offset={[-3, 4]}>
-          <UserAvatar name={c.peerNickname} src={c.peerAvatar} size={44} online={!!onlineMap[c.peerId]} />
+          <UserAvatar name={dn(c.peerId, c.peerNickname)} src={c.peerAvatar} size={44} online={!!onlineMap[c.peerId]} />
         </Badge>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
             <span style={{ fontWeight: unread ? 700 : 600, fontSize: 14, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#222' }}>
-              {c.peerNickname || '用户'}
+              {dn(c.peerId, c.peerNickname) || '用户'}
             </span>
             <span style={{ fontSize: 11, color: unread ? BRAND : '#bbb', flexShrink: 0, fontWeight: unread ? 600 : 400 }}>{convTime(c.lastTime)}</span>
           </div>
@@ -444,7 +444,7 @@ export default function Messages() {
         >
           <div style={{ display: 'flex', flexDirection: mine ? 'row-reverse' : 'row', alignItems: 'flex-end', gap: GAP, maxWidth: '82%' }}>
             <UserAvatar
-              name={mine ? user.userNickname : activePeer?.peerNickname}
+              name={mine ? user.userNickname : dn(activePeer?.peerId, activePeer?.peerNickname)}
               src={mine ? user.avatar : activePeer?.peerAvatar}
               size={AV}
             />
@@ -559,11 +559,11 @@ export default function Messages() {
               {isMobile && (
                 <ArrowLeftOutlined onClick={() => openConv(null)} style={{ fontSize: 18, color: '#555', cursor: 'pointer', flexShrink: 0 }} />
               )}
-              <UserAvatar name={activePeer?.peerNickname} src={activePeer?.peerAvatar} size={38} online={!!onlineMap[peerId]} />
+              <UserAvatar name={dn(activePeer?.peerId, activePeer?.peerNickname)} src={activePeer?.peerAvatar} size={38} online={!!onlineMap[peerId]} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
                   <Link to={`/users/${peerId}`} style={{ fontWeight: 700, fontSize: 15, color: '#222' }}>
-                    {activePeer?.peerNickname || '用户'}
+                    {dn(activePeer?.peerId, activePeer?.peerNickname) || '用户'}
                   </Link>
                   {activePeer?.peerSuperManager && <SuperAdminBadge />}
                   <UserTitles titles={activePeer?.peerTitles} size="sm" />

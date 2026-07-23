@@ -8,6 +8,7 @@ import {
 import dayjs from 'dayjs'
 import { bbqApi } from '../../api/bbq'
 import { Link } from 'react-router-dom'
+import { useAuth } from '../../auth/AuthContext'
 import useIsMobile from '../../hooks/useIsMobile'
 
 /**
@@ -34,6 +35,7 @@ const overnight = (start, end) => toMin(end) <= toMin(start)
 
 export default function BbqWage() {
   const isMobile = useIsMobile()
+  const { dn } = useAuth()
   const [selected, setSelected] = useState(dayjs())
   const [monthRecords, setMonthRecords] = useState([])
   const [dayRecords, setDayRecords] = useState(null)
@@ -273,7 +275,7 @@ export default function BbqWage() {
             }}
           >
             <span style={{ width: 5, height: 5, borderRadius: '50%', background: r.settled ? '#bfbfbf' : AMBER, flexShrink: 0 }} />
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.userNickname} {money(r.total)}</span>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{dn(r.userId, r.userNickname)} {money(r.total)}</span>
           </div>
         ))}
         {list.length > shown && <div style={{ fontSize: 11, color: '#999', paddingLeft: 6 }}>+{list.length - shown} 条</div>}
@@ -317,7 +319,7 @@ export default function BbqWage() {
             value={filterIds}
             onChange={setFilterIds}
             optionFilterProp="label"
-            options={staff.map((s) => ({ value: s.userId, label: s.userNickname }))}
+            options={staff.map((s) => ({ value: s.userId, label: dn(s.userId, s.userNickname) }))}
           />
           <Button icon={<DollarOutlined />} onClick={openSettle} style={{ color: AMBER_DARK, borderColor: '#ffd666', background: '#fffbe6', fontWeight: 600 }}>
             结清薪资{filterIds.length > 0 ? '（按筛选）' : ''}
@@ -391,7 +393,7 @@ export default function BbqWage() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <Avatar size={24} src={r.avatar || undefined} icon={r.avatar ? undefined : <UserOutlined />} />
                         <span style={{ fontWeight: 700, fontSize: 14, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {r.userNickname}
+                          {dn(r.userId, r.userNickname)}
                         </span>
                         {r.settled && <span style={{ fontSize: 11, color: '#999', background: '#f0f0f0', borderRadius: 999, padding: '1px 8px', flexShrink: 0 }}>已结清</span>}
                         <span style={{ fontWeight: 800, fontSize: 15, color: r.settled ? '#8c8c8c' : AMBER_DARK, flexShrink: 0 }}>{money(r.total)}</span>
@@ -466,7 +468,7 @@ export default function BbqWage() {
               // 店长不参与薪资计算：新增时只列店员；编辑旧记录时保留全量以便正常回显（选择器本就禁用）
               options={staff
                 .filter((s) => (editing ? true : s.role !== 'manager'))
-                .map((s) => ({ value: s.userId, label: `${s.userNickname}${s.role === 'manager' ? '（店长）' : ''}` }))}
+                .map((s) => ({ value: s.userId, label: `${dn(s.userId, s.userNickname)}${s.role === 'manager' ? '（店长）' : ''}` }))}
             />
           </div>
 
@@ -603,7 +605,7 @@ export default function BbqWage() {
                 <div key={s.userId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 2px', borderTop: i === 0 ? 'none' : '1px solid #f5f5f5' }}>
                   <Avatar size={26} src={s.avatar || undefined} icon={s.avatar ? undefined : <UserOutlined />} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 650, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.userNickname}</div>
+                    <div style={{ fontWeight: 650, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dn(s.userId, s.userNickname)}</div>
                     <div style={{ color: '#999', fontSize: 12 }}>{s.fromDate === s.toDate ? s.fromDate : `${s.fromDate} ~ ${s.toDate}`} · {s.recordCount} 条</div>
                   </div>
                   <span style={{ fontWeight: 800, color: AMBER_DARK, flexShrink: 0 }}>{money(s.amount)}</span>
