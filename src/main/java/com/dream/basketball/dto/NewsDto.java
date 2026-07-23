@@ -25,4 +25,7 @@ public class NewsDto extends News {
     /** 作者头衔（逗号分隔，读时填充），展示在作者名旁 */
     private String authorTitles;
 
+    /** 收藏数（列表读时按 NEWS_ID 批量 COUNT 回填，和点赞/评论数同展示位） */
+    private Integer favoriteCount;
+
 }

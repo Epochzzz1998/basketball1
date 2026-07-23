@@ -110,6 +110,22 @@ public class NewsController extends BaseUtils {
                 .filter(r -> r.getTopicId() == null || !excludePrivate.contains(r.getTopicId()))
                 .filter(r -> showHidden || !"1".equals(r.getHidden()))
                 .collect(java.util.stream.Collectors.toList());
+        // 收藏数批量回填（一把 GROUP BY），列表卡与点赞/评论数并排展示
+        if (!rows.isEmpty()) {
+            List<String> nids = new java.util.ArrayList<>();
+            for (NewsDto r : rows) {
+                nids.add(r.getNewsId());
+            }
+            Map<String, Integer> favCounts = new HashMap<>();
+            for (Map<String, Object> m : favoriteMapper.selectMaps(
+                    new QueryWrapper<com.dream.basketball.entity.NewsFavorite>()
+                            .select("NEWS_ID AS newsId", "COUNT(*) AS cnt").in("NEWS_ID", nids).groupBy("NEWS_ID"))) {
+                favCounts.put(String.valueOf(m.get("newsId")), ((Number) m.get("cnt")).intValue());
+            }
+            for (NewsDto r : rows) {
+                r.setFavoriteCount(favCounts.getOrDefault(r.getNewsId(), 0));
+            }
+        }
         return handlerSuccessPageJson(0, "成功", rows.size(), rows);
     }
 
@@ -492,33 +508,4 @@ public class NewsController extends BaseUtils {
         return new Result<>(0, favorited ? "已收藏" : "已取消收藏", out);
     }
 
-    /** 我的收藏（仅本人）：时间倒序；已删/被隐藏/无浏览权的帖子读时过滤。 */
-    @RequiresRole(Role.USER)
-    @GetMapping("/myFavorites")
-    public Object myFavorites(HttpServletRequest request) {
-        DreamUser me = SecUtil.getLoginUserToSession(request);
-        List<com.dream.basketball.entity.NewsFavorite> favs = favoriteMapper.selectList(
-                new QueryWrapper<com.dream.basketball.entity.NewsFavorite>()
-                        .eq("USER_ID", me.getUserId()).orderByDesc("CREATE_TIME"));
-        List<Map<String, Object>> out = new java.util.ArrayList<>();
-        for (com.dream.basketball.entity.NewsFavorite f : favs) {
-            com.dream.basketball.entity.DreamNews n = dreamNewsService.getById(f.getNewsId());
-            if (n == null || "1".equals(n.getHidden())) {
-                continue; // 已删/被隐藏
-            }
-            if (StringUtils.isNotBlank(n.getTopicId())
-                    && !topicPerms.canView(me, topicPerms.getTopic(n.getTopicId()))) {
-                continue; // 私密专题且无浏览权
-            }
-            Map<String, Object> row = new HashMap<>();
-            row.put("newsId", n.getNewsId());
-            row.put("title", n.getTitle());
-            row.put("author", n.getAuthor());
-            row.put("newsChannel", n.getNewsChannel());
-            row.put("publishDate", n.getPublishDate());
-            row.put("favTime", f.getCreateTime());
-            out.add(row);
-        }
-        return new Result<>(0, "成功", out);
-    }
 }

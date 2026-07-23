@@ -99,12 +99,24 @@ public class DreamUser extends Model<DreamUser> implements Serializable {
     @TableField("HIDE_FOLLOWS")
     private String hideFollows;
 
+    /** '1' = hide my favorites tab from others (same pattern as HIDE_POSTS/HIDE_COMMENTS) */
+    @TableField("HIDE_FAVORITES")
+    private String hideFavorites;
+
     public String getHideFollows() {
         return hideFollows;
     }
 
     public void setHideFollows(String hideFollows) {
         this.hideFollows = hideFollows;
+    }
+
+    public String getHideFavorites() {
+        return hideFavorites;
+    }
+
+    public void setHideFavorites(String hideFavorites) {
+        this.hideFavorites = hideFavorites;
     }
 
     public String getPmPolicy() {

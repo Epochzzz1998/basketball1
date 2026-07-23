@@ -65,6 +65,12 @@ public class UserProfileController {
     @Autowired
     private com.dream.basketball.mapper.UserBlockMapper blockMapper;
 
+    @Autowired
+    private com.dream.basketball.mapper.NewsFavoriteMapper favoriteMapper;
+
+    @Autowired
+    private com.dream.basketball.config.TopicPermissionService topicPerms;
+
     @Value("${picPath.uploadPath:}")
     private String uploadPath;
 
@@ -84,6 +90,7 @@ public class UserProfileController {
         boolean isOwner = StringUtils.isNotBlank(me) && me.equals(userId);
         boolean hidePosts = "1".equals(u.getHidePosts()) && !isOwner;
         boolean hideComments = "1".equals(u.getHideComments()) && !isOwner;
+        boolean hideFavorites = "1".equals(u.getHideFavorites()) && !isOwner;
 
         Map<String, Object> user = new HashMap<>();
         user.put("userId", u.getUserId());
@@ -97,6 +104,9 @@ public class UserProfileController {
         // 原始隐藏开关（本人视角用来回显开关状态）
         user.put("hidePosts", "1".equals(u.getHidePosts()));
         user.put("hideComments", "1".equals(u.getHideComments()));
+        user.put("hideFollows", "1".equals(u.getHideFollows()));
+        user.put("hideFavorites", "1".equals(u.getHideFavorites()));
+        user.put("pmPolicy", u.getPmPolicy());
         // 认证三态 + 绑定球员（徽章只在已认证时展示，审核中仅本人视角用）
         int identStatus = u.getPlayerIdentification() == null ? 0 : u.getPlayerIdentification();
         user.put("identStatus", identStatus);
@@ -170,6 +180,34 @@ public class UserProfileController {
         data.put("comments", commentList);
         data.put("postsHidden", hidePosts);       // 他人视角：该用户隐藏了发帖
         data.put("commentsHidden", hideComments); // 他人视角：该用户隐藏了评论
+        // 收藏足迹（第三个 Tab）：同款隐私开关；对看客还要按其权限过滤（已删/被隐藏/私密专题无权的帖不露）
+        List<Map<String, Object>> favoriteList = new ArrayList<>();
+        if (!hideFavorites) {
+            DreamUser favViewer = SecUtil.getLoginUserToSession(request);
+            for (com.dream.basketball.entity.NewsFavorite f : favoriteMapper.selectList(
+                    new QueryWrapper<com.dream.basketball.entity.NewsFavorite>()
+                            .eq("USER_ID", userId).orderByDesc("CREATE_TIME").last("limit " + LIST_LIMIT))) {
+                DreamNews n = dreamNewsMapper.selectById(f.getNewsId());
+                if (n == null || "1".equals(n.getHidden())) {
+                    continue;
+                }
+                if (StringUtils.isNotBlank(n.getTopicId())
+                        && !topicPerms.canView(favViewer, topicPerms.getTopic(n.getTopicId()))) {
+                    continue;
+                }
+                Map<String, Object> m = new HashMap<>();
+                m.put("newsId", n.getNewsId());
+                m.put("title", n.getTitle());
+                m.put("newsChannel", n.getNewsChannel());
+                m.put("publishDate", n.getPublishDate());
+                m.put("goodNum", n.getGoodNum());
+                m.put("commentNum", n.getCommentNum());
+                m.put("favTime", f.getCreateTime());
+                favoriteList.add(m);
+            }
+        }
+        data.put("favorites", favoriteList);
+        data.put("favoritesHidden", hideFavorites); // 他人视角：该用户隐藏了收藏
         // 关注/粉丝计数 + 观察者是否已关注（横幅关注按钮与统计条用）
         data.put("followerCount", followMapper.selectCount(
                 new QueryWrapper<com.dream.basketball.entity.UserFollow>().eq("FOLLOWEE_ID", userId)));
@@ -253,7 +291,7 @@ public class UserProfileController {
     /** 主页隐私（仅本人）：是否隐藏我的发帖 / 评论。传哪个改哪个（'1' 隐藏 / '0' 显示）。 */
     @RequiresRole(Role.USER)
     @PostMapping("/setActivityPrivacy")
-    public Result<Object> setActivityPrivacy(String hidePosts, String hideComments, String hideFollows, HttpServletRequest request) {
+    public Result<Object> setActivityPrivacy(String hidePosts, String hideComments, String hideFollows, String hideFavorites, HttpServletRequest request) {
         DreamUser me = SecUtil.getLoginUserToSession(request);
         UpdateWrapper<DreamUser> uw = new UpdateWrapper<DreamUser>().eq("USER_ID", me.getUserId());
         if (hidePosts != null) {
@@ -264,6 +302,9 @@ public class UserProfileController {
         }
         if (hideFollows != null) {
             uw.set("HIDE_FOLLOWS", "1".equals(hideFollows) ? "1" : "0");
+        }
+        if (hideFavorites != null) {
+            uw.set("HIDE_FAVORITES", "1".equals(hideFavorites) ? "1" : "0");
         }
         userMapper.update(null, uw);
         return new Result<>(0, "已保存", null);

@@ -5,6 +5,7 @@ import {
 } from 'antd'
 import { CameraOutlined, CheckOutlined, CommentOutlined, EditOutlined, LikeOutlined, LockOutlined, MessageOutlined, PlusOutlined, StopOutlined, TrophyFilled } from '@ant-design/icons'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { newsApi } from '../../api/news'
 import { userApi } from '../../api/user'
 import { followApi } from '../../api/follow'
 import { blockApi } from '../../api/block'
@@ -96,6 +97,42 @@ function CommentTrail({ comments, hidden }) {
             <span style={{ margin: '0 8px' }}>·</span>{fmtDate(c.commentDate)}
             <span style={{ margin: '0 8px' }}>·</span><LikeOutlined /> {c.goodNum ?? 0}
           </div>
+        </List.Item>
+      )}
+    />
+  )
+}
+
+// 收藏足迹 Tab：行=频道 + 标题 + 点赞/评论数 + 收藏时间；本人可直接取消收藏
+function FavoriteList({ favorites, hidden, isSelf, onUnfavorite }) {
+  if (hidden) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="该用户已隐藏收藏" />
+  if (!favorites?.length) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={isSelf ? '还没有收藏，看到喜欢的帖子点「收藏」存起来' : '还没有收藏'} />
+  return (
+    <List
+      dataSource={favorites}
+      renderItem={(p) => (
+        <List.Item
+          style={{ padding: '12px 4px' }}
+          extra={
+            <Space size={14} style={{ color: '#999', fontSize: 13, whiteSpace: 'nowrap' }}>
+              <span><LikeOutlined /> {p.goodNum ?? 0}</span>
+              <span><CommentOutlined /> {p.commentNum ?? 0}</span>
+              <span>{fmtDate(p.favTime)}</span>
+              {isSelf && <a onClick={() => onUnfavorite(p.newsId)} style={{ fontSize: 12 }}>取消收藏</a>}
+            </Space>
+          }
+        >
+          <Space size={8} style={{ minWidth: 0 }}>
+            {p.newsChannel === 'official'
+              ? <Tag color="orange" style={{ flexShrink: 0 }}>官方</Tag>
+              : <Tag style={{ flexShrink: 0 }}>论坛</Tag>}
+            <Link
+              to={`/news/${p.newsId}`}
+              style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            >
+              {p.title}
+            </Link>
+          </Space>
         </List.Item>
       )}
     />
@@ -302,7 +339,7 @@ export default function UserProfile() {
   }
   if (data === null) return <Spin style={{ display: 'block', margin: '80px auto' }} size="large" />
 
-  const { user, stats, posts, comments, postsHidden, commentsHidden, followerCount, followingCount, following, blockedByMe, followsHidden } = data
+  const { user, stats, posts, comments, favorites, postsHidden, commentsHidden, favoritesHidden, followerCount, followingCount, following, blockedByMe, followsHidden } = data
   const role = ROLE_META[user.userRole]
   const displayName = user.userNickname || user.userName
   const verified = user.identStatus === 1
@@ -383,6 +420,15 @@ export default function UserProfile() {
       const res = await blockApi.toggle(userId)
       setData((d) => (d ? { ...d, blockedByMe: res.blocked, ...(res.blocked ? { following: false } : {}) } : d))
       message.success(res.blocked ? '已拉黑，对方无法再私信或关注你' : '已解除拉黑')
+    } catch { /* 拦截器已提示 */ }
+  }
+
+  // 本人在收藏 Tab 里取消收藏：toggle 后本地移除该行
+  const unfavorite = async (nid) => {
+    try {
+      await newsApi.favorite(nid)
+      setData((d) => (d ? { ...d, favorites: (d.favorites || []).filter((r) => r.newsId !== nid) } : d))
+      message.success('已取消收藏')
     } catch { /* 拦截器已提示 */ }
   }
 
@@ -490,24 +536,32 @@ export default function UserProfile() {
 
       {/* 悬浮统计条 */}
       <Card style={{ margin: isMobile ? '-24px 10px 14px' : '-34px 22px 16px', borderRadius: 12 }} styles={{ body: { padding: isMobile ? '14px 12px' : '16px 24px' } }}>
-        <Row gutter={16}>
-          <Col xs={8} sm={4}><Statistic title="发帖" value={stats.posts ?? 0} /></Col>
-          <Col xs={8} sm={4}><Statistic title="评论" value={stats.comments ?? 0} /></Col>
-          <Col xs={8} sm={4}>
-            <Statistic title="获赞" value={stats.likes ?? 0} valueStyle={{ color: '#fa541c' }} prefix={<LikeOutlined />} />
-          </Col>
-          <Col xs={8} sm={4}>
-            <div onClick={() => (followsHidden ? message.info('该用户未公开关注和粉丝') : setFollowTab('following'))} style={{ cursor: 'pointer' }} title="查看关注列表">
-              <Statistic title="关注" value={followingCount ?? 0} />
+        {(() => {
+          // 移动端 Statistic 的 24px 大数字会把 6 格挤成两行——紧凑版一行放下（数字 16px、标题 11px）
+          const cell = (title, value, { color, prefix, onClick, titleAttr } = {}) => (
+            <div onClick={onClick} title={titleAttr} style={{ textAlign: isMobile ? 'center' : 'left', cursor: onClick ? 'pointer' : 'default' }}>
+              {isMobile ? (
+                <>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: color || '#262626', lineHeight: 1.2 }}>{value}</div>
+                  <div style={{ fontSize: 11, color: '#999', marginTop: 2, whiteSpace: 'nowrap' }}>{title}</div>
+                </>
+              ) : (
+                <Statistic title={title} value={value} valueStyle={color ? { color } : undefined} prefix={prefix} />
+              )}
             </div>
-          </Col>
-          <Col xs={8} sm={4}>
-            <div onClick={() => (followsHidden ? message.info('该用户未公开关注和粉丝') : setFollowTab('followers'))} style={{ cursor: 'pointer' }} title="查看粉丝列表">
-              <Statistic title="粉丝" value={followerCount ?? 0} />
-            </div>
-          </Col>
-          <Col xs={8} sm={4}><Statistic title="加入天数" value={daysSince(user.registTime)} /></Col>
-        </Row>
+          )
+          const followGuard = (tab) => () => (followsHidden ? message.info('该用户未公开关注和粉丝') : setFollowTab(tab))
+          return (
+            <Row gutter={isMobile ? 4 : 16}>
+              <Col xs={4} sm={4}>{cell('发帖', stats.posts ?? 0)}</Col>
+              <Col xs={4} sm={4}>{cell('评论', stats.comments ?? 0)}</Col>
+              <Col xs={4} sm={4}>{cell('获赞', stats.likes ?? 0, { color: '#fa541c', prefix: <LikeOutlined /> })}</Col>
+              <Col xs={4} sm={4}>{cell('关注', followingCount ?? 0, { onClick: followGuard('following'), titleAttr: '查看关注列表' })}</Col>
+              <Col xs={4} sm={4}>{cell('粉丝', followerCount ?? 0, { onClick: followGuard('followers'), titleAttr: '查看粉丝列表' })}</Col>
+              <Col xs={4} sm={4}>{cell('加入天数', daysSince(user.registTime))}</Col>
+            </Row>
+          )
+        })()}
       </Card>
 
       {/* 关注/粉丝列表 */}
@@ -531,8 +585,12 @@ export default function UserProfile() {
               <span style={{ fontSize: 13 }}>隐藏我的评论</span>
             </span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <Switch size="small" checked={user.hideFollows === '1'} onChange={(c) => togglePrivacy('hideFollows', c)} />
+              <Switch size="small" checked={!!user.hideFollows} onChange={(c) => togglePrivacy('hideFollows', c)} />
               <span style={{ fontSize: 13 }}>隐藏关注/粉丝</span>
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Switch size="small" checked={!!user.hideFavorites} onChange={(c) => togglePrivacy('hideFavorites', c)} />
+              <span style={{ fontSize: 13 }}>隐藏我的收藏</span>
             </span>
             <span style={{ fontSize: 12, color: '#bbb' }}>仅对他人隐藏，你自己仍能看到</span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -555,6 +613,7 @@ export default function UserProfile() {
           items={[
             { key: 'posts', label: `${isSelf ? '我' : '他'}的帖子（${stats.posts ?? 0}）`, children: <PostList posts={posts} hidden={postsHidden} /> },
             { key: 'comments', label: `${isSelf ? '我' : '他'}的评论（${stats.comments ?? 0}）`, children: <CommentTrail comments={comments} hidden={commentsHidden} /> },
+            { key: 'favorites', label: `${isSelf ? '我' : '他'}的收藏（${favoritesHidden ? '-' : (favorites?.length ?? 0)}）`, children: <FavoriteList favorites={favorites} hidden={favoritesHidden} isSelf={isSelf} onUnfavorite={unfavorite} /> },
           ]}
         />
       </Card>

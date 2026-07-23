@@ -110,6 +110,7 @@ function PostCard({ post, topicOwnerIds }) {
           <span style={{ flex: 1, minWidth: 8 }} />
           <span><LikeOutlined /> {post.goodNum ?? 0}</span>
           <span><MessageOutlined /> {post.commentNum ?? 0}</span>
+          <span><StarOutlined /> {post.favoriteCount ?? 0}</span>
         </div>
       </div>
       {cover && (
