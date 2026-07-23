@@ -29,10 +29,10 @@ export const bbqApi = {
   wageSave: (payload) => http.post('/bbq/wage/save', form(payload)),
   wageDelete: (recordId) => http.post('/bbq/wage/delete', form({ recordId })),
   // 结清：预览（确认弹窗罗列对象与金额）→ 执行（记录盖 SETTLE_ID 锁死）。
-  // userIds 为 JSON 数组字符串，空 = 所有有未结清账的人；只结日期≤今天的记录
-  settlePreview: (userIds) => http.get('/bbq/settle/preview', { params: { userIds } }),
-  settleConfirm: (userIds) => http.post('/bbq/settle/confirm', form({ userIds })),
-  // 台账：店长=全店当月聚合，店员=自己的（含记录明细）。
+  // userIds 为 JSON 数组字符串，空 = 所有有未结清账的人；toDate = 结清截止日（店长自选，可未来）
+  settlePreview: (userIds, toDate) => http.get('/bbq/settle/preview', { params: { userIds, toDate } }),
+  settleConfirm: (userIds, toDate) => http.post('/bbq/settle/confirm', form({ userIds, toDate })),
+  // 台账：店长=全店聚合，店员=自己的（含记录明细）。params: {month} 月视图或 {from, to} 周/区间视图。
   // 路径带 /data 后缀：GET /bbq/ledger 会和 SPA 页面路由撞车（后端接口优先于 SPA 兜底）
-  ledger: (month) => http.get('/bbq/ledger/data', { params: { month } }),
+  ledger: (params) => http.get('/bbq/ledger/data', { params }),
 }

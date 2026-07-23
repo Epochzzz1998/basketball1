@@ -448,8 +448,13 @@ public class BbqController {
         if (!isManager(me)) {
             return new Result<>(1, "只有店长可以操作", null);
         }
-        if (roleOf(userId) == null) {
+        String targetRole = roleOf(userId);
+        if (targetRole == null) {
             return new Result<>(1, "只能给店里的成员记账", null);
+        }
+        // 店长不参与薪资计算——新账一律拒；店员升店长前的旧账允许继续编辑（历史要能修）
+        if ("manager".equals(targetRole) && StringUtils.isBlank(recordId)) {
+            return new Result<>(1, "店长不参与薪资计算，只能给店员记账", null);
         }
         if (!validDate(workDate)) {
             return new Result<>(1, "日期格式应为 yyyy-MM-dd", null);
@@ -482,6 +487,10 @@ public class BbqController {
             }
             if (StringUtils.isNotBlank(r.getSettleId())) {
                 return new Result<>(1, "已结清的记录不可修改", null);
+            }
+            // editing may keep a promoted-to-manager person's own legacy record, but not move a record onto a manager
+            if ("manager".equals(targetRole) && !StringUtils.equals(r.getUserId(), userId)) {
+                return new Result<>(1, "店长不参与薪资计算，只能给店员记账", null);
             }
         } else {
             r = new BbqWageRecord();
@@ -622,11 +631,12 @@ public class BbqController {
 
     // ===== settlement =====
 
-    /** unsettled records up to today (Melbourne), optionally scoped to userIds (JSON array) */
-    private List<BbqWageRecord> unsettledScope(String userIds) {
-        String today = java.time.LocalDate.now(java.time.ZoneId.of("Australia/Melbourne")).toString();
+    /** unsettled records up to the chosen date (blank = today Melbourne), optionally scoped to userIds (JSON array) */
+    private List<BbqWageRecord> unsettledScope(String userIds, String toDate) {
+        String cutoff = validDate(toDate) ? toDate
+                : java.time.LocalDate.now(java.time.ZoneId.of("Australia/Melbourne")).toString();
         QueryWrapper<BbqWageRecord> qw = new QueryWrapper<BbqWageRecord>()
-                .isNull("SETTLE_ID").le("WORK_DATE", today);
+                .isNull("SETTLE_ID").le("WORK_DATE", cutoff);
         if (StringUtils.isNotBlank(userIds)) {
             List<String> ids = new ArrayList<>();
             try {
@@ -681,17 +691,21 @@ public class BbqController {
     }
 
     /**
-     * 结清预览（店长）：确认弹窗用——要结清哪些人、各多少钱。范围=未结清且日期≤今天的记录；
-     * userIds（JSON 数组）为空 = 所有有未结清账的人（包括已离店的，余账仍可结）。
+     * 结清预览（店长）：确认弹窗用——要结清哪些人、各多少钱。范围=未结清且日期≤toDate 的记录
+     * （toDate 店长自选，缺省=今天，可以是未来）；userIds（JSON 数组）为空 = 所有有未结清账的人
+     * （包括已离店的，余账仍可结）。
      */
     @RequiresRole(Role.USER)
     @GetMapping("/settle/preview")
-    public Object settlePreview(String userIds, HttpServletRequest request) {
+    public Object settlePreview(String userIds, String toDate, HttpServletRequest request) {
         DreamUser me = SecUtil.getLoginUserToSession(request);
         if (!isManager(me)) {
             return new Result<>(1, "只有店长可以操作", null);
         }
-        List<BbqWageRecord> records = unsettledScope(userIds);
+        if (StringUtils.isNotBlank(toDate) && !validDate(toDate)) {
+            return new Result<>(1, "日期格式应为 yyyy-MM-dd", null);
+        }
+        List<BbqWageRecord> records = unsettledScope(userIds, toDate);
         if (records == null) {
             return new Result<>(1, "筛选数据格式错误", null);
         }
@@ -700,16 +714,19 @@ public class BbqController {
 
     /**
      * 结清（店长）：与预览同一口径重算（以点击时的库内数据为准），一人落一张 bbq_settlement 凭据，
-     * 相关记录盖上 SETTLE_ID——从此不可改不可删。未来日期的记录不结（留在下一次）。
+     * 相关记录盖上 SETTLE_ID——从此不可改不可删。toDate 之后的记录不结（留在下一次）。
      */
     @RequiresRole(Role.USER)
     @PostMapping("/settle/confirm")
-    public Object settleConfirm(String userIds, HttpServletRequest request) {
+    public Object settleConfirm(String userIds, String toDate, HttpServletRequest request) {
         DreamUser me = SecUtil.getLoginUserToSession(request);
         if (!isManager(me)) {
             return new Result<>(1, "只有店长可以操作", null);
         }
-        List<BbqWageRecord> records = unsettledScope(userIds);
+        if (StringUtils.isNotBlank(toDate) && !validDate(toDate)) {
+            return new Result<>(1, "日期格式应为 yyyy-MM-dd", null);
+        }
+        List<BbqWageRecord> records = unsettledScope(userIds, toDate);
         if (records == null) {
             return new Result<>(1, "筛选数据格式错误", null);
         }
@@ -755,20 +772,36 @@ public class BbqController {
      */
     // NB: path must NOT be exactly "/ledger" — that's the SPA page route; a same-path GET here
     // would swallow browser navigation before the SPA fallback (bit us once via headless check)
+    // Range: pass month=yyyy-MM (月视图) OR from+to dates (周视图 or any custom span ≤93 days).
     @RequiresRole(Role.USER)
     @GetMapping("/ledger/data")
-    public Object ledger(String month, HttpServletRequest request) {
+    public Object ledger(String month, String from, String to, HttpServletRequest request) {
         DreamUser me = SecUtil.getLoginUserToSession(request);
         String role = roleOf(me.getUserId());
         if (role == null) {
             return new Result<>(1, "你不是店里的成员", null);
         }
         boolean manager = "manager".equals(role);
-        if (month == null || !month.matches("^\\d{4}-\\d{2}$")) {
-            return new Result<>(1, "月份格式应为 yyyy-MM", null);
+        String rangeFrom;
+        String rangeTo;
+        if (validDate(from) && validDate(to)) {
+            if (from.compareTo(to) > 0) {
+                return new Result<>(1, "起止日期倒挂", null);
+            }
+            if (java.time.temporal.ChronoUnit.DAYS.between(
+                    java.time.LocalDate.parse(from), java.time.LocalDate.parse(to)) > 93) {
+                return new Result<>(1, "跨度最多 93 天", null);
+            }
+            rangeFrom = from;
+            rangeTo = to;
+        } else if (month != null && month.matches("^\\d{4}-\\d{2}$")) {
+            rangeFrom = month + "-01";
+            rangeTo = month + "-31"; // lexical upper bound is fine for zero-padded dates
+        } else {
+            return new Result<>(1, "需要月份（yyyy-MM）或起止日期", null);
         }
         QueryWrapper<BbqWageRecord> qw = new QueryWrapper<BbqWageRecord>()
-                .likeRight("WORK_DATE", month + "-").orderByAsc("WORK_DATE", "START_TIME");
+                .between("WORK_DATE", rangeFrom, rangeTo).orderByAsc("WORK_DATE", "START_TIME");
         if (!manager) {
             qw.eq("USER_ID", me.getUserId());
         }

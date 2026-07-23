@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  Avatar, Button, Calendar, Card, Col, Empty, Input, InputNumber, Modal, Popconfirm, Row, Select, Spin, Switch, TimePicker, message,
+  Avatar, Button, Calendar, Card, Col, DatePicker, Empty, Input, InputNumber, Modal, Popconfirm, Row, Select, Spin, Switch, TimePicker, message,
 } from 'antd'
 import {
   DeleteOutlined, DollarOutlined, EditOutlined, FireOutlined, LeftOutlined, PlusOutlined, RightOutlined, UserOutlined,
@@ -55,8 +55,9 @@ export default function BbqWage() {
   const [saving, setSaving] = useState(false)
   // 编辑旧记录时，行里可能引用已删除/已改价的串——快照价按这里回显
   const [snapPrices, setSnapPrices] = useState({})
-  // 结清：预览列表（确认弹窗），null=关闭
+  // 结清：预览列表（确认弹窗），null=关闭；截止日店长自选（默认今天，可未来）
   const [settleRows, setSettleRows] = useState(null)
+  const [settleDate, setSettleDate] = useState(dayjs())
   const [settling, setSettling] = useState(false)
 
   const dateStr = selected.format('YYYY-MM-DD')
@@ -198,19 +199,27 @@ export default function BbqWage() {
     } catch { /* 已提示 */ }
   }
 
-  // ===== 结清：按当前筛选（不筛选=全部有未结清账的人，含已离店的），先预览确认再执行 =====
+  // ===== 结清：按当前筛选（不筛选=全部有未结清账的人，含已离店的）+ 自选截止日，先预览确认再执行 =====
   const scopeIds = filterIds.length ? JSON.stringify(filterIds) : undefined
-  const openSettle = async () => {
+  const fetchSettlePreview = async (d) => {
     try {
-      const rows = await bbqApi.settlePreview(scopeIds)
-      if (!Array.isArray(rows) || rows.length === 0) return message.info('没有可结清的记录')
-      setSettleRows(rows)
+      const rows = await bbqApi.settlePreview(scopeIds, d.format('YYYY-MM-DD'))
+      setSettleRows(Array.isArray(rows) ? rows : [])
     } catch { /* 已提示 */ }
+  }
+  const openSettle = () => {
+    setSettleDate(dayjs())
+    fetchSettlePreview(dayjs())
+  }
+  const changeSettleDate = (d) => {
+    if (!d) return
+    setSettleDate(d)
+    fetchSettlePreview(d)
   }
   const doSettle = async () => {
     setSettling(true)
     try {
-      const r = await bbqApi.settleConfirm(scopeIds)
+      const r = await bbqApi.settleConfirm(scopeIds, settleDate.format('YYYY-MM-DD'))
       message.success(`已结清 ${r?.users ?? ''} 人，共 ${money(r?.amount)}`)
       setSettleRows(null)
       loadMonth()
@@ -427,13 +436,16 @@ export default function BbqWage() {
             <div style={{ fontSize: 13, color: '#666', marginBottom: 6 }}>店员</div>
             <Select
               style={{ width: '100%' }}
-              placeholder={staff.length ? '选择店员' : '还没有成员，先到「成员管理」添加'}
+              placeholder={staff.some((s) => s.role !== 'manager') ? '选择店员' : '还没有店员，先到「成员管理」添加'}
               value={fUser}
               onChange={pickUser}
               disabled={!!editing}
               showSearch
               optionFilterProp="label"
-              options={staff.map((s) => ({ value: s.userId, label: `${s.userNickname}${s.role === 'manager' ? '（店长）' : ''}` }))}
+              // 店长不参与薪资计算：新增时只列店员；编辑旧记录时保留全量以便正常回显（选择器本就禁用）
+              options={staff
+                .filter((s) => (editing ? true : s.role !== 'manager'))
+                .map((s) => ({ value: s.userId, label: `${s.userNickname}${s.role === 'manager' ? '（店长）' : ''}` }))}
             />
           </div>
 
@@ -520,40 +532,52 @@ export default function BbqWage() {
         </div>
       </Modal>
 
-      {/* 结清确认弹窗：罗列要结清的人与金额，确认后记录锁死 */}
+      {/* 结清确认弹窗：自选结清截止日 + 罗列要结清的人与金额，确认后记录锁死 */}
       <Modal
-        title="确定结清这些人的薪资？"
+        title="结清薪资"
         open={!!settleRows}
         onCancel={() => setSettleRows(null)}
         onOk={doSettle}
         okText="确认结清"
         cancelText="取消"
         confirmLoading={settling}
+        okButtonProps={{ disabled: (settleRows || []).length === 0 }}
         width={isMobile ? '100%' : 480}
       >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 13, color: '#666', fontWeight: 600 }}>结清到哪一天（含当天）</span>
+          <DatePicker value={settleDate} onChange={changeSettleDate} allowClear={false} />
+        </div>
         <div style={{ color: '#999', fontSize: 13, marginBottom: 10 }}>
           结算范围：{filterIds.length > 0 ? '当前筛选的店员' : '所有有未结清账的人（含已离店的）'}，
-          从上次结清后（没结过就从最早记录）到今天。<b>结清后这些记录将锁定，不能再改、不能删。</b>
+          从上次结清后（没结过就从最早记录）到所选日期；之后的记录留给下一次。
+          <b>结清后这些记录将锁定，不能再改、不能删。</b>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {(settleRows || []).map((s, i) => (
-            <div key={s.userId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 2px', borderTop: i === 0 ? 'none' : '1px solid #f5f5f5' }}>
-              <Avatar size={26} src={s.avatar || undefined} icon={s.avatar ? undefined : <UserOutlined />} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 650, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.userNickname}</div>
-                <div style={{ color: '#999', fontSize: 12 }}>{s.fromDate === s.toDate ? s.fromDate : `${s.fromDate} ~ ${s.toDate}`} · {s.recordCount} 条</div>
-              </div>
-              <span style={{ fontWeight: 800, color: AMBER_DARK, flexShrink: 0 }}>{money(s.amount)}</span>
+        {(settleRows || []).length === 0 ? (
+          <Empty description="到这一天为止没有可结清的记录，换个日期试试" image={Empty.PRESENTED_IMAGE_SIMPLE} style={{ padding: '10px 0' }} />
+        ) : (
+          <>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {(settleRows || []).map((s, i) => (
+                <div key={s.userId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 2px', borderTop: i === 0 ? 'none' : '1px solid #f5f5f5' }}>
+                  <Avatar size={26} src={s.avatar || undefined} icon={s.avatar ? undefined : <UserOutlined />} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 650, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.userNickname}</div>
+                    <div style={{ color: '#999', fontSize: 12 }}>{s.fromDate === s.toDate ? s.fromDate : `${s.fromDate} ~ ${s.toDate}`} · {s.recordCount} 条</div>
+                  </div>
+                  <span style={{ fontWeight: 800, color: AMBER_DARK, flexShrink: 0 }}>{money(s.amount)}</span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', marginTop: 10, paddingTop: 10, borderTop: '1px dashed #f0f0f0' }}>
-          <span style={{ fontSize: 13, color: '#666' }}>合计 {(settleRows || []).length} 人</span>
-          <span style={{ flex: 1 }} />
-          <span style={{ fontWeight: 800, fontSize: 17, color: AMBER_DARK }}>
-            {money((settleRows || []).reduce((sum, s) => sum + Number(s.amount || 0), 0))}
-          </span>
-        </div>
+            <div style={{ display: 'flex', alignItems: 'center', marginTop: 10, paddingTop: 10, borderTop: '1px dashed #f0f0f0' }}>
+              <span style={{ fontSize: 13, color: '#666' }}>合计 {(settleRows || []).length} 人</span>
+              <span style={{ flex: 1 }} />
+              <span style={{ fontWeight: 800, fontSize: 17, color: AMBER_DARK }}>
+                {money((settleRows || []).reduce((sum, s) => sum + Number(s.amount || 0), 0))}
+              </span>
+            </div>
+          </>
+        )}
       </Modal>
     </>
   )

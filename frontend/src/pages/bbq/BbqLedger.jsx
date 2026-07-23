@@ -7,7 +7,8 @@ import useIsMobile from '../../hooks/useIsMobile'
 
 /**
  * 耿阿姨烤串 · 薪资台账。数字全由后端算好，这里只画（自绘 SVG，零图表库依赖，同雷达图思路）。
- * - 店长：全店当月——统计条 + 每日支出柱状图 + 员工占比环形图 + 薪资结构环形图 + 每人聚合行；
+ * - 视图可切「按月 / 按周」（周 = 周一到周日；后端同一接口，月传 month、周传 from/to）；
+ * - 店长：全店——统计条 + 每日支出柱状图 + 员工占比环形图 + 薪资结构环形图 + 每人聚合行；
  * - 店员：只有自己——统计条 + 自己的每日柱状 + 结构环形 + 逐条记录明细（含已结清标记）。
  */
 
@@ -21,35 +22,42 @@ const toMin = (t) => (t ? Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5)) : 0
 const shiftMin = (s, e) => { let d = toMin(e) - toMin(s); if (d <= 0) d += 24 * 60; return d }
 const fmtDur = (min) => `${Math.floor(min / 60)}小时${min % 60 ? `${min % 60}分` : ''}`
 const fmtHours = (min) => `${(min / 60).toFixed(1)}h`
+/** 本周从周一起算（dayjs 默认周日为一周之首，手动折算） */
+const mondayOf = (d) => d.subtract((d.day() + 6) % 7, 'day')
 
-/** 柱状图：当月每日支出。竖条 + 稀疏日期刻度 + 最大值虚线；hover 有 <title> 提示 */
-function BarChart({ days, isMobile }) {
+/** 柱状图：竖条 + 底部刻度（bars: [{label, value, showLabel}]）+ 最大值虚线；hover 有 <title> 提示 */
+function BarChart({ bars, isMobile }) {
   const H = 170
-  const max = Math.max(...days.map((d) => d.value), 1)
-  const n = days.length
-  const gap = 3
+  const max = Math.max(...bars.map((d) => d.value), 1)
+  const n = bars.length
+  const gap = n > 10 ? 3 : 10
   const W = isMobile ? 360 : 720
   const barW = (W - gap * (n - 1)) / n
   const y = (v) => H - 24 - (v / max) * (H - 44)
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', display: 'block' }}>
-      {/* 最大值虚线 + 数值 */}
       <line x1={0} x2={W} y1={y(max)} y2={y(max)} stroke="#f0f0f0" strokeDasharray="4 4" />
       <text x={W} y={y(max) - 4} textAnchor="end" fontSize={10} fill="#bbb">{money(max)}</text>
-      {days.map((d, i) => {
+      {bars.map((d, i) => {
         const x = i * (barW + gap)
         const zero = d.value <= 0
         return (
-          <g key={d.day}>
+          <g key={d.label}>
             <rect
               x={x} y={zero ? H - 26 : y(d.value)} width={barW} rx={Math.min(3, barW / 2)}
               height={zero ? 2 : Math.max(2, H - 24 - y(d.value))}
               fill={zero ? '#f5f5f5' : AMBER} opacity={zero ? 1 : 0.85}
             >
-              <title>{`${d.day} 日：${money(d.value)}`}</title>
+              <title>{`${d.title || d.label}：${money(d.value)}`}</title>
             </rect>
-            {(i === 0 || (d.day % 5 === 0) || i === n - 1) && (
-              <text x={x + barW / 2} y={H - 10} textAnchor="middle" fontSize={9} fill="#bbb">{d.day}</text>
+            {/* 周视图条少，柱顶直接标金额 */}
+            {n <= 7 && !zero && (
+              <text x={x + barW / 2} y={y(d.value) - 5} textAnchor="middle" fontSize={10} fill={AMBER_DARK} fontWeight={700}>
+                {money(d.value)}
+              </text>
+            )}
+            {d.showLabel && (
+              <text x={x + barW / 2} y={H - 10} textAnchor="middle" fontSize={n <= 7 ? 11 : 9} fill={n <= 7 ? '#8c8c8c' : '#bbb'}>{d.label}</text>
             )}
           </g>
         )
@@ -100,7 +108,7 @@ function Donut({ data, centerLabel, centerValue, isMobile }) {
         <text x={cx} y={cy + 15} textAnchor="middle" fontSize={14} fontWeight={800} fill={AMBER_DARK}>{centerValue}</text>
       </svg>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 130 }}>
-        {segs.length === 0 && <span style={{ color: '#bbb', fontSize: 12 }}>本月还没有数据</span>}
+        {segs.length === 0 && <span style={{ color: '#bbb', fontSize: 12 }}>该时段还没有数据</span>}
         {segs.map((s) => (
           <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
@@ -125,27 +133,42 @@ function Stat({ label, value, tone }) {
 
 export default function BbqLedger() {
   const isMobile = useIsMobile()
+  const [mode, setMode] = useState('month') // 'month' | 'week'
   const [month, setMonth] = useState(dayjs())
+  const [week, setWeek] = useState(mondayOf(dayjs())) // 周一锚点
   const [data, setData] = useState(null)
 
   const monthStr = month.format('YYYY-MM')
+  const weekFrom = week.format('YYYY-MM-DD')
+  const weekTo = week.add(6, 'day').format('YYYY-MM-DD')
+
   useEffect(() => {
     setData(null)
-    bbqApi.ledger(monthStr).then(setData).catch(() => setData(undefined))
-  }, [monthStr])
+    const params = mode === 'month' ? { month: monthStr } : { from: weekFrom, to: weekTo }
+    bbqApi.ledger(params).then(setData).catch(() => setData(undefined))
+  }, [mode, monthStr, weekFrom, weekTo])
 
-  // 当月每天补零（柱状图要完整月轴）
-  const days = useMemo(() => {
-    const n = month.daysInMonth()
+  // 柱状图条目：月=当月每天（稀疏刻度），周=周一到周日（每条带标签+柱顶金额）
+  const bars = useMemo(() => {
     const map = {}
     ;(data?.daily || []).forEach((d) => { map[d.date] = Number(d.total) })
-    return Array.from({ length: n }, (_, i) => {
-      const date = month.date(i + 1).format('YYYY-MM-DD')
-      return { day: i + 1, value: map[date] || 0 }
+    if (mode === 'month') {
+      const n = month.daysInMonth()
+      return Array.from({ length: n }, (_, i) => {
+        const day = i + 1
+        const date = month.date(day).format('YYYY-MM-DD')
+        return { label: `${day}`, title: `${day} 日`, value: map[date] || 0, showLabel: i === 0 || day % 5 === 0 || i === n - 1 }
+      })
+    }
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = week.add(i, 'day')
+      const date = d.format('YYYY-MM-DD')
+      return { label: `${WEEK[d.day()]} ${d.date()}`, title: d.format('M月D日'), value: map[date] || 0, showLabel: true }
     })
-  }, [data, month])
+  }, [data, mode, month, week])
 
   const manager = data?.role === 'manager'
+  const periodLabel = mode === 'month' ? '本月' : '本周'
   const userPie = useMemo(() => {
     if (!data) return []
     const rows = (data.users || []).map((u, i) => ({ label: u.userNickname, value: Number(u.total), color: PALETTE[i % PALETTE.length] }))
@@ -162,6 +185,10 @@ export default function BbqLedger() {
     : []), [data])
 
   const ring = (size, pos) => ({ position: 'absolute', width: size, height: size, borderRadius: '50%', border: '2px solid rgba(255,255,255,.16)', ...pos })
+  const pill = (active) => ({
+    cursor: 'pointer', userSelect: 'none', padding: '3px 16px', borderRadius: 999, fontSize: 13, fontWeight: 600,
+    color: active ? '#fff' : AMBER_DARK, background: active ? AMBER : 'transparent', transition: 'all .15s', whiteSpace: 'nowrap',
+  })
 
   return (
     <>
@@ -184,22 +211,41 @@ export default function BbqLedger() {
         </div>
       </div>
 
-      {/* 月份切换 */}
+      {/* 视图切换（月/周）+ 时段导航 */}
       <Card style={{ borderRadius: 16, marginBottom: 16 }} styles={{ body: { padding: '10px 16px' } }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Button size="small" type="text" icon={<LeftOutlined />} onClick={() => setMonth((m) => m.subtract(1, 'month'))} />
-          <span style={{ fontSize: 16, fontWeight: 700 }}>{month.format('YYYY 年 M 月')}</span>
-          <Button size="small" type="text" icon={<RightOutlined />} onClick={() => setMonth((m) => m.add(1, 'month'))} />
-          <span style={{ flex: 1 }} />
-          <span
-            onClick={() => setMonth(dayjs())}
-            style={{
-              cursor: 'pointer', userSelect: 'none', padding: '3px 14px', borderRadius: 999,
-              fontSize: 12, fontWeight: 600, color: AMBER_DARK, background: '#fffbe6', border: '1px solid #ffe58f', whiteSpace: 'nowrap',
-            }}
-          >
-            回到本月
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <span style={{ display: 'inline-flex', background: '#fffbe6', border: '1px solid #ffe58f', borderRadius: 999, padding: 2 }}>
+            <span style={pill(mode === 'month')} onClick={() => setMode('month')}>按月</span>
+            <span style={pill(mode === 'week')} onClick={() => setMode('week')}>按周</span>
           </span>
+          <span style={{ flex: isMobile ? '1 1 100%' : 1 }} />
+          {mode === 'month' ? (
+            <>
+              <Button size="small" type="text" icon={<LeftOutlined />} onClick={() => setMonth((m) => m.subtract(1, 'month'))} />
+              <span style={{ fontSize: 15, fontWeight: 700, whiteSpace: 'nowrap' }}>{month.format('YYYY 年 M 月')}</span>
+              <Button size="small" type="text" icon={<RightOutlined />} onClick={() => setMonth((m) => m.add(1, 'month'))} />
+              <span
+                onClick={() => setMonth(dayjs())}
+                style={{ cursor: 'pointer', userSelect: 'none', padding: '3px 14px', borderRadius: 999, fontSize: 12, fontWeight: 600, color: AMBER_DARK, background: '#fffbe6', border: '1px solid #ffe58f', whiteSpace: 'nowrap' }}
+              >
+                回到本月
+              </span>
+            </>
+          ) : (
+            <>
+              <Button size="small" type="text" icon={<LeftOutlined />} onClick={() => setWeek((w) => w.subtract(7, 'day'))} />
+              <span style={{ fontSize: 15, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                {week.format('M月D日')} ~ {week.add(6, 'day').format('M月D日')}
+              </span>
+              <Button size="small" type="text" icon={<RightOutlined />} onClick={() => setWeek((w) => w.add(7, 'day'))} />
+              <span
+                onClick={() => setWeek(mondayOf(dayjs()))}
+                style={{ cursor: 'pointer', userSelect: 'none', padding: '3px 14px', borderRadius: 999, fontSize: 12, fontWeight: 600, color: AMBER_DARK, background: '#fffbe6', border: '1px solid #ffe58f', whiteSpace: 'nowrap' }}
+              >
+                回到本周
+              </span>
+            </>
+          )}
         </div>
       </Card>
 
@@ -211,22 +257,26 @@ export default function BbqLedger() {
         <>
           {/* 统计条 */}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
-            <Stat label={manager ? '本月总支出' : '本月合计'} value={money(data.monthTotal)} />
+            <Stat label={manager ? `${periodLabel}总支出` : `${periodLabel}合计`} value={money(data.monthTotal)} />
             <Stat label="工时工资" value={money(data.baseSum)} />
             <Stat label="穿串工资" value={money(data.skewerSum)} />
             <Stat label="扣款" value={`−${money(data.deductSum)}`} tone="#cf1322" />
-            <Stat label="未结清累计（所有月份）" value={money(data.unsettledTotal)} tone="#d4380d" />
+            <Stat label="未结清累计（全部）" value={money(data.unsettledTotal)} tone="#d4380d" />
           </div>
 
           <Row gutter={[16, 16]}>
             <Col xs={24} lg={manager ? 14 : 24}>
-              <Card title={`每日支出（${month.format('M 月')}）`} style={{ borderRadius: 16 }} styles={{ body: { padding: isMobile ? '12px 10px' : '16px 18px' } }}>
-                <BarChart days={days} isMobile={isMobile} />
+              <Card
+                title={`每日支出（${mode === 'month' ? month.format('M 月') : '本周'}）`}
+                style={{ borderRadius: 16 }}
+                styles={{ body: { padding: isMobile ? '12px 10px' : '16px 18px' } }}
+              >
+                <BarChart bars={bars} isMobile={isMobile} />
               </Card>
             </Col>
             <Col xs={24} lg={manager ? 10 : 24}>
               <Card title="薪资结构" style={{ borderRadius: 16, marginBottom: manager ? 16 : 0 }} styles={{ body: { padding: '14px 16px' } }}>
-                <Donut data={structPie} centerLabel="本月" centerValue={money(data.monthTotal)} isMobile={isMobile} />
+                <Donut data={structPie} centerLabel={periodLabel} centerValue={money(data.monthTotal)} isMobile={isMobile} />
                 {Number(data.deductSum) > 0 && (
                   <div style={{ fontSize: 12, color: '#cf1322', textAlign: 'center', marginTop: 8 }}>另有扣款 −{money(data.deductSum)}（已从合计中扣除）</div>
                 )}
@@ -241,9 +291,9 @@ export default function BbqLedger() {
 
           {/* 店长：每人聚合行 */}
           {manager && (
-            <Card title="每人明细（本月）" style={{ borderRadius: 16, marginTop: 16 }} styles={{ body: { padding: isMobile ? '8px 12px' : '10px 18px' } }}>
+            <Card title={`每人明细（${periodLabel}）`} style={{ borderRadius: 16, marginTop: 16 }} styles={{ body: { padding: isMobile ? '8px 12px' : '10px 18px' } }}>
               {(data.users || []).length === 0 ? (
-                <Empty description="本月还没有记录" image={Empty.PRESENTED_IMAGE_SIMPLE} style={{ padding: '14px 0' }} />
+                <Empty description={`${periodLabel}还没有记录`} image={Empty.PRESENTED_IMAGE_SIMPLE} style={{ padding: '14px 0' }} />
               ) : (
                 (data.users || []).map((u, i) => (
                   <div key={u.userId} style={{ padding: '11px 0', borderTop: i === 0 ? 'none' : '1px solid #f5f5f5' }}>
@@ -269,9 +319,9 @@ export default function BbqLedger() {
 
           {/* 店员：自己的逐条记录 */}
           {!manager && (
-            <Card title={`我的记录（${month.format('M 月')}）`} style={{ borderRadius: 16, marginTop: 16 }} styles={{ body: { padding: isMobile ? '10px 12px' : '12px 18px' } }}>
+            <Card title={`我的记录（${mode === 'month' ? month.format('M 月') : '本周'}）`} style={{ borderRadius: 16, marginTop: 16 }} styles={{ body: { padding: isMobile ? '10px 12px' : '12px 18px' } }}>
               {(data.records || []).length === 0 ? (
-                <Empty description="这个月还没有记录" image={Empty.PRESENTED_IMAGE_SIMPLE} style={{ padding: '14px 0' }} />
+                <Empty description={`${periodLabel}还没有记录`} image={Empty.PRESENTED_IMAGE_SIMPLE} style={{ padding: '14px 0' }} />
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {(data.records || []).map((r) => (
