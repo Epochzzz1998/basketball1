@@ -105,20 +105,8 @@ function PostCard({ post, topicOwnerIds }) {
             {excerpt}
           </div>
         )}
-        {/* 底部：标签（超宽裁剪不换行）+ 点赞/评论/收藏（永远一行在右） */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, fontSize: 12, color: '#999' }}>
-          <div
-            style={{
-              flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden',
-              // 裁剪边缘渐隐：放不下的标签淡出收尾，而不是硬切一半贴着图标（视觉上像被盖住）
-              WebkitMaskImage: 'linear-gradient(90deg, #000 90%, transparent)',
-              maskImage: 'linear-gradient(90deg, #000 90%, transparent)',
-            }}
-          >
-            {String(post.tags || '').split(',').map((t) => t.trim()).filter(Boolean).slice(0, isMobile ? 2 : 4).map((t) => (
-              <Tag key={t} style={{ marginInlineEnd: 0, flexShrink: 0 }} bordered={false}>{t}</Tag>
-            ))}
-          </div>
+        {/* 底部：点赞/评论/收藏（标签在列表卡片不再展示——移动端排版反复折腾，进详情页看） */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginTop: 10, fontSize: 12, color: '#999' }}>
           <span style={{ flexShrink: 0, display: 'inline-flex', gap: 10, whiteSpace: 'nowrap' }}>
             <span><LikeOutlined /> {post.goodNum ?? 0}</span>
             <span><MessageOutlined /> {post.commentNum ?? 0}</span>

@@ -112,7 +112,14 @@ export default function BbqMembers() {
                   />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                      <span style={{ fontWeight: 700, fontSize: 15 }}>{dn(r.userId, r.userNickname)}</span>
+                      {/* 名字同头像：点了进 TA 的个人主页 */}
+                      <span
+                        style={{ fontWeight: 700, fontSize: 15, cursor: 'pointer' }}
+                        title="进入个人主页"
+                        onClick={() => navigate(`/users/${r.userId}`)}
+                      >
+                        {dn(r.userId, r.userNickname)}
+                      </span>
                       {isManager
                         ? <Tag color="gold" style={{ marginInlineEnd: 0 }}><CrownFilled /> 店长</Tag>
                         : <Tag style={{ marginInlineEnd: 0 }}>店员</Tag>}
