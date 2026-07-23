@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Empty, Input, Modal, Spin, Tag } from 'antd'
-import { EnterOutlined, FileTextOutlined, ReadOutlined, SearchOutlined, UserOutlined } from '@ant-design/icons'
+import { EnterOutlined, FileTextOutlined, FolderOpenOutlined, LockOutlined, ReadOutlined, SearchOutlined, UserOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { searchApi } from '../api/search'
 import { useAuth } from '../auth/AuthContext'
@@ -72,6 +72,17 @@ function flatten(d, kw, canData) {
     key: `news:${n.newsId}`,
     to: `/news/${n.newsId}`,
     node: newsNode(n, <ReadOutlined style={{ color: '#fa541c' }} />),
+  })))
+  push('专题', d?.topics?.map((t) => ({
+    key: `topic:${t.topicId}`,
+    to: `/news/topic/${t.topicId}`,
+    node: (
+      <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+        <FolderOpenOutlined style={{ color: '#fa8c16' }} />
+        <b style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</b>
+        {t.visibility === 'private' && <Tag icon={<LockOutlined />} style={{ marginInlineEnd: 0, flexShrink: 0 }}>私密</Tag>}
+      </span>
+    ),
   })))
   push('资讯', d?.forum?.map((n) => ({
     key: `forum:${n.newsId}`,

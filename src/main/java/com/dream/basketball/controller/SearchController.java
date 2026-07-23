@@ -45,6 +45,9 @@ public class SearchController {
     @Autowired
     private com.dream.basketball.mapper.DreamNewsMapper dreamNewsMapper;
 
+    @Autowired
+    private com.dream.basketball.mapper.ForumTopicMapper forumTopicMapper;
+
     private static final int GROUP_LIMIT = 6;
 
     @GetMapping("/global")
@@ -112,6 +115,25 @@ public class SearchController {
         }
         data.put("news", slimNews(official));
         data.put("forum", slimNews(forum));
+
+        // 专题：名称/简介模糊（仅当「百家说」开放）。下架(LISTED='0')的绝对不进搜索；
+        // 私密专题照常可搜（与专题列表行为一致，点进去才看权限）。
+        List<Map<String, Object>> topics = new ArrayList<>();
+        if (featForum) {
+            for (com.dream.basketball.entity.ForumTopic t : forumTopicMapper.selectList(
+                    new QueryWrapper<com.dream.basketball.entity.ForumTopic>()
+                            .and(w -> w.like("NAME", kw).or().like("DESCRIPTION", kw))
+                            .apply("(LISTED IS NULL OR LISTED <> '0')")
+                            .last("limit " + GROUP_LIMIT))) {
+                Map<String, Object> m = new HashMap<>();
+                m.put("topicId", t.getTopicId());
+                m.put("name", t.getName());
+                m.put("description", t.getDescription());
+                m.put("visibility", t.getVisibility());
+                topics.add(m);
+            }
+        }
+        data.put("topics", topics);
 
         // 用户：用户名/昵称模糊（只回显示字段，后续再做用户主页）
         List<Map<String, Object>> users = new ArrayList<>();
