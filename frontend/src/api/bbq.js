@@ -37,7 +37,8 @@ export const bbqApi = {
   ledger: (params) => http.get('/bbq/ledger/data', { params }),
   // Burning！四榜（店内成员皆可看）：params 同台账；点赞 toggle；评论分页（每页 5 条）
   burningBoard: (params) => http.get('/bbq/burning/board', { params }),
-  burningLike: (targetId) => http.post('/bbq/burning/like', form({ targetId })),
+  // 点赞按"榜"独立：board = hours|skewers|latestOff|days
+  burningLike: (targetId, board) => http.post('/bbq/burning/like', form({ targetId, board })),
   burningComments: (targetId, page) => http.get('/bbq/burning/comments', { params: { targetId, page } }),
   burningComment: (targetId, content) => http.post('/bbq/burning/comment', form({ targetId, content })),
   burningDeleteComment: (id) => http.post('/bbq/burning/deleteComment', form({ id })),

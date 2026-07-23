@@ -74,12 +74,14 @@ export default function BbqBurning() {
     loadComments(uid, 1)
   }
 
-  const doLike = async (uid, e) => {
+  // 点赞按"榜"独立：key = `${board}:${userId}`，工时榜的赞不点亮其他榜
+  const doLike = async (boardKey, uid, e) => {
     e.stopPropagation()
+    const key = `${boardKey}:${uid}`
     try {
-      const r = await bbqApi.burningLike(uid)
-      setLikes((l) => ({ ...l, [uid]: r?.count ?? 0 }))
-      setMyLikes((m) => (r?.liked ? [...m, uid] : m.filter((x) => x !== uid)))
+      const r = await bbqApi.burningLike(uid, boardKey)
+      setLikes((l) => ({ ...l, [key]: r?.count ?? 0 }))
+      setMyLikes((m) => (r?.liked ? [...m, key] : m.filter((x) => x !== key)))
     } catch { /* 已提示 */ }
   }
 
@@ -116,7 +118,7 @@ export default function BbqBurning() {
         const key = `${boardKey}:${r.userId}`
         const isOpen = openKey === key
         const cm = comments[r.userId]
-        const liked = myLikes.includes(r.userId)
+        const liked = myLikes.includes(key)
         return (
           <div key={r.userId} style={{ borderTop: i === 0 ? 'none' : '1px solid #f7f7f7' }}>
             <div
@@ -137,10 +139,10 @@ export default function BbqBurning() {
               </span>
               <span style={{ fontWeight: 800, color: FLAME, flexShrink: 0, fontSize: 14 }}>{fmt(r.value)}</span>
               <span
-                onClick={(e) => doLike(r.userId, e)}
+                onClick={(e) => doLike(boardKey, r.userId, e)}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 3, flexShrink: 0, cursor: 'pointer', color: liked ? '#eb2f96' : '#bbb', fontSize: 13, minWidth: 34, justifyContent: 'flex-end' }}
               >
-                {liked ? <HeartFilled /> : <HeartOutlined />} {likes[r.userId] || 0}
+                {liked ? <HeartFilled /> : <HeartOutlined />} {likes[key] || 0}
               </span>
               <span style={{ color: '#ccc', fontSize: 10, flexShrink: 0 }}>{isOpen ? <CaretDownOutlined /> : <CaretRightOutlined />}</span>
             </div>
@@ -229,7 +231,7 @@ export default function BbqBurning() {
             <FireFilled style={{ marginRight: 8, color: '#ffa940' }} />耿阿姨烤串 · Burning！
           </div>
           <div style={{ opacity: 0.88, marginTop: 6, fontSize: 13 }}>
-            谁在燃烧！工时最长的是劳模，穿串最多的是串王；点人展开评论，给拼命的人点个赞。
+            经历过夏天的人永远不会叹气，除非困了
           </div>
         </div>
       </div>

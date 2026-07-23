@@ -148,14 +148,16 @@ public class BbqBurningController {
         Map<String, Integer> dayCounts = new HashMap<>();
         daysByUser.forEach((k, v) -> dayCounts.put(k, v.size()));
         out.put("days", board(dayCounts, users));
-        // likes are global (not per period): counts for everyone on the boards + which ones are mine
+        // likes are per (person, board) — a heart lit on 工时榜 stays dark on the other boards.
+        // keys are "board:targetId" composites; counts persist across periods
         Map<String, Integer> likeCounts = new HashMap<>();
         List<String> myLikes = new ArrayList<>();
         if (!uids.isEmpty()) {
             for (BurningLike l : likeMapper.selectList(new QueryWrapper<BurningLike>().in("TARGET_ID", uids))) {
-                likeCounts.merge(l.getTargetId(), 1, Integer::sum);
+                String key = l.getBoard() + ":" + l.getTargetId();
+                likeCounts.merge(key, 1, Integer::sum);
                 if (StringUtils.equals(l.getLikerId(), me.getUserId())) {
-                    myLikes.add(l.getTargetId());
+                    myLikes.add(key);
                 }
             }
         }
@@ -183,10 +185,12 @@ public class BbqBurningController {
         return rows;
     }
 
-    /** 点赞/取消（店内成员，对榜上的人；全局计数，不分周期）。 */
+    private static final Set<String> BOARDS = new HashSet<>(Arrays.asList("hours", "skewers", "latestOff", "days"));
+
+    /** 点赞/取消（店内成员）：只赞"这张榜上的这个人"，其他榜互不影响；跨周期计数保留。 */
     @RequiresRole(Role.USER)
     @PostMapping("/like")
-    public Object like(String targetId, HttpServletRequest request) {
+    public Object like(String targetId, String board, HttpServletRequest request) {
         DreamUser me = SecUtil.getLoginUserToSession(request);
         if (!isMember(me)) {
             return new Result<>(1, "你不是店里的成员", null);
@@ -194,8 +198,11 @@ public class BbqBurningController {
         if (StringUtils.isBlank(targetId) || userMapper.selectById(targetId) == null) {
             return new Result<>(1, "用户不存在", null);
         }
+        if (board == null || !BOARDS.contains(board)) {
+            return new Result<>(1, "榜单类型不合法", null);
+        }
         QueryWrapper<BurningLike> qw = new QueryWrapper<BurningLike>()
-                .eq("TARGET_ID", targetId).eq("LIKER_ID", me.getUserId());
+                .eq("TARGET_ID", targetId).eq("LIKER_ID", me.getUserId()).eq("BOARD", board);
         boolean liked;
         if (likeMapper.selectCount(qw) > 0) {
             likeMapper.delete(qw);
@@ -205,11 +212,13 @@ public class BbqBurningController {
             l.setId(UUID.randomUUID().toString());
             l.setTargetId(targetId);
             l.setLikerId(me.getUserId());
+            l.setBoard(board);
             l.setCreateTime(new Date());
             likeMapper.insert(l);
             liked = true;
         }
-        Long count = Long.valueOf(likeMapper.selectCount(new QueryWrapper<BurningLike>().eq("TARGET_ID", targetId)));
+        Long count = Long.valueOf(likeMapper.selectCount(new QueryWrapper<BurningLike>()
+                .eq("TARGET_ID", targetId).eq("BOARD", board)));
         Map<String, Object> out = new HashMap<>();
         out.put("liked", liked);
         out.put("count", count);

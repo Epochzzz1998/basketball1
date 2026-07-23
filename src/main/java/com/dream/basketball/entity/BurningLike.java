@@ -10,7 +10,8 @@ import java.io.Serializable;
 import java.util.Date;
 
 /**
- * A like on a person in the Burning! leaderboards (unique TARGET+LIKER, toggle semantics).
+ * A like on a person ON ONE BOARD of the Burning! leaderboards (unique TARGET+LIKER+BOARD,
+ * toggle semantics) — liking someone on 工时榜 must not light their heart on the other boards.
  */
 @TableName("burning_like")
 public class BurningLike extends Model<BurningLike> implements Serializable {
@@ -24,6 +25,10 @@ public class BurningLike extends Model<BurningLike> implements Serializable {
 
     @TableField("LIKER_ID")
     private String likerId;
+
+    /** 'hours' | 'skewers' | 'latestOff' | 'days' */
+    @TableField("BOARD")
+    private String board;
 
     @TableField("CREATE_TIME")
     private Date createTime;
@@ -50,6 +55,14 @@ public class BurningLike extends Model<BurningLike> implements Serializable {
 
     public void setLikerId(String likerId) {
         this.likerId = likerId;
+    }
+
+    public String getBoard() {
+        return board;
+    }
+
+    public void setBoard(String board) {
+        this.board = board;
     }
 
     public Date getCreateTime() {
