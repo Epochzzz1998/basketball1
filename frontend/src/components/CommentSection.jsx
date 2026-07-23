@@ -504,6 +504,7 @@ export default function CommentSection({
   const [comments, setComments] = useState([])
   const [loading, setLoading] = useState(false)
   const [onlyAuthor, setOnlyAuthor] = useState(false) // 只看楼主：仅展示楼主的顶层评论（其回复照常）
+  const [sortBy, setSortBy] = useState('time') // time=按时间（最新在前）| hot=按热度（点赞最多在前）
   const [ratingOpen, setRatingOpen] = useState(false) // 楼主"开启打分"面板
   const [ratingSubject, setRatingSubject] = useState('')
   const [ratingNote, setRatingNote] = useState('')
@@ -555,7 +556,11 @@ export default function CommentSection({
   }
 
   // 只看楼主时按楼主 userId 过滤顶层评论；回复不受影响（各楼展开时单独拉取）
-  const shown = onlyAuthor && authorId ? comments.filter((c) => c.userId === authorId) : comments
+  const filtered = onlyAuthor && authorId ? comments.filter((c) => c.userId === authorId) : comments
+  // 排序：时间=后端默认楼层倒序（最新在前）；热度=点赞数降序（同赞按时间）
+  const shown = sortBy === 'hot'
+    ? [...filtered].sort((a, b) => (b.goodNum || 0) - (a.goodNum || 0) || (b.floor || 0) - (a.floor || 0))
+    : filtered
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -596,6 +601,26 @@ export default function CommentSection({
         </div>
         {!isMobile && <span style={{ flex: 1 }} />}
         <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 10, width: isMobile ? '100%' : 'auto' }}>
+          {/* 排序：时间（最新在前）/ 热度（点赞最多） */}
+          <div style={{ display: 'inline-flex', background: '#f5f5f5', borderRadius: 999, padding: 2, flexShrink: 0 }}>
+            {[['time', '时间'], ['hot', '热度']].map(([v, l]) => (
+              <span
+                key={v}
+                onClick={() => setSortBy(v)}
+                title={v === 'time' ? '按时间：最新的在前' : '按热度：点赞最多的在前'}
+                style={{
+                  padding: '2px 12px', borderRadius: 999, fontSize: 12, cursor: 'pointer', userSelect: 'none',
+                  whiteSpace: 'nowrap', transition: 'all .15s',
+                  color: sortBy === v ? '#fa541c' : '#8c8c8c',
+                  background: sortBy === v ? '#fff' : 'transparent',
+                  fontWeight: sortBy === v ? 700 : 400,
+                  boxShadow: sortBy === v ? '0 1px 3px rgba(0,0,0,.08)' : 'none',
+                }}
+              >
+                {l}
+              </span>
+            ))}
+          </div>
           {canOpenRating && !locked && (
             <span
               onClick={() => setRatingOpen((v) => !v)}

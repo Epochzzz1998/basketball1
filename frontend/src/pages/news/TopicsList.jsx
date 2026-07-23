@@ -82,11 +82,12 @@ export default function TopicsList() {
                 {t.newCount > 0 && (
                   <span
                     style={{
-                      position: 'absolute', top: -9, left: -7, zIndex: 2,
-                      minWidth: 24, height: 24, lineHeight: '24px', padding: '0 8px', boxSizing: 'border-box',
-                      borderRadius: 12, background: '#ff4d4f', color: '#fff',
-                      fontSize: 13, fontWeight: 700, textAlign: 'center',
-                      boxShadow: '0 2px 8px rgba(255,77,79,.45)', border: '2px solid #fff',
+                      position: 'absolute', top: -9, left: -9, zIndex: 2,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      minWidth: 22, height: 22, padding: '0 6px', boxSizing: 'border-box',
+                      borderRadius: 11, background: 'linear-gradient(135deg, #ff7875, #f5222d)', color: '#fff',
+                      fontSize: 12, fontWeight: 700, lineHeight: 1,
+                      boxShadow: '0 2px 6px rgba(245,34,45,.45)',
                     }}
                   >
                     {t.newCount > 99 ? '99+' : t.newCount}
