@@ -271,6 +271,7 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
           {/* 订阅（已加入的成员/管理者可见）：入侧栏"订阅的专题"折叠区 */}
           {isTopic && topic.joined && (
             <Button
+              size={isMobile ? 'small' : 'middle'}
               icon={topic.subscribed ? <StarFilled style={{ color: '#ffd666' }} /> : <StarOutlined />}
               onClick={async () => {
                 try {
@@ -286,7 +287,7 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
           )}
           {isTopic && (topic.canManage ? (
             <Badge count={topic.pendingCount || 0} size="small" offset={[-4, 2]}>
-              <Button icon={<SettingOutlined />} onClick={() => setMemberOpen(true)} style={{ fontWeight: 600, flexShrink: 0 }}>
+              <Button size={isMobile ? 'small' : 'middle'} icon={<SettingOutlined />} onClick={() => setMemberOpen(true)} style={{ fontWeight: 600, flexShrink: 0 }}>
                 成员管理
               </Button>
             </Badge>
