@@ -330,7 +330,11 @@ public class ScheduleController {
         return new Result<>(0, nowDone ? "已完成" : "已取消完成", nowDone);
     }
 
-    /** 延续循环（仅创建者）：每日循环按天、每周循环按周，单次延续不超过 180 天 / 24 周；顺带重置"即将结束"提醒。 */
+    /**
+     * 延续循环（仅创建者）：每日循环按天、每周循环按周。**总时长**（开始日→新截止日）
+     * 不得超过 180 天 / 24 周——上限约束的是整个循环的长度，不是单次延续量。
+     * 延续后重置"即将结束"提醒标记（下次到期还会提醒）。
+     */
     @RequiresRole(Role.USER)
     @PostMapping("/extend")
     public Object extend(String eventId, Integer amount, HttpServletRequest request) {
@@ -346,12 +350,23 @@ public class ScheduleController {
             return new Result<>(1, "只有循环任务可以延续", null);
         }
         boolean daily = "day".equals(e.getRecur());
-        int max = daily ? 180 : 24;
-        if (amount == null || amount < 1 || amount > max) {
-            return new Result<>(1, daily ? "延续天数需为 1-180" : "延续周数需为 1-24", null);
+        if (amount == null || amount < 1) {
+            return new Result<>(1, daily ? "延续天数至少为 1" : "延续周数至少为 1", null);
         }
-        java.time.LocalDate newEnd = java.time.LocalDate.parse(e.getRecurEnd())
-                .plusDays(daily ? amount : amount * 7L);
+        java.time.LocalDate start = java.time.LocalDate.parse(e.getEventDate());
+        java.time.LocalDate curEnd = java.time.LocalDate.parse(e.getRecurEnd());
+        long capDays = daily ? 180 : 24 * 7;
+        long remainDays = capDays - java.time.temporal.ChronoUnit.DAYS.between(start, curEnd);
+        if (remainDays <= 0) {
+            return new Result<>(1, "该循环总时长已达上限（" + (daily ? "180 天" : "24 周") + "），不能再延续", null);
+        }
+        long addDays = daily ? amount : amount * 7L;
+        if (addDays > remainDays) {
+            return new Result<>(1, daily
+                    ? "总时长不能超过 180 天，最多还能延 " + remainDays + " 天"
+                    : "总时长不能超过 24 周，最多还能延 " + (remainDays / 7) + " 周", null);
+        }
+        java.time.LocalDate newEnd = curEnd.plusDays(addDays);
         e.setRecurEnd(newEnd.toString());
         e.setExpiryNotified(null);
         eventMapper.updateById(e);

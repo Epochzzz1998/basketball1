@@ -46,15 +46,20 @@ const recurLabel = (e) => {
   return e.recur === 'day' ? `每日 · 至 ${end}` : `每周${WEEK[dayjs(e.date).day()]} · 至 ${end}`
 }
 
-/** 循环延续弹层：每日按天、每周按周，单次不超上限 */
+/** 循环延续弹层：上限约束的是**总时长**（开始日→新截止日 ≤180 天/24 周），按剩余额度限制输入 */
 function ExtendPop({ e, onExtend }) {
   const daily = e.recur === 'day'
-  const [n, setN] = useState(daily ? 7 : 4)
+  const spanDays = dayjs(e.recurEnd).diff(dayjs(e.date), 'day')
+  const remain = daily ? 180 - spanDays : Math.floor((168 - spanDays) / 7)
+  const [n, setN] = useState(Math.min(daily ? 7 : 4, Math.max(1, remain)))
+  if (remain <= 0) {
+    return <span style={{ fontSize: 12, color: '#999' }}>该循环总时长已达上限（{daily ? '180 天' : '24 周'}），不能再延续</span>
+  }
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
       <span style={{ fontSize: 12, color: '#666' }}>延长</span>
-      <InputNumber size="small" min={1} max={daily ? 180 : 24} value={n} onChange={setN} style={{ width: 74 }} />
-      <span style={{ fontSize: 12, color: '#666' }}>{daily ? '天（≤180）' : '周（≤24）'}</span>
+      <InputNumber size="small" min={1} max={remain} value={n} onChange={setN} style={{ width: 74 }} />
+      <span style={{ fontSize: 12, color: '#666' }}>{daily ? `天（还可延 ${remain} 天）` : `周（还可延 ${remain} 周）`}</span>
       <Button size="small" type="primary" onClick={() => n && onExtend(e, n)}>确定</Button>
     </div>
   )
