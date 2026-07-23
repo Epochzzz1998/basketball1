@@ -15,11 +15,12 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 
 /**
- * Schedule jobs (Melbourne clock):
- * - 8am daily digest per assignee ("你今天负责 N 件事：…"): single-day tasks on their day,
+ * Schedule job — ONE daily 8am run (Melbourne clock) doing two things:
+ * - digest per assignee ("你今天负责 N 件事：…"): single-day tasks on their day,
  *   deadline (multi-day) tasks on their DEADLINE day; skips done; REMINDED='1' = idempotent.
- * - every 10 min: one-shot overtime notice when a not-done event passes its deadline moment
- *   (END_DATE||EVENT_DATE + END_TIME||23:59). Goes to the assignee, else the owner.
+ * - overtime notice: an event whose deadline moment (END_DATE||EVENT_DATE + END_TIME||23:59)
+ *   has passed and is STILL not done at this 8am gets a one-shot 超时 message
+ *   (mark done before the next 8am and no notice is ever sent). Assignee, else the owner.
  *   System messages use a blank operatorId so the self-op guard never eats them.
  */
 @Component
@@ -37,7 +38,6 @@ public class ScheduleReminderJob {
         return fmt.format(new Date());
     }
 
-    @Scheduled(cron = "0 0 8 * * ?", zone = "Australia/Melbourne")
     public void remindToday() {
         String today = nowStr("yyyy-MM-dd");
         // 单日任务在开始日提醒；截止任务在截止日提醒（那才是要命的日子）
@@ -89,7 +89,13 @@ public class ScheduleReminderJob {
         eventMapper.update(null, new UpdateWrapper<ScheduleEvent>().in("EVENT_ID", ids).set("REMINDED", "1"));
     }
 
-    @Scheduled(cron = "0 */10 * * * ?", zone = "Australia/Melbourne")
+    /** 每天 8 点先发当日摘要，再补超时通知（不再高频扫描：超时后到下一个早八点还没完成才提醒） */
+    @Scheduled(cron = "0 0 8 * * ?", zone = "Australia/Melbourne")
+    public void dailyRun() {
+        remindToday();
+        scanOverdue();
+    }
+
     public void scanOverdue() {
         String today = nowStr("yyyy-MM-dd");
         String nowTime = nowStr("HH:mm");
