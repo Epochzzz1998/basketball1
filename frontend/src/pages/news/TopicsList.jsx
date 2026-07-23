@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Badge, Button, Card, Col, Empty, Popconfirm, Row, Spin, Tag, message} from 'antd'
+import { Button, Card, Col, Empty, Popconfirm, Row, Spin, Tag, message } from 'antd'
 import {
   DeleteOutlined, EditOutlined, EyeInvisibleOutlined, LockOutlined, PlusOutlined, RightOutlined, TeamOutlined, UnlockOutlined,
 } from '@ant-design/icons'
@@ -77,8 +77,21 @@ export default function TopicsList() {
             const priv = t.visibility === 'private'
             return (
               <Col key={t.topicId} xs={24} sm={12} lg={8}>
-                {/* 新活动红点（公开或已订阅的专题）：Badge 包整卡，红圈压在卡片右上角边缘 */}
-                <Badge count={t.newCount} size="small" offset={[-8, 8]} className="topic-card-badge">
+                {/* 新活动红点（公开或已订阅的专题）：自绘角标压在卡片左上角边缘 */}
+                <div className="topic-card-badge" style={{ position: 'relative' }}>
+                {t.newCount > 0 && (
+                  <span
+                    style={{
+                      position: 'absolute', top: -9, left: -7, zIndex: 2,
+                      minWidth: 24, height: 24, lineHeight: '24px', padding: '0 8px', boxSizing: 'border-box',
+                      borderRadius: 12, background: '#ff4d4f', color: '#fff',
+                      fontSize: 13, fontWeight: 700, textAlign: 'center',
+                      boxShadow: '0 2px 8px rgba(255,77,79,.45)', border: '2px solid #fff',
+                    }}
+                  >
+                    {t.newCount > 99 ? '99+' : t.newCount}
+                  </span>
+                )}
                 <Card
                   className="topic-card"
                   style={{ borderRadius: 14, height: '100%', cursor: t.locked ? 'default' : 'pointer', opacity: t.locked ? 0.85 : 1 }}
@@ -129,7 +142,7 @@ export default function TopicsList() {
                     )}
                   </div>
                 </Card>
-                </Badge>
+                </div>
               </Col>
             )
           })}
