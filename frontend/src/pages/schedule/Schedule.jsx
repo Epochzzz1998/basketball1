@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Avatar, Button, Calendar, Card, Col, DatePicker, Empty, Input, Popconfirm, Row, Segmented, Select, Tag, TimePicker, message } from 'antd'
+import { Avatar, Button, Calendar, Card, Col, DatePicker, Empty, Input, InputNumber, Popconfirm, Popover, Row, Segmented, Select, Tag, TimePicker, message } from 'antd'
 import {
   CalendarOutlined, CheckCircleFilled, CheckCircleOutlined, ClockCircleOutlined,
-  DeleteOutlined, FieldTimeOutlined, LeftOutlined, PlusOutlined, RightOutlined,
+  DeleteOutlined, FieldTimeOutlined, LeftOutlined, PlusOutlined, RetweetOutlined, RightOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { scheduleApi } from '../../api/schedule'
@@ -32,10 +32,32 @@ const ring = (size, pos) => ({
   background: 'rgba(255,255,255,.10)', ...pos,
 })
 
-/** 超时判定：未完成 且 (截止日 或 开始日)+(截止时刻 或 23:59) 已过 */
+/** 超时判定：未完成 且 截止时刻已过。循环任务按"这一次"（occDate）判，单次任务按截止日/开始日判 */
 const isOverdue = (e) => {
   if (e.done) return false
-  return dayjs(`${e.endDate || e.date} ${e.endTime || '23:59'}`, 'YYYY-MM-DD HH:mm').isBefore(dayjs())
+  const d = e.recur ? (e.occDate || e.date) : (e.endDate || e.date)
+  return dayjs(`${d} ${e.endTime || '23:59'}`, 'YYYY-MM-DD HH:mm').isBefore(dayjs())
+}
+
+/** 循环标签："每日 · 至 8/15" / "每周四 · 至 9/10" */
+const recurLabel = (e) => {
+  if (!e.recur) return null
+  const end = dayjs(e.recurEnd).format('M/D')
+  return e.recur === 'day' ? `每日 · 至 ${end}` : `每周${WEEK[dayjs(e.date).day()]} · 至 ${end}`
+}
+
+/** 循环延续弹层：每日按天、每周按周，单次不超上限 */
+function ExtendPop({ e, onExtend }) {
+  const daily = e.recur === 'day'
+  const [n, setN] = useState(daily ? 7 : 4)
+  return (
+    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+      <span style={{ fontSize: 12, color: '#666' }}>延长</span>
+      <InputNumber size="small" min={1} max={daily ? 180 : 24} value={n} onChange={setN} style={{ width: 74 }} />
+      <span style={{ fontSize: 12, color: '#666' }}>{daily ? '天（≤180）' : '周（≤24）'}</span>
+      <Button size="small" type="primary" onClick={() => n && onExtend(e, n)}>确定</Button>
+    </div>
+  )
 }
 
 /** 时间标签：截止任务="7/25 09:00 → 7/28 18:00"；单日区间="09:00 – 11:30"；只有开始="09:00" */
@@ -59,7 +81,7 @@ export default function Schedule() {
   const [events, setEvents] = useState([])
   const [assignees, setAssignees] = useState([])
   // 新增表单
-  const [taskType, setTaskType] = useState('day') // 'day' 单日 | 'deadline' 截止任务
+  const [taskType, setTaskType] = useState('day') // day 单日 | deadline 截止任务 | rday 每日循环 | rweek 每周循环
   const [category, setCategory] = useState(undefined) // 类型：工作/学习/课程/生活/娱乐
   const [title, setTitle] = useState('')
   const [timeRange, setTimeRange] = useState(null) // [dayjs|null, dayjs|null]
@@ -82,10 +104,23 @@ export default function Schedule() {
   useEffect(() => { load() }, [load])
   useEffect(() => { scheduleApi.assignees().then((r) => setAssignees(Array.isArray(r) ? r : [])).catch(() => {}) }, [])
 
-  // 跨天任务铺满起止之间的每一天（防御性上限 62 天）
+  // 跨天任务铺满起止之间的每一天；循环任务按步长展开（日=1、周=7），每次发生带 occDate + 按次完成态
   const byDate = useMemo(() => {
     const m = {}
     for (const e of events) {
+      if (e.recur) {
+        const start = dayjs(e.date)
+        const end = dayjs(e.recurEnd)
+        const step = e.recur === 'day' ? 1 : 7
+        let d = start
+        let guard = 0
+        while (!d.isAfter(end, 'day') && guard++ < 200) {
+          const k = key(d)
+          ;(m[k] = m[k] || []).push({ ...e, occDate: k, done: (e.doneDates || []).includes(k) })
+          d = d.add(step, 'day')
+        }
+        continue
+      }
       const start = dayjs(e.date)
       const end = e.endDate ? dayjs(e.endDate) : start
       let d = start
@@ -104,6 +139,13 @@ export default function Schedule() {
     const t = title.trim()
     if (!t) return message.warning('先写点标题')
     if (taskType === 'deadline' && !deadline) return message.warning('截止任务要选一个截止日期')
+    const recurring = taskType === 'rday' || taskType === 'rweek'
+    if (recurring) {
+      if (!deadline) return message.warning('循环任务必须设置循环截止日期')
+      const span = deadline.diff(selected, 'day')
+      if (taskType === 'rday' && span > 180) return message.warning('每日循环最长 180 天')
+      if (taskType === 'rweek' && span > 168) return message.warning('每周循环最长 24 周')
+    }
     setSaving(true)
     try {
       await scheduleApi.create({
@@ -112,6 +154,8 @@ export default function Schedule() {
         time: timeRange?.[0] ? timeRange[0].format('HH:mm') : undefined,
         endTime: timeRange?.[1] ? timeRange[1].format('HH:mm') : undefined,
         endDate: taskType === 'deadline' && deadline ? key(deadline) : undefined,
+        recur: recurring ? (taskType === 'rday' ? 'day' : 'week') : undefined,
+        recurEnd: recurring && deadline ? key(deadline) : undefined,
         category: category || undefined,
         note: note.trim() || undefined,
         assigneeId: assignee || undefined,
@@ -131,8 +175,23 @@ export default function Schedule() {
 
   const toggleDone = async (e) => {
     try {
-      const res = await scheduleApi.toggleDone(e.eventId)
-      setEvents((list) => list.map((x) => (x.eventId === e.eventId ? { ...x, done: !!res } : x)))
+      const res = await scheduleApi.toggleDone(e.eventId, e.recur ? e.occDate : undefined)
+      if (e.recur) {
+        // 循环任务按次打勾：更新该事件的 doneDates 集合
+        setEvents((list) => list.map((x) => (x.eventId === e.eventId
+          ? { ...x, doneDates: res ? [...(x.doneDates || []), e.occDate] : (x.doneDates || []).filter((d) => d !== e.occDate) }
+          : x)))
+      } else {
+        setEvents((list) => list.map((x) => (x.eventId === e.eventId ? { ...x, done: !!res } : x)))
+      }
+    } catch { /* 拦截器已提示 */ }
+  }
+
+  const extendRecur = async (e, amount) => {
+    try {
+      const newEnd = await scheduleApi.extend(e.eventId, amount)
+      setEvents((list) => list.map((x) => (x.eventId === e.eventId ? { ...x, recurEnd: newEnd } : x)))
+      message.success(`已延续至 ${newEnd}`)
     } catch { /* 拦截器已提示 */ }
   }
 
@@ -186,7 +245,7 @@ export default function Schedule() {
             >
               <span style={{ width: 5, height: 5, borderRadius: '50%', background: c, flexShrink: 0 }} />
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {e.endDate ? '⏳ ' : e.time ? `${e.time} ` : ''}{e.title}
+                {e.recur ? '🔁 ' : e.endDate ? '⏳ ' : e.time ? `${e.time} ` : ''}{e.title}
               </span>
             </div>
           )
@@ -314,18 +373,30 @@ export default function Schedule() {
                           )}
                           {od && <Tag color="red" style={{ marginInlineEnd: 0, lineHeight: '18px' }}>已超时</Tag>}
                         </div>
-                        {tl && (
-                          <div style={{ marginTop: 5 }}>
-                            <span
-                              style={{
-                                display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12,
-                                color: od ? RED_DARK : TEAL_DARK, background: od ? '#ffd8d6' : '#e0f7f5',
-                                borderRadius: 6, padding: '1px 8px',
-                              }}
-                            >
-                              {e.endDate ? <FieldTimeOutlined /> : <ClockCircleOutlined />}
-                              {tl}
-                            </span>
+                        {(tl || e.recur) && (
+                          <div style={{ marginTop: 5, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            {tl && (
+                              <span
+                                style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12,
+                                  color: od ? RED_DARK : TEAL_DARK, background: od ? '#ffd8d6' : '#e0f7f5',
+                                  borderRadius: 6, padding: '1px 8px',
+                                }}
+                              >
+                                {e.endDate ? <FieldTimeOutlined /> : <ClockCircleOutlined />}
+                                {tl}
+                              </span>
+                            )}
+                            {e.recur && (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#531dab', background: '#f9f0ff', border: '1px solid #d3adf7', borderRadius: 6, padding: '0 8px' }}>
+                                <RetweetOutlined />{recurLabel(e)}
+                              </span>
+                            )}
+                            {e.recur && e.mine && (
+                              <Popover trigger="click" content={<ExtendPop e={e} onExtend={extendRecur} />}>
+                                <a style={{ fontSize: 12 }}>延续</a>
+                              </Popover>
+                            )}
                           </div>
                         )}
                         {e.note && <div style={{ fontSize: 12, color: '#8c8c8c', marginTop: 4, whiteSpace: 'pre-wrap' }}>{e.note}</div>}
@@ -365,7 +436,7 @@ export default function Schedule() {
                   size="small"
                   value={taskType}
                   onChange={setTaskType}
-                  options={[{ label: '单日', value: 'day' }, { label: '截止任务', value: 'deadline' }]}
+                  options={[{ label: '单日', value: 'day' }, { label: '截止任务', value: 'deadline' }, { label: '每日循环', value: 'rday' }, { label: '每周循环', value: 'rweek' }]}
                 />
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -402,12 +473,14 @@ export default function Schedule() {
                     onChange={setTimeRange}
                     style={{ flex: 1, minWidth: 170 }}
                   />
-                  {taskType === 'deadline' && (
+                  {taskType !== 'day' && (
                     <DatePicker
-                      placeholder="截止日期"
+                      placeholder={taskType === 'deadline' ? '截止日期' : '循环截止'}
                       value={deadline}
                       onChange={setDeadline}
-                      disabledDate={(d) => d.isBefore(selected, 'day')}
+                      disabledDate={(d) => d.isBefore(taskType === 'deadline' ? selected : selected.add(1, 'day'), 'day')
+                        || (taskType === 'rday' && d.diff(selected, 'day') > 180)
+                        || (taskType === 'rweek' && d.diff(selected, 'day') > 168)}
                       style={{ width: 130, flexShrink: 0 }}
                     />
                   )}
@@ -442,7 +515,9 @@ export default function Schedule() {
               <div style={{ fontSize: 11, color: '#9bd4d0', marginTop: 8 }}>
                 {taskType === 'deadline'
                   ? '截止任务：从这天开始、到截止日期为止（开始时间落在开始日、截止时间落在截止日）；超时未完成会标红并提醒'
-                  : '时间段可选；负责人只能是"我自己或关注我的人"，有负责人的事件当天早 8 点自动提醒'}
+                  : taskType === 'rday' || taskType === 'rweek'
+                    ? `${taskType === 'rday' ? '每天重复（最长 180 天）' : `每周${WEEK[selected.day()]}重复（最长 24 周）`}，必须设循环截止日；每一次单独打勾；结束前一天早 8 点会提醒延续`
+                    : '时间段可选；负责人只能是"我自己或关注我的人"，有负责人的事件当天早 8 点自动提醒'}
               </div>
             </div>
           </Card>

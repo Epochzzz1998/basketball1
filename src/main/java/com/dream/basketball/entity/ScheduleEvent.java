@@ -44,6 +44,18 @@ public class ScheduleEvent extends Model<ScheduleEvent> implements Serializable 
     @TableField("OVERDUE_NOTIFIED")
     private String overdueNotified;
 
+    /** recurrence: 'day' | 'week' (same weekday as EVENT_DATE) | null = one-off */
+    @TableField("RECUR")
+    private String recur;
+
+    /** last day of the recurrence window (required when RECUR set; extendable) */
+    @TableField("RECUR_END")
+    private String recurEnd;
+
+    /** '1' = the day-before "循环即将结束" notice has been sent (reset on extend) */
+    @TableField("EXPIRY_NOTIFIED")
+    private String expiryNotified;
+
     /** optional category: 工作/学习/课程/生活/娱乐 (whitelisted at create) */
     @TableField("CATEGORY")
     private String category;
@@ -123,6 +135,30 @@ public class ScheduleEvent extends Model<ScheduleEvent> implements Serializable 
 
     public void setOverdueNotified(String overdueNotified) {
         this.overdueNotified = overdueNotified;
+    }
+
+    public String getRecur() {
+        return recur;
+    }
+
+    public void setRecur(String recur) {
+        this.recur = recur;
+    }
+
+    public String getRecurEnd() {
+        return recurEnd;
+    }
+
+    public void setRecurEnd(String recurEnd) {
+        this.recurEnd = recurEnd;
+    }
+
+    public String getExpiryNotified() {
+        return expiryNotified;
+    }
+
+    public void setExpiryNotified(String expiryNotified) {
+        this.expiryNotified = expiryNotified;
     }
 
     public String getCategory() {

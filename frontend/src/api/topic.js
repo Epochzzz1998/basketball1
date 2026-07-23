@@ -26,6 +26,9 @@ export const topicApi = {
   members: (topicId) => http.get('/topic/members', { params: { topicId } }),
   setMember: (payload) => http.post('/topic/setMember', form(payload)),
   removeMember: (topicId, userId) => http.post('/topic/removeMember', form({ topicId, userId })),
+  // 订阅/取消订阅（toggle，仅已加入的专题）；mySubscriptions 供侧栏折叠菜单
+  subscribe: (topicId) => http.post('/topic/subscribe', form({ topicId })),
+  mySubscriptions: () => http.get('/topic/mySubscriptions'),
   // 申请加入
   apply: (topicId, message) => http.post('/topic/apply', form({ topicId, message })),
   requests: (topicId) => http.get('/topic/requests', { params: { topicId } }),

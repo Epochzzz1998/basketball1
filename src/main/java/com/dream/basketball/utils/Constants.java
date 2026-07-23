@@ -51,6 +51,9 @@ public class Constants {
     /** a schedule event passed its deadline without being done (one-shot) */
     public static final String SCHEDULE_OVERDUE = "scheduleOverdue";
 
+    /** a recurring schedule event ends tomorrow — extend it if still needed (one-shot, reset on extend) */
+    public static final String SCHEDULE_EXPIRY = "scheduleExpiry";
+
     /** someone applied to join your topic (to the topic owner) */
     public static final String TOPIC_APPLY = "topicApply";
 

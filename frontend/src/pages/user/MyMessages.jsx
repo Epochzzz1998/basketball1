@@ -15,7 +15,7 @@ const COMMENT_TYPES = ['goodComment', 'badComment', 'commentComment', 'mentionCo
 // 专题类消息 msgId=专题 id，点进去跳专题页
 const TOPIC_TYPES = ['topicApply', 'topicApproved', 'topicRejected']
 // 日程类：remind 的 msgId=日期；assign 的 msgId=事件id、msgIdSecond=日期。点进日历对应那天（顺便标已读）
-const SCHEDULE_TYPES = ['scheduleAssign', 'scheduleRemind', 'scheduleOverdue']
+const SCHEDULE_TYPES = ['scheduleAssign', 'scheduleRemind', 'scheduleOverdue', 'scheduleExpiry']
 const newsIdOf = (m) => (COMMENT_TYPES.includes(m.msgType) ? m.msgIdSecond : m.msgId)
 // 点击一条消息去哪：专题类→专题页，其余→帖子详情。都带 userInformationId 顺便标已读
 const linkOf = (m) =>
@@ -49,6 +49,7 @@ const actionTextOf = (m) => {
     case 'scheduleAssign': return '给你指派了一条日程'
     case 'scheduleRemind': return '' // operatorName 即「日程提醒」，短语留空避免重复
     case 'scheduleOverdue': return ''
+    case 'scheduleExpiry': return ''
     default: return m.contentMsg || ''
   }
 }
@@ -70,6 +71,7 @@ const detailOf = (m) => {
     case 'scheduleAssign': return `日程：${s(m.content)} ｜ 点击查看当天日历`
     case 'scheduleRemind': return s(m.content)
     case 'scheduleOverdue': return `⚠️ ${s(m.content)}`
+    case 'scheduleExpiry': return `⏳ ${s(m.content)}`
     default: return `原帖：${s(m.content)}` // goodNews / badNews
   }
 }

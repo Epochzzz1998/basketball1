@@ -32,6 +32,9 @@ public class ScheduleReminderJob {
     @Autowired
     private UserInformationService userInformationService;
 
+    @Autowired
+    private com.dream.basketball.mapper.ScheduleRecurDoneMapper recurDoneMapper;
+
     private String nowStr(String pattern) {
         SimpleDateFormat fmt = new SimpleDateFormat(pattern);
         fmt.setTimeZone(TimeZone.getTimeZone("Australia/Melbourne"));
@@ -42,11 +45,39 @@ public class ScheduleReminderJob {
         String today = nowStr("yyyy-MM-dd");
         // 单日任务在开始日提醒；截止任务在截止日提醒（那才是要命的日子）
         List<ScheduleEvent> events = eventMapper.selectList(new QueryWrapper<ScheduleEvent>()
-                .isNotNull("ASSIGNEE_ID")
+                .isNotNull("ASSIGNEE_ID").isNull("RECUR")
                 .and(w -> w.isNull("DONE").or().ne("DONE", "1"))
                 .and(w -> w.isNull("REMINDED").or().ne("REMINDED", "1"))
                 .and(w -> w.eq("END_DATE", today).or(x -> x.isNull("END_DATE").eq("EVENT_DATE", today)))
                 .orderByAsc("EVENT_TIME", "CREATE_TIME"));
+        // 循环任务：今天在窗口内（每周的要星期对上）且今天这一次还没打勾 → 每个发生日都进当日摘要
+        List<ScheduleEvent> recurCandidates = eventMapper.selectList(new QueryWrapper<ScheduleEvent>()
+                .isNotNull("ASSIGNEE_ID").isNotNull("RECUR")
+                .le("EVENT_DATE", today).ge("RECUR_END", today)
+                .orderByAsc("EVENT_TIME", "CREATE_TIME"));
+        if (!recurCandidates.isEmpty()) {
+            List<String> rids = new ArrayList<>();
+            for (ScheduleEvent e : recurCandidates) {
+                rids.add(e.getEventId());
+            }
+            Set<String> doneToday = new HashSet<>();
+            for (com.dream.basketball.entity.ScheduleRecurDone d : recurDoneMapper.selectList(
+                    new QueryWrapper<com.dream.basketball.entity.ScheduleRecurDone>()
+                            .in("EVENT_ID", rids).eq("DONE_DATE", today))) {
+                doneToday.add(d.getEventId());
+            }
+            java.time.DayOfWeek todayDow = java.time.LocalDate.parse(today).getDayOfWeek();
+            for (ScheduleEvent e : recurCandidates) {
+                if (doneToday.contains(e.getEventId())) {
+                    continue;
+                }
+                if ("week".equals(e.getRecur())
+                        && java.time.LocalDate.parse(e.getEventDate()).getDayOfWeek() != todayDow) {
+                    continue;
+                }
+                events.add(e);
+            }
+        }
         if (events.isEmpty()) {
             return;
         }
@@ -84,16 +115,41 @@ public class ScheduleReminderJob {
         }
         List<String> ids = new ArrayList<>();
         for (ScheduleEvent e : events) {
-            ids.add(e.getEventId());
+            if (StringUtils.isBlank(e.getRecur())) { // 循环任务每天都可能要提醒，不打一次性标记
+                ids.add(e.getEventId());
+            }
         }
-        eventMapper.update(null, new UpdateWrapper<ScheduleEvent>().in("EVENT_ID", ids).set("REMINDED", "1"));
+        if (!ids.isEmpty()) {
+            eventMapper.update(null, new UpdateWrapper<ScheduleEvent>().in("EVENT_ID", ids).set("REMINDED", "1"));
+        }
     }
 
-    /** 每天 8 点先发当日摘要，再补超时通知（不再高频扫描：超时后到下一个早八点还没完成才提醒） */
+    /** 循环任务"明天到期"提醒（发创建者，一次性；延续后标记重置可再次触发） */
+    public void remindExpiry() {
+        String tomorrow = java.time.LocalDate.parse(nowStr("yyyy-MM-dd")).plusDays(1).toString();
+        List<ScheduleEvent> expiring = eventMapper.selectList(new QueryWrapper<ScheduleEvent>()
+                .isNotNull("RECUR").eq("RECUR_END", tomorrow)
+                .and(w -> w.isNull("EXPIRY_NOTIFIED").or().ne("EXPIRY_NOTIFIED", "1")));
+        if (expiring.isEmpty()) {
+            return;
+        }
+        List<String> ids = new ArrayList<>();
+        for (ScheduleEvent e : expiring) {
+            String text = "「" + e.getTitle() + "」的" + ("day".equals(e.getRecur()) ? "每日循环" : "每周循环")
+                    + "将于明天（" + tomorrow + "）结束，如需继续请前往日程页点「延续」";
+            userInformationService.saveUserInformation("", "日程提醒", e.getOwnerId(),
+                    Constants.SCHEDULE_EXPIRY, tomorrow, "", "", "", text, "");
+            ids.add(e.getEventId());
+        }
+        eventMapper.update(null, new UpdateWrapper<ScheduleEvent>().in("EVENT_ID", ids).set("EXPIRY_NOTIFIED", "1"));
+    }
+
+    /** 每天 8 点：当日摘要 → 超时通知 → 循环"明天到期"提醒 */
     @Scheduled(cron = "0 0 8 * * ?", zone = "Australia/Melbourne")
     public void dailyRun() {
         remindToday();
         scanOverdue();
+        remindExpiry();
     }
 
     public void scanOverdue() {
@@ -101,6 +157,7 @@ public class ScheduleReminderJob {
         String nowTime = nowStr("HH:mm");
         // 粗筛（未完成、未通知过、已开始）后在 Java 里精判截止时刻——表小，清晰优先
         List<ScheduleEvent> candidates = eventMapper.selectList(new QueryWrapper<ScheduleEvent>()
+                .isNull("RECUR") // 循环任务不吃超时通知（按次打卡，漏一次不轰炸）
                 .and(w -> w.isNull("DONE").or().ne("DONE", "1"))
                 .and(w -> w.isNull("OVERDUE_NOTIFIED").or().ne("OVERDUE_NOTIFIED", "1"))
                 .le("EVENT_DATE", today));

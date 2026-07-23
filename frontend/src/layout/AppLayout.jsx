@@ -5,6 +5,7 @@ import {
   ArrowLeftOutlined,
   BellOutlined,
   CalendarOutlined,
+  CaretRightOutlined,
   MessageOutlined,
   ReloadOutlined,
   SwapOutlined,
@@ -25,6 +26,7 @@ import { useAuth } from '../auth/AuthContext'
 import GlobalSearch from '../components/GlobalSearch'
 import { userInformationApi } from '../api/userInformation'
 import { pmApi } from '../api/pm'
+import { topicApi } from '../api/topic'
 import { connectPmSocket, disconnectPmSocket } from '../realtime/pmSocket'
 import useIsMobile from '../hooks/useIsMobile'
 
@@ -46,6 +48,9 @@ export default function AppLayout() {
   const [pmUnread, setPmUnread] = useState(0)
   // 受控折叠：移动端默认收起（抽屉关闭）；点菜单项后主动收回抽屉（ProLayout 默认不收）
   const [collapsed, setCollapsed] = useState(typeof window !== 'undefined' && window.innerWidth < 768)
+  // 订阅的专题（侧栏独立折叠区，默认展开）
+  const [subs, setSubs] = useState([])
+  const [subsOpen, setSubsOpen] = useState(true)
 
   // 未读数：登录后取一次，路由变化轻量刷新；'unread-changed' 事件（如一键已读后）立即刷新；
   // 私信未读另走一路：'pm-event'（WS 推送到达）和 'pm-unread-changed'（聊天页标已读后）触发
@@ -78,6 +83,24 @@ export default function AppLayout() {
       window.removeEventListener('pm-unread-changed', fetchPmUnread)
     }
   }, [user, location.pathname])
+
+  // 订阅的专题：登录拉一次；订阅/取消订阅后各页派发 'subs-changed' 事件刷新
+  useEffect(() => {
+    if (!user) {
+      setSubs([])
+      return
+    }
+    let alive = true
+    const fetchSubs = () => {
+      topicApi.mySubscriptions().then((r) => { if (alive) setSubs(Array.isArray(r) ? r : []) }).catch(() => {})
+    }
+    fetchSubs()
+    window.addEventListener('subs-changed', fetchSubs)
+    return () => {
+      alive = false
+      window.removeEventListener('subs-changed', fetchSubs)
+    }
+  }, [user])
 
   // 私信 WebSocket 跟随登录态：登录建立连接，登出断开
   useEffect(() => {
@@ -173,6 +196,47 @@ export default function AppLayout() {
       route={route}
       collapsed={collapsed}
       onCollapse={setCollapsed}
+      // 常规菜单下方追加"订阅的专题"折叠区：橙色主题卡片，与功能菜单明显区分；侧栏收起时隐藏
+      menuContentRender={(menuProps, defaultDom) => (
+        <>
+          {defaultDom}
+          {user && subs.length > 0 && !collapsed && (
+            <div style={{ margin: '6px 12px 14px', paddingTop: 10, borderTop: '1px dashed #f0f0f0' }}>
+              <div
+                onClick={() => setSubsOpen((o) => !o)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none', padding: '2px 6px', fontSize: 12, fontWeight: 700, color: '#d46b08' }}
+              >
+                <CaretRightOutlined style={{ transform: subsOpen ? 'rotate(90deg)' : 'none', transition: 'transform .15s', fontSize: 10 }} />
+                订阅的专题
+                <span style={{ color: '#d9a05f', fontWeight: 400 }}>({subs.length})</span>
+              </div>
+              {subsOpen && (
+                <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2, background: '#fffaf3', border: '1px solid #ffe7ba', borderRadius: 10, padding: '6px 4px' }}>
+                  {subs.map((t) => {
+                    const active = location.pathname === `/news/topic/${t.topicId}`
+                    return (
+                      <div
+                        key={t.topicId}
+                        onClick={() => { navigate(`/news/topic/${t.topicId}`); if (isMobile) setCollapsed(true) }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', borderRadius: 8,
+                          cursor: 'pointer', fontSize: 13,
+                          color: active ? '#d4380d' : '#595959',
+                          background: active ? '#fff1e6' : 'transparent',
+                          fontWeight: active ? 600 : 400,
+                        }}
+                      >
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#fa8c16', flexShrink: 0 }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
       menuItemRender={(item, dom) => {
         if (!item.path) return dom
         // 移动端：点完菜单项自动把抽屉收回去

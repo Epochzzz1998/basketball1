@@ -44,6 +44,9 @@ public class ScheduleController {
     @Autowired
     private UserInformationService userInformationService;
 
+    @Autowired
+    private com.dream.basketball.mapper.ScheduleRecurDoneMapper recurDoneMapper;
+
     private boolean validDate(String d) {
         return d != null && d.matches("^\\d{4}-\\d{2}-\\d{2}$");
     }
@@ -76,7 +79,8 @@ public class ScheduleController {
         String monthEnd = month + "-31";
         List<ScheduleEvent> events = eventMapper.selectList(new QueryWrapper<ScheduleEvent>()
                 .le("EVENT_DATE", monthEnd)
-                .and(w -> w.ge("END_DATE", monthStart).or(x -> x.isNull("END_DATE").ge("EVENT_DATE", monthStart)))
+                .and(w -> w.ge("END_DATE", monthStart).or().ge("RECUR_END", monthStart)
+                        .or(x -> x.isNull("END_DATE").isNull("RECUR_END").ge("EVENT_DATE", monthStart)))
                 .and(w -> w.eq("OWNER_ID", me.getUserId()).or().eq("ASSIGNEE_ID", me.getUserId()))
                 .orderByAsc("EVENT_DATE", "EVENT_TIME", "CREATE_TIME"));
         // 批量取相关用户（创建者 + 负责人）的昵称/头像
@@ -93,6 +97,20 @@ public class ScheduleController {
                 users.put(u.getUserId(), u);
             }
         }
+        // 循环事件的"按次完成"记录一把批查
+        List<String> recurIds = new ArrayList<>();
+        for (ScheduleEvent e : events) {
+            if (StringUtils.isNotBlank(e.getRecur())) {
+                recurIds.add(e.getEventId());
+            }
+        }
+        Map<String, List<String>> doneDates = new HashMap<>();
+        if (!recurIds.isEmpty()) {
+            for (com.dream.basketball.entity.ScheduleRecurDone d : recurDoneMapper.selectList(
+                    new QueryWrapper<com.dream.basketball.entity.ScheduleRecurDone>().in("EVENT_ID", recurIds))) {
+                doneDates.computeIfAbsent(d.getEventId(), (k) -> new ArrayList<>()).add(d.getDoneDate());
+            }
+        }
         List<Map<String, Object>> out = new ArrayList<>();
         for (ScheduleEvent e : events) {
             Map<String, Object> m = new HashMap<>();
@@ -102,6 +120,11 @@ public class ScheduleController {
             m.put("endDate", e.getEndDate());
             m.put("endTime", e.getEndTime());
             m.put("category", e.getCategory());
+            m.put("recur", e.getRecur());
+            m.put("recurEnd", e.getRecurEnd());
+            if (StringUtils.isNotBlank(e.getRecur())) {
+                m.put("doneDates", doneDates.getOrDefault(e.getEventId(), new ArrayList<>()));
+            }
             m.put("title", e.getTitle());
             m.put("note", e.getNote());
             m.put("done", "1".equals(e.getDone()));
@@ -156,7 +179,7 @@ public class ScheduleController {
     @RequiresRole(Role.USER)
     @PostMapping("/create")
     public Object create(String date, String time, String endTime, String endDate, String title, String note,
-                         String category, String assigneeId, HttpServletRequest request) {
+                         String category, String assigneeId, String recur, String recurEnd, HttpServletRequest request) {
         DreamUser me = SecUtil.getLoginUserToSession(request);
         if (!validDate(date)) {
             return new Result<>(1, "日期格式应为 yyyy-MM-dd", null);
@@ -193,6 +216,33 @@ public class ScheduleController {
         if (ed == null && tm != null && etm != null && etm.compareTo(tm) <= 0) {
             return new Result<>(1, "结束时间要晚于开始时间", null);
         }
+        // 循环：day/week 二选一；必须给循环截止日；与"截止任务"互斥；上限 180 天 / 24 周
+        String rc = StringUtils.trimToNull(recur);
+        String rcEnd = StringUtils.trimToNull(recurEnd);
+        if (rc != null) {
+            if (!"day".equals(rc) && !"week".equals(rc)) {
+                return new Result<>(1, "循环类型只能是每日或每周", null);
+            }
+            if (ed != null) {
+                return new Result<>(1, "循环任务不能同时是截止任务", null);
+            }
+            if (rcEnd == null || !validDate(rcEnd)) {
+                return new Result<>(1, "循环任务必须设置循环截止日期", null);
+            }
+            if (rcEnd.compareTo(date) <= 0) {
+                return new Result<>(1, "循环截止日期要晚于开始日期", null);
+            }
+            long span = java.time.temporal.ChronoUnit.DAYS.between(
+                    java.time.LocalDate.parse(date), java.time.LocalDate.parse(rcEnd));
+            if ("day".equals(rc) && span > 180) {
+                return new Result<>(1, "每日循环最长 180 天", null);
+            }
+            if ("week".equals(rc) && span > 24 * 7) {
+                return new Result<>(1, "每周循环最长 24 周", null);
+            }
+        } else {
+            rcEnd = null;
+        }
         String assignee = StringUtils.trimToNull(assigneeId);
         if (assignee != null) {
             if (userMapper.selectById(assignee) == null) {
@@ -217,6 +267,8 @@ public class ScheduleController {
         // 类型白名单：工作/学习/课程/生活/娱乐，非法值一律置空
         String cat = StringUtils.trimToNull(category);
         e.setCategory(cat != null && CATEGORIES.contains(cat) ? cat : null);
+        e.setRecur(rc);
+        e.setRecurEnd(rcEnd);
         e.setTitle(t);
         e.setNote(n);
         e.setAssigneeId(assignee);
@@ -230,6 +282,9 @@ public class ScheduleController {
             } else if (etm != null) {
                 when += "-" + etm;
             }
+            if (rc != null) {
+                when += ("day".equals(rc) ? "，每日循环" : "，每周循环") + "至 " + rcEnd;
+            }
             userInformationService.saveUserInformation(me.getUserId(), me.getUserNickname(), assignee,
                     Constants.SCHEDULE_ASSIGN, e.getEventId(), date, "", "",
                     (e.getCategory() == null ? "" : "【" + e.getCategory() + "】") + t + "（" + when + "）", "");
@@ -237,10 +292,10 @@ public class ScheduleController {
         return new Result<>(0, "已添加", e.getEventId());
     }
 
-    /** 标记完成/取消完成（创建者或负责人）。 */
+    /** 标记完成/取消完成（创建者或负责人）。循环任务按"哪一天"打勾（date 必传），互不影响。 */
     @RequiresRole(Role.USER)
     @PostMapping("/toggleDone")
-    public Object toggleDone(String eventId, HttpServletRequest request) {
+    public Object toggleDone(String eventId, String date, HttpServletRequest request) {
         DreamUser me = SecUtil.getLoginUserToSession(request);
         ScheduleEvent e = StringUtils.isBlank(eventId) ? null : eventMapper.selectById(eventId);
         if (e == null) {
@@ -250,10 +305,57 @@ public class ScheduleController {
                 && !StringUtils.equals(e.getAssigneeId(), me.getUserId())) {
             return new Result<>(1, "只有创建者或负责人可以操作", null);
         }
+        if (StringUtils.isNotBlank(e.getRecur())) {
+            String d = StringUtils.trimToNull(date);
+            if (d == null || !validDate(d)) {
+                return new Result<>(1, "循环任务要指定打勾的日期", null);
+            }
+            QueryWrapper<com.dream.basketball.entity.ScheduleRecurDone> q =
+                    new QueryWrapper<com.dream.basketball.entity.ScheduleRecurDone>()
+                            .eq("EVENT_ID", eventId).eq("DONE_DATE", d);
+            if (recurDoneMapper.selectCount(q) > 0) {
+                recurDoneMapper.delete(q);
+                return new Result<>(0, "已取消完成", false);
+            }
+            com.dream.basketball.entity.ScheduleRecurDone row = new com.dream.basketball.entity.ScheduleRecurDone();
+            row.setId(UUID.randomUUID().toString());
+            row.setEventId(eventId);
+            row.setDoneDate(d);
+            recurDoneMapper.insert(row);
+            return new Result<>(0, "已完成", true);
+        }
         boolean nowDone = !"1".equals(e.getDone());
         e.setDone(nowDone ? "1" : null);
         eventMapper.updateById(e);
         return new Result<>(0, nowDone ? "已完成" : "已取消完成", nowDone);
+    }
+
+    /** 延续循环（仅创建者）：每日循环按天、每周循环按周，单次延续不超过 180 天 / 24 周；顺带重置"即将结束"提醒。 */
+    @RequiresRole(Role.USER)
+    @PostMapping("/extend")
+    public Object extend(String eventId, Integer amount, HttpServletRequest request) {
+        DreamUser me = SecUtil.getLoginUserToSession(request);
+        ScheduleEvent e = StringUtils.isBlank(eventId) ? null : eventMapper.selectById(eventId);
+        if (e == null) {
+            return new Result<>(1, "事件不存在", null);
+        }
+        if (!StringUtils.equals(e.getOwnerId(), me.getUserId())) {
+            return new Result<>(1, "只有创建者可以延续", null);
+        }
+        if (StringUtils.isBlank(e.getRecur())) {
+            return new Result<>(1, "只有循环任务可以延续", null);
+        }
+        boolean daily = "day".equals(e.getRecur());
+        int max = daily ? 180 : 24;
+        if (amount == null || amount < 1 || amount > max) {
+            return new Result<>(1, daily ? "延续天数需为 1-180" : "延续周数需为 1-24", null);
+        }
+        java.time.LocalDate newEnd = java.time.LocalDate.parse(e.getRecurEnd())
+                .plusDays(daily ? amount : amount * 7L);
+        e.setRecurEnd(newEnd.toString());
+        e.setExpiryNotified(null);
+        eventMapper.updateById(e);
+        return new Result<>(0, "已延续至 " + newEnd, newEnd.toString());
     }
 
     /** 删事件（创建者或超管）。 */
@@ -269,6 +371,7 @@ public class ScheduleController {
         if (!isSuper && !StringUtils.equals(e.getOwnerId(), me.getUserId())) {
             return new Result<>(1, "只有创建者可以删除", null);
         }
+        recurDoneMapper.delete(new QueryWrapper<com.dream.basketball.entity.ScheduleRecurDone>().eq("EVENT_ID", eventId));
         eventMapper.deleteById(eventId);
         return new Result<>(0, "已删除", null);
     }

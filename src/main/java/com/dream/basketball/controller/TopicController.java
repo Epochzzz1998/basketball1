@@ -39,6 +39,8 @@ public class TopicController {
     @Autowired
     private ForumTopicMapper topicMapper;
     @Autowired
+    private com.dream.basketball.mapper.TopicSubscriptionMapper subscriptionMapper;
+    @Autowired
     private ForumTopicMemberMapper memberMapper;
     @Autowired
     private TopicPermissionService perms;
@@ -139,6 +141,12 @@ public class TopicController {
         m.put("canComment", perms.canComment(me, t));
         boolean manage = perms.canManage(me, t);
         m.put("canManage", manage);
+        // 订阅：只有"已加入"（成员或管理者）能订阅；joined/subscribed 供专题横幅的订阅按钮
+        boolean joined = me != null && (manage || perms.isMember(me, t));
+        m.put("joined", joined);
+        m.put("subscribed", me != null && subscriptionMapper.selectCount(
+                new QueryWrapper<com.dream.basketball.entity.TopicSubscription>()
+                        .eq("USER_ID", me.getUserId()).eq("TOPIC_ID", t.getTopicId())) > 0);
         m.put("locked", !perms.canView(me, t));
         // 管理者看待审批数；申请人看自己是否申请中
         if (manage) {
@@ -325,6 +333,7 @@ public class TopicController {
             return new Result<>(1, "该专题下还有 " + posts + " 篇帖子，请先清空再删除", null);
         }
         memberMapper.delete(new QueryWrapper<ForumTopicMember>().eq("TOPIC_ID", topicId));
+        subscriptionMapper.delete(new QueryWrapper<com.dream.basketball.entity.TopicSubscription>().eq("TOPIC_ID", topicId));
         topicMapper.deleteById(topicId);
         return new Result<>(0, "已删除", null);
     }
@@ -391,6 +400,57 @@ public class TopicController {
             memberMapper.insert(m);
         }
         return new Result<>(0, "已保存", null);
+    }
+
+    // ===== 订阅（侧栏快捷入口；只能订阅已加入的专题） =====
+
+    /** 订阅/取消订阅（toggle）。返回最新 subscribed 状态。 */
+    @RequiresRole(Role.USER)
+    @PostMapping("/subscribe")
+    public Object subscribe(String topicId, HttpServletRequest request) {
+        DreamUser me = SecUtil.getLoginUserToSession(request);
+        ForumTopic t = perms.getTopic(topicId);
+        if (t == null) {
+            return new Result<>(1, "专题不存在", null);
+        }
+        if (!(perms.canManage(me, t) || perms.isMember(me, t))) {
+            return new Result<>(1, "先加入该专题才能订阅", null);
+        }
+        QueryWrapper<com.dream.basketball.entity.TopicSubscription> q =
+                new QueryWrapper<com.dream.basketball.entity.TopicSubscription>()
+                        .eq("USER_ID", me.getUserId()).eq("TOPIC_ID", topicId);
+        if (subscriptionMapper.selectCount(q) > 0) {
+            subscriptionMapper.delete(q);
+            return new Result<>(0, "已取消订阅", false);
+        }
+        com.dream.basketball.entity.TopicSubscription sub = new com.dream.basketball.entity.TopicSubscription();
+        sub.setId(UUID.randomUUID().toString());
+        sub.setUserId(me.getUserId());
+        sub.setTopicId(topicId);
+        sub.setCreateTime(new Date());
+        subscriptionMapper.insert(sub);
+        return new Result<>(0, "已订阅", true);
+    }
+
+    /** 我订阅的专题（侧栏折叠菜单用）：[{topicId, name}]，按订阅先后。 */
+    @RequiresRole(Role.USER)
+    @GetMapping("/mySubscriptions")
+    public Object mySubscriptions(HttpServletRequest request) {
+        DreamUser me = SecUtil.getLoginUserToSession(request);
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (com.dream.basketball.entity.TopicSubscription sub : subscriptionMapper.selectList(
+                new QueryWrapper<com.dream.basketball.entity.TopicSubscription>()
+                        .eq("USER_ID", me.getUserId()).orderByAsc("CREATE_TIME"))) {
+            ForumTopic t = topicMapper.selectById(sub.getTopicId());
+            if (t == null) {
+                continue; // 专题已删，跳过（行留着无害）
+            }
+            Map<String, Object> m = new HashMap<>();
+            m.put("topicId", t.getTopicId());
+            m.put("name", t.getName());
+            out.add(m);
+        }
+        return new Result<>(0, "成功", out);
     }
 
     // ===== 申请加入 =====
