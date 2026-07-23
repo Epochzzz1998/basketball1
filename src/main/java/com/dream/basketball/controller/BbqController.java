@@ -121,8 +121,9 @@ public class BbqController {
             DreamUser by = users.get(s.getAddedBy());
             m.put("addedByName", by == null ? null : by.getUserNickname());
             m.put("addTime", s.getAddTime());
+            // rate prefill = latest record that actually had a shift (skewer-only rows carry rate 0)
             BbqWageRecord last = wageMapper.selectList(new QueryWrapper<BbqWageRecord>()
-                    .eq("USER_ID", s.getUserId()).orderByDesc("WORK_DATE").last("limit 1"))
+                    .eq("USER_ID", s.getUserId()).gt("HOURLY_RATE", 0).orderByDesc("WORK_DATE").last("limit 1"))
                     .stream().findFirst().orElse(null);
             m.put("lastRate", last == null ? null : last.getHourlyRate());
             out.add(m);
@@ -459,12 +460,20 @@ public class BbqController {
         if (!validDate(workDate)) {
             return new Result<>(1, "日期格式应为 yyyy-MM-dd", null);
         }
-        if (!validTime(startTime) || !validTime(endTime)) {
-            return new Result<>(1, "时间格式应为 HH:mm", null);
-        }
-        BigDecimal rate = parseMoney(hourlyRate);
-        if (rate == null || rate.compareTo(BigDecimal.ZERO) <= 0 || rate.compareTo(RATE_MAX) > 0) {
-            return new Result<>(1, "时薪需在 0.01-999.99 之间", null);
+        // work time is an optional all-or-none group — skewer-only folks legitimately have no shift
+        String st = StringUtils.trimToNull(startTime);
+        String et = StringUtils.trimToNull(endTime);
+        String rateStr = StringUtils.trimToNull(hourlyRate);
+        boolean hasWork = st != null || et != null || rateStr != null;
+        BigDecimal rate = BigDecimal.ZERO;
+        if (hasWork) {
+            if (!validTime(st) || !validTime(et)) {
+                return new Result<>(1, "工时的上下班时间格式应为 HH:mm", null);
+            }
+            rate = parseMoney(rateStr);
+            if (rate == null || rate.compareTo(BigDecimal.ZERO) <= 0 || rate.compareTo(RATE_MAX) > 0) {
+                return new Result<>(1, "时薪需在 0.01-999.99 之间", null);
+            }
         }
         BigDecimal ded = StringUtils.isBlank(deduct) ? BigDecimal.ZERO : parseMoney(deduct);
         if (ded == null || ded.compareTo(BigDecimal.ZERO) < 0 || ded.compareTo(MONEY_MAX) > 0) {
@@ -477,7 +486,7 @@ public class BbqController {
         if (reason != null && reason.length() > DEDUCT_REASON_MAX) {
             return new Result<>(1, "扣款原因不能超过 " + DEDUCT_REASON_MAX + " 字", null);
         }
-        boolean ate = "1".equals(meal);
+        boolean ate = hasWork && "1".equals(meal);
 
         BbqWageRecord r;
         if (StringUtils.isNotBlank(recordId)) {
@@ -559,16 +568,21 @@ public class BbqController {
                 skewerPay = skewerPay.add(priceSnap.multiply(BigDecimal.valueOf(num)));
             }
         }
-        // shift minutes: end<=start means past midnight; meal knocks 15min off paid time
-        int startMin = toMinutes(startTime);
-        int endMin = toMinutes(endTime);
-        int worked = endMin - startMin;
-        if (worked <= 0) {
-            worked += 24 * 60;
+        // a record must have SOMETHING on it — a shift, skewer work, or both
+        if (!hasWork && lines.isEmpty()) {
+            return new Result<>(1, "工时和穿串至少要填一样", null);
         }
-        int paidMinutes = Math.max(0, worked - (ate ? MEAL_MINUTES : 0));
-        BigDecimal base = rate.multiply(BigDecimal.valueOf(paidMinutes))
-                .divide(BigDecimal.valueOf(60), 2, RoundingMode.HALF_UP);
+        // shift minutes: end<=start means past midnight; meal knocks 15min off paid time
+        BigDecimal base = BigDecimal.ZERO;
+        if (hasWork) {
+            int worked = toMinutes(et) - toMinutes(st);
+            if (worked <= 0) {
+                worked += 24 * 60;
+            }
+            int paidMinutes = Math.max(0, worked - (ate ? MEAL_MINUTES : 0));
+            base = rate.multiply(BigDecimal.valueOf(paidMinutes))
+                    .divide(BigDecimal.valueOf(60), 2, RoundingMode.HALF_UP);
+        }
         BigDecimal total = base.subtract(ded).add(skewerPay);
         // one record per person per day (self excluded when editing)
         QueryWrapper<BbqWageRecord> dup = new QueryWrapper<BbqWageRecord>()
@@ -581,8 +595,8 @@ public class BbqController {
         }
         r.setUserId(userId);
         r.setWorkDate(workDate);
-        r.setStartTime(startTime);
-        r.setEndTime(endTime);
+        r.setStartTime(hasWork ? st : null);
+        r.setEndTime(hasWork ? et : null);
         r.setHourlyRate(rate);
         r.setMeal(ate ? "1" : null);
         r.setDeduct(ded);
@@ -842,11 +856,14 @@ public class BbqController {
                 m.put("total", BigDecimal.ZERO);
                 return m;
             });
-            int worked = toMinutes(r.getEndTime()) - toMinutes(r.getStartTime());
-            if (worked <= 0) {
-                worked += 24 * 60;
+            int paid = 0;
+            if (StringUtils.isNotBlank(r.getStartTime()) && StringUtils.isNotBlank(r.getEndTime())) {
+                int worked = toMinutes(r.getEndTime()) - toMinutes(r.getStartTime());
+                if (worked <= 0) {
+                    worked += 24 * 60;
+                }
+                paid = Math.max(0, worked - ("1".equals(r.getMeal()) ? MEAL_MINUTES : 0));
             }
-            int paid = Math.max(0, worked - ("1".equals(r.getMeal()) ? MEAL_MINUTES : 0));
             u.put("days", (Integer) u.get("days") + 1);
             u.put("minutes", (Integer) u.get("minutes") + paid);
             u.put("base", ((BigDecimal) u.get("base")).add(base));
@@ -872,13 +889,16 @@ public class BbqController {
         }
         Map<String, List<BbqWageSkewer>> linesByRecord = new HashMap<>();
         Map<String, Integer> countByName = new LinkedHashMap<>();
+        Map<String, BigDecimal> amountByName = new HashMap<>();
         if (!periodRecordIds.isEmpty()) {
             for (BbqWageSkewer w : wageSkewerMapper.selectList(new QueryWrapper<BbqWageSkewer>().in("RECORD_ID", periodRecordIds))) {
                 linesByRecord.computeIfAbsent(w.getRecordId(), (k) -> new ArrayList<>()).add(w);
                 countByName.merge(w.getNameSnap(), w.getNum(), Integer::sum);
+                amountByName.merge(w.getNameSnap(), w.getPriceSnap().multiply(BigDecimal.valueOf(w.getNum())), BigDecimal::add);
             }
         }
-        // X axis = kinds actually entered in this period (snapshot names), most-strung first
+        // X axis = kinds actually entered in this period (snapshot names), most-strung first;
+        // amount rides along for the 详情 modal (pieces + money per kind)
         List<Map<String, Object>> skewerStats = new ArrayList<>();
         countByName.entrySet().stream()
                 .sorted((a, b) -> b.getValue().compareTo(a.getValue()))
@@ -886,6 +906,7 @@ public class BbqController {
                     Map<String, Object> m = new HashMap<>();
                     m.put("name", e.getKey());
                     m.put("num", e.getValue());
+                    m.put("amount", amountByName.getOrDefault(e.getKey(), BigDecimal.ZERO));
                     skewerStats.add(m);
                 });
         List<Map<String, Object>> daily = new ArrayList<>();

@@ -45,6 +45,8 @@ export default function BbqWage() {
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState(null) // 编辑中的记录（null=新增）
   const [fUser, setFUser] = useState(null)
+  // 工时是可选块（有人只穿串不上班）：点「添加工时」才展开，只能有一块
+  const [hasWork, setHasWork] = useState(false)
   const [fRate, setFRate] = useState(null)
   const [fStart, setFStart] = useState(null) // dayjs
   const [fEnd, setFEnd] = useState(null)
@@ -96,6 +98,7 @@ export default function BbqWage() {
   const openCreate = () => {
     setEditing(null)
     setFUser(null)
+    setHasWork(false)
     setFRate(null)
     setFStart(null)
     setFEnd(null)
@@ -109,10 +112,12 @@ export default function BbqWage() {
   const openEdit = (r) => {
     setEditing(r)
     setFUser(r.userId)
-    setFRate(Number(r.hourlyRate))
-    setFStart(dayjs(`2000-01-01 ${r.startTime}`))
-    setFEnd(dayjs(`2000-01-01 ${r.endTime}`))
-    setFMeal(!!r.meal)
+    const worked = !!r.startTime
+    setHasWork(worked)
+    setFRate(worked ? Number(r.hourlyRate) : null)
+    setFStart(worked ? dayjs(`2000-01-01 ${r.startTime}`) : null)
+    setFEnd(worked ? dayjs(`2000-01-01 ${r.endTime}`) : null)
+    setFMeal(worked ? !!r.meal : false)
     setFDeduct(Number(r.deduct) > 0 ? Number(r.deduct) : null)
     setFReason(r.deductReason || '')
     setFLines((r.skewers || []).map((s, i) => ({ key: `${i}`, typeId: s.typeId, num: s.num })))
@@ -149,35 +154,45 @@ export default function BbqWage() {
     return opts
   }, [types, snapPrices])
 
-  // ===== 实时预览（后端为准，这里同步演算） =====
+  // ===== 实时预览（后端为准，这里同步演算）：工时块和穿串各自可缺席 =====
   const preview = useMemo(() => {
-    if (!fRate || !fStart || !fEnd) return null
-    const raw = shiftMin(fStart.format('HH:mm'), fEnd.format('HH:mm'))
-    const paid = Math.max(0, raw - (fMeal ? 15 : 0))
-    const base = Math.round((fRate * paid) / 60 * 100) / 100
+    const workReady = hasWork && fRate && fStart && fEnd
     const skewer = fLines.reduce((s, l) => s + (l.typeId && l.num ? priceOf(l.typeId) * l.num : 0), 0)
     const ded = Number(fDeduct || 0)
-    return { raw, paid, base, skewer, ded, total: base + skewer - ded }
-  }, [fRate, fStart, fEnd, fMeal, fDeduct, fLines, types, snapPrices]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!workReady && skewer <= 0) return null
+    let raw = 0
+    let paid = 0
+    let base = 0
+    if (workReady) {
+      raw = shiftMin(fStart.format('HH:mm'), fEnd.format('HH:mm'))
+      paid = Math.max(0, raw - (fMeal ? 15 : 0))
+      base = Math.round((fRate * paid) / 60 * 100) / 100
+    }
+    return { workReady, raw, paid, base, skewer, ded, total: base + skewer - ded }
+  }, [hasWork, fRate, fStart, fEnd, fMeal, fDeduct, fLines, types, snapPrices]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ===== 保存/删除 =====
   const doSave = async () => {
     if (!fUser) return message.info('先选店员')
-    if (!(fRate > 0)) return message.info('时薪要大于 0')
-    if (!fStart || !fEnd) return message.info('把上下班时刻填完整')
-    if (fDeduct > 0 && !fReason.trim()) return message.info('有扣款必须写明原因')
+    if (hasWork) {
+      if (!(fRate > 0)) return message.info('时薪要大于 0')
+      if (!fStart || !fEnd) return message.info('把上下班时刻填完整（不上班就删掉工时块）')
+    }
     const badLine = fLines.find((l) => !l.typeId || !(l.num > 0))
     if (badLine) return message.info('穿串每行都要选串并填串数（不需要的行请删掉）')
+    if (!hasWork && fLines.length === 0) return message.info('工时和穿串至少要填一样')
+    if (fDeduct > 0 && !fReason.trim()) return message.info('有扣款必须写明原因')
     setSaving(true)
     try {
       await bbqApi.wageSave({
         recordId: editing?.recordId,
         userId: fUser,
         workDate: dateStr,
-        startTime: fStart.format('HH:mm'),
-        endTime: fEnd.format('HH:mm'),
-        hourlyRate: Number(fRate).toFixed(2),
-        meal: fMeal ? '1' : '0',
+        // 工时块没加 = 只穿串：时间/时薪/吃饭全不传
+        startTime: hasWork ? fStart.format('HH:mm') : undefined,
+        endTime: hasWork ? fEnd.format('HH:mm') : undefined,
+        hourlyRate: hasWork ? Number(fRate).toFixed(2) : undefined,
+        meal: hasWork && fMeal ? '1' : undefined,
         deduct: fDeduct > 0 ? Number(fDeduct).toFixed(2) : undefined,
         deductReason: fDeduct > 0 ? fReason.trim() : undefined,
         skewers: fLines.length ? JSON.stringify(fLines.map((l) => ({ typeId: l.typeId, num: l.num }))) : undefined,
@@ -391,10 +406,16 @@ export default function BbqWage() {
                         )}
                       </div>
                       <div style={{ color: '#8c8c8c', fontSize: 12, marginTop: 6, lineHeight: 1.8 }}>
-                        {r.startTime}–{overnight(r.startTime, r.endTime) ? `次日${r.endTime}` : r.endTime}
-                        （{fmtDur(shiftMin(r.startTime, r.endTime))}）
-                        · 时薪 {money(r.hourlyRate)}
-                        {r.meal && <span> · 吃饭 −15分钟</span>}
+                        {r.startTime ? (
+                          <>
+                            {r.startTime}–{overnight(r.startTime, r.endTime) ? `次日${r.endTime}` : r.endTime}
+                            （{fmtDur(shiftMin(r.startTime, r.endTime))}）
+                            · 时薪 {money(r.hourlyRate)}
+                            {r.meal && <span> · 吃饭 −15分钟</span>}
+                          </>
+                        ) : (
+                          <span>仅穿串（没有工时）</span>
+                        )}
                         {Number(r.skewerPay) > 0 && (
                           <div style={{ color: AMBER_DARK }}>
                             穿串 +{money(r.skewerPay)}
@@ -449,28 +470,46 @@ export default function BbqWage() {
             />
           </div>
 
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <div>
-              <div style={{ fontSize: 13, color: '#666', marginBottom: 6 }}>时薪（$/小时）</div>
-              <InputNumber value={fRate} onChange={setFRate} min={0.01} max={999.99} step={0.5} precision={2} prefix="$" style={{ width: 140 }} />
-            </div>
-            <div>
-              <div style={{ fontSize: 13, color: '#666', marginBottom: 6 }}>上班 – 下班</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <TimePicker value={fStart} onChange={setFStart} format="HH:mm" minuteStep={5} placeholder="开始" style={{ width: 96 }} />
-                <span style={{ color: '#bbb' }}>–</span>
-                <TimePicker value={fEnd} onChange={setFEnd} format="HH:mm" minuteStep={5} placeholder="结束" style={{ width: 96 }} />
-              </div>
-              {fStart && fEnd && overnight(fStart.format('HH:mm'), fEnd.format('HH:mm')) && (
-                <div style={{ fontSize: 12, color: AMBER_DARK, marginTop: 4 }}>结束早于开始，按「干到次日」计算</div>
+          {/* 工时块：可选、只能一块（有人只穿串不上班）——和穿串一样点按钮才展开 */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 13, color: '#666' }}>工时</span>
+              {!hasWork ? (
+                <>
+                  <Button size="small" type="dashed" icon={<PlusOutlined />} onClick={() => setHasWork(true)}>添加工时</Button>
+                  <span style={{ fontSize: 12, color: '#999' }}>只穿串不上班就不用加</span>
+                </>
+              ) : (
+                <Button size="small" type="text" danger onClick={() => { setHasWork(false); setFMeal(false) }}>删除工时</Button>
               )}
             </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 13, color: '#666' }}>吃饭</span>
-            <Switch checked={fMeal} onChange={setFMeal} size="small" />
-            <span style={{ fontSize: 12, color: '#999' }}>吃了扣 15 分钟工时</span>
+            {hasWork && (
+              <div style={{ marginTop: 8, background: '#fffdf5', border: '1px dashed #ffe58f', borderRadius: 10, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  <div>
+                    <div style={{ fontSize: 13, color: '#666', marginBottom: 6 }}>时薪（$/小时）</div>
+                    <InputNumber value={fRate} onChange={setFRate} min={0.01} max={999.99} step={0.5} precision={2} prefix="$" style={{ width: 140 }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, color: '#666', marginBottom: 6 }}>上班 – 下班</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {/* inputReadOnly：禁手输，移动端不弹键盘（弹起来页面又能滑动，乱） */}
+                      <TimePicker value={fStart} onChange={setFStart} format="HH:mm" minuteStep={5} placeholder="开始" style={{ width: 96 }} inputReadOnly />
+                      <span style={{ color: '#bbb' }}>–</span>
+                      <TimePicker value={fEnd} onChange={setFEnd} format="HH:mm" minuteStep={5} placeholder="结束" style={{ width: 96 }} inputReadOnly />
+                    </div>
+                    {fStart && fEnd && overnight(fStart.format('HH:mm'), fEnd.format('HH:mm')) && (
+                      <div style={{ fontSize: 12, color: AMBER_DARK, marginTop: 4 }}>结束早于开始，按「干到次日」计算</div>
+                    )}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 13, color: '#666' }}>吃饭</span>
+                  <Switch checked={fMeal} onChange={setFMeal} size="small" />
+                  <span style={{ fontSize: 12, color: '#999' }}>吃了扣 15 分钟工时</span>
+                </div>
+              </div>
+            )}
           </div>
 
           <div>
@@ -520,11 +559,13 @@ export default function BbqWage() {
             )}
           </div>
 
-          {/* 实时预览（以后端计算为准） */}
+          {/* 实时预览（以后端计算为准）：只穿串时没有"工时→基本"那一段 */}
           {preview && (
             <div style={{ background: '#fffbe6', border: '1px solid #ffe58f', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#8c6d1f', lineHeight: 1.9 }}>
-              工时 {fmtDur(preview.raw)}{fMeal ? `（吃饭 −15分钟，按 ${fmtDur(preview.paid)} 计）` : ''} → 基本 {money(preview.base)}
-              {preview.skewer > 0 && <> + 穿串 {money(preview.skewer)}</>}
+              {preview.workReady && (
+                <>工时 {fmtDur(preview.raw)}{fMeal ? `（吃饭 −15分钟，按 ${fmtDur(preview.paid)} 计）` : ''} → 基本 {money(preview.base)}</>
+              )}
+              {preview.skewer > 0 && <>{preview.workReady ? ' + ' : ''}穿串 {money(preview.skewer)}</>}
               {preview.ded > 0 && <span style={{ color: '#cf1322' }}> − 扣款 {money(preview.ded)}</span>}
               <span style={{ fontWeight: 800, marginLeft: 8 }}>= {money(preview.total)}</span>
             </div>
@@ -546,7 +587,7 @@ export default function BbqWage() {
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 13, color: '#666', fontWeight: 600 }}>结清到哪一天（含当天）</span>
-          <DatePicker value={settleDate} onChange={changeSettleDate} allowClear={false} />
+          <DatePicker value={settleDate} onChange={changeSettleDate} allowClear={false} inputReadOnly />
         </div>
         <div style={{ color: '#999', fontSize: 13, marginBottom: 10 }}>
           结算范围：{filterIds.length > 0 ? '当前筛选的店员' : '所有有未结清账的人（含已离店的）'}，

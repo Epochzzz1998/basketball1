@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Avatar, Button, Card, Col, Empty, Row, Spin, Tag } from 'antd'
+import { Avatar, Button, Card, Col, Empty, Modal, Row, Spin, Tag } from 'antd'
 import { FireOutlined, LeftOutlined, RightOutlined, UserOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { bbqApi } from '../../api/bbq'
@@ -138,6 +138,7 @@ export default function BbqLedger() {
   const [month, setMonth] = useState(dayjs())
   const [week, setWeek] = useState(mondayOf(dayjs())) // 周一锚点
   const [data, setData] = useState(null)
+  const [skewerDetailOpen, setSkewerDetailOpen] = useState(false)
 
   const monthStr = month.format('YYYY-MM')
   const weekFrom = week.format('YYYY-MM-DD')
@@ -282,11 +283,14 @@ export default function BbqLedger() {
               >
                 <BarChart bars={bars} isMobile={isMobile} />
               </Card>
-              {/* 穿串统计：纵轴串数、横轴实际录入过的串种 */}
+              {/* 穿串统计：纵轴串数、横轴实际录入过的串种；右上角详情=数量+金额明细表 */}
               <Card
                 title={`穿串统计（${periodLabel} · 串数）`}
                 style={{ borderRadius: 16, marginTop: 16 }}
                 styles={{ body: { padding: isMobile ? '12px 10px' : '16px 18px' } }}
+                extra={skewerBars.length > 0 && (
+                  <a onClick={() => setSkewerDetailOpen(true)} style={{ color: AMBER, fontSize: 13, fontWeight: 600 }}>详情</a>
+                )}
               >
                 {skewerBars.length === 0 ? (
                   <Empty description={`${periodLabel}还没有穿串记录`} image={Empty.PRESENTED_IMAGE_SIMPLE} style={{ padding: '10px 0' }} />
@@ -363,10 +367,16 @@ export default function BbqLedger() {
                         <span style={{ fontWeight: 800, fontSize: 15, color: AMBER_DARK }}>{money(r.total)}</span>
                       </div>
                       <div style={{ color: '#8c8c8c', fontSize: 12, marginTop: 5, lineHeight: 1.8 }}>
-                        {r.startTime}–{toMin(r.endTime) <= toMin(r.startTime) ? `次日${r.endTime}` : r.endTime}
-                        （{fmtDur(shiftMin(r.startTime, r.endTime))}）
-                        · 时薪 {money(r.hourlyRate)}
-                        {r.meal && <span> · 吃饭 −15分钟</span>}
+                        {r.startTime ? (
+                          <>
+                            {r.startTime}–{toMin(r.endTime) <= toMin(r.startTime) ? `次日${r.endTime}` : r.endTime}
+                            （{fmtDur(shiftMin(r.startTime, r.endTime))}）
+                            · 时薪 {money(r.hourlyRate)}
+                            {r.meal && <span> · 吃饭 −15分钟</span>}
+                          </>
+                        ) : (
+                          <span>仅穿串（没有工时）</span>
+                        )}
                         {Number(r.skewerPay) > 0 && (
                           <div style={{ color: AMBER_DARK }}>
                             穿串 +{money(r.skewerPay)}
@@ -383,6 +393,36 @@ export default function BbqLedger() {
           )}
         </>
       )}
+
+      {/* 穿串详情：每种串的数量 + 金额（按录入时的快照价），底部合计 */}
+      <Modal
+        title={`穿串详情（${periodLabel}）`}
+        open={skewerDetailOpen}
+        onCancel={() => setSkewerDetailOpen(false)}
+        footer={null}
+        width={isMobile ? '100%' : 420}
+      >
+        <div style={{ display: 'flex', color: '#999', fontSize: 12, padding: '4px 2px 8px', borderBottom: '1px solid #f0f0f0' }}>
+          <span style={{ flex: 1 }}>串</span>
+          <span style={{ width: 90, textAlign: 'right' }}>串数</span>
+          <span style={{ width: 100, textAlign: 'right' }}>金额</span>
+        </div>
+        {(data?.skewers || []).map((s) => (
+          <div key={s.name} style={{ display: 'flex', alignItems: 'center', padding: '9px 2px', borderBottom: '1px solid #fafafa', fontSize: 13 }}>
+            <span style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: AMBER, flexShrink: 0 }} />
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</span>
+            </span>
+            <span style={{ width: 90, textAlign: 'right', fontWeight: 650 }}>{s.num} 串</span>
+            <span style={{ width: 100, textAlign: 'right', color: AMBER_DARK, fontWeight: 700 }}>{money(s.amount)}</span>
+          </div>
+        ))}
+        <div style={{ display: 'flex', alignItems: 'center', padding: '10px 2px 2px', fontWeight: 800 }}>
+          <span style={{ flex: 1, fontSize: 13, color: '#666' }}>合计</span>
+          <span style={{ width: 90, textAlign: 'right' }}>{(data?.skewers || []).reduce((s, x) => s + Number(x.num || 0), 0)} 串</span>
+          <span style={{ width: 100, textAlign: 'right', color: AMBER_DARK }}>{money((data?.skewers || []).reduce((s, x) => s + Number(x.amount || 0), 0))}</span>
+        </div>
+      </Modal>
     </>
   )
 }

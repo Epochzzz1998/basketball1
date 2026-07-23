@@ -482,6 +482,7 @@ export default function Schedule() {
                       ),
                     }))}
                   />
+                  {/* inputReadOnly：禁手输，移动端不弹软键盘（弹起来页面跟着能滑，乱） */}
                   <TimePicker.RangePicker
                     placeholder={taskType === 'deadline' ? ['开始时间', '截止时间'] : ['开始', '结束']}
                     format="HH:mm"
@@ -491,6 +492,7 @@ export default function Schedule() {
                     value={timeRange}
                     onChange={setTimeRange}
                     style={{ flex: 1, minWidth: 170 }}
+                    inputReadOnly
                   />
                   {taskType !== 'day' && (
                     <DatePicker
@@ -501,6 +503,7 @@ export default function Schedule() {
                         || (taskType === 'rday' && d.diff(selected, 'day') > 180)
                         || (taskType === 'rweek' && d.diff(selected, 'day') > 168)}
                       style={{ width: 130, flexShrink: 0 }}
+                      inputReadOnly
                     />
                   )}
                 </div>
