@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Avatar, Button, Card, Empty, Modal, Popconfirm, Select, Spin, Tag, message } from 'antd'
 import { CrownFilled, FireOutlined, PlusOutlined, UserOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
+import { useNavigate } from 'react-router-dom'
 import { bbqApi } from '../../api/bbq'
 import { useAuth } from '../../auth/AuthContext'
 import useIsMobile from '../../hooks/useIsMobile'
@@ -18,6 +19,7 @@ const AMBER_DARK = '#ad6800'
 
 export default function BbqMembers() {
   const { user, dn } = useAuth()
+  const navigate = useNavigate()
   const isMobile = useIsMobile()
   const [rows, setRows] = useState(null)
   const [addOpen, setAddOpen] = useState(false)
@@ -99,7 +101,15 @@ export default function BbqMembers() {
                     borderTop: i === 0 ? 'none' : '1px solid #f5f5f5', flexWrap: isMobile ? 'wrap' : 'nowrap',
                   }}
                 >
-                  <Avatar size={40} src={r.avatar || undefined} icon={r.avatar ? undefined : <UserOutlined />} />
+                  {/* 点头像进 TA 的个人主页 */}
+                  <Avatar
+                    size={40}
+                    src={r.avatar || undefined}
+                    icon={r.avatar ? undefined : <UserOutlined />}
+                    style={{ cursor: 'pointer', flexShrink: 0 }}
+                    title="进入个人主页"
+                    onClick={() => navigate(`/users/${r.userId}`)}
+                  />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <span style={{ fontWeight: 700, fontSize: 15 }}>{dn(r.userId, r.userNickname)}</span>
