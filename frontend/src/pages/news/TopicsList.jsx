@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Button, Card, Col, Empty, Popconfirm, Row, Spin, Tag, message } from 'antd'
+import { Badge, Button, Card, Col, Empty, Popconfirm, Row, Spin, Tag, message} from 'antd'
 import {
   DeleteOutlined, EditOutlined, EyeInvisibleOutlined, LockOutlined, PlusOutlined, RightOutlined, TeamOutlined, UnlockOutlined,
 } from '@ant-design/icons'
@@ -85,7 +85,11 @@ export default function TopicsList() {
                 >
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 17, fontWeight: 800, ...clamp(1) }}>{t.name}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                        <span style={{ fontSize: 17, fontWeight: 800, ...clamp(1), minWidth: 0 }}>{t.name}</span>
+                        {/* 新活动红点（公开或已订阅的专题；进过专题后从上次访问起累计他人发帖+评论） */}
+                        {t.newCount > 0 && <Badge count={t.newCount} size="small" style={{ flexShrink: 0 }} />}
+                      </div>
                       <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         {priv
                           ? <Tag icon={<LockOutlined />} color="default" style={{ marginInlineEnd: 0 }}>私密</Tag>

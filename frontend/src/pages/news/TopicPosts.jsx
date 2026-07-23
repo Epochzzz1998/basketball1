@@ -31,6 +31,14 @@ export default function TopicPosts() {
 
   useEffect(() => { load() }, [load])
 
+  // 进专题即打卡：红点归零（侧栏订阅区的数字随 'subs-changed' 刷新）；未登录静默失败
+  useEffect(() => {
+    if (!topicId) return
+    topicApi.markSeen(topicId)
+      .then(() => window.dispatchEvent(new Event('subs-changed')))
+      .catch(() => {})
+  }, [topicId])
+
   const isMobile = useIsMobile()
 
   if (loading) return <div style={{ textAlign: 'center', padding: 80 }}><Spin size="large" /></div>

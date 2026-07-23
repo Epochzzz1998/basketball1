@@ -41,6 +41,10 @@ public class TopicController {
     @Autowired
     private com.dream.basketball.mapper.TopicSubscriptionMapper subscriptionMapper;
     @Autowired
+    private com.dream.basketball.mapper.TopicSeenMapper seenMapper;
+    @Autowired
+    private com.dream.basketball.mapper.DreamNewsCommentMapper newsCommentMapper;
+    @Autowired
     private ForumTopicMemberMapper memberMapper;
     @Autowired
     private TopicPermissionService perms;
@@ -66,13 +70,36 @@ public class TopicController {
         }
         List<ForumTopic> topics = topicMapper.selectList(
                 new QueryWrapper<ForumTopic>().orderByAsc("SORT").orderByAsc("CREATE_TIME"));
+        // 红点数据：我的 seen 时间 + 我的订阅集合（一把批查）
+        Map<String, Date> seenMap = new HashMap<>();
+        Set<String> subscribedIds = new HashSet<>();
+        if (me != null) {
+            for (com.dream.basketball.entity.TopicSeen ts : seenMapper.selectList(
+                    new QueryWrapper<com.dream.basketball.entity.TopicSeen>().eq("USER_ID", me.getUserId()))) {
+                seenMap.put(ts.getTopicId(), ts.getLastSeen());
+            }
+            for (com.dream.basketball.entity.TopicSubscription sub : subscriptionMapper.selectList(
+                    new QueryWrapper<com.dream.basketball.entity.TopicSubscription>().eq("USER_ID", me.getUserId()))) {
+                subscribedIds.add(sub.getTopicId());
+            }
+        }
         List<Map<String, Object>> out = new ArrayList<>();
         for (ForumTopic t : topics) {
             // 不可见专题（LISTED='0'）：仅题主/管理员/已加入成员能在列表看到，其余人跳过
             if ("0".equals(t.getListed()) && !perms.canManage(me, t) && !perms.isMember(me, t)) {
                 continue;
             }
-            out.add(topicView(t, me));
+            Map<String, Object> view = topicView(t, me);
+            // 新活动红点：只在公开专题或我订阅的专题上展示；首次访问前不计
+            int newCount = 0;
+            if (me != null && (!TopicPermissionService.PRIVATE.equals(t.getVisibility()) || subscribedIds.contains(t.getTopicId()))) {
+                Date seen = seenMap.get(t.getTopicId());
+                if (seen != null) {
+                    newCount = newActivityCount(t.getTopicId(), seen, me.getUserId());
+                }
+            }
+            view.put("newCount", newCount);
+            out.add(view);
         }
         return new Result<>(0, "成功", out);
     }
@@ -93,6 +120,21 @@ public class TopicController {
             userInformationService.updateInformationRead(userInformationId);
         }
         return new Result<>(0, "成功", topicView(t, SecUtil.getLoginUserToSession(request)));
+    }
+
+    /**
+     * 上次访问后的新活动数（他人的发帖 + 评论各 +1；隐藏帖/墓碑评论不算）。
+     * 没有 seen 记录 = 0（首次进专题才开始跟踪，避免新用户看到吓人的大数字）。
+     */
+    private int newActivityCount(String topicId, Date seen, String myId) {
+        Integer posts = dreamNewsMapper.selectCount(new QueryWrapper<DreamNews>()
+                .eq("TOPIC_ID", topicId).ne("AUTHOR_ID", myId).gt("PUBLISH_DATE", seen)
+                .and(w -> w.isNull("HIDDEN").or().ne("HIDDEN", "1")));
+        Integer comments = newsCommentMapper.selectCount(new QueryWrapper<com.dream.basketball.entity.DreamNewsComment>()
+                .inSql("NEWS_ID", "SELECT NEWS_ID FROM dream_news WHERE TOPIC_ID = '" + topicId + "'")
+                .ne("USER_ID", myId).gt("COMMENT_DATE", seen)
+                .and(w -> w.isNull("DELETED").or().ne("DELETED", "1")));
+        return (posts == null ? 0 : posts) + (comments == null ? 0 : comments);
     }
 
     /** 一条专题 + 权限位 + owner 名 + 帖数，供列表/详情复用。 */
@@ -438,6 +480,11 @@ public class TopicController {
     public Object mySubscriptions(HttpServletRequest request) {
         DreamUser me = SecUtil.getLoginUserToSession(request);
         List<Map<String, Object>> out = new ArrayList<>();
+        Map<String, Date> seenMap = new HashMap<>();
+        for (com.dream.basketball.entity.TopicSeen ts : seenMapper.selectList(
+                new QueryWrapper<com.dream.basketball.entity.TopicSeen>().eq("USER_ID", me.getUserId()))) {
+            seenMap.put(ts.getTopicId(), ts.getLastSeen());
+        }
         for (com.dream.basketball.entity.TopicSubscription sub : subscriptionMapper.selectList(
                 new QueryWrapper<com.dream.basketball.entity.TopicSubscription>()
                         .eq("USER_ID", me.getUserId()).orderByAsc("CREATE_TIME"))) {
@@ -448,9 +495,36 @@ public class TopicController {
             Map<String, Object> m = new HashMap<>();
             m.put("topicId", t.getTopicId());
             m.put("name", t.getName());
+            Date seen = seenMap.get(t.getTopicId());
+            m.put("newCount", seen == null ? 0 : newActivityCount(t.getTopicId(), seen, me.getUserId()));
             out.add(m);
         }
         return new Result<>(0, "成功", out);
+    }
+
+    /** 进入专题页时打卡"已看到此刻"：红点归零、之后的新发帖/评论重新累计。 */
+    @RequiresRole(Role.USER)
+    @PostMapping("/markSeen")
+    public Object markSeen(String topicId, HttpServletRequest request) {
+        DreamUser me = SecUtil.getLoginUserToSession(request);
+        if (perms.getTopic(topicId) == null) {
+            return new Result<>(1, "专题不存在", null);
+        }
+        com.dream.basketball.entity.TopicSeen row = seenMapper.selectOne(
+                new QueryWrapper<com.dream.basketball.entity.TopicSeen>()
+                        .eq("USER_ID", me.getUserId()).eq("TOPIC_ID", topicId));
+        if (row == null) {
+            row = new com.dream.basketball.entity.TopicSeen();
+            row.setId(UUID.randomUUID().toString());
+            row.setUserId(me.getUserId());
+            row.setTopicId(topicId);
+            row.setLastSeen(new Date());
+            seenMapper.insert(row);
+        } else {
+            row.setLastSeen(new Date());
+            seenMapper.updateById(row);
+        }
+        return new Result<>(0, "成功", null);
     }
 
     // ===== 申请加入 =====

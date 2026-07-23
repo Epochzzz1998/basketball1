@@ -29,6 +29,8 @@ export const topicApi = {
   // 订阅/取消订阅（toggle，仅已加入的专题）；mySubscriptions 供侧栏折叠菜单
   subscribe: (topicId) => http.post('/topic/subscribe', form({ topicId })),
   mySubscriptions: () => http.get('/topic/mySubscriptions'),
+  // 进专题页打卡：红点归零（发帖/评论的新活动从此刻重新累计）
+  markSeen: (topicId) => http.post('/topic/markSeen', form({ topicId })),
   // 申请加入
   apply: (topicId, message) => http.post('/topic/apply', form({ topicId, message })),
   requests: (topicId) => http.get('/topic/requests', { params: { topicId } }),

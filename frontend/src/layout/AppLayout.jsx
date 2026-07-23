@@ -100,7 +100,7 @@ export default function AppLayout() {
       alive = false
       window.removeEventListener('subs-changed', fetchSubs)
     }
-  }, [user])
+  }, [user, location.pathname])
 
   // 私信 WebSocket 跟随登录态：登录建立连接，登出断开
   useEffect(() => {
@@ -232,7 +232,8 @@ export default function AppLayout() {
                         }}
                       >
                         <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#fa8c16', flexShrink: 0 }} />
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</span>
+                        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</span>
+                        {t.newCount > 0 && <Badge count={t.newCount} size="small" style={{ flexShrink: 0 }} />}
                       </div>
                     )
                   })}
