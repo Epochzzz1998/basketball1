@@ -99,11 +99,7 @@ export default function UserManageDetail() {
 
   return (
     <>
-      <Button type="link" icon={<ArrowLeftOutlined />} onClick={() => navigate('/admin/users')} style={{ paddingLeft: 0, marginBottom: 8 }}>
-        返回用户列表
-      </Button>
-
-      {/* 身份卡 */}
+      {/* 身份卡（返回走外层布局的全局返回按钮） */}
       <Card style={{ borderRadius: 12, marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           {data.avatar
