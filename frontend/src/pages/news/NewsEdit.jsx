@@ -118,22 +118,28 @@ export default function NewsEdit() {
         <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入标题' }]}>
           <Input placeholder="请输入标题" maxLength={100} showCount />
         </Form.Item>
-        <Space size="large" wrap>
+        {/* 作者 + 标签：移动端标签独占一整行（Space 里 minWidth:100% 不生效，空 Select 会坍缩成一个字宽） */}
+        <div style={{ display: 'flex', columnGap: 24, flexWrap: 'wrap' }}>
           <Form.Item name="author" label="作者" tooltip="当前登录用户，不可修改">
             <Input disabled style={{ width: 160 }} />
           </Form.Item>
-          <Form.Item name="tags" label="标签" tooltip="输入后回车添加，可自定义；也可从推荐里选" style={{ minWidth: isMobile ? '100%' : 320 }}>
+          <Form.Item
+            name="tags"
+            label="标签"
+            tooltip="输入后回车添加，可自定义；也可从推荐里选"
+            style={{ flex: 1, minWidth: isMobile ? '100%' : 320 }}
+          >
             <Select
               mode="tags"
               allowClear
               placeholder="输入标签回车添加，可自定义（如 讨论、公告、求助）"
-              style={{ minWidth: isMobile ? '100%' : 320 }}
+              style={{ width: '100%' }}
               tokenSeparators={[',', '，', ' ']}
               maxTagCount={8}
               options={TAG_SUGGESTIONS.map((t) => ({ label: t, value: t }))}
             />
           </Form.Item>
-        </Space>
+        </div>
         {/* 开启打分（可选，仅新帖）：填了对象即在主贴挂一个 1-5 星打分项；之后楼主还能在评论区继续开 */}
         {/* 开启打分（可选，仅新帖）：默认只是一个按钮，点开才出填写卡；收起即放弃并清空 */}
         {!isEdit && (

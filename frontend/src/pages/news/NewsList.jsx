@@ -340,7 +340,7 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
               <Card style={{ borderRadius: 14 }} styles={{ body: { padding: '18px 20px' } }}>
                 <div style={{ fontWeight: 700, fontSize: 15 }}>{official ? '发布新闻' : '有想说的？'}</div>
                 <div style={{ fontSize: 13, color: '#8c8c8c', margin: '6px 0 14px' }}>
-                  {official ? '面向全站的权威发布（管理员）' : '聊比赛、聊球员、聊数据，发一帖和大家讨论'}
+                  {official ? '面向全站的权威发布（管理员）' : '畅聊一切，发一帖让大家看到你的想法！'}
                 </div>
                 <Button
                   type="primary"
@@ -367,6 +367,36 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
           </div>
         </Col>
       </Row>
+
+      {/* 移动端：发帖按钮固定在屏幕底部（新用户不用翻到页尾找入口）；占位块防止最后的内容被盖住。PC 端不变 */}
+      {isMobile && canPost && (
+        <>
+          <div style={{ height: 68 }} />
+          <div
+            style={{
+              position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 100,
+              padding: '10px 16px calc(10px + env(safe-area-inset-bottom))',
+              background: 'linear-gradient(transparent, rgba(255,255,255,.94) 45%)',
+              pointerEvents: 'none',
+            }}
+          >
+            <Button
+              type="primary"
+              block
+              size="large"
+              icon={<EditOutlined />}
+              onClick={goPost}
+              style={{
+                pointerEvents: 'auto', borderRadius: 999, fontWeight: 600, height: 44,
+                boxShadow: official ? '0 4px 16px rgba(47,84,235,.35)' : '0 4px 16px rgba(250,84,28,.35)',
+                ...(official ? { background: '#2f54eb', borderColor: '#2f54eb' } : {}),
+              }}
+            >
+              {official ? '发布新闻' : user ? '发帖' : '登录后发帖'}
+            </Button>
+          </div>
+        </>
+      )}
 
       {isTopic && topic.canManage && (
         <TopicMemberModal topicId={topicId} open={memberOpen} onClose={() => setMemberOpen(false)} onChange={onApplied} />
