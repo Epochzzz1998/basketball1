@@ -104,15 +104,18 @@ function PostCard({ post, topicOwnerIds }) {
             {excerpt}
           </div>
         )}
-        {/* 底部：标签 + 点赞/评论 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, fontSize: 12, color: '#999', flexWrap: 'wrap' }}>
-          {String(post.tags || '').split(',').map((t) => t.trim()).filter(Boolean).slice(0, 4).map((t) => (
-            <Tag key={t} style={{ marginInlineEnd: 0 }} bordered={false}>{t}</Tag>
-          ))}
-          <span style={{ flex: 1, minWidth: 8 }} />
-          <span><LikeOutlined /> {post.goodNum ?? 0}</span>
-          <span><MessageOutlined /> {post.commentNum ?? 0}</span>
-          <span><StarOutlined /> {post.favoriteCount ?? 0}</span>
+        {/* 底部：标签（超宽裁剪不换行）+ 点赞/评论/收藏（永远一行在右） */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, fontSize: 12, color: '#999' }}>
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
+            {String(post.tags || '').split(',').map((t) => t.trim()).filter(Boolean).slice(0, 4).map((t) => (
+              <Tag key={t} style={{ marginInlineEnd: 0, flexShrink: 0 }} bordered={false}>{t}</Tag>
+            ))}
+          </div>
+          <span style={{ flexShrink: 0, display: 'inline-flex', gap: 10, whiteSpace: 'nowrap' }}>
+            <span><LikeOutlined /> {post.goodNum ?? 0}</span>
+            <span><MessageOutlined /> {post.commentNum ?? 0}</span>
+            <span><StarOutlined /> {post.favoriteCount ?? 0}</span>
+          </span>
         </div>
       </div>
       {cover && (
