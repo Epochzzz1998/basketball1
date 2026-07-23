@@ -51,6 +51,9 @@ public class Constants {
     /** your topic join request was rejected (to the applicant) */
     public static final String TOPIC_REJECTED = "topicRejected";
 
+    /** someone followed you (msgId = the follower's userId, click through to their profile) */
+    public static final String FOLLOW = "follow";
+
     public static final String TO_READ = "toRead";
 
     public static final String READ = "read";

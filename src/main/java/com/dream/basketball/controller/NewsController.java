@@ -63,6 +63,8 @@ public class NewsController extends BaseUtils {
     private com.dream.basketball.mapper.ForumRatingItemMapper ratingItemMapper;
     @Autowired
     private com.dream.basketball.mapper.ForumRatingVoteMapper ratingVoteMapper;
+    @Autowired
+    private com.dream.basketball.mapper.NewsFavoriteMapper favoriteMapper;
 
     @Autowired
     private com.dream.basketball.config.UserPermService userPerms;
@@ -170,6 +172,14 @@ public class NewsController extends BaseUtils {
         data.put("level", level);
         data.put("anchorId", StringUtils.isNotBlank(anchorId) ? anchorId : NO_ANCHOR);
         data.put("canManage", canManagePost(viewer, news)); // 能否给该帖置顶/加精
+        // 收藏状态 + 收藏数（登录才有 favorited）
+        if (news != null) {
+            data.put("favoriteCount", favoriteMapper.selectCount(
+                    new QueryWrapper<com.dream.basketball.entity.NewsFavorite>().eq("NEWS_ID", news.getNewsId())));
+            data.put("favorited", viewer != null && favoriteMapper.selectCount(
+                    new QueryWrapper<com.dream.basketball.entity.NewsFavorite>()
+                            .eq("NEWS_ID", news.getNewsId()).eq("USER_ID", viewer.getUserId())) > 0);
+        }
         // 题主标识用：该帖所属专题的题主（官方新闻无专题→null）。支持多题主：topicOwnerIds 为全部题主 id
         if (news != null && StringUtils.isNotBlank(news.getTopicId())) {
             com.dream.basketball.entity.ForumTopic t = topicPerms.getTopic(news.getTopicId());
@@ -449,5 +459,66 @@ public class NewsController extends BaseUtils {
     @PostMapping("/comment")
     public Object comment(DreamNewsComment dreamNewsComment, HttpServletRequest request) {
         return newsService.comment(dreamNewsComment, request);
+    }
+
+    /** 收藏/取消收藏（登录）：toggle。返回最新状态 + 该帖收藏数。 */
+    @RequiresRole(Role.USER)
+    @PostMapping("/favorite")
+    public Object favorite(String newsId, HttpServletRequest request) {
+        DreamUser me = SecUtil.getLoginUserToSession(request);
+        if (StringUtils.isBlank(newsId) || dreamNewsService.getById(newsId) == null) {
+            return handlerResultJson(false, "帖子不存在");
+        }
+        QueryWrapper<com.dream.basketball.entity.NewsFavorite> mineQ =
+                new QueryWrapper<com.dream.basketball.entity.NewsFavorite>()
+                        .eq("NEWS_ID", newsId).eq("USER_ID", me.getUserId());
+        boolean favorited;
+        if (favoriteMapper.selectCount(mineQ) > 0) {
+            favoriteMapper.delete(mineQ);
+            favorited = false;
+        } else {
+            com.dream.basketball.entity.NewsFavorite f = new com.dream.basketball.entity.NewsFavorite();
+            f.setId(java.util.UUID.randomUUID().toString());
+            f.setUserId(me.getUserId());
+            f.setNewsId(newsId);
+            f.setCreateTime(new java.util.Date());
+            favoriteMapper.insert(f);
+            favorited = true;
+        }
+        Map<String, Object> out = new HashMap<>();
+        out.put("favorited", favorited);
+        out.put("count", favoriteMapper.selectCount(
+                new QueryWrapper<com.dream.basketball.entity.NewsFavorite>().eq("NEWS_ID", newsId)));
+        return new Result<>(0, favorited ? "已收藏" : "已取消收藏", out);
+    }
+
+    /** 我的收藏（仅本人）：时间倒序；已删/被隐藏/无浏览权的帖子读时过滤。 */
+    @RequiresRole(Role.USER)
+    @GetMapping("/myFavorites")
+    public Object myFavorites(HttpServletRequest request) {
+        DreamUser me = SecUtil.getLoginUserToSession(request);
+        List<com.dream.basketball.entity.NewsFavorite> favs = favoriteMapper.selectList(
+                new QueryWrapper<com.dream.basketball.entity.NewsFavorite>()
+                        .eq("USER_ID", me.getUserId()).orderByDesc("CREATE_TIME"));
+        List<Map<String, Object>> out = new java.util.ArrayList<>();
+        for (com.dream.basketball.entity.NewsFavorite f : favs) {
+            com.dream.basketball.entity.DreamNews n = dreamNewsService.getById(f.getNewsId());
+            if (n == null || "1".equals(n.getHidden())) {
+                continue; // 已删/被隐藏
+            }
+            if (StringUtils.isNotBlank(n.getTopicId())
+                    && !topicPerms.canView(me, topicPerms.getTopic(n.getTopicId()))) {
+                continue; // 私密专题且无浏览权
+            }
+            Map<String, Object> row = new HashMap<>();
+            row.put("newsId", n.getNewsId());
+            row.put("title", n.getTitle());
+            row.put("author", n.getAuthor());
+            row.put("newsChannel", n.getNewsChannel());
+            row.put("publishDate", n.getPublishDate());
+            row.put("favTime", f.getCreateTime());
+            out.add(row);
+        }
+        return new Result<>(0, "成功", out);
     }
 }

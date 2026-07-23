@@ -3,9 +3,10 @@ import {
   Avatar, Button, Card, Col, Empty, Form, Grid, Input, List, Modal, Popconfirm,
   Row, Select, Space, Spin, Statistic, Switch, Tabs, Tag, Upload, message,
 } from 'antd'
-import { CameraOutlined, CommentOutlined, EditOutlined, LikeOutlined, LockOutlined, MessageOutlined, TrophyFilled } from '@ant-design/icons'
+import { CameraOutlined, CheckOutlined, CommentOutlined, EditOutlined, LikeOutlined, LockOutlined, MessageOutlined, PlusOutlined, TrophyFilled } from '@ant-design/icons'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { userApi } from '../../api/user'
+import { followApi } from '../../api/follow'
 import { searchApi } from '../../api/search'
 import { useAuth } from '../../auth/AuthContext'
 import UserTitles from '../../components/UserTitles'
@@ -162,6 +163,51 @@ function BindPlayerModal({ open, onCancel, onDone }) {
   )
 }
 
+// 关注/粉丝列表弹窗：行=头像+昵称+互关标，点击跳对方主页
+function FollowListModal({ userId, tab, onClose, onTabChange }) {
+  const navigate = useNavigate()
+  const [rows, setRows] = useState(null)
+
+  useEffect(() => {
+    if (!tab) return
+    setRows(null)
+    followApi.list(userId, tab).then((r) => setRows(Array.isArray(r) ? r : [])).catch(() => setRows([]))
+  }, [userId, tab])
+
+  return (
+    <Modal open={!!tab} footer={null} onCancel={onClose} title={null} width={420}>
+      <Tabs
+        activeKey={tab || 'following'}
+        onChange={onTabChange}
+        items={[{ key: 'following', label: '关注' }, { key: 'followers', label: '粉丝' }]}
+      />
+      {rows === null ? (
+        <div style={{ textAlign: 'center', padding: 30 }}><Spin /></div>
+      ) : rows.length ? (
+        <div style={{ maxHeight: 420, overflowY: 'auto' }}>
+          {rows.map((r) => (
+            <div
+              key={r.userId}
+              onClick={() => { onClose(); navigate(`/users/${r.userId}`) }}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 4px', borderBottom: '1px solid #fafafa', cursor: 'pointer' }}
+            >
+              <Avatar size={34} src={r.avatar || undefined} style={{ background: '#fa541c', fontWeight: 700, flexShrink: 0 }}>
+                {String(r.userNickname || '?')[0].toUpperCase()}
+              </Avatar>
+              <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>
+                {r.userNickname}
+              </span>
+              {r.mutual && <Tag color="green" style={{ marginInlineEnd: 0 }}>互相关注</Tag>}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={tab === 'followers' ? '还没有粉丝' : '还没有关注任何人'} />
+      )}
+    </Modal>
+  )
+}
+
 export default function UserProfile() {
   const { userId } = useParams()
   const navigate = useNavigate()
@@ -174,6 +220,7 @@ export default function UserProfile() {
   const [saving, setSaving] = useState(false)
   const [avatarFile, setAvatarFile] = useState(null)     // 暂存的新头像，点"保存"才上传
   const [avatarPreview, setAvatarPreview] = useState(null)
+  const [followTab, setFollowTab] = useState(null) // null=关 | 'following' | 'followers'（关注/粉丝列表弹窗）
   const [editForm] = Form.useForm()
   const [pwdForm] = Form.useForm()
 
@@ -209,7 +256,7 @@ export default function UserProfile() {
   }
   if (data === null) return <Spin style={{ display: 'block', margin: '80px auto' }} size="large" />
 
-  const { user, stats, posts, comments, postsHidden, commentsHidden } = data
+  const { user, stats, posts, comments, postsHidden, commentsHidden, followerCount, followingCount, following } = data
   const role = ROLE_META[user.userRole]
   const displayName = user.userNickname || user.userName
   const verified = user.identStatus === 1
@@ -275,7 +322,16 @@ export default function UserProfile() {
     }
   }
 
-  // 横幅操作按钮：本人=编辑资料/改密码；他人=发私信。桌面绝对定位右上角，移动端挪到横幅下方
+  // 关注/取关：接口回最新状态，就地更新 data（不整页刷）
+  const toggleFollow = async () => {
+    try {
+      const res = await followApi.toggle(userId)
+      setData((d) => (d ? { ...d, following: res.following, followerCount: res.followerCount } : d))
+      message.success(res.following ? '已关注' : '已取消关注')
+    } catch { /* 拦截器已提示 */ }
+  }
+
+  // 横幅操作按钮：本人=编辑资料/改密码；他人=关注 + 发私信。桌面绝对定位右上角，移动端挪到横幅下方
   const actionBtns = isSelf ? (
     <>
       <Button ghost size="small" icon={<EditOutlined />} onClick={() => { editForm.setFieldsValue({ userNickname: displayName }); setEditOpen(true) }}>
@@ -286,9 +342,20 @@ export default function UserProfile() {
       </Button>
     </>
   ) : me ? (
-    <Button ghost size="small" icon={<MessageOutlined />} onClick={() => navigate(`/messages?peerId=${userId}`)}>
-      发私信
-    </Button>
+    <>
+      <Button
+        ghost={!following}
+        size="small"
+        icon={following ? <CheckOutlined /> : <PlusOutlined />}
+        onClick={toggleFollow}
+        style={following ? { background: 'rgba(255,255,255,.28)', borderColor: 'transparent', color: '#fff' } : undefined}
+      >
+        {following ? '已关注' : '关注'}
+      </Button>
+      <Button ghost size="small" icon={<MessageOutlined />} onClick={() => navigate(`/messages?peerId=${userId}`)}>
+        发私信
+      </Button>
+    </>
   ) : null
 
   return (
@@ -358,14 +425,27 @@ export default function UserProfile() {
       {/* 悬浮统计条 */}
       <Card style={{ margin: isMobile ? '-24px 10px 14px' : '-34px 22px 16px', borderRadius: 12 }} styles={{ body: { padding: isMobile ? '14px 12px' : '16px 24px' } }}>
         <Row gutter={16}>
-          <Col xs={12} sm={6}><Statistic title="发帖" value={stats.posts ?? 0} /></Col>
-          <Col xs={12} sm={6}><Statistic title="评论" value={stats.comments ?? 0} /></Col>
-          <Col xs={12} sm={6}>
+          <Col xs={8} sm={4}><Statistic title="发帖" value={stats.posts ?? 0} /></Col>
+          <Col xs={8} sm={4}><Statistic title="评论" value={stats.comments ?? 0} /></Col>
+          <Col xs={8} sm={4}>
             <Statistic title="获赞" value={stats.likes ?? 0} valueStyle={{ color: '#fa541c' }} prefix={<LikeOutlined />} />
           </Col>
-          <Col xs={12} sm={6}><Statistic title="加入天数" value={daysSince(user.registTime)} /></Col>
+          <Col xs={8} sm={4}>
+            <div onClick={() => setFollowTab('following')} style={{ cursor: 'pointer' }} title="查看关注列表">
+              <Statistic title="关注" value={followingCount ?? 0} />
+            </div>
+          </Col>
+          <Col xs={8} sm={4}>
+            <div onClick={() => setFollowTab('followers')} style={{ cursor: 'pointer' }} title="查看粉丝列表">
+              <Statistic title="粉丝" value={followerCount ?? 0} />
+            </div>
+          </Col>
+          <Col xs={8} sm={4}><Statistic title="加入天数" value={daysSince(user.registTime)} /></Col>
         </Row>
       </Card>
+
+      {/* 关注/粉丝列表 */}
+      <FollowListModal userId={userId} tab={followTab} onClose={() => setFollowTab(null)} onTabChange={setFollowTab} />
 
       {/* 内容区 */}
       <Card styles={{ body: { padding: '8px 20px 16px' } }}>

@@ -12,6 +12,7 @@ import {
   NotificationOutlined,
   ReadOutlined,
   SafetyCertificateOutlined,
+  StarOutlined,
   TeamOutlined,
   TrophyOutlined,
   UsergroupAddOutlined,
@@ -180,6 +181,12 @@ export default function AppLayout() {
                           </span>
                         ),
                         onClick: () => navigate('/me'),
+                      },
+                      {
+                        key: 'favorites',
+                        icon: <StarOutlined />,
+                        label: '我的收藏',
+                        onClick: () => navigate('/favorites'),
                       },
                       { type: 'divider' },
                       { key: 'logout', icon: <LogoutOutlined />, label: '登出', onClick: onLogout },

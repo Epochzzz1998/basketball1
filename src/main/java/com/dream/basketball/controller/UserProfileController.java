@@ -59,6 +59,9 @@ public class UserProfileController {
     @Autowired
     private com.dream.basketball.mapper.PlayerVerifyRecordMapper verifyRecordMapper;
 
+    @Autowired
+    private com.dream.basketball.mapper.UserFollowMapper followMapper;
+
     @Value("${picPath.uploadPath:}")
     private String uploadPath;
 
@@ -164,6 +167,15 @@ public class UserProfileController {
         data.put("comments", commentList);
         data.put("postsHidden", hidePosts);       // 他人视角：该用户隐藏了发帖
         data.put("commentsHidden", hideComments); // 他人视角：该用户隐藏了评论
+        // 关注/粉丝计数 + 观察者是否已关注（横幅关注按钮与统计条用）
+        data.put("followerCount", followMapper.selectCount(
+                new QueryWrapper<com.dream.basketball.entity.UserFollow>().eq("FOLLOWEE_ID", userId)));
+        data.put("followingCount", followMapper.selectCount(
+                new QueryWrapper<com.dream.basketball.entity.UserFollow>().eq("FOLLOWER_ID", userId)));
+        DreamUser profileViewer = SecUtil.getLoginUserToSession(request);
+        data.put("following", profileViewer != null && followMapper.selectCount(
+                new QueryWrapper<com.dream.basketball.entity.UserFollow>()
+                        .eq("FOLLOWER_ID", profileViewer.getUserId()).eq("FOLLOWEE_ID", userId)) > 0);
         return new Result<>(0, "成功", data);
     }
 

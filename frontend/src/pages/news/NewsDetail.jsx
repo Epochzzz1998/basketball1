@@ -104,6 +104,7 @@ export default function NewsDetail() {
   const [canManage, setCanManage] = useState(false) // 能否置顶/加精（owner/manager+）
   const [topicOwnerIds, setTopicOwnerIds] = useState([]) // 该帖所属专题的题主集合（题主标识用，支持多题主）
   const [ratingItems, setRatingItems] = useState([]) // 该帖打分项（主贴的 + 楼上挂的），单一数据源
+  const [fav, setFav] = useState({ favorited: false, count: 0 }) // 收藏状态 + 收藏数
   const [authorStats, setAuthorStats] = useState(null) // 作者数据小结（发帖/精华/置顶/获赞）
   const [loading, setLoading] = useState(true)
 
@@ -129,7 +130,7 @@ export default function NewsDetail() {
     setLoading(true)
     newsApi
       .getNews(newsId, userInformationId)
-      .then((data) => { if (alive) { setNews(data?.news || null); setCanManage(!!data?.canManage); setTopicOwnerIds(data?.topicOwnerIds || []) } })
+      .then((data) => { if (alive) { setNews(data?.news || null); setCanManage(!!data?.canManage); setTopicOwnerIds(data?.topicOwnerIds || []); setFav({ favorited: !!data?.favorited, count: data?.favoriteCount ?? 0 }) } })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
   }, [newsId, userInformationId])
@@ -173,6 +174,16 @@ export default function NewsDetail() {
     await ratingApi.openFloor({ newsId, subject, content, imageUrl: imageUrl || undefined })
     const rows = await ratingApi.list(newsId).catch(() => null)
     if (Array.isArray(rows)) setRatingItems(rows)
+  }
+
+  // 收藏/取消收藏：登录后 toggle，接口回最新状态
+  const toggleFavorite = async () => {
+    if (!user) { message.info('请先登录'); navigate('/login'); return }
+    try {
+      const res = await newsApi.favorite(newsId)
+      setFav({ favorited: !!res.favorited, count: res.count ?? 0 })
+      message.success(res.favorited ? '已收藏' : '已取消收藏')
+    } catch { /* 拦截器已提示 */ }
   }
 
   const isAuthor = !!user && !!news && user.userId === news.authorId
@@ -362,13 +373,22 @@ export default function NewsDetail() {
                   </div>
                 )}
 
-                {/* 顶/踩 */}
-                <div style={{ display: 'flex', justifyContent: 'center', gap: 14, margin: '26px 0 8px' }}>
+                {/* 顶/踩/收藏 */}
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 14, margin: '26px 0 8px', flexWrap: 'wrap' }}>
                   <Button shape="round" size="large" icon={<LikeOutlined />} onClick={() => likePost('good')}>
                     顶 {news.goodNum ?? 0}
                   </Button>
                   <Button shape="round" size="large" icon={<DislikeOutlined />} onClick={() => likePost('bad')}>
                     踩 {news.badNum ?? 0}
+                  </Button>
+                  <Button
+                    shape="round"
+                    size="large"
+                    icon={<StarFilled style={{ color: fav.favorited ? '#faad14' : undefined }} />}
+                    onClick={toggleFavorite}
+                    style={fav.favorited ? { borderColor: '#faad14', color: '#d48806' } : undefined}
+                  >
+                    {fav.favorited ? '已收藏' : '收藏'} {fav.count}
                   </Button>
                 </div>
 

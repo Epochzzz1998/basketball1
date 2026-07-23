@@ -61,4 +61,8 @@ export const newsApi = {
   deletePost: (newsId) => http.post('/news/deletePost', new URLSearchParams({ newsId })),
   // 作者数据小结：{postCount, essenceCount, topCount, likeCount}
   authorStats: (userId) => http.get('/news/authorStats', { params: { userId } }),
+  // 收藏/取消收藏（toggle）：返回 {favorited, count}
+  favorite: (newsId) => http.post('/news/favorite', new URLSearchParams({ newsId })),
+  // 我的收藏（仅本人）：时间倒序，已删/隐藏/无权帖已过滤
+  myFavorites: () => http.get('/news/myFavorites'),
 }
