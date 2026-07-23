@@ -46,18 +46,9 @@ function PostList({ posts, hidden }) {
     <List
       dataSource={posts}
       renderItem={(p) => (
-        <List.Item
-          style={{ padding: '12px 4px' }}
-          extra={
-            <Space size={14} style={{ color: '#999', fontSize: 13, whiteSpace: 'nowrap' }}>
-              <span><LikeOutlined /> {p.goodNum ?? 0}</span>
-              <span><CommentOutlined /> {p.commentNum ?? 0}</span>
-              <span>{fmtDate(p.publishDate)}</span>
-            </Space>
-          }
-        >
-          {/* 单行布局：标签不缩、标题占剩余宽度超长省略——长短标题行高一致，不再把右侧数据挤换行 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
+        <List.Item style={{ padding: '12px 4px', display: 'block' }}>
+          {/* 堆叠版式：标签 + 标题（最多两行截断），数据行固定在下——长短标题结构一致 */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0 }}>
             {p.newsChannel === 'official'
               ? <Tag color="orange" style={{ flexShrink: 0, marginInlineEnd: 0 }}>官方</Tag>
               : (
@@ -67,10 +58,18 @@ function PostList({ posts, hidden }) {
               )}
             <Link
               to={`/news/${p.newsId}`}
-              style={{ flex: 1, minWidth: 0, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              style={{
+                flex: 1, minWidth: 0, fontWeight: 600, lineHeight: 1.5,
+                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+              }}
             >
               {p.title}
             </Link>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, color: '#999', fontSize: 12, marginTop: 6 }}>
+            <span><LikeOutlined /> {p.goodNum ?? 0}</span>
+            <span><CommentOutlined /> {p.commentNum ?? 0}</span>
+            <span>{fmtDate(p.publishDate)}</span>
           </div>
         </List.Item>
       )}
@@ -122,19 +121,9 @@ function FavoriteList({ favorites, hidden, isSelf, onUnfavorite }) {
     <List
       dataSource={favorites}
       renderItem={(p) => (
-        <List.Item
-          style={{ padding: '12px 4px' }}
-          extra={
-            <Space size={14} style={{ color: '#999', fontSize: 13, whiteSpace: 'nowrap' }}>
-              <span><LikeOutlined /> {p.goodNum ?? 0}</span>
-              <span><CommentOutlined /> {p.commentNum ?? 0}</span>
-              <span>{fmtDate(p.favTime)}</span>
-              {isSelf && <a onClick={() => onUnfavorite(p.newsId)} style={{ fontSize: 12 }}>取消收藏</a>}
-            </Space>
-          }
-        >
-          {/* 单行布局：标签不缩、标题占剩余宽度超长省略——长短标题行高一致，不再把右侧数据挤换行 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
+        <List.Item style={{ padding: '12px 4px', display: 'block' }}>
+          {/* 堆叠版式：标签 + 标题（最多两行截断），数据行固定在下——长短标题结构一致 */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0 }}>
             {p.newsChannel === 'official'
               ? <Tag color="orange" style={{ flexShrink: 0, marginInlineEnd: 0 }}>官方</Tag>
               : (
@@ -144,10 +133,19 @@ function FavoriteList({ favorites, hidden, isSelf, onUnfavorite }) {
               )}
             <Link
               to={`/news/${p.newsId}`}
-              style={{ flex: 1, minWidth: 0, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              style={{
+                flex: 1, minWidth: 0, fontWeight: 600, lineHeight: 1.5,
+                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+              }}
             >
               {p.title}
             </Link>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, color: '#999', fontSize: 12, marginTop: 6 }}>
+            <span><LikeOutlined /> {p.goodNum ?? 0}</span>
+            <span><CommentOutlined /> {p.commentNum ?? 0}</span>
+            <span>{fmtDate(p.favTime)}</span>
+            {isSelf && <a onClick={() => onUnfavorite(p.newsId)} style={{ fontSize: 12 }}>取消收藏</a>}
           </div>
         </List.Item>
       )}
