@@ -3,6 +3,7 @@ import { Button, Card, Empty, Space, Spin } from 'antd'
 import { LockOutlined } from '@ant-design/icons'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { topicApi } from '../../api/topic'
+import { useAuth } from '../../auth/AuthContext'
 import TopicApplyButton from '../../components/TopicApplyButton'
 import NewsList from './NewsList'
 import useIsMobile from '../../hooks/useIsMobile'
@@ -14,6 +15,7 @@ import useIsMobile from '../../hooks/useIsMobile'
  */
 export default function TopicPosts() {
   const { topicId } = useParams()
+  const { user } = useAuth()
   const [searchParams] = useSearchParams()
   // 从"我的消息"点专题通知进来时带 userInformationId，请求详情即标记该消息已读
   const userInformationId = searchParams.get('userInformationId') || undefined
@@ -31,13 +33,14 @@ export default function TopicPosts() {
 
   useEffect(() => { load() }, [load])
 
-  // 进专题即打卡：红点归零（侧栏订阅区的数字随 'subs-changed' 刷新）；未登录静默失败
+  // 进专题即打卡：红点归零（侧栏订阅区的数字随 'subs-changed' 刷新）。
+  // 只在登录时调用——匿名调用会 401，被 http 拦截器整页踢去登录页（上过一次当）
   useEffect(() => {
-    if (!topicId) return
+    if (!topicId || !user) return
     topicApi.markSeen(topicId)
       .then(() => window.dispatchEvent(new Event('subs-changed')))
       .catch(() => {})
-  }, [topicId])
+  }, [topicId, user])
 
   const isMobile = useIsMobile()
 
