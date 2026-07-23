@@ -230,9 +230,6 @@ export default function PlayerCareer() {
 
   return (
     <>
-      <Space style={{ marginBottom: 12 }}>
-        <Link to="/players"><Button>← 返回球员数据</Button></Link>
-      </Space>
       {/* 球员身份头 */}
       <Card style={{ marginBottom: 16 }} styles={{ body: { padding: '18px 24px' } }}>
         <Space size={16} align="center">

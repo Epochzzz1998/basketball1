@@ -96,7 +96,6 @@ export default function PlayerStatsManage() {
 
   return (
     <>
-      <Link to="/admin/players"><Button style={{ marginBottom: 12 }}>← 返回球员管理</Button></Link>
       <EditableProTable
         rowKey="statsId"
         headerTitle="生涯逐季数据管理（保存后自动重算生涯汇总行）"

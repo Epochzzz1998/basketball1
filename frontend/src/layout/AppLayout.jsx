@@ -227,7 +227,8 @@ export default function AppLayout() {
                     <Badge count={unread + pmUnread} size="small" offset={[-2, 4]}>
                       <Avatar size={28} src={user.avatar || undefined} icon={user.avatar ? undefined : <UserOutlined />} />
                     </Badge>
-                    <span style={{ fontSize: 14 }}>{user.userNickname}</span>
+                    {/* 窄屏顶栏太挤：昵称文字只在桌面显示，给刷新/搜索按钮腾位 */}
+                    {!isMobile && <span style={{ fontSize: 14 }}>{user.userNickname}</span>}
                   </span>
                 </Dropdown>
               ),
@@ -237,12 +238,17 @@ export default function AppLayout() {
       // 搜索框在动作区（紧贴头像）；动作项自带的 hover 灰底由 index.css 里
       // 的 [class*='actions-item']:has(.global-search) 规则压掉
       actionsRender={() => [
-        // 常驻页面刷新（搜索左边）
+        // 常驻页面刷新（搜索左边）：与搜索触发器同款 32px 胶囊，flexShrink 0 防止窄屏被挤没
         <span
           key="reload"
           onClick={() => window.location.reload()}
           title="刷新页面"
-          style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer', padding: '0 6px', color: '#595959', fontSize: 15 }}
+          style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 32, height: 32, flexShrink: 0, borderRadius: 16,
+            border: '1px solid #e8e8e8', background: '#fff', color: '#aaa',
+            cursor: 'pointer', fontSize: 14,
+          }}
         >
           <ReloadOutlined />
         </span>,

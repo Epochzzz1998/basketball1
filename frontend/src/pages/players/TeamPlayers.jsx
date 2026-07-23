@@ -500,7 +500,6 @@ export default function TeamPlayers() {
 
   return (
     <>
-      <Button style={{ marginBottom: 12 }} onClick={() => navigate(-1)}>← 返回</Button>
       {/* 球队身份头 + 全页控件 */}
       <Card style={{ marginBottom: 16 }} styles={{ body: { padding: '18px 24px' } }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>

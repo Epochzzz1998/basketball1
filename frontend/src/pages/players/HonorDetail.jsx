@@ -43,7 +43,6 @@ export default function HonorDetail() {
 
   return (
     <>
-      <Button style={{ marginBottom: 12 }} onClick={() => navigate(-1)}>← 返回荣誉榜</Button>
       <ProTable
         headerTitle={`${seasonYearLabel(seasonNum)} · ${group.title} · 完整数据`}
         rowKey="statsId"

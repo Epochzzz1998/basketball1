@@ -54,7 +54,6 @@ export default function RankingDetail() {
 
   return (
     <>
-      <Button style={{ marginBottom: 12 }} onClick={() => navigate(-1)}>← 返回排行</Button>
       <ProTable
         headerTitle={`${stage === 'po' ? '季后赛 · ' : ''}${stat.label}榜 · 完整排行`}
         rowKey="statsId"
