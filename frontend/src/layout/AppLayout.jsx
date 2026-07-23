@@ -171,7 +171,7 @@ export default function AppLayout() {
               icon: <FireOutlined />,
               routes: [
                 { path: '/bbq/wage', name: '薪资计算', icon: <DollarOutlined /> },
-                { path: '/bbq/ledger', name: '薪资台账', icon: <BarChartOutlined /> },
+                { path: '/bbq/ledger', name: '经营台账', icon: <BarChartOutlined /> },
                 { path: '/bbq/members', name: '成员管理', icon: <TeamOutlined /> },
                 { path: '/bbq/skewers', name: '串价设置', icon: <TagsOutlined /> },
               ],

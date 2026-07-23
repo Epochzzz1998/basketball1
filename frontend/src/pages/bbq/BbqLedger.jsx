@@ -6,10 +6,11 @@ import { bbqApi } from '../../api/bbq'
 import useIsMobile from '../../hooks/useIsMobile'
 
 /**
- * 耿阿姨烤串 · 薪资台账。数字全由后端算好，这里只画（自绘 SVG，零图表库依赖，同雷达图思路）。
+ * 耿阿姨烤串 · 经营台账（店员视角叫「我的薪资」）。数字全由后端算好，这里只画（自绘 SVG，零依赖）。
  * - 视图可切「按月 / 按周」（周 = 周一到周日；后端同一接口，月传 month、周传 from/to）；
- * - 店长：全店——统计条 + 每日支出柱状图 + 员工占比环形图 + 薪资结构环形图 + 每人聚合行；
- * - 店员：只有自己——统计条 + 自己的每日柱状 + 结构环形 + 逐条记录明细（含已结清标记）。
+ * - 店长：全店——统计条 + 每日支出/穿串统计柱状图 + 员工占比/薪资结构环形图 + 每人聚合行；
+ * - 店员：只有自己——同一套图按自己的数据画 + 逐条记录明细（含已结清标记）。
+ * 穿串统计：纵轴=串数（不是钱），横轴=该时段实际录入过的串种（按快照名聚合）。
  */
 
 const AMBER = '#d48806'
@@ -25,8 +26,9 @@ const fmtHours = (min) => `${(min / 60).toFixed(1)}h`
 /** 本周从周一起算（dayjs 默认周日为一周之首，手动折算） */
 const mondayOf = (d) => d.subtract((d.day() + 6) % 7, 'day')
 
-/** 柱状图：竖条 + 底部刻度（bars: [{label, value, showLabel}]）+ 最大值虚线；hover 有 <title> 提示 */
-function BarChart({ bars, isMobile }) {
+/** 柱状图：竖条 + 底部刻度（bars: [{label, title?, value, showLabel}]）+ 最大值虚线；
+ *  fmt 控制数值文案（默认金额；穿串统计传 "N 串"）；条数 ≤10 时柱顶直接标数值 */
+function BarChart({ bars, isMobile, fmt = money }) {
   const H = 170
   const max = Math.max(...bars.map((d) => d.value), 1)
   const n = bars.length
@@ -37,7 +39,7 @@ function BarChart({ bars, isMobile }) {
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', display: 'block' }}>
       <line x1={0} x2={W} y1={y(max)} y2={y(max)} stroke="#f0f0f0" strokeDasharray="4 4" />
-      <text x={W} y={y(max) - 4} textAnchor="end" fontSize={10} fill="#bbb">{money(max)}</text>
+      <text x={W} y={y(max) - 4} textAnchor="end" fontSize={10} fill="#bbb">{fmt(max)}</text>
       {bars.map((d, i) => {
         const x = i * (barW + gap)
         const zero = d.value <= 0
@@ -48,16 +50,15 @@ function BarChart({ bars, isMobile }) {
               height={zero ? 2 : Math.max(2, H - 24 - y(d.value))}
               fill={zero ? '#f5f5f5' : AMBER} opacity={zero ? 1 : 0.85}
             >
-              <title>{`${d.title || d.label}：${money(d.value)}`}</title>
+              <title>{`${d.title || d.label}：${fmt(d.value)}`}</title>
             </rect>
-            {/* 周视图条少，柱顶直接标金额 */}
-            {n <= 7 && !zero && (
+            {n <= 10 && !zero && (
               <text x={x + barW / 2} y={y(d.value) - 5} textAnchor="middle" fontSize={10} fill={AMBER_DARK} fontWeight={700}>
-                {money(d.value)}
+                {fmt(d.value)}
               </text>
             )}
             {d.showLabel && (
-              <text x={x + barW / 2} y={H - 10} textAnchor="middle" fontSize={n <= 7 ? 11 : 9} fill={n <= 7 ? '#8c8c8c' : '#bbb'}>{d.label}</text>
+              <text x={x + barW / 2} y={H - 10} textAnchor="middle" fontSize={n <= 10 ? 11 : 9} fill={n <= 10 ? '#8c8c8c' : '#bbb'}>{d.label}</text>
             )}
           </g>
         )
@@ -169,6 +170,14 @@ export default function BbqLedger() {
 
   const manager = data?.role === 'manager'
   const periodLabel = mode === 'month' ? '本月' : '本周'
+  // 穿串统计：纵轴=串数，横轴=该时段实际录入过的串种（后端按快照名聚合、多者在前）
+  const skewerBars = useMemo(() => (data?.skewers || []).map((s) => ({
+    label: String(s.name).length > 6 ? `${String(s.name).slice(0, 6)}…` : s.name,
+    title: s.name,
+    value: Number(s.num),
+    showLabel: true,
+  })), [data])
+  const countFmt = (v) => `${v} 串`
   const userPie = useMemo(() => {
     if (!data) return []
     const rows = (data.users || []).map((u, i) => ({ label: u.userNickname, value: Number(u.total), color: PALETTE[i % PALETTE.length] }))
@@ -203,7 +212,7 @@ export default function BbqLedger() {
         <div style={ring(110, { bottom: -45, right: 260 })} />
         <div style={{ position: 'relative' }}>
           <div style={{ fontSize: isMobile ? 18 : 22, fontWeight: 800 }}>
-            <FireOutlined style={{ marginRight: 8 }} />耿阿姨烤串 · 薪资台账
+            <FireOutlined style={{ marginRight: 8 }} />耿阿姨烤串 · {manager === false ? '我的薪资' : '经营台账'}
           </div>
           <div style={{ opacity: 0.88, marginTop: 6, fontSize: 13 }}>
             {manager === false ? '你的工资明细，只读。有疑问找店长核对。' : '全店薪资的分布与结构；结清在「薪资计算」页操作。'}
@@ -272,6 +281,18 @@ export default function BbqLedger() {
                 styles={{ body: { padding: isMobile ? '12px 10px' : '16px 18px' } }}
               >
                 <BarChart bars={bars} isMobile={isMobile} />
+              </Card>
+              {/* 穿串统计：纵轴串数、横轴实际录入过的串种 */}
+              <Card
+                title={`穿串统计（${periodLabel} · 串数）`}
+                style={{ borderRadius: 16, marginTop: 16 }}
+                styles={{ body: { padding: isMobile ? '12px 10px' : '16px 18px' } }}
+              >
+                {skewerBars.length === 0 ? (
+                  <Empty description={`${periodLabel}还没有穿串记录`} image={Empty.PRESENTED_IMAGE_SIMPLE} style={{ padding: '10px 0' }} />
+                ) : (
+                  <BarChart bars={skewerBars} isMobile={isMobile} fmt={countFmt} />
+                )}
               </Card>
             </Col>
             <Col xs={24} lg={manager ? 10 : 24}>

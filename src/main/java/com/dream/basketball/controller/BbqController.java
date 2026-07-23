@@ -865,6 +865,29 @@ public class BbqController {
             userRows.add(m);
         }
         userRows.sort((a, b) -> ((BigDecimal) b.get("total")).compareTo((BigDecimal) a.get("total")));
+        // skewer lines of the period, fetched once: piece-count chart for everyone + staff record detail
+        List<String> periodRecordIds = new ArrayList<>();
+        for (BbqWageRecord r : records) {
+            periodRecordIds.add(r.getRecordId());
+        }
+        Map<String, List<BbqWageSkewer>> linesByRecord = new HashMap<>();
+        Map<String, Integer> countByName = new LinkedHashMap<>();
+        if (!periodRecordIds.isEmpty()) {
+            for (BbqWageSkewer w : wageSkewerMapper.selectList(new QueryWrapper<BbqWageSkewer>().in("RECORD_ID", periodRecordIds))) {
+                linesByRecord.computeIfAbsent(w.getRecordId(), (k) -> new ArrayList<>()).add(w);
+                countByName.merge(w.getNameSnap(), w.getNum(), Integer::sum);
+            }
+        }
+        // X axis = kinds actually entered in this period (snapshot names), most-strung first
+        List<Map<String, Object>> skewerStats = new ArrayList<>();
+        countByName.entrySet().stream()
+                .sorted((a, b) -> b.getValue().compareTo(a.getValue()))
+                .forEach((e) -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("name", e.getKey());
+                    m.put("num", e.getValue());
+                    skewerStats.add(m);
+                });
         List<Map<String, Object>> daily = new ArrayList<>();
         for (Map.Entry<String, BigDecimal> e : dailyTotals.entrySet()) {
             Map<String, Object> m = new HashMap<>();
@@ -881,22 +904,9 @@ public class BbqController {
         out.put("unsettledTotal", unsettledTotal);
         out.put("daily", daily);
         out.put("users", userRows);
+        out.put("skewers", skewerStats);
         // staff see their own per-record detail (incl. skewer lines) to verify the books
         if (!manager) {
-            List<String> recordIds = new ArrayList<>();
-            for (BbqWageRecord r : records) {
-                recordIds.add(r.getRecordId());
-            }
-            Map<String, List<Map<String, Object>>> skewersByRecord = new HashMap<>();
-            if (!recordIds.isEmpty()) {
-                for (BbqWageSkewer w : wageSkewerMapper.selectList(new QueryWrapper<BbqWageSkewer>().in("RECORD_ID", recordIds))) {
-                    Map<String, Object> sm = new HashMap<>();
-                    sm.put("name", w.getNameSnap());
-                    sm.put("price", w.getPriceSnap());
-                    sm.put("num", w.getNum());
-                    skewersByRecord.computeIfAbsent(w.getRecordId(), (k) -> new ArrayList<>()).add(sm);
-                }
-            }
             List<Map<String, Object>> recOut = new ArrayList<>();
             for (BbqWageRecord r : records) {
                 Map<String, Object> m = new HashMap<>();
@@ -911,7 +921,15 @@ public class BbqController {
                 m.put("skewerPay", r.getSkewerPay());
                 m.put("total", r.getTotal());
                 m.put("settled", StringUtils.isNotBlank(r.getSettleId()));
-                m.put("skewers", skewersByRecord.getOrDefault(r.getRecordId(), new ArrayList<>()));
+                List<Map<String, Object>> lineOut = new ArrayList<>();
+                for (BbqWageSkewer w : linesByRecord.getOrDefault(r.getRecordId(), new ArrayList<>())) {
+                    Map<String, Object> sm = new HashMap<>();
+                    sm.put("name", w.getNameSnap());
+                    sm.put("price", w.getPriceSnap());
+                    sm.put("num", w.getNum());
+                    lineOut.add(sm);
+                }
+                m.put("skewers", lineOut);
                 recOut.add(m);
             }
             out.put("records", recOut);
