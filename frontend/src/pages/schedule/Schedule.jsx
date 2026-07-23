@@ -13,7 +13,8 @@ import useIsMobile from '../../hooks/useIsMobile'
 /**
  * 日程表（/schedule，登录）。月视图日历 + 选中日面板（移动端在下方）。
  * 事件时刻是**区间**（开始–结束）；「截止任务」跨天：区间左端=开始日的开始时间、右端=截止日的截止时间。
- * 超过截止时刻仍未完成 → 全站标红 + 后端每 10 分钟扫描发一次性超时提醒。
+ * 超过截止时刻仍未完成 → 全站标红；到下一个早八点仍未完成才发一次性超时提醒（后端 8 点任务）。
+ * 任务可选类型（工作/学习/课程/生活/娱乐），日历胶囊/面板色条/小标签按类型配色。
  */
 
 const TEAL = '#13c2c2'
@@ -21,6 +22,9 @@ const TEAL_DARK = '#08979c'
 const RED = '#ff4d4f'
 const RED_DARK = '#cf1322'
 const WEEK = ['日', '一', '二', '三', '四', '五', '六']
+// 任务类型 → 主题色（无类型回退青色）；超时/完成的状态色优先于类型色
+const CATS = { 工作: '#2f54eb', 学习: '#722ed1', 课程: '#d48806', 生活: '#52c41a', 娱乐: '#eb2f96' }
+const catColor = (e) => CATS[e.category] || TEAL
 const key = (d) => d.format('YYYY-MM-DD')
 
 const ring = (size, pos) => ({
@@ -56,6 +60,7 @@ export default function Schedule() {
   const [assignees, setAssignees] = useState([])
   // 新增表单
   const [taskType, setTaskType] = useState('day') // 'day' 单日 | 'deadline' 截止任务
+  const [category, setCategory] = useState(undefined) // 类型：工作/学习/课程/生活/娱乐
   const [title, setTitle] = useState('')
   const [timeRange, setTimeRange] = useState(null) // [dayjs|null, dayjs|null]
   const [deadline, setDeadline] = useState(null) // 截止日期（截止任务）
@@ -107,6 +112,7 @@ export default function Schedule() {
         time: timeRange?.[0] ? timeRange[0].format('HH:mm') : undefined,
         endTime: timeRange?.[1] ? timeRange[1].format('HH:mm') : undefined,
         endDate: taskType === 'deadline' && deadline ? key(deadline) : undefined,
+        category: category || undefined,
         note: note.trim() || undefined,
         assigneeId: assignee || undefined,
       })
@@ -114,6 +120,7 @@ export default function Schedule() {
       setTitle('')
       setTimeRange(null)
       setDeadline(null)
+      setCategory(undefined)
       setAssignee(undefined)
       setNote('')
       load()
@@ -150,7 +157,7 @@ export default function Schedule() {
               key={e.eventId}
               style={{
                 width: 5, height: 5, borderRadius: '50%', display: 'inline-block',
-                background: isOverdue(e) ? RED : e.done ? '#d9d9d9' : TEAL,
+                background: isOverdue(e) ? RED : e.done ? '#d9d9d9' : catColor(e),
               }}
             />
           ))}
@@ -162,19 +169,25 @@ export default function Schedule() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {list.slice(0, 2).map((e) => {
           const od = isOverdue(e)
+          const c = od ? RED : e.done ? '#bfbfbf' : catColor(e)
           return (
             <div
               key={e.eventId}
               style={{
-                fontSize: 11, lineHeight: '16px', padding: '0 6px', borderRadius: 4,
-                background: od ? '#fff1f0' : e.done ? '#f5f5f5' : '#e6fffb',
-                color: od ? RED_DARK : e.done ? '#bfbfbf' : TEAL_DARK,
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                display: 'flex', alignItems: 'center', gap: 5,
+                fontSize: 11, lineHeight: '17px', padding: '1px 8px', borderRadius: 999,
+                background: od ? '#fff1f0' : e.done ? '#f5f5f5' : `${c}14`,
+                border: `1px solid ${od ? '#ffccc7' : e.done ? '#ececec' : `${c}38`}`,
+                color: od ? RED_DARK : e.done ? '#bfbfbf' : c,
+                overflow: 'hidden', whiteSpace: 'nowrap',
                 textDecoration: e.done ? 'line-through' : 'none',
-                fontWeight: od ? 600 : 400,
+                fontWeight: od ? 600 : 500,
               }}
             >
-              {e.endDate ? '⏳ ' : e.time ? `${e.time} ` : ''}{e.title}
+              <span style={{ width: 5, height: 5, borderRadius: '50%', background: c, flexShrink: 0 }} />
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {e.endDate ? '⏳ ' : e.time ? `${e.time} ` : ''}{e.title}
+              </span>
             </div>
           )
         })}
@@ -262,8 +275,8 @@ export default function Schedule() {
                   const od = isOverdue(e)
                   const assignedToMe = e.assigneeId === selfId && !e.mine
                   const canToggle = e.mine || e.assigneeId === selfId
-                  const bar = od ? RED : e.done ? '#d9d9d9' : assignedToMe ? '#fa8c16' : TEAL
-                  const bg = od ? '#fff1f0' : e.done ? '#fafafa' : assignedToMe ? '#fff9f0' : '#f6fffd'
+                  const bar = od ? RED : e.done ? '#d9d9d9' : assignedToMe ? '#fa8c16' : catColor(e)
+                  const bg = od ? '#fff1f0' : e.done ? '#fafafa' : assignedToMe ? '#fff9f0' : `${catColor(e)}0d`
                   const tl = timeLabel(e)
                   return (
                     <div
@@ -294,6 +307,11 @@ export default function Schedule() {
                           >
                             {e.title}
                           </span>
+                          {e.category && (
+                            <span style={{ fontSize: 11, lineHeight: '17px', padding: '0 7px', borderRadius: 999, background: `${catColor(e)}14`, color: catColor(e), border: `1px solid ${catColor(e)}38`, flexShrink: 0 }}>
+                              {e.category}
+                            </span>
+                          )}
                           {od && <Tag color="red" style={{ marginInlineEnd: 0, lineHeight: '18px' }}>已超时</Tag>}
                         </div>
                         {tl && (
@@ -359,6 +377,21 @@ export default function Schedule() {
                   onPressEnter={addEvent}
                 />
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <Select
+                    allowClear
+                    placeholder="类型"
+                    value={category}
+                    onChange={setCategory}
+                    style={{ width: 92, flexShrink: 0 }}
+                    options={Object.entries(CATS).map(([name, c]) => ({
+                      value: name,
+                      label: (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: c }} />{name}
+                        </span>
+                      ),
+                    }))}
+                  />
                   <TimePicker.RangePicker
                     placeholder={taskType === 'deadline' ? ['开始时间', '截止时间'] : ['开始', '结束']}
                     format="HH:mm"

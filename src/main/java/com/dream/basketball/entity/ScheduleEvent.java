@@ -44,6 +44,10 @@ public class ScheduleEvent extends Model<ScheduleEvent> implements Serializable 
     @TableField("OVERDUE_NOTIFIED")
     private String overdueNotified;
 
+    /** optional category: 工作/学习/课程/生活/娱乐 (whitelisted at create) */
+    @TableField("CATEGORY")
+    private String category;
+
     @TableField("TITLE")
     private String title;
 
@@ -119,6 +123,14 @@ public class ScheduleEvent extends Model<ScheduleEvent> implements Serializable 
 
     public void setOverdueNotified(String overdueNotified) {
         this.overdueNotified = overdueNotified;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
     }
 
     public String getTitle() {

@@ -33,6 +33,7 @@ public class ScheduleController {
     private static final int TITLE_MAX = 50;
     private static final int NOTE_MAX = 200;
     private static final int EVENTS_PER_DAY_MAX = 20;
+    private static final Set<String> CATEGORIES = new HashSet<>(Arrays.asList("工作", "学习", "课程", "生活", "娱乐"));
 
     @Autowired
     private ScheduleEventMapper eventMapper;
@@ -100,6 +101,7 @@ public class ScheduleController {
             m.put("time", e.getEventTime());
             m.put("endDate", e.getEndDate());
             m.put("endTime", e.getEndTime());
+            m.put("category", e.getCategory());
             m.put("title", e.getTitle());
             m.put("note", e.getNote());
             m.put("done", "1".equals(e.getDone()));
@@ -154,7 +156,7 @@ public class ScheduleController {
     @RequiresRole(Role.USER)
     @PostMapping("/create")
     public Object create(String date, String time, String endTime, String endDate, String title, String note,
-                         String assigneeId, HttpServletRequest request) {
+                         String category, String assigneeId, HttpServletRequest request) {
         DreamUser me = SecUtil.getLoginUserToSession(request);
         if (!validDate(date)) {
             return new Result<>(1, "日期格式应为 yyyy-MM-dd", null);
@@ -212,6 +214,9 @@ public class ScheduleController {
         e.setEventTime(tm);
         e.setEndDate(ed);
         e.setEndTime(etm);
+        // 类型白名单：工作/学习/课程/生活/娱乐，非法值一律置空
+        String cat = StringUtils.trimToNull(category);
+        e.setCategory(cat != null && CATEGORIES.contains(cat) ? cat : null);
         e.setTitle(t);
         e.setNote(n);
         e.setAssigneeId(assignee);
@@ -227,7 +232,7 @@ public class ScheduleController {
             }
             userInformationService.saveUserInformation(me.getUserId(), me.getUserNickname(), assignee,
                     Constants.SCHEDULE_ASSIGN, e.getEventId(), date, "", "",
-                    t + "（" + when + "）", "");
+                    (e.getCategory() == null ? "" : "【" + e.getCategory() + "】") + t + "（" + when + "）", "");
         }
         return new Result<>(0, "已添加", e.getEventId());
     }
