@@ -6,7 +6,7 @@ spring:
     # MySQL 数据源配置
     driver-class-name: com.mysql.cj.jdbc.Driver
     # [修改点] Host 改为容器名 mysql
-    url: jdbc:mysql://100.77.48.28:3306/dream?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Australia/Melbourne
+    url: jdbc:mysql://127.0.0.1:3306/dream?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Australia/Melbourne
     # [修改点] 暂时用 root，除非你已经新建了 dream_user
     username: ${DB_USERNAME:epoch}
     password: ${DB_PASSWORD:}   # P2-1: externalized — inject via env (local: IDE run-config / shell export)
@@ -15,7 +15,7 @@ spring:
     # [保留] 因为你会去网页后台手动创建这个 vhost
     virtual-host: my_vhost
     # [修改点] Host 改为容器名 rabbitmq
-    host: 100.77.48.28
+    host: 127.0.0.1
     port: 5672
     # [修改点] 使用 Admin 用户
     username: ${RABBITMQ_USERNAME:epoch}
@@ -23,7 +23,7 @@ spring:
 
   redis:
     # [修改点] Host 改为容器名 redis
-    host: 100.77.48.28
+    host: 127.0.0.1
     port: 6379
     # [修改点] 必须填写密码
     password: ${REDIS_PASSWORD:}       # P2-1: externalized — inject via env
@@ -37,7 +37,7 @@ spring:
 
   elasticsearch:
     # [修改点] Host 改为容器名 elasticsearch
-    uris: http://100.77.48.28:9200
+    uris: http://127.0.0.1:9200
     connection-timeout: 3s
 
   # 登录态存 Redis：应用重启/重新部署不掉线；30 天不活跃才过期（滑动续期）
