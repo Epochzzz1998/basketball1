@@ -52,7 +52,7 @@ const COMPACT_W = {
   playerAvgScore: 46, playerAvgReb: 104, playerAvgAss: 44, playerAvgFgm: 64, playerAccuracy: 52,
   playerAvgTpm: 64, playerThreeAccuracy: 52, playerAvgFtm: 64, playerFreethrowAccuracy: 52,
   playerAvgBlock: 44, playerAvgSteal: 44, playerAvgTurnover: 44, playerPer: 46,
-  mvpRank: 44, dpoyRank: 48, allDbaTeam: 60, allDefTeam: 60, seasonNum: 56,
+  mvpRank: 44, dpoyRank: 48, allDbaTeam: 60, allDefTeam: 60, seasonNum: 56, playoffResult: 78,
 }
 
 /** 列表 → 紧凑列表：命中紧凑表的用表值，其余按 0.72 收缩（下限 40）；

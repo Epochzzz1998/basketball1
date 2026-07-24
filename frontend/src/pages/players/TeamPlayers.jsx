@@ -295,7 +295,7 @@ function PlayoffHistory({ teamCode }) {
       render: (v) => seasonShort(v),
     },
     {
-      title: '成绩', dataIndex: 'playoffResult', width: 92,
+      title: '成绩', dataIndex: 'playoffResult', width: 96,
       render: (v) => (
         <Tag color={PLAYOFF_TAG[v] || 'default'}>
           {v === '总冠军' && <TrophyFilled style={{ marginRight: 4 }} />}

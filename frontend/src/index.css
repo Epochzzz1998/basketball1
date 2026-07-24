@@ -129,3 +129,13 @@ body {
     padding-block: 8px;
   }
 }
+
+/* 紧凑表里的 Tag（季后赛成绩等）缩一号，四字标签在窄列里也放得下 */
+@media (max-width: 768px) {
+  .stat-compact .ant-tag {
+    font-size: 11px;
+    line-height: 18px;
+    padding-inline: 4px;
+    margin-inline-end: 0;
+  }
+}

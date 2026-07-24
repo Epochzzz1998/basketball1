@@ -156,7 +156,7 @@ function PlayoffTable({ playerId }) {
     { title: '赛季', dataIndex: 'seasonNum', width: 90, fixed: 'left', render: (s) => (s === 50 ? '生涯' : seasonShort(s)) },
     { title: '球队', dataIndex: 'playerTeam', width: 72 },
     {
-      title: '成绩', dataIndex: 'playoffResult', width: 84,
+      title: '成绩', dataIndex: 'playoffResult', width: 96,
       render: (v) => (v ? <Tag color={PLAYOFF_TAG[v] || 'default'}>{v}</Tag> : '-'),
     },
     { title: '首发/出场', dataIndex: 'playerAppearance', width: 82, render: (_, r) => `${r.playerFrAppearance ?? 0}/${r.playerAppearance ?? 0}` },
