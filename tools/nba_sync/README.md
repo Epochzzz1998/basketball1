@@ -19,9 +19,11 @@ python3 tools/nba_sync/sync.py --season 2025  # 回补别的赛季（2024-25）
 - 球员按 `nba-<espnId>` 主键 upsert；`PLAYER_NAME` **只在首次插入时写**——
   之后手工汉化的中文名不会被同步覆盖（英文名永远存在 `NAME_EN`）；
 - 赛季数据行按（本赛季 + nba- 前缀）整删整插；生涯行（season 50）按出场数加权重算；
-- `team_season` 只更新胜负与失分；`PLAYOFF_RESULT`（总冠军等）**手工维护、永不触碰**；
-- 荣誉列（MVP_RANK/DPOY_RANK/最佳阵容）与 `season_award`（FMVP 等）同样手工维护
-  （在 超管 → 球员管理 → 数据 里填），同步不会动它们。
+- `team_season` 每次更新胜负与失分；**总冠军/总决赛两个 PLAYOFF_RESULT 由奖项自动推导**
+  （FMVP 的球队=总冠军，两个分区决赛 MVP 里另一队=总决赛），其余轮次值手工维护不被触碰；
+- **赛季荣誉自动同步**（ESPN core API awards）：MVP/DPOY 获奖者（rank=1）、最佳阵容
+  一/二/三阵、最佳防守一/二阵（现实中防守阵容只有两阵）、season_award 的
+  fmvp/smoy/mip。写入是**只加不清**：手工补的 MVP/DPOY 2-10 名投票排名不会被冲掉。
 
 数据源没有的字段（界面已裁掉展示）：PIE / WS / 进攻防守净效率 / 正负值 / 首发数 /
 前后场篮板拆分。`PLAYER_PER` 存的是经典效率值 EFF（得分+板+助+断+帽−打铁−失误），

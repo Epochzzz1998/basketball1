@@ -147,6 +147,57 @@ def fetch_standings(season):
     return out
 
 
+def fetch_awards(season):
+    """season honors from the ESPN core API: winners + All-NBA / All-Defensive teams.
+    Full MVP/DPOY vote RANKS (2nd-10th) are not public here — only winners (rank 1)."""
+    out = {'mvp': None, 'dpoy': None, 'fmvp': None, 'smoy': None, 'mip': None,
+           'all_nba': {}, 'all_def': {}, 'conf_mvps': []}
+    try:
+        d = get(f'https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/{season}/awards?limit=50')
+    except Exception as e:
+        print(f'  awards unavailable: {e}')
+        return out
+    import re as _re
+    def winner_ids(a):
+        ids = []
+        for w in a.get('winners', []):
+            m = _re.search(r'/athletes/(\d+)', (w.get('athlete') or {}).get('$ref', ''))
+            if m:
+                ids.append(m.group(1))
+        return ids
+    name_map = {
+        'MVP': ('mvp', False), 'Defensive Player of the Year': ('dpoy', False),
+        'Finals MVP': ('fmvp', False), 'Sixth Man of the Year': ('smoy', False),
+        'Most Improved Player': ('mip', False),
+        'All-NBA 1st Team': ('all_nba', '一阵'), 'All-NBA 2nd Team': ('all_nba', '二阵'),
+        'All-NBA 3rd Team': ('all_nba', '三阵'),
+        'All-Defensive 1st Team': ('all_def', '一阵'), 'All-Defensive 2nd Team': ('all_def', '二阵'),
+        'NBA Eastern Conference Finals MVP': ('conf_mvps', True),
+        'NBA Western Conference Finals MVP': ('conf_mvps', True),
+    }
+    for it in d.get('items', []):
+        try:
+            a = get(it['$ref'].replace('http://', 'https://'))
+        except Exception:
+            continue
+        key = name_map.get(a.get('name'))
+        if not key:
+            continue
+        field, tier = key
+        ids = winner_ids(a)
+        if field in ('all_nba', 'all_def'):
+            for i in ids:
+                out[field][i] = tier
+        elif field == 'conf_mvps':
+            out['conf_mvps'] += ids
+        elif ids:
+            out[field] = ids[0]
+        time.sleep(0.2)
+    print(f"  awards: mvp={out['mvp']} dpoy={out['dpoy']} fmvp={out['fmvp']} "
+          f"all-nba={len(out['all_nba'])} all-def={len(out['all_def'])}")
+    return out
+
+
 def fetch_playoff_opp_ppg(season):
     """teamCode -> opponents' playoff PPG (byteam st=3: 2nd occurrence of each category = opponents)"""
     try:
@@ -241,9 +292,10 @@ def main():
     reg = fetch_athlete_stats(args.season, 2)
     print('[3/5] playoff player averages')
     po = fetch_athlete_stats(args.season, 3)
-    print('[4/5] team standings + playoff opponents ppg')
+    print('[4/5] team standings + playoff opponents ppg + season awards')
     standings = fetch_standings(args.season)
     po_opp = fetch_playoff_opp_ppg(args.season)
+    awards = fetch_awards(args.season)
     print(f'  players: reg {len(reg)}, playoffs {len(po)}; teams {len(standings)}, po-teams {len(po_opp)}')
     if len(reg) < 100 or len(standings) < 30:
         sys.exit('ABORT: source data looks incomplete — nothing was written')
@@ -271,7 +323,22 @@ def main():
             if sql:
                 lines.append(sql)
         lines.append(career_sql(table))
-    # team_season: upsert W/L + points allowed; PLAYOFF_RESULT stays hand-maintained
+    # season honors from the awards feed — additive only (hand-filled vote ranks 2-10 survive)
+    def upd(setter, espn_id):
+        return (f"UPDATE player_stats SET {setter} WHERE PLAYER_ID='nba-{espn_id}' AND SEASON_NUM={season_num};")
+    for field, col in (('mvp', 'MVP_RANK=1'), ('dpoy', 'DPOY_RANK=1')):
+        if awards.get(field):
+            lines.append(upd(col, awards[field]))
+    for espn_id, tier in awards['all_nba'].items():
+        lines.append(upd(f"ALL_DBA_TEAM='{tier}'", espn_id))
+    for espn_id, tier in awards['all_def'].items():
+        lines.append(upd(f"ALL_DEF_TEAM='{tier}'", espn_id))
+    lines.append(f"DELETE FROM season_award WHERE SEASON_NUM={season_num} AND AWARD IN ('fmvp','smoy','mip');")
+    for field in ('fmvp', 'smoy', 'mip'):
+        if awards.get(field):
+            lines.append("INSERT INTO season_award (SEASON_NUM, AWARD, PLAYER_ID) "
+                         f"VALUES ({season_num}, '{field}', 'nba-{awards[field]}');")
+    # team_season: upsert W/L + points allowed; other PLAYOFF_RESULT values stay hand-maintained
     for code, st in standings.items():
         oppg = num(st['oppg']) if st.get('oppg') is not None else 'NULL'
         po_pa = num(po_opp[code]) if code in po_opp else 'NULL'
@@ -280,6 +347,16 @@ def main():
             f"VALUES ('{esc(code)}', {season_num}, {st['wins']}, {st['losses']}, {oppg}, {po_pa}) "
             "ON DUPLICATE KEY UPDATE WINS=VALUES(WINS), LOSSES=VALUES(LOSSES), "
             "PTS_ALLOWED=VALUES(PTS_ALLOWED), PLAYOFF_PTS_ALLOWED=VALUES(PLAYOFF_PTS_ALLOWED);")
+    # champion / runner-up derived from FMVP + the two conference-finals MVPs' teams
+    # (after the team upserts so a brand-new season's rows already exist)
+    team_of = {r['espnId']: r['teamCode'] for r in reg if r.get('teamCode')}
+    champ = team_of.get(awards.get('fmvp'))
+    if champ:
+        lines.append(f"UPDATE team_season SET PLAYOFF_RESULT='总冠军' WHERE SEASON_NUM={season_num} AND TEAM_CODE='{esc(champ)}';")
+        for cid in awards['conf_mvps']:
+            runner = team_of.get(cid)
+            if runner and runner != champ:
+                lines.append(f"UPDATE team_season SET PLAYOFF_RESULT='总决赛' WHERE SEASON_NUM={season_num} AND TEAM_CODE='{esc(runner)}' AND (PLAYOFF_RESULT IS NULL OR PLAYOFF_RESULT='');")
     lines.append('COMMIT;')
 
     out = Path(__file__).parent / f'nba_sync_{args.season}.sql'
