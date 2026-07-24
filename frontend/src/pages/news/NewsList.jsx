@@ -3,7 +3,7 @@ import { Avatar, Badge, Button, Card, Col, Empty, Input, Pagination, Row, Segmen
 import {
   ClockCircleOutlined, CrownOutlined, EditOutlined, EyeInvisibleOutlined, FireOutlined, LikeOutlined, LockOutlined,
   MessageOutlined, RightOutlined, SearchOutlined, SettingOutlined, StarFilled,
-  StarOutlined, TrophyFilled, UnlockOutlined,
+  StarOutlined, UnlockOutlined,
 } from '@ant-design/icons'
 import { Link, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
@@ -81,14 +81,11 @@ function PostCard({ post, topicOwnerIds }) {
         </Avatar>
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
-        {/* 作者行：头像旁对齐——名字 + 身份标识（超管/题主/认证）+ 头衔 + 时间 */}
+        {/* 作者行：头像旁对齐——名字 + 身份标识（超管/题主）+ 头衔 + 时间 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#999', flexWrap: 'wrap' }}>
           <span style={{ color: '#333', fontWeight: 600, fontSize: 13 }}>{post.author || '匿名'}</span>
           {post.authorSuperManager && <SuperAdminBadge />}
           {topicOwnerIds?.includes(post.authorId) && <TopicOwnerBadge />}
-          {post.authorVerifiedPlayerId && (
-            <Tag color="gold" style={{ marginInlineEnd: 0 }}><TrophyFilled /> {post.authorVerifiedPlayerName || '认证球员'}</Tag>
-          )}
           <UserTitles titles={post.authorTitles} size="sm" />
           <span style={{ color: '#bbb' }}>{timeAgo(post.publishDate)}</span>
         </div>

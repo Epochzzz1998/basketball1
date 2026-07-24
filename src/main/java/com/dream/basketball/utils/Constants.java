@@ -17,13 +17,6 @@ public class Constants {
 
     public static final String NORMAL_USER = "normalUser"; // 普通用户
 
-    // 用户是否球员认证
-    public static final Integer UNIDENTIFICATION = 0; // 未认证
-
-    public static final Integer IDENTIFICATION = 1; // 已认证
-
-    public static final Integer IDENTIFICATION_PENDING = 2; // 认证审核中（等待超级管理员通过）
-
     public static final String GOOD_COMMENT = "goodComment";
 
     public static final String BAD_COMMENT = "badComment";

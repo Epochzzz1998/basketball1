@@ -117,8 +117,7 @@ public class UserController extends BaseUtils {
         dreamUser.setPassword(PasswordUtil.hash(dreamUserDto.getPassword()));
         dreamUser.setUserStatus(Constants.USABLE);
         dreamUser.setUserRole(Constants.NORMAL_USER);
-        dreamUser.setPlayerIdentification(Constants.UNIDENTIFICATION);
-        // 新用户默认不开放「数据分析(Dream Union)」模块；新闻/百家说/私信不设(null=开放)。超管可在用户管理里放开。
+        // 新用户默认不开放「数据分析(NBA 模块)」；新闻/百家说/私信不设(null=开放)。超管可在用户管理里放开。
         dreamUser.setFeatData("0");
         userService.save(dreamUser);
         return handlerResultJson(true, "注册成功！");
@@ -299,9 +298,6 @@ public class UserController extends BaseUtils {
         com.dream.basketball.entity.BbqStaff bbq = bbqStaffMapper.selectById(u.getUserId());
         m.put("bbqRole", bbq == null ? null : bbq.getStaffRole());
         m.put("titles", u.getTitles());
-        // 认证球员（只读展示；认证流程在 /admin/verify 管）
-        m.put("verified", Constants.IDENTIFICATION.equals(u.getPlayerIdentification()));
-        m.put("playerId", u.getPlayerId());
         return new Result<>(0, "成功", m);
     }
 

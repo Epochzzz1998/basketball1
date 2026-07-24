@@ -110,9 +110,11 @@ function HonorCard({ group, rows, seasonNum }) {
               borderBottom: i === members.length - 1 ? 'none' : '1px solid #f5f5f5',
             }}
           >
-            <span style={{ width: 30, fontWeight: 700, fontStyle: 'italic', fontSize: i < 3 ? 15 : 13, color: i < 3 ? MEDAL[i] : '#bbb' }}>
-              {group.rankOf(r)}
-            </span>
+            {group.rankOf && (
+              <span style={{ width: 30, fontWeight: 700, fontStyle: 'italic', fontSize: i < 3 ? 15 : 13, color: i < 3 ? MEDAL[i] : '#bbb' }}>
+                {group.rankOf(r)}
+              </span>
+            )}
             <div style={{ flex: 1, minWidth: 0 }}>
               <Link to={`/players/${r.playerId}`} style={{ fontWeight: i < 3 ? 600 : 400 }}>{r.playerName}</Link>
               <span style={{ color: '#999', fontSize: 12, marginLeft: 8 }}>{r.playerTeam} · {r.playerPosition}</span>

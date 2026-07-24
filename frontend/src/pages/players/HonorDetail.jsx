@@ -30,14 +30,17 @@ export default function HonorDetail() {
 
   const members = rows ? (group.pickFull || group.pick)(rows) : []
   const columns = [
-    {
-      title: '名次', width: 70, fixed: 'left',
-      render: (_, r, i) => (
-        <span style={{ fontWeight: 700, fontStyle: 'italic', color: i < 3 ? MEDAL[i] : '#bbb', fontSize: i < 3 ? 16 : 14 }}>
-          {group.rankOf(r)}
-        </span>
-      ),
-    },
+    // 阵容组没有名次角标（rankOf 不设），完整数据页也不出名次列
+    ...(group.rankOf
+      ? [{
+          title: '名次', width: 70, fixed: 'left',
+          render: (_, r, i) => (
+            <span style={{ fontWeight: 700, fontStyle: 'italic', color: i < 3 ? MEDAL[i] : '#bbb', fontSize: i < 3 ? 16 : 14 }}>
+              {group.rankOf(r)}
+            </span>
+          ),
+        }]
+      : []),
     ...buildFullStatColumns({ serverSort: false }),
   ]
 
@@ -52,7 +55,7 @@ export default function HonorDetail() {
         search={false}
         options={false}
         pagination={false}
-        scroll={{ x: FULL_COLUMNS_SCROLL_X + 70 }}
+        scroll={{ x: FULL_COLUMNS_SCROLL_X + (group.rankOf ? 70 : 0) }}
         toolBarRender={() => [
           <SeasonPicker key="season" value={seasonNum} onChange={setSeasonNum} />,
         ]}

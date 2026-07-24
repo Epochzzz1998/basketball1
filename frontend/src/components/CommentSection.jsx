@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Avatar, Button, Empty, Image, Input, Pagination, Popconfirm, Space, Spin, Tag, Tooltip, message } from 'antd'
-import { BarChartOutlined, DislikeOutlined, FileOutlined, LikeOutlined, LockOutlined, StarFilled, TrophyFilled, UserOutlined } from '@ant-design/icons'
+import { Avatar, Button, Empty, Image, Input, Pagination, Popconfirm, Space, Spin, message } from 'antd'
+import { BarChartOutlined, DislikeOutlined, FileOutlined, LikeOutlined, LockOutlined, StarFilled, UserOutlined } from '@ant-design/icons'
 import { Link, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { newsApi } from '../api/news'
@@ -118,7 +118,7 @@ function CommentAttachments({ attachmentsJson }) {
   )
 }
 
-// 评论者一行 meta：昵称 + 超管/题主/楼主/认证/头衔 +（楼层号）+ 时间
+// 评论者一行 meta：昵称 + 超管/题主/楼主/头衔 +（楼层号）+ 时间
 function MetaRow({ c, authorId, topicOwnerIds, showFloor }) {
   const navigate = useNavigate()
   const { dn } = useAuth() // 备注名替换（仅展示层；徽章判断仍用 userId）
@@ -130,17 +130,6 @@ function MetaRow({ c, authorId, topicOwnerIds, showFloor }) {
       {c.superManager && <SuperAdminBadge />}
       {topicOwnerIds?.includes(c.userId) && <TopicOwnerBadge />}
       {authorId && c.userId === authorId && <OpBadge />}
-      {c.verifiedPlayerId && (
-        <Tooltip title="认证球员 · 点击看生涯数据">
-          <Tag
-            color="gold"
-            style={{ cursor: 'pointer', marginInlineEnd: 0, lineHeight: '18px' }}
-            onClick={() => navigate(`/players/${c.verifiedPlayerId}`)}
-          >
-            <TrophyFilled /> {c.verifiedPlayerName || '认证球员'}
-          </Tag>
-        </Tooltip>
-      )}
       <UserTitles titles={c.titles} size="sm" />
       {showFloor && c.floor != null && <span style={{ fontSize: 12, color: '#bbb' }}>#{c.floor}</span>}
       <span style={{ fontSize: 12, color: '#bbb' }}>{fmt(c.commentDate)}</span>

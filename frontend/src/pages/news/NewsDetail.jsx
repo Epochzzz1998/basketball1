@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Avatar, Button, Card, Col, Divider, Empty, Popconfirm, Row, Skeleton, Tag, message } from 'antd'
-import { DeleteOutlined, DislikeOutlined, EyeInvisibleOutlined, FireOutlined, FormOutlined, LikeOutlined, LockOutlined, PushpinFilled, RightOutlined, StarFilled, TagsOutlined, TrophyFilled, UnlockOutlined } from '@ant-design/icons'
+import { DeleteOutlined, DislikeOutlined, EyeInvisibleOutlined, FireOutlined, FormOutlined, LikeOutlined, LockOutlined, PushpinFilled, RightOutlined, StarFilled, TagsOutlined, UnlockOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import DOMPurify from 'dompurify'
 import { newsApi } from '../../api/news'
@@ -358,11 +358,6 @@ export default function NewsDetail() {
                       <OpBadge />
                       {news.authorSuperManager && <SuperAdminBadge />}
                       {topicOwnerIds?.includes(news.authorId) && <TopicOwnerBadge />}
-                      {news.authorVerifiedPlayerId && (
-                        <Tag color="gold" style={{ marginInlineEnd: 0, cursor: 'pointer' }} onClick={() => navigate(`/players/${news.authorVerifiedPlayerId}`)}>
-                          <TrophyFilled /> {news.authorVerifiedPlayerName || '认证球员'}
-                        </Tag>
-                      )}
                       <UserTitles titles={news.authorTitles} size="sm" />
                       {official && <Tag color="blue" style={{ marginInlineEnd: 0 }}>官方</Tag>}
                       {news.top === '1' && <Tag color="red" style={{ marginInlineEnd: 0 }}>置顶</Tag>}
@@ -527,11 +522,6 @@ export default function NewsDetail() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                     <span style={{ fontWeight: 700, fontSize: 15 }}>{news.author || '匿名'}</span>
                     {news.authorSuperManager && <SuperAdminBadge />}
-                    {news.authorVerifiedPlayerId && (
-                      <Tag color="gold" style={{ marginInlineEnd: 0, cursor: 'pointer' }} onClick={() => navigate(`/players/${news.authorVerifiedPlayerId}`)}>
-                        <TrophyFilled /> {news.authorVerifiedPlayerName || '认证球员'}
-                      </Tag>
-                    )}
                     <UserTitles titles={news.authorTitles} size="sm" />
                   </div>
                   <div style={{ fontSize: 12, color: '#999', marginTop: 2 }}>{official ? '官方新闻作者' : '论坛作者'}</div>

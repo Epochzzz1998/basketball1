@@ -337,7 +337,7 @@ export default function Home() {
           }}
         >
           <span style={{ fontSize: 20 }}>👋</span>
-          <span style={{ color: '#873800', fontWeight: 500 }}>登录后可发帖、评论、点赞，还能申请球员身份认证</span>
+          <span style={{ color: '#873800', fontWeight: 500 }}>登录后可发帖、评论、点赞，参与社区互动</span>
           <span style={{ flex: 1 }} />
           <Button type="primary" onClick={() => navigate('/login')}>登录</Button>
           <Button onClick={() => navigate('/register')}>注册</Button>

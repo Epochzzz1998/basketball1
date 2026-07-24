@@ -23,15 +23,6 @@ export const userApi = {
   },
   changePassword: (oldPassword, newPassword) =>
     http.post('/user/changePassword', new URLSearchParams({ oldPassword, newPassword })),
-  // 本人：申请绑定球员（待超管审核）/ 撤销申请或解除绑定
-  bindPlayer: (playerId) => http.post('/user/bindPlayer', new URLSearchParams({ playerId })),
-  unbindPlayer: () => http.post('/user/unbindPlayer'),
-  // 超管：待审核列表 / 审核
-  bindings: () => http.get('/user/bindings'),
-  reviewBinding: (userId, approve) =>
-    http.post('/user/reviewBinding', new URLSearchParams({ userId, approve })),
-  // 超管：认证审核历史（分页）
-  verifyHistory: (params) => http.get('/user/verifyHistory', { params }),
   // 超管：全局用户管理——列表 / 单个用户详情 / 设置权限 / 分配头衔
   adminList: (params) => http.get('/user/adminList', { params }),
   adminDetail: (userId) => http.get('/user/adminDetail', { params: { userId } }),

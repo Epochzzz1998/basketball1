@@ -28,17 +28,18 @@ export const HONOR_GROUPS = [
   { key: 'dpoy', title: 'DPOY 榜', note: '最佳防守球员排名', span: 12,
     pick: pickVoted((r) => r.dpoyRank, byDpoy, 10), pickFull: pickVoted((r) => r.dpoyRank, byDpoy, 0),
     sub: defSub, rankOf: (r) => r.dpoyRank },
+  // 入阵是"当选"不是"名次"——阵容卡不带名次角标（无 rankOf），只按投票名次排个顺
   { key: 'all1', title: '最佳一阵', span: 8,
-    pick: (rows) => rows.filter((r) => r.allDbaTeam === '一阵').sort(byMvp), sub: offSub, rankOf: (r) => r.mvpRank },
+    pick: (rows) => rows.filter((r) => r.allDbaTeam === '一阵').sort(byMvp), sub: offSub },
   { key: 'all2', title: '最佳二阵', span: 8,
-    pick: (rows) => rows.filter((r) => r.allDbaTeam === '二阵').sort(byMvp), sub: offSub, rankOf: (r) => r.mvpRank },
+    pick: (rows) => rows.filter((r) => r.allDbaTeam === '二阵').sort(byMvp), sub: offSub },
   { key: 'all3', title: '最佳三阵', span: 8,
-    pick: (rows) => rows.filter((r) => r.allDbaTeam === '三阵').sort(byMvp), sub: offSub, rankOf: (r) => r.mvpRank },
+    pick: (rows) => rows.filter((r) => r.allDbaTeam === '三阵').sort(byMvp), sub: offSub },
   // 现实中最佳防守阵容只评一/二阵，不存在三阵
   { key: 'def1', title: '最佳防守一阵', span: 12,
-    pick: (rows) => rows.filter((r) => r.allDefTeam === '一阵').sort(byDpoy), sub: defSub, rankOf: (r) => r.dpoyRank },
+    pick: (rows) => rows.filter((r) => r.allDefTeam === '一阵').sort(byDpoy), sub: defSub },
   { key: 'def2', title: '最佳防守二阵', span: 12,
-    pick: (rows) => rows.filter((r) => r.allDefTeam === '二阵').sort(byDpoy), sub: defSub, rankOf: (r) => r.dpoyRank },
+    pick: (rows) => rows.filter((r) => r.allDefTeam === '二阵').sort(byDpoy), sub: defSub },
 ]
 
 // 生涯荣誉柜 / 赛季资料卡共用的荣誉元数据（gold=顶级荣誉金卡）

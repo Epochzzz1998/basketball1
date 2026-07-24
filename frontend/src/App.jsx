@@ -31,7 +31,6 @@ import BbqBurning from './pages/bbq/BbqBurning'
 import BbqMembers from './pages/bbq/BbqMembers'
 import BbqSkewers from './pages/bbq/BbqSkewers'
 import UserProfile from './pages/user/UserProfile'
-import VerifyBindings from './pages/admin/VerifyBindings'
 import UserManage from './pages/admin/UserManage'
 import UserManageDetail from './pages/admin/UserManageDetail'
 
@@ -61,7 +60,7 @@ export default function App() {
       <Route path="/403" element={<Forbidden />} />
 
       <Route path="/" element={<AppLayout />}>
-        {/* 落地页=百家说（论坛）；旧的篮球看板挪到 /league（Dream Union 里的「联盟概览」） */}
+        {/* 落地页=百家说（论坛）；旧的篮球看板挪到 /league（NBA 模块里的「联盟概览」） */}
         <Route index element={<HomeRedirect />} />
         <Route path="league" element={<Home />} />
 
@@ -96,7 +95,6 @@ export default function App() {
         <Route path="bbq/skewers" element={<ProtectedRoute><BbqSkewers /></ProtectedRoute>} />
 
         {/* 需 superManager */}
-        <Route path="admin/verify" element={<RoleRoute role="superManager"><VerifyBindings /></RoleRoute>} />
         <Route path="admin/users" element={<RoleRoute role="superManager"><UserManage /></RoleRoute>} />
         <Route path="admin/users/:userId" element={<RoleRoute role="superManager"><UserManageDetail /></RoleRoute>} />
         <Route path="admin/players" element={<RoleRoute role="superManager"><PlayerManage /></RoleRoute>} />

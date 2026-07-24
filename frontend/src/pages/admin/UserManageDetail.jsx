@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { Avatar, Button, Card, Divider, Input, Popover, Spin, Switch, Tag, message } from 'antd'
-import { ArrowLeftOutlined, CrownFilled, TrophyFilled } from '@ant-design/icons'
+import { ArrowLeftOutlined, CrownFilled } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { userApi } from '../../api/user'
 import { bbqApi } from '../../api/bbq'
@@ -42,7 +42,6 @@ function Swatches({ value, onPick }) {
 
 export default function UserManageDetail() {
   const { userId } = useParams()
-  const navigate = useNavigate()
   const { user: me } = useAuth()
   const [data, setData] = useState(null)
   const [titles, setTitles] = useState([]) // [{t,c}]
@@ -110,11 +109,6 @@ export default function UserManageDetail() {
             <div style={{ fontSize: 20, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               {data.userNickname}
               {data.isSuperManager && <Tag color="red"><CrownFilled /> 超管</Tag>}
-              {data.verified && (
-                <Tag color="gold" style={{ cursor: data.playerId ? 'pointer' : 'default' }} onClick={() => data.playerId && navigate(`/players/${data.playerId}`)}>
-                  <TrophyFilled /> 认证球员
-                </Tag>
-              )}
               {data.userId === me?.userId && <Tag>我</Tag>}
             </div>
             <div style={{ color: '#999', fontSize: 13, marginTop: 6 }}>
@@ -125,7 +119,7 @@ export default function UserManageDetail() {
       </Card>
 
       {/* 头衔 */}
-      <Card title="头衔" style={{ borderRadius: 12, marginBottom: 16 }} extra={<span style={{ color: '#999', fontSize: 12 }}>可多个、可各自设颜色，与认证球员并存</span>}>
+      <Card title="头衔" style={{ borderRadius: 12, marginBottom: 16 }} extra={<span style={{ color: '#999', fontSize: 12 }}>可多个、可各自设颜色</span>}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', minHeight: 24 }}>
           {titles.length
             ? titles.map((item, i) => (
@@ -167,7 +161,7 @@ export default function UserManageDetail() {
 
       {/* 功能模块 */}
       <Card title="功能模块" style={{ borderRadius: 12, marginBottom: 16 }} extra={<span style={{ color: '#999', fontSize: 12 }}>关掉则该用户导航里整块隐藏、深链也进不去</span>}>
-        {permRow('数据分析', 'featData', 'Dream Union：数据概览 / 联盟排行 / 球员对比')}
+        {permRow('数据分析', 'featData', 'NBA：联盟概览 / 数据概览 / 联盟排行 / 球员对比')}
         {permRow('新闻', 'featNews')}
         {permRow('百家说', 'featForum')}
         {permRow('私信', 'featPm')}

@@ -7,13 +7,10 @@ import com.dream.basketball.config.RequiresRole;
 import com.dream.basketball.config.Role;
 import com.dream.basketball.entity.DreamNews;
 import com.dream.basketball.entity.DreamNewsComment;
-import com.dream.basketball.entity.DreamPlayer;
 import com.dream.basketball.entity.DreamUser;
 import com.dream.basketball.mapper.DreamNewsCommentMapper;
 import com.dream.basketball.mapper.DreamNewsMapper;
 import com.dream.basketball.mapper.UserMapper;
-import com.dream.basketball.service.PlayerService;
-import com.dream.basketball.utils.Constants;
 import com.dream.basketball.utils.PasswordUtil;
 import com.dream.basketball.utils.SecUtil;
 import com.dream.basketball.utils.FileUtils;
@@ -29,16 +26,13 @@ import org.springframework.web.multipart.MultipartFile;
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * 用户空间：公开主页聚合 + 本人资料编辑 + 球员认证绑定（申请 → 超级管理员审核）。
- * PLAYER_IDENTIFICATION 三态：0=未认证，2=审核中，1=已认证（沿用既有常量语义）。
+ * 用户空间：公开主页聚合 + 本人资料编辑。
  */
 @RestController
 @RequestMapping("/user")
@@ -52,12 +46,6 @@ public class UserProfileController {
 
     @Autowired
     private DreamNewsCommentMapper dreamNewsCommentMapper;
-
-    @Autowired
-    private PlayerService playerService;
-
-    @Autowired
-    private com.dream.basketball.mapper.PlayerVerifyRecordMapper verifyRecordMapper;
 
     @Autowired
     private com.dream.basketball.mapper.UserFollowMapper followMapper;
@@ -110,17 +98,6 @@ public class UserProfileController {
         user.put("hideFollows", "1".equals(u.getHideFollows()));
         user.put("hideFavorites", "1".equals(u.getHideFavorites()));
         user.put("pmPolicy", u.getPmPolicy());
-        // 认证三态 + 绑定球员（徽章只在已认证时展示，审核中仅本人视角用）
-        int identStatus = u.getPlayerIdentification() == null ? 0 : u.getPlayerIdentification();
-        user.put("identStatus", identStatus);
-        user.put("checkTime", u.getCheckTime());
-        if (StringUtils.isNotBlank(u.getPlayerId())) {
-            user.put("playerId", u.getPlayerId());
-            DreamPlayer p = playerService.getById(u.getPlayerId());
-            if (p != null) {
-                user.put("playerName", p.getPlayerName());
-            }
-        }
 
         // 帖子（官方+论坛都算，最新在前，取前 N；计数/获赞用全量聚合）。本人隐私隐藏时不下发列表；
         // 被题主/管理者隐藏(HIDDEN)的帖，他人视角也不出现在足迹里（本人仍可见自己的）。
@@ -339,183 +316,6 @@ public class UserProfileController {
         userMapper.update(null, new UpdateWrapper<DreamUser>()
                 .eq("USER_ID", me.getUserId()).set("PM_POLICY", value));
         return new Result<>(0, "已保存", null);
-    }
-
-    /* ==================== 球员认证绑定 ==================== */
-
-    /** 申请绑定球员 → 进入审核中（同一球员只允许一个已认证账号） */
-    @RequiresRole(Role.USER)
-    @PostMapping("/bindPlayer")
-    public Result<Object> bindPlayer(String playerId, HttpServletRequest request) {
-        DreamUser me = SecUtil.getLoginUserToSession(request);
-        DreamPlayer player = StringUtils.isBlank(playerId) ? null : playerService.getById(playerId);
-        if (player == null) {
-            return new Result<>(1, "球员不存在", null);
-        }
-        Integer taken = userMapper.selectCount(new QueryWrapper<DreamUser>()
-                .eq("PLAYER_ID", playerId)
-                .eq("PLAYER_IDENTIFICATION", Constants.IDENTIFICATION)
-                .ne("USER_ID", me.getUserId()));
-        if (taken != null && taken > 0) {
-            return new Result<>(1, "该球员已被其他账号认证", null);
-        }
-        userMapper.update(null, new UpdateWrapper<DreamUser>()
-                .eq("USER_ID", me.getUserId())
-                .set("PLAYER_ID", playerId)
-                .set("PLAYER_IDENTIFICATION", Constants.IDENTIFICATION_PENDING)
-                .set("CHECK_TIME", new Date()));
-        me.setPlayerId(playerId);
-        me.setPlayerIdentification(Constants.IDENTIFICATION_PENDING);
-        SecUtil.setLoginUserToSession(request, me);
-        // 认证历史：先作废旧的待审记录，再插一条新的 pending
-        cancelPendingRecords(me.getUserId());
-        com.dream.basketball.entity.PlayerVerifyRecord rec = new com.dream.basketball.entity.PlayerVerifyRecord();
-        rec.setId(UUID.randomUUID().toString());
-        rec.setUserId(me.getUserId());
-        rec.setPlayerId(playerId);
-        rec.setStatus("pending");
-        rec.setApplyTime(new Date());
-        verifyRecordMapper.insert(rec);
-        return new Result<>(0, "已提交认证申请，等待超级管理员审核", null);
-    }
-
-    /** 撤销申请 / 解除绑定（本人任意状态可清） */
-    @RequiresRole(Role.USER)
-    @PostMapping("/unbindPlayer")
-    public Result<Object> unbindPlayer(HttpServletRequest request) {
-        DreamUser me = SecUtil.getLoginUserToSession(request);
-        userMapper.update(null, new UpdateWrapper<DreamUser>()
-                .eq("USER_ID", me.getUserId())
-                .set("PLAYER_ID", null)
-                .set("PLAYER_IDENTIFICATION", Constants.UNIDENTIFICATION)
-                .set("CHECK_TIME", null));
-        me.setPlayerId(null);
-        me.setPlayerIdentification(Constants.UNIDENTIFICATION);
-        SecUtil.setLoginUserToSession(request, me);
-        cancelPendingRecords(me.getUserId()); // 撤销申请：作废待审记录
-        return new Result<>(0, "已解除绑定", null);
-    }
-
-    /** 待审核申请列表（超管） */
-    @RequiresRole(Role.SUPER_MANAGER)
-    @GetMapping("/bindings")
-    public Result<List<Map<String, Object>>> bindings() {
-        List<DreamUser> pending = userMapper.selectList(new QueryWrapper<DreamUser>()
-                .eq("PLAYER_IDENTIFICATION", Constants.IDENTIFICATION_PENDING)
-                .orderByAsc("CHECK_TIME"));
-        List<Map<String, Object>> rows = new ArrayList<>();
-        for (DreamUser u : pending) {
-            Map<String, Object> m = new HashMap<>();
-            m.put("userId", u.getUserId());
-            m.put("userName", u.getUserName());
-            m.put("userNickname", u.getUserNickname());
-            m.put("playerId", u.getPlayerId());
-            DreamPlayer p = StringUtils.isBlank(u.getPlayerId()) ? null : playerService.getById(u.getPlayerId());
-            m.put("playerName", p == null ? null : p.getPlayerName());
-            m.put("playerNumber", p == null ? null : p.getPlayerNumber());
-            m.put("applyTime", u.getCheckTime());
-            rows.add(m);
-        }
-        return new Result<>(0, "成功", rows);
-    }
-
-    /** 审核（超管）：approve=true 通过（盖章时间），false 驳回（清空绑定） */
-    @RequiresRole(Role.SUPER_MANAGER)
-    @PostMapping("/reviewBinding")
-    public Result<Object> reviewBinding(String userId, Boolean approve, HttpServletRequest request) {
-        DreamUser target = StringUtils.isBlank(userId) ? null : userMapper.selectById(userId);
-        if (target == null || target.getPlayerIdentification() == null
-                || !Constants.IDENTIFICATION_PENDING.equals(target.getPlayerIdentification())) {
-            return new Result<>(1, "该申请不存在或已处理", null);
-        }
-        String handlerId = SecUtil.getLoginUserIdToSession(request);
-        if (Boolean.TRUE.equals(approve)) {
-            Integer taken = userMapper.selectCount(new QueryWrapper<DreamUser>()
-                    .eq("PLAYER_ID", target.getPlayerId())
-                    .eq("PLAYER_IDENTIFICATION", Constants.IDENTIFICATION)
-                    .ne("USER_ID", userId));
-            if (taken != null && taken > 0) {
-                return new Result<>(1, "该球员已被其他账号认证，请先驳回本申请", null);
-            }
-            userMapper.update(null, new UpdateWrapper<DreamUser>()
-                    .eq("USER_ID", userId)
-                    .set("PLAYER_IDENTIFICATION", Constants.IDENTIFICATION)
-                    .set("CHECK_TIME", new Date()));
-            resolvePendingRecord(userId, target.getPlayerId(), "approved", handlerId);
-            return new Result<>(0, "已通过认证", null);
-        }
-        String playerIdBefore = target.getPlayerId();
-        userMapper.update(null, new UpdateWrapper<DreamUser>()
-                .eq("USER_ID", userId)
-                .set("PLAYER_ID", null)
-                .set("PLAYER_IDENTIFICATION", Constants.UNIDENTIFICATION)
-                .set("CHECK_TIME", null));
-        resolvePendingRecord(userId, playerIdBefore, "rejected", handlerId);
-        return new Result<>(0, "已驳回申请", null);
-    }
-
-    /** 认证审核历史（超管，分页）：全部记录 + 用户/球员名 + 状态 + 时间 + 审核人。 */
-    @RequiresRole(Role.SUPER_MANAGER)
-    @GetMapping("/verifyHistory")
-    public Result<Map<String, Object>> verifyHistory(Integer page, Integer limit) {
-        com.github.pagehelper.PageHelper.startPage(page == null ? 1 : page, limit == null ? 20 : limit);
-        List<com.dream.basketball.entity.PlayerVerifyRecord> recs = verifyRecordMapper.selectList(
-                new QueryWrapper<com.dream.basketball.entity.PlayerVerifyRecord>().orderByDesc("APPLY_TIME"));
-        com.github.pagehelper.PageInfo<com.dream.basketball.entity.PlayerVerifyRecord> info =
-                new com.github.pagehelper.PageInfo<>(recs);
-        List<Map<String, Object>> rows = new ArrayList<>();
-        for (com.dream.basketball.entity.PlayerVerifyRecord r : recs) {
-            Map<String, Object> m = new HashMap<>();
-            DreamUser u = userMapper.selectById(r.getUserId());
-            DreamPlayer p = StringUtils.isBlank(r.getPlayerId()) ? null : playerService.getById(r.getPlayerId());
-            DreamUser handler = StringUtils.isBlank(r.getHandlerId()) ? null : userMapper.selectById(r.getHandlerId());
-            m.put("userId", r.getUserId());
-            m.put("userNickname", u == null ? r.getUserId() : u.getUserNickname());
-            m.put("playerId", r.getPlayerId());
-            m.put("playerName", p == null ? null : p.getPlayerName());
-            m.put("playerNumber", p == null ? null : p.getPlayerNumber());
-            m.put("status", r.getStatus());
-            m.put("applyTime", r.getApplyTime());
-            m.put("handleTime", r.getHandleTime());
-            m.put("handlerName", handler == null ? null : handler.getUserNickname());
-            rows.add(m);
-        }
-        Map<String, Object> data = new HashMap<>();
-        data.put("total", info.getTotal());
-        data.put("records", rows);
-        return new Result<>(0, "成功", data);
-    }
-
-    /** 把用户最新的 pending 记录落定为 approved/rejected；没有则补一条（兼容历史遗留的待审用户）。 */
-    private void resolvePendingRecord(String userId, String playerId, String status, String handlerId) {
-        com.dream.basketball.entity.PlayerVerifyRecord rec = verifyRecordMapper.selectOne(
-                new QueryWrapper<com.dream.basketball.entity.PlayerVerifyRecord>()
-                        .eq("USER_ID", userId).eq("STATUS", "pending")
-                        .orderByDesc("APPLY_TIME").last("limit 1"));
-        Date now = new Date();
-        if (rec == null) {
-            rec = new com.dream.basketball.entity.PlayerVerifyRecord();
-            rec.setId(UUID.randomUUID().toString());
-            rec.setUserId(userId);
-            rec.setPlayerId(playerId);
-            rec.setApplyTime(now);
-            rec.setStatus(status);
-            rec.setHandleTime(now);
-            rec.setHandlerId(handlerId);
-            verifyRecordMapper.insert(rec);
-        } else {
-            rec.setStatus(status);
-            rec.setHandleTime(now);
-            rec.setHandlerId(handlerId);
-            verifyRecordMapper.updateById(rec);
-        }
-    }
-
-    /** 作废用户所有 pending 记录（撤销申请 / 重新申请时用）。 */
-    private void cancelPendingRecords(String userId) {
-        verifyRecordMapper.update(null, new UpdateWrapper<com.dream.basketball.entity.PlayerVerifyRecord>()
-                .eq("USER_ID", userId).eq("STATUS", "pending")
-                .set("STATUS", "cancelled").set("HANDLE_TIME", new Date()));
     }
 
     private long sumGood(List<Object> objs) {

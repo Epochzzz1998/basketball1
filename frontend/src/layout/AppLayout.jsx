@@ -19,7 +19,6 @@ import {
   LogoutOutlined,
   NotificationOutlined,
   ReadOutlined,
-  SafetyCertificateOutlined,
   TeamOutlined,
   TrophyOutlined,
   UsergroupAddOutlined,
@@ -147,11 +146,11 @@ export default function AppLayout() {
       routes: [
         // 百家说（论坛）是落地页与首要入口，放最前
         ...(canUse('featForum') ? [{ path: '/news', name: '百家说', icon: <ReadOutlined /> }] : []),
-        // Dream Union：篮球数据分析模块（可扩展），「联盟概览」(旧首页看板) 打头，与百家说/新闻同级
+        // NBA（原 Dream Union）：篮球数据分析模块，「联盟概览」(旧首页看板) 打头，与百家说/新闻同级
         ...(canUse('featData')
           ? [{
               path: '/dream-union',
-              name: 'Dream Union',
+              name: 'NBA',
               icon: <FundOutlined />,
               routes: [
                 { path: '/league', name: '联盟概览', icon: <HomeOutlined /> },
@@ -195,7 +194,6 @@ export default function AppLayout() {
           ? [
               { path: '/admin/players', name: '球员管理', icon: <DatabaseOutlined /> },
               { path: '/admin/users', name: '用户管理', icon: <UsergroupAddOutlined /> },
-              { path: '/admin/verify', name: '认证审核', icon: <SafetyCertificateOutlined /> },
             ]
           : []),
       ],
@@ -210,7 +208,7 @@ export default function AppLayout() {
 
   // 全局返回按钮：一级页面（侧栏导航直达的根路径）不显示，其余页面统一在内容区左上角。
   // 优先走站内历史（-1 即"上一级"）；直链进入无历史时，剥路径段回落到最近的已知上级。
-  const NAV_ROOTS = ['/', '/news', '/league', '/players', '/rankings', '/compare', '/official', '/messages', '/schedule', '/bbq/wage', '/bbq/ledger', '/bbq/burning', '/bbq/members', '/bbq/skewers', '/login', '/register', '/403', '/admin/players', '/admin/users', '/admin/verify']
+  const NAV_ROOTS = ['/', '/news', '/league', '/players', '/rankings', '/compare', '/official', '/messages', '/schedule', '/bbq/wage', '/bbq/ledger', '/bbq/burning', '/bbq/members', '/bbq/skewers', '/login', '/register', '/403', '/admin/players', '/admin/users']
   const showBack = !NAV_ROOTS.includes(location.pathname)
   const goBack = () => {
     if (window.history.state && window.history.state.idx > 0) {

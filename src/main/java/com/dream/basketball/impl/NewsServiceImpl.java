@@ -74,9 +74,6 @@ public class NewsServiceImpl implements NewsService {
     com.dream.basketball.mapper.UserMapper userMapper;
 
     @Autowired
-    com.dream.basketball.service.PlayerService playerService;
-
-    @Autowired
     RabbitMqProducer rabbitMqProducer;
 
     @Autowired
@@ -238,20 +235,6 @@ public class NewsServiceImpl implements NewsService {
                 idToNick.put(u.getUserId(), u.getUserNickname());
             }
         }
-        // 已认证球员作者：一把批查球员姓名（和评论区 fillVerifiedPlayer 同款）
-        java.util.Set<String> playerIds = new java.util.HashSet<>();
-        for (DreamUser u : userMap.values()) {
-            if (com.dream.basketball.utils.Constants.IDENTIFICATION.equals(u.getPlayerIdentification())
-                    && StringUtils.isNotBlank(u.getPlayerId())) {
-                playerIds.add(u.getPlayerId());
-            }
-        }
-        java.util.Map<String, String> playerNames = new java.util.HashMap<>();
-        if (!playerIds.isEmpty()) {
-            for (com.dream.basketball.entity.DreamPlayer p : playerService.listByIds(playerIds)) {
-                playerNames.put(p.getPlayerId(), p.getPlayerName());
-            }
-        }
         java.util.Map<String, String> nickToId = allNickToId(); // 循环外一次全量查（自动链接 @ 用）
         for (NewsDto n : newsList) {
             if (n == null) {
@@ -283,11 +266,6 @@ public class NewsServiceImpl implements NewsService {
             n.setAuthorTitles(u.getTitles()); // 头衔（逗号分隔）
             n.setAuthorSuperManager(com.dream.basketball.config.Role.fromUserRole(u.getUserRole())
                     == com.dream.basketball.config.Role.SUPER_MANAGER);
-            if (com.dream.basketball.utils.Constants.IDENTIFICATION.equals(u.getPlayerIdentification())
-                    && StringUtils.isNotBlank(u.getPlayerId())) {
-                n.setAuthorVerifiedPlayerId(u.getPlayerId());
-                n.setAuthorVerifiedPlayerName(playerNames.get(u.getPlayerId()));
-            }
         }
     }
 
@@ -348,17 +326,12 @@ public class NewsServiceImpl implements NewsService {
             dreamNewsCommentDto.setCommentNum(getCommentNum(dreamNewsCommentDto.getCommentId()));
             dreamNewsCommentDtos.add(dreamNewsCommentDto);
         }
-        fillVerifiedPlayer(dreamNewsCommentDtos);
+        fillCommenterInfo(dreamNewsCommentDtos);
         // 楼列表（一级评论）：补每层楼的全部子孙回复数（按 ROOT_ID 一把 GROUP BY）
         if ("1".equals(params.getLevel())) {
             fillTotalReplyNum(dreamNewsCommentDtos);
         }
         return dreamNewsCommentDtos;
-    }
-
-    /** 评论行的读时批量回填（头像/当前昵称/认证/头衔/超管 + @ 当前名），供平铺回复接口复用 */
-    public void fillCommenterInfo(List<DreamNewsCommentDto> comments) {
-        fillVerifiedPlayer(comments);
     }
 
     /** 全站 昵称→userId（无联想 @ 识别用；用户量小，每次现查两列） */
@@ -412,8 +385,8 @@ public class NewsServiceImpl implements NewsService {
         }
     }
 
-    /** 批量回填评论者信息（一把 IN 查询）：头像 + 已认证（IDENTIFICATION=1）的绑定球员 ID/姓名 */
-    private void fillVerifiedPlayer(List<DreamNewsCommentDto> comments) {
+    /** 批量回填评论者信息（一把 IN 查询）：当前昵称/头像/头衔/超管标识 + @ 提及名；平铺回复接口复用 */
+    public void fillCommenterInfo(List<DreamNewsCommentDto> comments) {
         java.util.Set<String> userIds = new java.util.HashSet<>();
         for (DreamNewsCommentDto c : comments) {
             if (StringUtils.isNotBlank(c.getUserId())) {
@@ -436,20 +409,6 @@ public class NewsServiceImpl implements NewsService {
                 idToNick.put(u.getUserId(), u.getUserNickname());
             }
         }
-        // 认证者的球员姓名一把批查
-        java.util.Set<String> playerIds = new java.util.HashSet<>();
-        for (DreamUser u : users.values()) {
-            if (com.dream.basketball.utils.Constants.IDENTIFICATION.equals(u.getPlayerIdentification())
-                    && StringUtils.isNotBlank(u.getPlayerId())) {
-                playerIds.add(u.getPlayerId());
-            }
-        }
-        java.util.Map<String, String> playerNames = new java.util.HashMap<>();
-        if (!playerIds.isEmpty()) {
-            for (com.dream.basketball.entity.DreamPlayer p : playerService.listByIds(playerIds)) {
-                playerNames.put(p.getPlayerId(), p.getPlayerName());
-            }
-        }
         for (DreamNewsCommentDto c : comments) {
             // @ 提及：给 mentions 补 cur=当前昵称（改名后 @ 也显示新名），与作者是否还在无关
             c.setMentions(com.dream.basketball.utils.MentionUtil.enrichCommentMentions(c.getMentions(), idToNick));
@@ -465,11 +424,6 @@ public class NewsServiceImpl implements NewsService {
             c.setTitles(u.getTitles()); // 头衔（逗号分隔）
             c.setSuperManager(com.dream.basketball.config.Role.fromUserRole(u.getUserRole())
                     == com.dream.basketball.config.Role.SUPER_MANAGER);
-            if (com.dream.basketball.utils.Constants.IDENTIFICATION.equals(u.getPlayerIdentification())
-                    && StringUtils.isNotBlank(u.getPlayerId())) {
-                c.setVerifiedPlayerId(u.getPlayerId());
-                c.setVerifiedPlayerName(playerNames.get(u.getPlayerId()));
-            }
         }
     }
 

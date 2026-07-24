@@ -38,12 +38,6 @@ public class DreamUser extends Model<DreamUser> implements Serializable {
     @TableField("USER_ROLE")
     private String userRole;
 
-    @TableField("PLAYER_ID")
-    private String playerId;
-
-    @TableField("PLAYER_IDENTIFICATION")
-    private Integer playerIdentification;
-
     @TableField("USER_STATUS")
     private Integer userStatus;
 
@@ -52,9 +46,6 @@ public class DreamUser extends Model<DreamUser> implements Serializable {
 
     @TableField("LAST_LOGIN_TIME")
     private Date lastLoginTime;
-
-    @TableField("CHECK_TIME")
-    private Date checkTime;
 
     @TableField("AVATAR")
     private String avatar;
@@ -75,7 +66,7 @@ public class DreamUser extends Model<DreamUser> implements Serializable {
 
     /** 功能模块可用性（按用户，super-admin 控制）：'0'=不可用（导航里整块隐藏该模块）/ null|'1'=可用 */
     @TableField("FEAT_DATA")
-    private String featData;   // Dream Union 数据分析（数据概览/联盟排行/球员对比）
+    private String featData;   // NBA 数据分析（联盟概览/数据概览/联盟排行/球员对比）
     @TableField("FEAT_NEWS")
     private String featNews;   // 新闻
     @TableField("FEAT_FORUM")
@@ -85,7 +76,7 @@ public class DreamUser extends Model<DreamUser> implements Serializable {
     @TableField("FEAT_PM")
     private String featPm;     // 私信
 
-    /** 头衔（super-admin 分配，逗号分隔，可多个；与球员认证并存）。展示在用户名旁，如 "元老,技术大牛" */
+    /** 头衔（super-admin 分配，逗号分隔，可多个）。展示在用户名旁，如 "元老,技术大牛" */
     @TableField("TITLES")
     private String titles;
 
@@ -245,12 +236,9 @@ public class DreamUser extends Model<DreamUser> implements Serializable {
                 ", userName='" + userName + '\'' +
                 ", userNickname='" + userNickname + '\'' +
                 ", userRole='" + userRole + '\'' +
-                ", playerId='" + playerId + '\'' +
-                ", playerIdentification=" + playerIdentification +
                 ", userStatus=" + userStatus +
                 ", registTime=" + registTime +
                 ", lastLoginTime=" + lastLoginTime +
-                ", checkTime=" + checkTime +
                 '}';
     }
 
@@ -302,14 +290,6 @@ public class DreamUser extends Model<DreamUser> implements Serializable {
         this.userRole = userRole;
     }
 
-    public String getPlayerId() {
-        return playerId;
-    }
-
-    public void setPlayerId(String playerId) {
-        this.playerId = playerId;
-    }
-
     public Integer getUserStatus() {
         return userStatus;
     }
@@ -332,21 +312,5 @@ public class DreamUser extends Model<DreamUser> implements Serializable {
 
     public void setLastLoginTime(Date lastLoginTime) {
         this.lastLoginTime = lastLoginTime;
-    }
-
-    public Date getCheckTime() {
-        return checkTime;
-    }
-
-    public void setCheckTime(Date checkTime) {
-        this.checkTime = checkTime;
-    }
-
-    public Integer getPlayerIdentification() {
-        return playerIdentification;
-    }
-
-    public void setPlayerIdentification(Integer playerIdentification) {
-        this.playerIdentification = playerIdentification;
     }
 }

@@ -107,7 +107,7 @@ export default function GlobalSearch() {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
   const { user } = useAuth()
-  // 数据分析(Dream Union)是否对本人开放：未开放则前端不出球队组（球员组由后端一并过滤）
+  // 数据分析(NBA 模块)是否对本人开放：未开放则前端不出球队组（球员组由后端一并过滤）
   const canData = !user || user.isSuperManager || user.featData !== false
   const [open, setOpen] = useState(false)
   const [hoverTrigger, setHoverTrigger] = useState(false)

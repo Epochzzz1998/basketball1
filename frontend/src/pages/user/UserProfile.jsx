@@ -3,21 +3,19 @@ import {
   Avatar, Button, Card, Col, Empty, Form, Grid, Input, List, Modal, Popconfirm,
   Row, Select, Space, Spin, Statistic, Switch, Tabs, Tag, Upload, message,
 } from 'antd'
-import { CameraOutlined, CheckOutlined, CommentOutlined, EditOutlined, LikeOutlined, LockOutlined, MessageOutlined, PlusOutlined, StopOutlined, TagOutlined, TrophyFilled } from '@ant-design/icons'
+import { CameraOutlined, CheckOutlined, CommentOutlined, EditOutlined, LikeOutlined, LockOutlined, MessageOutlined, PlusOutlined, StopOutlined, TagOutlined } from '@ant-design/icons'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { newsApi } from '../../api/news'
 import { userApi } from '../../api/user'
 import { followApi } from '../../api/follow'
 import { blockApi } from '../../api/block'
-import { searchApi } from '../../api/search'
 import { remarkApi } from '../../api/remark'
 import { useAuth } from '../../auth/AuthContext'
 import UserTitles from '../../components/UserTitles'
 
 /**
  * 用户主页（/users/:userId，公开）。他人视角：资料横幅 + 统计条 + 帖子/评论。
- * 本人视角额外：编辑昵称、修改密码、球员认证绑定（申请 → 超管审核 → 认证徽章）。
- * 认证三态 identStatus：0 未认证 / 2 审核中 / 1 已认证。
+ * 本人视角额外：编辑昵称、修改密码、主页隐私开关。
  */
 
 const ROLE_META = {
@@ -154,68 +152,6 @@ function FavoriteList({ favorites, hidden, isSelf, onUnfavorite }) {
   )
 }
 
-/** 绑定球员弹窗：搜索球员（复用全局搜索接口）→ 提交认证申请 */
-function BindPlayerModal({ open, onCancel, onDone }) {
-  const [opts, setOpts] = useState([])
-  const [val, setVal] = useState()
-  const [saving, setSaving] = useState(false)
-  const timer = useRef()
-
-  const search = (kw) => {
-    clearTimeout(timer.current)
-    const k = kw.trim()
-    if (!k) return setOpts([])
-    timer.current = setTimeout(async () => {
-      try {
-        const d = await searchApi.globalSearch(k)
-        setOpts((d?.players || []).map((p) => ({
-          value: p.playerId,
-          label: `#${p.playerNumber ?? '-'}  ${p.playerName}`,
-        })))
-      } catch {
-        setOpts([])
-      }
-    }, 300)
-  }
-
-  const submit = async () => {
-    if (!val) return message.warning('请先选择球员')
-    setSaving(true)
-    try {
-      const res = await userApi.bindPlayer(val)
-      message.success(res?.msg || '已提交认证申请')
-      setVal(undefined)
-      setOpts([])
-      onDone()
-    } catch (e) {
-      message.error(e?.msg || '提交失败')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <Modal title="绑定球员（需超级管理员审核）" open={open} onCancel={onCancel} onOk={submit} confirmLoading={saving} okText="提交申请" destroyOnClose>
-      <Select
-        showSearch
-        filterOption={false}
-        onSearch={search}
-        options={opts}
-        value={val}
-        onChange={setVal}
-        placeholder="输入球员姓名搜索"
-        style={{ width: '100%' }}
-        notFoundContent={null}
-      />
-      <p style={{ color: '#999', fontSize: 12, marginTop: 12, lineHeight: 1.7 }}>
-        提交后进入「审核中」状态；超级管理员通过后，你的资料卡与评论区将展示
-        <Tag color="gold" style={{ margin: '0 4px' }}><TrophyFilled /> 认证球员</Tag>标识。
-        同一球员只能被一个账号认证。
-      </p>
-    </Modal>
-  )
-}
-
 // 关注/粉丝列表弹窗：行=头像+昵称+互关标，点击跳对方主页
 function FollowListModal({ userId, tab, onClose, onTabChange }) {
   const navigate = useNavigate()
@@ -317,7 +253,6 @@ export default function UserProfile() {
   const [remarkOpen, setRemarkOpen] = useState(false)
   const [remarkInput, setRemarkInput] = useState('')
   const [pwdOpen, setPwdOpen] = useState(false)
-  const [bindOpen, setBindOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [avatarFile, setAvatarFile] = useState(null)     // 暂存的新头像，点"保存"才上传
   const [avatarPreview, setAvatarPreview] = useState(null)
@@ -360,8 +295,6 @@ export default function UserProfile() {
   const { user, stats, posts, comments, favorites, postsHidden, commentsHidden, favoritesHidden, followerCount, followingCount, following, blockedByMe, followsHidden } = data
   const role = ROLE_META[user.userRole]
   const displayName = user.userNickname || user.userName
-  const verified = user.identStatus === 1
-  const pending = user.identStatus === 2
 
   const closeEdit = () => {
     setEditOpen(false)
@@ -399,16 +332,6 @@ export default function UserProfile() {
       pwdForm.resetFields()
     } catch (e) {
       message.error(e?.msg || '修改失败')
-    }
-  }
-
-  const unbind = async () => {
-    try {
-      const res = await userApi.unbindPlayer()
-      message.success(res?.msg || '已解除')
-      load()
-    } catch (e) {
-      message.error(e?.msg || '操作失败')
     }
   }
 
@@ -522,38 +445,11 @@ export default function UserProfile() {
                 </Tag>
               )}
               {role && <Tag color={role.color}>{role.label}</Tag>}
-              {verified && user.playerId && (
-                <Tag color="gold" style={{ cursor: 'pointer' }} onClick={() => navigate(`/players/${user.playerId}`)}>
-                  <TrophyFilled /> 认证球员{user.playerName ? ` · ${user.playerName}` : ''}
-                </Tag>
-              )}
               <UserTitles titles={user.titles} />
-              {isSelf && pending && (
-                <>
-                  <Tag color="orange">认证审核中{user.playerName ? ` · ${user.playerName}` : ''}</Tag>
-                  <Popconfirm title="撤销这次认证申请？" onConfirm={unbind}>
-                    <a style={{ color: '#fff', textDecoration: 'underline', fontSize: 12 }}>撤销</a>
-                  </Popconfirm>
-                </>
-              )}
-              {isSelf && !verified && !pending && (
-                <Tag
-                  style={{ background: 'transparent', borderStyle: 'dashed', color: '#fff', cursor: 'pointer' }}
-                  onClick={() => setBindOpen(true)}
-                >
-                  + 绑定球员
-                </Tag>
-              )}
-              {isSelf && verified && (
-                <Popconfirm title="解除球员绑定？解除后需重新申请认证。" onConfirm={unbind}>
-                  <a style={{ color: '#fff', textDecoration: 'underline', fontSize: 12 }}>解绑</a>
-                </Popconfirm>
-              )}
             </Space>
             <div style={{ opacity: 0.9, marginTop: 6, fontSize: isMobile ? 13 : 14 }}>@{user.userName}</div>
             <div style={{ opacity: 0.75, marginTop: 4, fontSize: 12 }}>
               加入于 {fmtDate(user.registTime)} · 最近活跃 {fmtDate(user.lastLoginTime)}
-              {verified && user.checkTime ? ` · 认证于 ${fmtDate(user.checkTime)}` : ''}
             </div>
           </div>
         </div>
@@ -736,7 +632,6 @@ export default function UserProfile() {
         </Form>
       </Modal>
 
-      <BindPlayerModal open={bindOpen} onCancel={() => setBindOpen(false)} onDone={() => { setBindOpen(false); load() }} />
 
       {/* 设置备注：只有我自己看得到；清空保存 = 删除备注 */}
       <Modal
