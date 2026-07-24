@@ -10,7 +10,7 @@ import { bbqApi } from '../../api/bbq'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext'
 import useIsMobile from '../../hooks/useIsMobile'
-import TimeField from '../../components/TimeField'
+import TimeField, { TimeClear } from '../../components/TimeField'
 
 /**
  * 耿阿姨烤串 · 薪资计算（店长专属）。日历记账：点一天 → 右侧看当天所有人的记录，
@@ -496,10 +496,11 @@ export default function BbqWage() {
                   <div>
                     <div style={{ fontSize: 13, color: '#666', marginBottom: 6 }}>上班 – 下班</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      {/* 原生 time 输入：移动端弹系统时间轮，页面不跟着滚；带清空 ✕ */}
+                      {/* 原生 time 输入：移动端弹系统时间轮，页面不跟着滚；右侧圆钮一键清整段 */}
                       <TimeField value={fStart} onChange={setFStart} style={{ width: 104 }} />
                       <span style={{ color: '#bbb' }}>–</span>
                       <TimeField value={fEnd} onChange={setFEnd} style={{ width: 104 }} />
+                      <TimeClear visible={!!(fStart || fEnd)} onClear={() => { setFStart(null); setFEnd(null) }} />
                     </div>
                     {fStart && fEnd && overnight(fStart, fEnd) && (
                       <div style={{ fontSize: 12, color: AMBER_DARK, marginTop: 4 }}>结束早于开始，按「干到次日」计算</div>

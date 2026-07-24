@@ -9,7 +9,7 @@ import dayjs from 'dayjs'
 import { scheduleApi } from '../../api/schedule'
 import { useAuth } from '../../auth/AuthContext'
 import useIsMobile from '../../hooks/useIsMobile'
-import TimeField from '../../components/TimeField'
+import TimeField, { TimeClear } from '../../components/TimeField'
 
 /**
  * 日程表（/schedule，登录）。月视图日历 + 选中日面板（移动端在下方）。
@@ -624,6 +624,7 @@ export default function Schedule() {
                     <TimeField value={timeRange?.[0] || null} onChange={(v) => setTimeRange((r) => [v, r?.[1] || null])} style={{ flex: 1 }} />
                     <span style={{ color: '#bbb', flexShrink: 0 }}>{taskType === 'deadline' ? '→' : '–'}</span>
                     <TimeField value={timeRange?.[1] || null} onChange={(v) => setTimeRange((r) => [r?.[0] || null, v])} style={{ flex: 1 }} />
+                    <TimeClear visible={!!(timeRange?.[0] || timeRange?.[1])} onClear={() => setTimeRange(null)} />
                   </span>
                   {taskType !== 'day' && !(editingEvent && editingEvent.recur) && (
                     <DatePicker
