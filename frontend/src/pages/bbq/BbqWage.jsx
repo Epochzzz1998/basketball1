@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  Avatar, Button, Calendar, Card, Col, DatePicker, Empty, Input, InputNumber, Modal, Popconfirm, Row, Select, Spin, Switch, TimePicker, message,
+  Avatar, Button, Calendar, Card, Col, DatePicker, Empty, Input, InputNumber, Modal, Popconfirm, Row, Select, Spin, Switch, message,
 } from 'antd'
 import {
   DeleteOutlined, DollarOutlined, EditOutlined, FireOutlined, LeftOutlined, PlusOutlined, RightOutlined, UserOutlined,
@@ -10,6 +10,7 @@ import { bbqApi } from '../../api/bbq'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext'
 import useIsMobile from '../../hooks/useIsMobile'
+import TimeField from '../../components/TimeField'
 
 /**
  * 耿阿姨烤串 · 薪资计算（店长专属）。日历记账：点一天 → 右侧看当天所有人的记录，
@@ -50,7 +51,7 @@ export default function BbqWage() {
   // 工时是可选块（有人只穿串不上班）：点「添加工时」才展开，只能有一块
   const [hasWork, setHasWork] = useState(false)
   const [fRate, setFRate] = useState(null)
-  const [fStart, setFStart] = useState(null) // dayjs
+  const [fStart, setFStart] = useState(null) // 'HH:mm' 字符串（原生时间输入）
   const [fEnd, setFEnd] = useState(null)
   const [fMeal, setFMeal] = useState(false)
   const [fDeduct, setFDeduct] = useState(null)
@@ -117,8 +118,8 @@ export default function BbqWage() {
     const worked = !!r.startTime
     setHasWork(worked)
     setFRate(worked ? Number(r.hourlyRate) : null)
-    setFStart(worked ? dayjs(`2000-01-01 ${r.startTime}`) : null)
-    setFEnd(worked ? dayjs(`2000-01-01 ${r.endTime}`) : null)
+    setFStart(worked ? r.startTime : null)
+    setFEnd(worked ? r.endTime : null)
     setFMeal(worked ? !!r.meal : false)
     setFDeduct(Number(r.deduct) > 0 ? Number(r.deduct) : null)
     setFReason(r.deductReason || '')
@@ -166,7 +167,7 @@ export default function BbqWage() {
     let paid = 0
     let base = 0
     if (workReady) {
-      raw = shiftMin(fStart.format('HH:mm'), fEnd.format('HH:mm'))
+      raw = shiftMin(fStart, fEnd)
       paid = Math.max(0, raw - (fMeal ? 15 : 0))
       base = Math.round((fRate * paid) / 60 * 100) / 100
     }
@@ -191,8 +192,8 @@ export default function BbqWage() {
         userId: fUser,
         workDate: dateStr,
         // 工时块没加 = 只穿串：时间/时薪/吃饭全不传
-        startTime: hasWork ? fStart.format('HH:mm') : undefined,
-        endTime: hasWork ? fEnd.format('HH:mm') : undefined,
+        startTime: hasWork ? fStart : undefined,
+        endTime: hasWork ? fEnd : undefined,
         hourlyRate: hasWork ? Number(fRate).toFixed(2) : undefined,
         meal: hasWork && fMeal ? '1' : undefined,
         deduct: fDeduct > 0 ? Number(fDeduct).toFixed(2) : undefined,
@@ -495,12 +496,12 @@ export default function BbqWage() {
                   <div>
                     <div style={{ fontSize: 13, color: '#666', marginBottom: 6 }}>上班 – 下班</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      {/* inputReadOnly：禁手输，移动端不弹键盘（弹起来页面又能滑动，乱） */}
-                      <TimePicker value={fStart} onChange={setFStart} format="HH:mm" minuteStep={5} placeholder="开始" style={{ width: 96 }} inputReadOnly />
+                      {/* 原生 time 输入：移动端弹系统时间轮，页面不跟着滚；带清空 ✕ */}
+                      <TimeField value={fStart} onChange={setFStart} style={{ width: 104 }} />
                       <span style={{ color: '#bbb' }}>–</span>
-                      <TimePicker value={fEnd} onChange={setFEnd} format="HH:mm" minuteStep={5} placeholder="结束" style={{ width: 96 }} inputReadOnly />
+                      <TimeField value={fEnd} onChange={setFEnd} style={{ width: 104 }} />
                     </div>
-                    {fStart && fEnd && overnight(fStart.format('HH:mm'), fEnd.format('HH:mm')) && (
+                    {fStart && fEnd && overnight(fStart, fEnd) && (
                       <div style={{ fontSize: 12, color: AMBER_DARK, marginTop: 4 }}>结束早于开始，按「干到次日」计算</div>
                     )}
                   </div>

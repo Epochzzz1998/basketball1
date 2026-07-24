@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Avatar, Button, Calendar, Card, DatePicker, Drawer, Empty, Input, InputNumber, Modal, Popconfirm, Popover, Select, Tag, TimePicker, message } from 'antd'
+import { Avatar, Button, Calendar, Card, DatePicker, Drawer, Empty, Input, InputNumber, Modal, Popconfirm, Popover, Select, Tag, message } from 'antd'
 import {
   CalendarOutlined, CheckCircleFilled, CheckCircleOutlined, ClockCircleOutlined,
   DeleteOutlined, EditOutlined, FieldTimeOutlined, LeftOutlined, PlusOutlined, RetweetOutlined, RightOutlined,
@@ -9,6 +9,7 @@ import dayjs from 'dayjs'
 import { scheduleApi } from '../../api/schedule'
 import { useAuth } from '../../auth/AuthContext'
 import useIsMobile from '../../hooks/useIsMobile'
+import TimeField from '../../components/TimeField'
 
 /**
  * 日程表（/schedule，登录）。月视图日历 + 选中日面板（移动端在下方）。
@@ -92,7 +93,7 @@ export default function Schedule() {
   const [taskType, setTaskType] = useState('day') // day 单日 | deadline 截止任务 | rday 每日循环 | rweek 每周循环
   const [category, setCategory] = useState(undefined) // 类型：工作/学习/课程/生活/娱乐
   const [title, setTitle] = useState('')
-  const [timeRange, setTimeRange] = useState(null) // [dayjs|null, dayjs|null]
+  const [timeRange, setTimeRange] = useState(null) // ['HH:mm'|null, 'HH:mm'|null]（原生时间输入直接给字符串）
   const [deadline, setDeadline] = useState(null) // 截止日期（截止任务）
   const [assignee, setAssignee] = useState(undefined)
   const [note, setNote] = useState('')
@@ -162,7 +163,7 @@ export default function Schedule() {
     setCategory(e.category || undefined)
     setNote(e.note || '')
     setAssignee(e.assigneeId || undefined)
-    setTimeRange([e.time ? dayjs(`2000-01-01 ${e.time}`) : null, e.endTime ? dayjs(`2000-01-01 ${e.endTime}`) : null])
+    setTimeRange([e.time || null, e.endTime || null])
     setDeadline(e.endDate ? dayjs(e.endDate) : null)
     setEditDate(dayjs(e.date))
   }
@@ -185,8 +186,8 @@ export default function Schedule() {
         eventId: e.eventId,
         date: e.recur ? undefined : key(editDate || dayjs(e.date)),
         title: t,
-        time: timeRange?.[0] ? timeRange[0].format('HH:mm') : undefined,
-        endTime: timeRange?.[1] ? timeRange[1].format('HH:mm') : undefined,
+        time: timeRange?.[0] || undefined,
+        endTime: timeRange?.[1] || undefined,
         endDate: !e.recur && taskType === 'deadline' && deadline ? key(deadline) : undefined,
         category: category || undefined,
         note: note.trim() || undefined,
@@ -216,8 +217,8 @@ export default function Schedule() {
       await scheduleApi.create({
         date: key(selected),
         title: t,
-        time: timeRange?.[0] ? timeRange[0].format('HH:mm') : undefined,
-        endTime: timeRange?.[1] ? timeRange[1].format('HH:mm') : undefined,
+        time: timeRange?.[0] || undefined,
+        endTime: timeRange?.[1] || undefined,
         endDate: taskType === 'deadline' && deadline ? key(deadline) : undefined,
         recur: recurring ? (taskType === 'rday' ? 'day' : 'week') : undefined,
         recurEnd: recurring && deadline ? key(deadline) : undefined,
@@ -536,7 +537,7 @@ export default function Schedule() {
                         )}
                       </div>
                       {e.mine && (
-                        <span style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 3, flexShrink: 0 }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 3, flexShrink: 0 }}>
                           <EditOutlined title="编辑" style={{ color: '#bbb', cursor: 'pointer' }} onClick={() => startEdit(e)} />
                           <Popconfirm title="删除这个事件？" okText="删除" cancelText="取消" okButtonProps={{ danger: true }} onConfirm={() => del(e)}>
                             <DeleteOutlined style={{ color: '#ccc', cursor: 'pointer' }} />
@@ -618,18 +619,12 @@ export default function Schedule() {
                       ),
                     }))}
                   />
-                  {/* inputReadOnly：禁手输，移动端不弹软键盘（弹起来页面跟着能滑，乱） */}
-                  <TimePicker.RangePicker
-                    placeholder={taskType === 'deadline' ? ['开始时间', '截止时间'] : ['开始', '结束']}
-                    format="HH:mm"
-                    minuteStep={5}
-                    order={taskType !== 'deadline'}
-                    allowEmpty={[true, true]}
-                    value={timeRange}
-                    onChange={setTimeRange}
-                    style={{ flex: 1, minWidth: 170 }}
-                    inputReadOnly
-                  />
+                  {/* 原生 time 输入（TimeField）：移动端弹系统时间轮、页面不再跟着滚；各自带清空 ✕ */}
+                  <span style={{ flex: 1, minWidth: 190, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <TimeField value={timeRange?.[0] || null} onChange={(v) => setTimeRange((r) => [v, r?.[1] || null])} style={{ flex: 1 }} />
+                    <span style={{ color: '#bbb', flexShrink: 0 }}>{taskType === 'deadline' ? '→' : '–'}</span>
+                    <TimeField value={timeRange?.[1] || null} onChange={(v) => setTimeRange((r) => [r?.[0] || null, v])} style={{ flex: 1 }} />
+                  </span>
                   {taskType !== 'day' && !(editingEvent && editingEvent.recur) && (
                     <DatePicker
                       placeholder={taskType === 'deadline' ? '截止日期' : '循环截止'}
