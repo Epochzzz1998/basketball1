@@ -49,3 +49,4 @@ application-*-local.yml
 /src/main/resources/static/
 tools/nba_sync/.dbpwd
 tools/nba_sync/nba_sync_*.sql
+tools/nba_sync/__pycache__/
