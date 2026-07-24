@@ -5,7 +5,8 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { playerApi } from '../../api/player'
 import { RANKING_STATS, fmtNum, fmtPct, LATEST_SEASON, qualifiedBoard } from './rankConfig'
 import SeasonPicker from '../../components/SeasonPicker'
-import { buildFullStatColumns, FULL_COLUMNS_SCROLL_X, HONOR_COLUMN_KEYS, PLAYOFF_COLUMNS_SCROLL_X } from './statColumns'
+import useIsMobile from '../../hooks/useIsMobile'
+import { buildFullStatColumns, HONOR_COLUMN_KEYS, compactColumns, sumColWidth } from './statColumns'
 
 const MEDAL = ['#f5b301', '#9aa0a6', '#b87333']
 
@@ -20,10 +21,11 @@ export default function RankingDetail() {
   const stat = RANKING_STATS.find((s) => s.field === field) || { field, label: '数据', digits: 1 }
   const stage = searchParams.get('stage') === 'po' ? 'po' : 'reg' // 跟随联盟排行的赛段切换
   const [seasonNum, setSeasonNum] = useState(Number(searchParams.get('seasonNum')) || LATEST_SEASON)
+  const isMobile = useIsMobile()
 
-  const columns = [
+  const baseColumns = [
     {
-      title: '名次', width: 70, fixed: 'left',
+      title: '名次', width: isMobile ? 48 : 70, fixed: 'left',
       render: (_, __, index) => {
         const rank = index + 1
         return (
@@ -36,31 +38,33 @@ export default function RankingDetail() {
     // 全量数据列；排行所依据的那一列高亮（表序即该列排序，故关闭表头排序避免破坏名次）；
     // 季后赛模式去掉荣誉四列（MVP/DPOY/阵容为常规赛评选）。
     // 高亮是"套"在原渲染外面而不是替换——成对列（如 命中/出手）才能保住原格式
-    ...buildFullStatColumns({ serverSort: false })
-      .filter((c) => stage !== 'po' || !HONOR_COLUMN_KEYS.includes(c.dataIndex))
-      .map((c) =>
-        c.dataIndex === stat.field
-          ? {
-              ...c,
-              render: (v, row, idx) => (
-                <span style={{ fontWeight: 700, color: '#fa541c' }}>
-                  {c.render ? c.render(v, row, idx) : stat.pct ? fmtPct(v) : fmtNum(v, stat.digits)}
-                </span>
-              ),
-            }
-          : c,
-      ),
+    ...(isMobile ? compactColumns : (c) => c)(
+      buildFullStatColumns({ serverSort: false })
+        .filter((c) => stage !== 'po' || !HONOR_COLUMN_KEYS.includes(c.dataIndex)),
+    ).map((c) =>
+      c.dataIndex === stat.field
+        ? {
+            ...c,
+            render: (v, row, idx) => (
+              <span style={{ fontWeight: 700, color: '#fa541c' }}>
+                {c.render ? c.render(v, row, idx) : stat.pct ? fmtPct(v) : fmtNum(v, stat.digits)}
+              </span>
+            ),
+          }
+        : c,
+    ),
   ]
 
   return (
     <>
       <ProTable
+        className="stat-compact"
         headerTitle={`${stage === 'po' ? '季后赛 · ' : ''}${stat.label}榜 · 完整排行`}
         rowKey="statsId"
-        columns={columns}
+        columns={baseColumns}
         search={false}
         options={false}
-        scroll={{ x: (stage === 'po' ? PLAYOFF_COLUMNS_SCROLL_X : FULL_COLUMNS_SCROLL_X) + 70 }}
+        scroll={{ x: sumColWidth(baseColumns) }}
         toolBarRender={() => [
           <SeasonPicker key="season" value={seasonNum} onChange={setSeasonNum} />,
         ]}

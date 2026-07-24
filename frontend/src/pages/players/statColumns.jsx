@@ -43,6 +43,24 @@ export function buildFullStatColumns({ serverSort = true } = {}) {
 
 export const FULL_COLUMNS_SCROLL_X = 1990
 
+/* ===== 移动端紧凑表格 =====
+ * 手机上全量表横向太长、频繁横滑：紧凑列宽（12px 字号下正好不挤）配合
+ * index.css 里 .stat-compact 的字号/内边距媒体查询，一屏约多看 40% 的列。 */
+const COMPACT_W = {
+  playerName: 88, playerTeam: 56, playerPosition: 40, playerAppearance: 58, playingTime: 44,
+  playerAvgScore: 46, playerAvgReb: 94, playerAvgAss: 44, playerAvgFgm: 64, playerAccuracy: 52,
+  playerAvgTpm: 64, playerThreeAccuracy: 52, playerAvgFtm: 64, playerFreethrowAccuracy: 52,
+  playerAvgBlock: 44, playerAvgSteal: 44, playerAvgTurnover: 44, playerPer: 46,
+  mvpRank: 44, dpoyRank: 48, allDbaTeam: 60, allDefTeam: 60, seasonNum: 56,
+}
+
+/** 列表 → 紧凑列表：命中紧凑表的用表值，其余按 0.72 收缩（下限 40） */
+export const compactColumns = (cols) =>
+  cols.map((c) => ({ ...c, width: COMPACT_W[c.dataIndex] ?? Math.max(40, Math.round((c.width || 60) * 0.72)) }))
+
+/** 横向滚动宽度 = 列宽求和（列随紧凑与否变化，滚动宽度跟着算） */
+export const sumColWidth = (cols) => cols.reduce((s, c) => s + (c.width || 0), 0)
+
 // 季后赛表用：荣誉四列（MVP/DPOY/最佳阵容/最佳防守）是常规赛评选，季后赛数据里无意义
 export const HONOR_COLUMN_KEYS = ['mvpRank', 'dpoyRank', 'allDbaTeam', 'allDefTeam']
 export const PLAYOFF_COLUMNS_SCROLL_X = FULL_COLUMNS_SCROLL_X - 272

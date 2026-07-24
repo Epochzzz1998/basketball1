@@ -6,6 +6,7 @@ import { BarChartOutlined, FireOutlined, IdcardOutlined, TrophyOutlined } from '
 import { playerApi } from '../../api/player'
 import { PLAYOFF_TAG, fmtNum as num, fmtPair, fmtReb, seasonYearLabel, seasonShort, fmtPct } from './rankConfig'
 import { CAREER_AWARDS } from './honorConfig'
+import { compactColumns, sumColWidth } from './statColumns'
 import SeasonProfile from './SeasonProfile'
 import useIsMobile from '../../hooks/useIsMobile'
 
@@ -77,6 +78,7 @@ function HonorShelf({ honors }) {
 /* ============ Tab 1：生涯逐季数据 ============ */
 
 function CareerTable({ playerId }) {
+  const isMobile = useIsMobile()
   const columns = [
     { title: '赛季', dataIndex: 'seasonNum', width: 90, fixed: 'left', sorter: true, render: (s) => (s === 50 ? '生涯' : seasonShort(s)) },
     { title: '球队', dataIndex: 'playerTeam', width: 72 },
@@ -105,14 +107,16 @@ function CareerTable({ playerId }) {
     { title: '最佳防守', dataIndex: 'allDefTeam', width: 76 },
   ]
 
+  const cols = isMobile ? compactColumns(columns) : columns
   return (
     <ProTable
+      className="stat-compact"
       headerTitle="生涯逐季数据"
       rowKey="statsId"
-      columns={columns}
+      columns={cols}
       search={false}
       options={false}
-      scroll={{ x: 1980 }}
+      scroll={{ x: sumColWidth(cols) }}
       pagination={false}
       request={async (params, sort) => {
         const sortKey = Object.keys(sort || {})[0]
@@ -132,6 +136,7 @@ function CareerTable({ playerId }) {
 /* ============ Tab 2：季后赛逐季数据 ============ */
 
 function PlayoffTable({ playerId }) {
+  const isMobile = useIsMobile()
   const [rows, setRows] = useState(null)
 
   useEffect(() => {
@@ -173,16 +178,18 @@ function PlayoffTable({ playerId }) {
     { title: '效率值', dataIndex: 'playerPer', width: 58, render: (v) => num(v) },
   ]
 
+  const cols = isMobile ? compactColumns(columns) : columns
   return (
     <ProTable
+      className="stat-compact"
       headerTitle="季后赛逐季数据"
       rowKey="statsId"
       dataSource={rows}
-      columns={columns}
+      columns={cols}
       search={false}
       options={false}
       pagination={false}
-      scroll={{ x: 1730 }}
+      scroll={{ x: sumColWidth(cols) }}
     />
   )
 }

@@ -6,7 +6,8 @@ import { playerApi } from '../../api/player'
 import { HONOR_GROUPS } from './honorConfig'
 import { seasonYearLabel, LATEST_SEASON, honorEligible } from './rankConfig'
 import SeasonPicker from '../../components/SeasonPicker'
-import { buildFullStatColumns, FULL_COLUMNS_SCROLL_X } from './statColumns'
+import useIsMobile from '../../hooks/useIsMobile'
+import { buildFullStatColumns, compactColumns, sumColWidth } from './statColumns'
 
 const MEDAL = ['#f5b301', '#9aa0a6', '#b87333']
 
@@ -18,6 +19,7 @@ export default function HonorDetail() {
   const group = HONOR_GROUPS.find((g) => g.key === groupKey) || HONOR_GROUPS[0]
   const [seasonNum, setSeasonNum] = useState(Number(searchParams.get('seasonNum')) || LATEST_SEASON)
   const [rows, setRows] = useState(null)
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     let alive = true
@@ -29,11 +31,12 @@ export default function HonorDetail() {
   }, [seasonNum])
 
   const members = rows ? (group.pickFull || group.pick)(rows) : []
+  const statCols = buildFullStatColumns({ serverSort: false })
   const columns = [
     // 阵容组没有名次角标（rankOf 不设），完整数据页也不出名次列
     ...(group.rankOf
       ? [{
-          title: '名次', width: 70, fixed: 'left',
+          title: '名次', width: isMobile ? 48 : 70, fixed: 'left',
           render: (_, r, i) => (
             <span style={{ fontWeight: 700, fontStyle: 'italic', color: i < 3 ? MEDAL[i] : '#bbb', fontSize: i < 3 ? 16 : 14 }}>
               {group.rankOf(r)}
@@ -41,12 +44,13 @@ export default function HonorDetail() {
           ),
         }]
       : []),
-    ...buildFullStatColumns({ serverSort: false }),
+    ...(isMobile ? compactColumns(statCols) : statCols),
   ]
 
   return (
     <>
       <ProTable
+        className="stat-compact"
         headerTitle={`${seasonYearLabel(seasonNum)} · ${group.title} · 完整数据`}
         rowKey="statsId"
         loading={rows === null}
@@ -55,7 +59,7 @@ export default function HonorDetail() {
         search={false}
         options={false}
         pagination={false}
-        scroll={{ x: FULL_COLUMNS_SCROLL_X + (group.rankOf ? 70 : 0) }}
+        scroll={{ x: sumColWidth(columns) }}
         toolBarRender={() => [
           <SeasonPicker key="season" value={seasonNum} onChange={setSeasonNum} />,
         ]}

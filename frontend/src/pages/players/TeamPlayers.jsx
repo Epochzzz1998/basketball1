@@ -342,7 +342,7 @@ function PlayoffHistory({ teamCode }) {
       }
       styles={{ body: { padding: '4px 12px 12px' } }}
     >
-      <Table className="clean-table" rowKey="seasonNum" dataSource={rows} columns={columns} pagination={false} size="middle" scroll={{ x: 'max-content' }} />
+      <Table className="clean-table stat-compact" rowKey="seasonNum" dataSource={rows} columns={columns} pagination={false} size="middle" scroll={{ x: 'max-content' }} />
     </Card>
   )
 }
@@ -477,7 +477,7 @@ function TeamHistory({ teamCode }) {
       }
       styles={{ body: { padding: '4px 12px 12px' } }}
     >
-      <Table className="clean-table" rowKey="seasonNum" dataSource={rows} columns={columns} pagination={false} size="middle" scroll={{ x: 'max-content' }} />
+      <Table className="clean-table stat-compact" rowKey="seasonNum" dataSource={rows} columns={columns} pagination={false} size="middle" scroll={{ x: 'max-content' }} />
     </Card>
   )
 }

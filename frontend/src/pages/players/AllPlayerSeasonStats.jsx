@@ -3,8 +3,9 @@ import { ProTable } from '@ant-design/pro-components'
 import { Input } from 'antd'
 import { playerApi } from '../../api/player'
 import SeasonPicker from '../../components/SeasonPicker'
+import useIsMobile from '../../hooks/useIsMobile'
 import { LATEST_SEASON } from './rankConfig'
-import { buildFullStatColumns, FULL_COLUMNS_SCROLL_X, HONOR_COLUMN_KEYS, PLAYOFF_COLUMNS_SCROLL_X } from './statColumns'
+import { buildFullStatColumns, HONOR_COLUMN_KEYS, compactColumns, sumColWidth } from './statColumns'
 
 /**
  * 球员数据榜（公开）。可独立使用（自带赛季选择），也可受控嵌入（传 seasonNum 则隐藏内部选择）。
@@ -15,25 +16,30 @@ import { buildFullStatColumns, FULL_COLUMNS_SCROLL_X, HONOR_COLUMN_KEYS, PLAYOFF
 export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: seasonProp }) {
   const [seasonState, setSeasonState] = useState(LATEST_SEASON)
   const [playerName, setPlayerName] = useState() // 球员名模糊搜索（后端 LIKE）
+  const isMobile = useIsMobile()
   const controlled = seasonProp != null
   const seasonNum = controlled ? seasonProp : seasonState
   const po = stage === 'po'
 
+  const base = buildFullStatColumns().filter((c) => !po || !HONOR_COLUMN_KEYS.includes(c.dataIndex))
+  const columns = isMobile ? compactColumns(base) : base
+
   return (
     <ProTable
+      className="stat-compact"
       headerTitle={team ? `${team} · ${po ? '季后赛' : ''}球员数据` : '球员赛季数据榜'}
       rowKey="statsId"
-      columns={buildFullStatColumns().filter((c) => !po || !HONOR_COLUMN_KEYS.includes(c.dataIndex))}
+      columns={columns}
       params={{ seasonNum, playerTeam: team, playerName, stage }} /* 任一变化都会自动重新请求 */
       search={false}
-      scroll={{ x: po ? PLAYOFF_COLUMNS_SCROLL_X : FULL_COLUMNS_SCROLL_X }}
+      scroll={{ x: sumColWidth(columns) }}
       options={false}
       toolBarRender={() => [
         <Input.Search
           key="search"
           allowClear
           placeholder="搜索球员名"
-          style={{ width: 200 }}
+          style={{ width: isMobile ? 150 : 200 }}
           onSearch={(v) => setPlayerName(v.trim() || undefined)}
         />,
         ...(controlled

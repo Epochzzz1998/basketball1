@@ -107,3 +107,25 @@ body {
 .ant-pro-sider ul.ant-pro-sider-menu {
   min-height: 0 !important;
 }
+
+/* 移动端数据表（.stat-compact）：字号 12、内边距压缩——配合 statColumns 的紧凑列宽，
+   手机一屏能多看约 40% 的列；桌面端不受影响（列宽同样只在移动端换紧凑表） */
+@media (max-width: 768px) {
+  /* antd v5 的表格字号由运行时注入的样式设定（加载顺序在后、同权重会赢），必须 !important */
+  .stat-compact .ant-table,
+  .stat-compact .ant-table-thead > tr > th,
+  .stat-compact .ant-table-tbody > tr > td {
+    font-size: 12px !important;
+  }
+  .stat-compact .ant-table-thead > tr > th,
+  .stat-compact .ant-table-tbody > tr > td {
+    padding: 6px 5px !important;
+  }
+  .stat-compact .ant-table-thead > tr > th {
+    white-space: nowrap;
+  }
+  /* ProTable 工具栏（标题 + 搜索/赛季选择）在窄屏下别占两大行 */
+  .stat-compact .ant-pro-table-list-toolbar-container {
+    padding-block: 8px;
+  }
+}

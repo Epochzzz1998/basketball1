@@ -7,6 +7,7 @@ import { playerApi } from '../../api/player'
 import { teamApi } from '../../api/team'
 import { HONOR_GROUPS } from './honorConfig'
 import { NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, RANKING_STATS, fmtNum, fmtPct, playoffRecord, LATEST_SEASON, honorEligible, qualifiedBoard } from './rankConfig'
+import { compactColumns, sumColWidth } from './statColumns'
 import SeasonPicker from '../../components/SeasonPicker'
 import useIsMobile from '../../hooks/useIsMobile'
 
@@ -270,6 +271,7 @@ function teamsInScope(scope) {
 const TIER = { 总冠军: 0, 总决赛: 1, 分区决赛: 2, 半决赛: 3, 首轮: 4 }
 
 function TeamsTab({ seasonNum, stage }) {
+  const isMobile = useIsMobile()
   const [rows, setRows] = useState(null)
   const [scope, setScope] = useState('all')
   const po = stage === 'po'
@@ -369,13 +371,13 @@ function TeamsTab({ seasonNum, stage }) {
         </Space>
       </div>
       <Table
-        className="clean-table"
+        className="clean-table stat-compact"
         rowKey="teamCode"
         loading={rows === null}
         dataSource={list}
-        columns={columns}
+        columns={isMobile ? compactColumns(columns) : columns}
         pagination={false}
-        scroll={{ x: 1290 }}
+        scroll={{ x: isMobile ? sumColWidth(compactColumns(columns)) : 1290 }}
         size="middle"
       />
     </Card>
