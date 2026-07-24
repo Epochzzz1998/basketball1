@@ -1,16 +1,16 @@
 import { useState } from 'react'
 import { Popover } from 'antd'
 import { CaretDownOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons'
-import { seasonYearLabel } from '../pages/players/rankConfig'
+import { LATEST_SEASON, seasonShort, seasonYearLabel } from '../pages/players/rankConfig'
 
 /**
  * 全站统一的赛季选择器（与顶栏搜索胶囊同一设计语言）：
  * `‹ | 2015-2016 赛季 ▾ | ›` 三段式胶囊——左右箭头逐季步进，
  * 点中间弹出年份网格（4 列芯片，选中=品牌橙填充；可选"生涯场均"整行芯片）。
+ * 赛季范围/标签一律来自 rankConfig（锚点 2006、最近 20 年），不在此处另行硬编码。
  */
 
-const MAX_SEASON = 16
-const shortLabel = (n) => `${String((2007 + n) % 100).padStart(2, '0')}-${String((2008 + n) % 100).padStart(2, '0')}`
+const MAX_SEASON = LATEST_SEASON
 
 export default function SeasonPicker({ value, onChange, includeCareer = true }) {
   const [open, setOpen] = useState(false)
@@ -51,7 +51,7 @@ export default function SeasonPicker({ value, onChange, includeCareer = true }) 
                 ...(sel ? { background: '#fa541c', borderColor: '#fa541c', color: '#fff', fontWeight: 700 } : { color: '#555' }),
               }}
             >
-              {shortLabel(n)}
+              {seasonShort(n)}
             </div>
           )
         })}

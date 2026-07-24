@@ -24,7 +24,15 @@ python3 tools/nba_sync/sync.py --season 2025  # 回补别的赛季（2024-25）
   （16 胜=总冠军、12+=总决赛、8+=分区决赛、4+=半决赛、其余首轮；没进的=未进季后赛）；
 - **赛季荣誉自动同步**（ESPN core API awards）：MVP/DPOY 获奖者（rank=1）、最佳阵容
   一/二/三阵、最佳防守一/二阵（现实中防守阵容只有两阵）、season_award 的
-  fmvp/smoy/mip。写入是**只加不清**：手工补的 MVP/DPOY 2-10 名投票排名不会被冲掉。
+  fmvp/smoy/mip/roy（最佳新秀）。写入是**只加不清**：整删整插赛季数据行前会把
+  荣誉列（MVP_RANK/DPOY_RANK/入阵）暂存进临时表、插完回填——手工补的
+  MVP/DPOY 2-10 名投票排名每天重跑也不会被冲掉。
+- **回补历史赛季的资格原则：官方认定优先于推算。** 官方明确的得分王等数据王
+  若够不着 58 场线，在前端 `rankConfig.js` 的 `OFFICIAL_STAT_LEADERS` 按
+  `{赛季号: {字段: 'nba-espnId'}}` 登记即可无条件参榜；荣誉行只要带官方
+  名次/入阵结果就自动放行（`honorEligible`），65 场线只兜底无官方结论的行。
+  MVP/DPOY 完整投票名次（2-10 名）ESPN 不提供，可查免费的
+  Basketball-Reference `awards/awards_<年>.html` 手工录入。
 
 球员的**首发/替补场次与前后场篮板拆分**走逐球员接口（~800 次并发请求，全程 1-2 分钟）。
 数据源确实没有的字段（界面已裁掉展示）：PIE / WS / 进攻防守净效率 / 正负值。

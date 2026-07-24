@@ -76,7 +76,7 @@ export default function RankingDetail() {
             order: stat.order || 'desc',
           })
           // 常规赛套 58 场资格线（含补场规则）；季后赛不设
-          const list = stage === 'po' ? (res.records || []) : qualifiedBoard(res.records || [], stat.field)
+          const list = stage === 'po' ? (res.records || []) : qualifiedBoard(res.records || [], stat.field, seasonNum)
           return { data: list, total: list.length, success: true }
         }}
       />

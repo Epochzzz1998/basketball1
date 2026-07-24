@@ -121,7 +121,7 @@
         order by s.SEASON_NUM
     </select>
 
-    <!-- 该球员的特别奖（FMVP/最佳第六人/最快进步球员），来自 season_award 表 -->
+    <!-- 该球员的特别奖（FMVP/最佳第六人/最快进步球员/最佳新秀），来自 season_award 表 -->
     <select id="findPlayerSeasonAwards" resultType="java.util.HashMap">
         select AWARD as award, SEASON_NUM as season from season_award
         where PLAYER_ID = #{playerId} order by SEASON_NUM

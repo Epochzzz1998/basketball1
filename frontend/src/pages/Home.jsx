@@ -10,7 +10,7 @@ import { playerApi } from '../api/player'
 import { teamApi } from '../api/team'
 import SeasonPicker from '../components/SeasonPicker'
 import useIsMobile from '../hooks/useIsMobile'
-import { NBA_TEAM_NAMES, fmtNum, playoffRecord, teamRegion } from './players/rankConfig'
+import { LATEST_SEASON, NBA_TEAM_NAMES, fmtNum, playoffRecord, qualifiedBoard, teamRegion } from './players/rankConfig'
 
 /**
  * 首页（P5-2 现代化改版 v2）：赛季维度的联盟总览仪表盘
@@ -20,7 +20,6 @@ import { NBA_TEAM_NAMES, fmtNum, playoffRecord, teamRegion } from './players/ran
  * 数据并行拉取，各区块独立 loading；切赛季只刷新赛季维度的区块。
  */
 
-const LATEST_SEASON = 16
 const BRAND = '#fa541c'
 const MEDAL = ['#f5222d', '#fa8c16', '#faad14']
 
@@ -154,7 +153,7 @@ function StandingsCard({ conf, rows, accent }) {
   )
 }
 
-/** 赛季荣誉速览：总冠军（季后赛球队榜推得，带夺冠战绩） + FMVP/最佳第六人/MIP（season_award） */
+/** 赛季荣誉速览：总冠军（季后赛球队榜推得，带夺冠战绩） + FMVP/最佳第六人/MIP/最佳新秀（season_award） */
 function HonorsCard({ awards, poTeams }) {
   const off = (p, r, a) => `${fmtNum(p)}分 ${fmtNum(r)}板 ${fmtNum(a)}助`
   const champion = poTeams?.find((t) => t.playoffResult === '总冠军')
@@ -168,7 +167,7 @@ function HonorsCard({ awards, poTeams }) {
       sub: rec ? `季后赛 ${rec.wins}-${rec.losses} 夺冠` : '',
     })
   }
-  for (const [key, icon, label] of [['fmvp', '🏅', '总决赛 FMVP'], ['smoy', '🪑', '最佳第六人'], ['mip', '📈', '最快进步球员']]) {
+  for (const [key, icon, label] of [['fmvp', '🏅', '总决赛 FMVP'], ['smoy', '🪑', '最佳第六人'], ['mip', '📈', '最快进步球员'], ['roy', '🌱', '最佳新秀']]) {
     const w = awards?.find((r) => r.award === key)
     if (!w) continue
     rows.push({
@@ -299,8 +298,9 @@ export default function Home() {
     setLeaders(null); setTeams(null); setPoTeams(null); setAwards(null)
     Promise.all(
       LEADER_STATS.map((stat) =>
-        playerApi.listSeasonStats({ page: 1, limit: 3, seasonNum, field: stat.field, order: 'desc' })
-          .then((r) => ({ stat, rows: r.records || [] }))
+        // 拉宽池子再按资格线过滤（58 场+补场规则，与排行页一致），取前三展示
+        playerApi.listSeasonStats({ page: 1, limit: 200, seasonNum, field: stat.field, order: 'desc' })
+          .then((r) => ({ stat, rows: qualifiedBoard(r.records || [], stat.field, seasonNum).slice(0, 3) }))
           .catch(() => ({ stat, rows: [] })),
       ),
     ).then((rs) => { if (alive) setLeaders(rs) })

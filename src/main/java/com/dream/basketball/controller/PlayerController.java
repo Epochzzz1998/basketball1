@@ -114,7 +114,6 @@ public class PlayerController extends BaseUtils {
         List<Integer> all3 = new ArrayList<>();
         List<Integer> def1 = new ArrayList<>();
         List<Integer> def2 = new ArrayList<>();
-        List<Integer> def3 = new ArrayList<>();
         for (PlayerStats r : rows) {
             if (Integer.valueOf(1).equals(r.getMvpRank())) {
                 mvp.add(r.getSeasonNum());
@@ -129,12 +128,11 @@ public class PlayerController extends BaseUtils {
             } else if ("三阵".equals(r.getAllDbaTeam())) {
                 all3.add(r.getSeasonNum());
             }
+            // All-Defensive only has 1st/2nd teams in reality — no 3rd
             if ("一阵".equals(r.getAllDefTeam())) {
                 def1.add(r.getSeasonNum());
             } else if ("二阵".equals(r.getAllDefTeam())) {
                 def2.add(r.getSeasonNum());
-            } else if ("三阵".equals(r.getAllDefTeam())) {
-                def3.add(r.getSeasonNum());
             }
         }
         data.put("mvp", mvp);
@@ -144,7 +142,6 @@ public class PlayerController extends BaseUtils {
         data.put("all3", all3);
         data.put("def1", def1);
         data.put("def2", def2);
-        data.put("def3", def3);
         for (Map<String, Object> crown : playerService.findPlayerCrowns(playerId)) {
             ((List<Object>) data.computeIfAbsent(String.valueOf(crown.get("award")), k -> new ArrayList<>()))
                     .add(crown.get("season"));

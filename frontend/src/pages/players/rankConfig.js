@@ -33,8 +33,16 @@ export const STAT_QUALIFY_GAMES = 58
 export const HONOR_QUALIFY_GAMES = 65
 export const HONOR_EXEMPT_PLAYERS = new Set(['nba-3945274', 'nba-4432166', 'nba-5104157'])
 export const statQualified = (r) => Number(r?.playerAppearance ?? 0) >= STAT_QUALIFY_GAMES
+// 荣誉榜"以官方为准"：行上已带官方评选结果（MVP/DPOY 名次、入选阵容）的直接放行——
+// 这些值本身来自官方公布（同步/手工录入），场次线只兜底没有官方结论的行
 export const honorEligible = (r) =>
-  Number(r?.playerAppearance ?? 0) >= HONOR_QUALIFY_GAMES || HONOR_EXEMPT_PLAYERS.has(r?.playerId)
+  r?.mvpRank != null || r?.dpoyRank != null || !!r?.allDbaTeam || !!r?.allDefTeam
+  || Number(r?.playerAppearance ?? 0) >= HONOR_QUALIFY_GAMES || HONOR_EXEMPT_PLAYERS.has(r?.playerId)
+
+/* 官方明确认定的数据王覆盖名单（回补历史赛季用）：若官方认定的得分王等
+ * 按 58 场线会被挡掉，在此登记后无条件参榜——官方结论优先于推算。
+ * 形如 { 12: { playerAvgScore: 'nba-1966' } }（第 12 季得分王=詹姆斯示例）。 */
+export const OFFICIAL_STAT_LEADERS = {}
 
 // 适用"补场计算"的场均项（得分/篮板/助攻/抢断/盖帽/上场时间王）
 export const AVG_CROWN_FIELDS = new Set([
@@ -50,18 +58,30 @@ export const PCT_QUALIFY = {
 }
 
 /** 常规赛榜单参赛池：命中率项按命中数门槛；场均项达标者全收，未达标者仅当
- * "缺的场次全按 0 补满 58 场后场均仍是联盟第一"才保留（NBA 数据王补场规则）。 */
-export const qualifiedBoard = (rows, field) => {
+ * "缺的场次全按 0 补满 58 场后场均仍是联盟第一"才保留（NBA 数据王补场规则）。
+ * 传入 season 时另将 OFFICIAL_STAT_LEADERS 里官方认定的数据王无条件放行。 */
+export const qualifiedBoard = (rows, field, season) => {
+  let out
   const pctRule = PCT_QUALIFY[field]
   if (pctRule) {
-    return rows.filter((r) => Number(r[pctRule.madeField] ?? 0) * Number(r.playerAppearance ?? 0) >= pctRule.min)
+    out = rows.filter((r) => Number(r[pctRule.madeField] ?? 0) * Number(r.playerAppearance ?? 0) >= pctRule.min)
+  } else {
+    const ok = rows.filter(statQualified)
+    if (!AVG_CROWN_FIELDS.has(field)) {
+      out = ok
+    } else {
+      const bestOk = ok.length ? Math.max(...ok.map((r) => Number(r[field] ?? 0))) : 0
+      const padded = rows.filter((r) => !statQualified(r)
+        && (Number(r[field] ?? 0) * Number(r.playerAppearance ?? 0)) / STAT_QUALIFY_GAMES >= bestOk)
+      out = rows.filter((r) => statQualified(r) || padded.includes(r))
+    }
   }
-  const ok = rows.filter(statQualified)
-  if (!AVG_CROWN_FIELDS.has(field)) return ok
-  const bestOk = ok.length ? Math.max(...ok.map((r) => Number(r[field] ?? 0))) : 0
-  const padded = rows.filter((r) => !statQualified(r)
-    && (Number(r[field] ?? 0) * Number(r.playerAppearance ?? 0)) / STAT_QUALIFY_GAMES >= bestOk)
-  return [...rows.filter((r) => statQualified(r) || padded.includes(r))]
+  const forcedId = season != null ? OFFICIAL_STAT_LEADERS[season]?.[field] : undefined
+  if (forcedId && !out.some((r) => r.playerId === forcedId)) {
+    const row = rows.find((r) => r.playerId === forcedId)
+    if (row) out = [...out, row].sort((a, b) => Number(b[field] ?? 0) - Number(a[field] ?? 0))
+  }
+  return out
 }
 
 // 命中/出手 成对显示，如 "10.2/19.5"（投篮、三分、罚球通用）

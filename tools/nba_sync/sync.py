@@ -153,7 +153,7 @@ def fetch_standings(season):
 def fetch_awards(season):
     """season honors from the ESPN core API: winners + All-NBA / All-Defensive teams.
     Full MVP/DPOY vote RANKS (2nd-10th) are not public here — only winners (rank 1)."""
-    out = {'mvp': None, 'dpoy': None, 'fmvp': None, 'smoy': None, 'mip': None,
+    out = {'mvp': None, 'dpoy': None, 'fmvp': None, 'smoy': None, 'mip': None, 'roy': None,
            'all_nba': {}, 'all_def': {}, 'conf_mvps': []}
     try:
         d = get(f'https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/{season}/awards?limit=50')
@@ -171,7 +171,7 @@ def fetch_awards(season):
     name_map = {
         'MVP': ('mvp', False), 'Defensive Player of the Year': ('dpoy', False),
         'Finals MVP': ('fmvp', False), 'Sixth Man of the Year': ('smoy', False),
-        'Most Improved Player': ('mip', False),
+        'Most Improved Player': ('mip', False), 'Rookie of the Year': ('roy', False),
         'All-NBA 1st Team': ('all_nba', '一阵'), 'All-NBA 2nd Team': ('all_nba', '二阵'),
         'All-NBA 3rd Team': ('all_nba', '三阵'),
         'All-Defensive 1st Team': ('all_def', '一阵'), 'All-Defensive 2nd Team': ('all_def', '二阵'),
@@ -196,7 +196,7 @@ def fetch_awards(season):
         elif ids:
             out[field] = ids[0]
         time.sleep(0.2)
-    print(f"  awards: mvp={out['mvp']} dpoy={out['dpoy']} fmvp={out['fmvp']} "
+    print(f"  awards: mvp={out['mvp']} dpoy={out['dpoy']} fmvp={out['fmvp']} roy={out['roy']} "
           f"all-nba={len(out['all_nba'])} all-def={len(out['all_def'])}")
     return out
 
@@ -420,6 +420,13 @@ def main():
             "INSERT INTO dream_player (PLAYER_ID, PLAYER_NAME, PLAYER_NUMBER, PLAYER_BIRTHDAY, NAME_EN, ESPN_ID) "
             f"VALUES ('nba-{r['espnId']}', '{esc(name)}', '{esc(info.get('jersey') or '')}', {dob}, '{esc(name)}', '{r['espnId']}') "
             f"ON DUPLICATE KEY UPDATE PLAYER_NUMBER=VALUES(PLAYER_NUMBER), PLAYER_BIRTHDAY=VALUES(PLAYER_BIRTHDAY), NAME_EN=VALUES(NAME_EN);")
+    # honor columns live on player_stats rows — stash them so the wholesale
+    # DELETE+INSERT below can't wipe hand-filled vote ranks (2-10) and teams
+    lines.append("DROP TEMPORARY TABLE IF EXISTS tmp_nba_honors;")
+    lines.append(
+        "CREATE TEMPORARY TABLE tmp_nba_honors AS SELECT PLAYER_ID, MVP_RANK, DPOY_RANK, ALL_DBA_TEAM, ALL_DEF_TEAM "
+        f"FROM player_stats WHERE PLAYER_ID LIKE 'nba-%' AND SEASON_NUM={season_num} AND "
+        "(MVP_RANK IS NOT NULL OR DPOY_RANK IS NOT NULL OR ALL_DBA_TEAM IS NOT NULL OR ALL_DEF_TEAM IS NOT NULL);")
     # season rows: replace this season's nba rows wholesale
     for table, rows, suffix, det in (('player_stats', reg, f's{season_num}', det_reg),
                                      ('player_playoff_stats', po, f'p{season_num}', det_po)):
@@ -429,6 +436,11 @@ def main():
             if sql:
                 lines.append(sql)
         lines.append(career_sql(table))
+    lines.append(
+        "UPDATE player_stats ps JOIN tmp_nba_honors t ON ps.PLAYER_ID=t.PLAYER_ID "
+        f"AND ps.SEASON_NUM={season_num} SET ps.MVP_RANK=t.MVP_RANK, ps.DPOY_RANK=t.DPOY_RANK, "
+        "ps.ALL_DBA_TEAM=t.ALL_DBA_TEAM, ps.ALL_DEF_TEAM=t.ALL_DEF_TEAM;")
+    lines.append("DROP TEMPORARY TABLE IF EXISTS tmp_nba_honors;")
     # season honors from the awards feed — additive only (hand-filled vote ranks 2-10 survive)
     def upd(setter, espn_id):
         return (f"UPDATE player_stats SET {setter} WHERE PLAYER_ID='nba-{espn_id}' AND SEASON_NUM={season_num};")
@@ -439,8 +451,8 @@ def main():
         lines.append(upd(f"ALL_DBA_TEAM='{tier}'", espn_id))
     for espn_id, tier in awards['all_def'].items():
         lines.append(upd(f"ALL_DEF_TEAM='{tier}'", espn_id))
-    lines.append(f"DELETE FROM season_award WHERE SEASON_NUM={season_num} AND AWARD IN ('fmvp','smoy','mip');")
-    for field in ('fmvp', 'smoy', 'mip'):
+    lines.append(f"DELETE FROM season_award WHERE SEASON_NUM={season_num} AND AWARD IN ('fmvp','smoy','mip','roy');")
+    for field in ('fmvp', 'smoy', 'mip', 'roy'):
         if awards.get(field):
             lines.append("INSERT INTO season_award (SEASON_NUM, AWARD, PLAYER_ID) "
                          f"VALUES ({season_num}, '{field}', 'nba-{awards[field]}');")

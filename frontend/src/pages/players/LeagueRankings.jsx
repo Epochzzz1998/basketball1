@@ -27,7 +27,7 @@ function StatRankCard({ stat, seasonNum, stage }) {
       .then((r) => {
         if (!alive) return
         const list = r.records || []
-        setRows((stage === 'po' ? list : qualifiedBoard(list, stat.field)).slice(0, 10))
+        setRows((stage === 'po' ? list : qualifiedBoard(list, stat.field, seasonNum)).slice(0, 10))
       })
       .catch(() => { if (alive) setRows([]) })
     return () => { alive = false }
@@ -127,13 +127,14 @@ function HonorCard({ group, rows, seasonNum }) {
   )
 }
 
-// 特别奖卡：MVP / DPOY（取自当季名次第 1）+ FMVP / 最佳第六人 / 最快进步球员（season_award）
+// 特别奖卡：MVP / DPOY（取自当季名次第 1）+ FMVP / 最佳第六人 / 最快进步球员 / 最佳新秀（season_award）
 const SPECIAL_AWARDS = {
   mvp: { label: '常规赛 MVP', icon: '👑', gold: true },
   dpoy: { label: '最佳防守球员', icon: '🛡️', gold: true },
   fmvp: { label: '总决赛 FMVP', icon: '🏅', gold: true },
   smoy: { label: '最佳第六人', icon: '🪑' },
   mip: { label: '最快进步球员', icon: '📈' },
+  roy: { label: '最佳新秀', icon: '🌱' },
 }
 
 function SpecialAwardCards({ seasonNum, rows }) {
@@ -167,7 +168,7 @@ function SpecialAwardCards({ seasonNum, rows }) {
       lines: [<div key="l" style={gray}>{fmtNum(dpoyRow.playerAvgSteal)}断 {fmtNum(dpoyRow.playerAvgBlock)}帽 {fmtNum(dpoyRow.playerAvgReb)}板</div>],
     })
   }
-  for (const key of ['fmvp', 'smoy', 'mip']) {
+  for (const key of ['fmvp', 'smoy', 'mip', 'roy']) {
     const w = awards?.find((r) => r.award === key)
     if (!w) continue
     const lines = key === 'fmvp'
