@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Avatar, Button, Calendar, Card, DatePicker, Drawer, Empty, Input, InputNumber, Modal, Popconfirm, Popover, Select, Tag, TimePicker, message } from 'antd'
 import {
   CalendarOutlined, CheckCircleFilled, CheckCircleOutlined, ClockCircleOutlined,
-  DeleteOutlined, FieldTimeOutlined, LeftOutlined, PlusOutlined, RetweetOutlined, RightOutlined,
+  DeleteOutlined, EditOutlined, FieldTimeOutlined, LeftOutlined, PlusOutlined, RetweetOutlined, RightOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { scheduleApi } from '../../api/schedule'
@@ -97,6 +97,9 @@ export default function Schedule() {
   const [assignee, setAssignee] = useState(undefined)
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
+  // 编辑态：非空=表单在改这个事件（复用同一套表单字段）；非循环任务可挪日期（editDate）
+  const [editingEvent, setEditingEvent] = useState(null)
+  const [editDate, setEditDate] = useState(null)
   const uidRef = useRef(params.get('userInformationId') || null)
 
   const monthKey = selected.format('YYYY-MM')
@@ -142,6 +145,60 @@ export default function Schedule() {
   }, [events])
   const dayEvents = byDate[key(selected)] || []
   const todayList = byDate[key(dayjs())] || []
+
+  const resetForm = () => {
+    setTitle('')
+    setTimeRange(null)
+    setDeadline(null)
+    setCategory(undefined)
+    setAssignee(undefined)
+    setNote('')
+  }
+
+  const startEdit = (e) => {
+    setEditingEvent(e)
+    setTaskType(e.recur === 'day' ? 'rday' : e.recur === 'week' ? 'rweek' : e.endDate ? 'deadline' : 'day')
+    setTitle(e.title || '')
+    setCategory(e.category || undefined)
+    setNote(e.note || '')
+    setAssignee(e.assigneeId || undefined)
+    setTimeRange([e.time ? dayjs(`2000-01-01 ${e.time}`) : null, e.endTime ? dayjs(`2000-01-01 ${e.endTime}`) : null])
+    setDeadline(e.endDate ? dayjs(e.endDate) : null)
+    setEditDate(dayjs(e.date))
+  }
+
+  const cancelEdit = () => {
+    setEditingEvent(null)
+    setEditDate(null)
+    setTaskType('day')
+    resetForm()
+  }
+
+  const saveEdit = async () => {
+    const e = editingEvent
+    const t = title.trim()
+    if (!t) return message.warning('先写点标题')
+    if (taskType === 'deadline' && !deadline) return message.warning('截止任务要选一个截止日期')
+    setSaving(true)
+    try {
+      await scheduleApi.update({
+        eventId: e.eventId,
+        date: e.recur ? undefined : key(editDate || dayjs(e.date)),
+        title: t,
+        time: timeRange?.[0] ? timeRange[0].format('HH:mm') : undefined,
+        endTime: timeRange?.[1] ? timeRange[1].format('HH:mm') : undefined,
+        endDate: !e.recur && taskType === 'deadline' && deadline ? key(deadline) : undefined,
+        category: category || undefined,
+        note: note.trim() || undefined,
+        assigneeId: assignee || undefined,
+      })
+      message.success('已保存')
+      cancelEdit()
+      load()
+    } catch { /* 拦截器已提示 */ } finally {
+      setSaving(false)
+    }
+  }
 
   const addEvent = async () => {
     const t = title.trim()
@@ -479,9 +536,12 @@ export default function Schedule() {
                         )}
                       </div>
                       {e.mine && (
-                        <Popconfirm title="删除这个事件？" okText="删除" cancelText="取消" okButtonProps={{ danger: true }} onConfirm={() => del(e)}>
-                          <DeleteOutlined style={{ color: '#ccc', cursor: 'pointer', marginTop: 3 }} />
-                        </Popconfirm>
+                        <span style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 3, flexShrink: 0 }}>
+                          <EditOutlined title="编辑" style={{ color: '#bbb', cursor: 'pointer' }} onClick={() => startEdit(e)} />
+                          <Popconfirm title="删除这个事件？" okText="删除" cancelText="取消" okButtonProps={{ danger: true }} onConfirm={() => del(e)}>
+                            <DeleteOutlined style={{ color: '#ccc', cursor: 'pointer' }} />
+                          </Popconfirm>
+                        </span>
                       )}
                     </div>
                   )
@@ -493,8 +553,12 @@ export default function Schedule() {
 
             {/* 新增表单 */}
             <div style={{ background: '#f6fffd', border: `1px dashed ${TEAL}55`, borderRadius: 12, padding: '12px 12px' }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: TEAL_DARK, marginBottom: 8 }}>
-                <PlusOutlined style={{ marginRight: 5 }} />给 {selected.format('M月D日')} 添加
+              <div style={{ display: 'flex', alignItems: 'center', fontSize: 13, fontWeight: 700, color: TEAL_DARK, marginBottom: 8 }}>
+                {editingEvent
+                  ? <><EditOutlined style={{ marginRight: 5 }} />编辑「{String(editingEvent.title || '').slice(0, 12)}」</>
+                  : <><PlusOutlined style={{ marginRight: 5 }} />给 {selected.format('M月D日')} 添加</>}
+                <span style={{ flex: 1 }} />
+                {editingEvent && <a style={{ fontSize: 12, fontWeight: 400 }} onClick={cancelEdit}>取消编辑</a>}
               </div>
               {/* 任务类型：青色胶囊组（选中实心、未选描边），替代方块 Segmented */}
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
@@ -503,9 +567,10 @@ export default function Schedule() {
                   return (
                     <span
                       key={v}
-                      onClick={() => setTaskType(v)}
+                      onClick={() => { if (!editingEvent) setTaskType(v) }}
                       style={{
-                        cursor: 'pointer', userSelect: 'none', padding: '3px 13px', borderRadius: 999,
+                        cursor: editingEvent ? 'not-allowed' : 'pointer', userSelect: 'none', padding: '3px 13px', borderRadius: 999,
+                        opacity: editingEvent && !active ? 0.35 : 1,
                         fontSize: 12, fontWeight: active ? 700 : 400, whiteSpace: 'nowrap',
                         color: active ? '#fff' : TEAL_DARK,
                         background: active ? TEAL_DARK : '#fff',
@@ -527,6 +592,16 @@ export default function Schedule() {
                   onChange={(e) => setTitle(e.target.value)}
                   onPressEnter={addEvent}
                 />
+                {editingEvent && !editingEvent.recur && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 12, color: '#666', flexShrink: 0 }}>日期</span>
+                    <DatePicker value={editDate} onChange={setEditDate} allowClear={false} inputReadOnly style={{ width: 140 }} />
+                    <span style={{ fontSize: 11, color: '#9bd4d0' }}>可以把这件事挪到别的日子</span>
+                  </div>
+                )}
+                {editingEvent && editingEvent.recur && (
+                  <div style={{ fontSize: 12, color: '#9bd4d0' }}>循环任务的日期与循环范围不可改；要延长循环用事件卡上的「延续」</div>
+                )}
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <Select
                     allowClear
@@ -555,14 +630,17 @@ export default function Schedule() {
                     style={{ flex: 1, minWidth: 170 }}
                     inputReadOnly
                   />
-                  {taskType !== 'day' && (
+                  {taskType !== 'day' && !(editingEvent && editingEvent.recur) && (
                     <DatePicker
                       placeholder={taskType === 'deadline' ? '截止日期' : '循环截止'}
                       value={deadline}
                       onChange={setDeadline}
-                      disabledDate={(d) => d.isBefore(taskType === 'deadline' ? selected : selected.add(1, 'day'), 'day')
-                        || (taskType === 'rday' && d.diff(selected, 'day') > 180)
-                        || (taskType === 'rweek' && d.diff(selected, 'day') > 168)}
+                      disabledDate={(d) => {
+                        const base = editingEvent ? (editDate || dayjs(editingEvent.date)) : selected
+                        return d.isBefore(taskType === 'deadline' ? base : base.add(1, 'day'), 'day')
+                          || (taskType === 'rday' && d.diff(base, 'day') > 180)
+                          || (taskType === 'rweek' && d.diff(base, 'day') > 168)
+                      }}
                       style={{ width: 130, flexShrink: 0 }}
                       inputReadOnly
                     />
@@ -591,8 +669,8 @@ export default function Schedule() {
                   onChange={(e) => setNote(e.target.value)}
                   onPressEnter={addEvent}
                 />
-                <Button type="primary" loading={saving} onClick={addEvent} style={{ background: TEAL_DARK, borderColor: TEAL_DARK, borderRadius: 8 }}>
-                  添加
+                <Button type="primary" loading={saving} onClick={editingEvent ? saveEdit : addEvent} style={{ background: TEAL_DARK, borderColor: TEAL_DARK, borderRadius: 8 }}>
+                  {editingEvent ? '保存修改' : '添加'}
                 </Button>
               </div>
               <div style={{ fontSize: 11, color: '#9bd4d0', marginTop: 8 }}>
@@ -610,14 +688,14 @@ export default function Schedule() {
             placement="bottom"
             height="82%"
             open={detailOpen}
-            onClose={() => setDetailOpen(false)}
+            onClose={() => { setDetailOpen(false); cancelEdit() }}
             title={detailTitle}
             styles={{ body: { padding: '12px 14px' } }}
           >
             {detailBody}
           </Drawer>
         ) : (
-          <Modal open={detailOpen} onCancel={() => setDetailOpen(false)} footer={null} title={detailTitle} width={640}>
+          <Modal open={detailOpen} onCancel={() => { setDetailOpen(false); cancelEdit() }} footer={null} title={detailTitle} width={640}>
             {detailBody}
           </Modal>
         )

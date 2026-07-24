@@ -17,6 +17,8 @@ export const scheduleApi = {
   assignees: () => http.get('/schedule/assignees'),
   // 建事件：{date, title, time?, note?, assigneeId?}
   create: (payload) => http.post('/schedule/create', form(payload)),
+  // 编辑（仅创建者）：{eventId, title, ...}；循环任务的日期与循环范围不可改；换负责人会通知新负责人
+  update: (payload) => http.post('/schedule/update', form(payload)),
   // 完成/取消完成（创建者或负责人）；循环任务传 date=哪一天（按次打勾）
   toggleDone: (eventId, date) => http.post('/schedule/toggleDone', form({ eventId, date })),
   // 延续循环（仅创建者）：每日循环 amount=天数(≤180)，每周循环 amount=周数(≤24)；返回新的循环截止日

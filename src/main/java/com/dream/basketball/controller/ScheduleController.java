@@ -292,6 +292,113 @@ public class ScheduleController {
         return new Result<>(0, "已添加", e.getEventId());
     }
 
+    /**
+     * 编辑事件（仅创建者）。可改：标题/类型/时间区间/备注/负责人；非循环任务还可改日期与截止日
+     * （任务形态不变：单日↔截止跟随 endDate 有无，循环的日期与循环设置不可改——循环截止走「延续」）。
+     * 日期/时间可能变了，所以重置 REMINDED/OVERDUE_NOTIFIED（宁可再提醒一次，不能漏提醒）。
+     * 换了负责人 → 给新负责人发指派通知（同 create 的校验与文案）。
+     */
+    @RequiresRole(Role.USER)
+    @PostMapping("/update")
+    public Object update(String eventId, String date, String time, String endTime, String endDate, String title,
+                         String note, String category, String assigneeId, HttpServletRequest request) {
+        DreamUser me = SecUtil.getLoginUserToSession(request);
+        ScheduleEvent e = StringUtils.isBlank(eventId) ? null : eventMapper.selectById(eventId);
+        if (e == null) {
+            return new Result<>(1, "事件不存在", null);
+        }
+        if (!StringUtils.equals(e.getOwnerId(), me.getUserId())) {
+            return new Result<>(1, "只有创建者可以编辑", null);
+        }
+        boolean recurring = StringUtils.isNotBlank(e.getRecur());
+        String t = StringUtils.trimToEmpty(title);
+        if (t.isEmpty() || t.length() > TITLE_MAX) {
+            return new Result<>(1, "标题需为 1-" + TITLE_MAX + " 字", null);
+        }
+        String n = StringUtils.trimToNull(note);
+        if (n != null && n.length() > NOTE_MAX) {
+            return new Result<>(1, "备注不能超过 " + NOTE_MAX + " 字", null);
+        }
+        String tm = StringUtils.trimToNull(time);
+        if (tm != null && !validTime(tm)) {
+            return new Result<>(1, "时间格式应为 HH:mm", null);
+        }
+        String etm = StringUtils.trimToNull(endTime);
+        if (etm != null && !validTime(etm)) {
+            return new Result<>(1, "结束时间格式应为 HH:mm", null);
+        }
+        String d = e.getEventDate();
+        String ed = e.getEndDate();
+        if (!recurring) {
+            if (StringUtils.isNotBlank(date)) {
+                if (!validDate(date)) {
+                    return new Result<>(1, "日期格式应为 yyyy-MM-dd", null);
+                }
+                d = date;
+            }
+            ed = StringUtils.trimToNull(endDate);
+            if (ed != null) {
+                if (!validDate(ed)) {
+                    return new Result<>(1, "截止日期格式应为 yyyy-MM-dd", null);
+                }
+                if (ed.compareTo(d) < 0) {
+                    return new Result<>(1, "截止日期不能早于开始日期", null);
+                }
+                if (ed.equals(d)) {
+                    ed = null; // 同一天=普通单日任务
+                }
+            }
+            if (ed == null && tm != null && etm != null && etm.compareTo(tm) <= 0) {
+                return new Result<>(1, "结束时间要晚于开始时间", null);
+            }
+            // 挪日期要看目标日的容量（不算自己）
+            if (!StringUtils.equals(d, e.getEventDate())) {
+                Integer already = eventMapper.selectCount(new QueryWrapper<ScheduleEvent>()
+                        .eq("OWNER_ID", me.getUserId()).eq("EVENT_DATE", d).ne("EVENT_ID", eventId));
+                if (already != null && already >= EVENTS_PER_DAY_MAX) {
+                    return new Result<>(1, "那天已经排了 " + EVENTS_PER_DAY_MAX + " 个事件", null);
+                }
+            }
+        }
+        String assignee = StringUtils.trimToNull(assigneeId);
+        if (assignee != null) {
+            if (userMapper.selectById(assignee) == null) {
+                return new Result<>(1, "负责人不存在", null);
+            }
+            if (!canAssign(me.getUserId(), assignee)) {
+                return new Result<>(1, "负责人只能是你自己或关注你的人", null);
+            }
+        }
+        boolean assigneeChanged = !StringUtils.equals(assignee, e.getAssigneeId());
+        String cat = StringUtils.trimToNull(category);
+        e.setEventDate(d);
+        e.setEventTime(tm);
+        e.setEndDate(recurring ? null : ed);
+        e.setEndTime(etm);
+        e.setTitle(t);
+        e.setNote(n);
+        e.setCategory(cat != null && CATEGORIES.contains(cat) ? cat : null);
+        e.setAssigneeId(assignee);
+        e.setReminded(null);
+        e.setOverdueNotified(null);
+        eventMapper.updateById(e);
+        if (assigneeChanged && assignee != null && !StringUtils.equals(assignee, me.getUserId())) {
+            String when = d + (tm == null ? "" : " " + tm);
+            if (e.getEndDate() != null) {
+                when += " → 截止 " + e.getEndDate() + (etm == null ? "" : " " + etm);
+            } else if (etm != null) {
+                when += "-" + etm;
+            }
+            if (recurring) {
+                when += ("day".equals(e.getRecur()) ? "，每日循环" : "，每周循环") + "至 " + e.getRecurEnd();
+            }
+            userInformationService.saveUserInformation(me.getUserId(), me.getUserNickname(), assignee,
+                    Constants.SCHEDULE_ASSIGN, e.getEventId(), d, "", "",
+                    (e.getCategory() == null ? "" : "【" + e.getCategory() + "】") + t + "（" + when + "）", "");
+        }
+        return new Result<>(0, "已保存", null);
+    }
+
     /** 标记完成/取消完成（创建者或负责人）。循环任务按"哪一天"打勾（date 必传），互不影响。 */
     @RequiresRole(Role.USER)
     @PostMapping("/toggleDone")
