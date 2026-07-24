@@ -32,7 +32,10 @@ UA = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit
 BASE_SITE = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba'
 BASE_WEB = 'https://site.web.api.espn.com/apis'
 # ESPN abbreviation -> the site's canonical 30 team codes (frontend NBA_TEAM_NAMES)
-ESPN2CODE = {'GS': 'GSW', 'NO': 'NOP', 'NY': 'NYK', 'SA': 'SAS', 'UTAH': 'UTA', 'WSH': 'WAS'}
+ESPN2CODE = {'GS': 'GSW', 'NO': 'NOP', 'NY': 'NYK', 'SA': 'SAS', 'UTAH': 'UTA', 'WSH': 'WAS',
+             # historical franchises map to their CURRENT club (site models 30 fixed teams):
+             # Seattle SuperSonics (≤2007-08) = OKC, New Jersey Nets (≤2011-12) = BKN
+             'SEA': 'OKC', 'NJ': 'BKN'}
 
 def mysql_cmd():
     # password from env DREAM_DB_PWD or the git-ignored .dbpwd file next to this script
@@ -323,6 +326,38 @@ def fetch_season_teams(season, espn_ids, id_to_code):
     return out
 
 
+def fetch_gap_rows(season, seasontype, have_ids, candidates):
+    """Synthesize byathlete-shaped rows from core per-athlete statistics for ids missing
+    from a short byathlete index (ESPN's 2011-12 lockout index lists only 243 of ~420
+    players — the omitted low-minute guys still have full stats on the core API).
+    candidates: espnId -> base row carrying name/teamCode/pos from an adjacent season."""
+    todo = [(aid, b) for aid, b in candidates.items() if aid not in have_ids]
+
+    def one(item):
+        aid, base = item
+        try:
+            d = get(f'https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba'
+                    f'/seasons/{season}/types/{seasontype}/athletes/{aid}/statistics', retries=1)
+        except Exception:
+            return None
+        vals = {}
+        for cat in d.get('splits', {}).get('categories', []):
+            for st in cat.get('stats', []):
+                vals.setdefault(st['name'], st.get('value'))
+        if not vals.get('gamesPlayed'):
+            return None
+        # same stat names and the same percent scale as byathlete — plugs into stat_row_sql
+        return {'espnId': aid, 'name': base['name'], 'teamCode': base['teamCode'],
+                'pos': base.get('pos') or '', 'stats': vals}
+
+    out = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
+        for r in ex.map(one, todo):
+            if r:
+                out.append(r)
+    return out
+
+
 def fetch_playoff_opp_ppg(season):
     """teamCode -> opponents' playoff PPG (byteam st=3: 2nd occurrence of each category = opponents)"""
     try:
@@ -430,6 +465,26 @@ def main():
     reg = fetch_athlete_stats(args.season, 2)
     print('[3/6] playoff player averages')
     po = fetch_athlete_stats(args.season, 3)
+    # The byathlete index can have holes: whole swaths for 2011-12 (lockout pre-filter,
+    # 243 of ~420) but also lone omissions in normal seasons (Avery Bradley missing from
+    # the 448-player 2013 index). Always reconcile against the adjacent seasons' indexes;
+    # anyone missing here but present next door gets probed on the core API and recovered.
+    print('  reconciling index against adjacent seasons')
+    cand = {}
+    for adj in (args.season - 1, args.season + 1):
+        try:
+            for r in fetch_athlete_stats(adj, 2):
+                cand.setdefault(r['espnId'], r)
+        except Exception as e:
+            print(f'  adjacent {adj} unavailable: {e}')
+    add_reg = fetch_gap_rows(args.season, 2, {r['espnId'] for r in reg}, cand)
+    reg += add_reg
+    # playoff gaps: anyone on this season's (now complete) regular list may have po rows
+    add_po = fetch_gap_rows(args.season, 3, {r['espnId'] for r in po},
+                            {r['espnId']: r for r in reg})
+    po += add_po
+    if add_reg or add_po:
+        print(f'  gap-filled: +{len(add_reg)} regular, +{len(add_po)} playoff rows')
     print('[4/6] per-athlete details (starters + off/def rebounds, threaded)')
     det_reg = fetch_athlete_details(args.season, 2, [r['espnId'] for r in reg])
     det_po = fetch_athlete_details(args.season, 3, [r['espnId'] for r in po])
