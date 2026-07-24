@@ -19,6 +19,7 @@ Usage:
 """
 
 import argparse
+import concurrent.futures
 import json
 import os
 import subprocess
@@ -73,12 +74,14 @@ def num(v, digits=3):
 
 
 def fetch_rosters():
-    """athlete identity map: espnId -> {name, jersey, pos, dob, team}"""
+    """athlete identity map espnId -> {name, jersey, pos, dob, team} + team id map code -> espn team id"""
     teams = get(f'{BASE_SITE}/teams')['sports'][0]['leagues'][0]['teams']
     ident = {}
+    team_ids = {}
     for t in teams:
         team = t['team']
         code = code_of(team['abbreviation'])
+        team_ids[code] = team['id']
         try:
             roster = get(f"{BASE_SITE}/teams/{team['id']}/roster")
         except Exception as e:
@@ -95,7 +98,7 @@ def fetch_rosters():
             }
         print(f'  roster {code}: {len(roster.get("athletes", []))}')
         time.sleep(0.3)
-    return ident
+    return ident, team_ids
 
 
 def fetch_athlete_stats(season, seasontype):
@@ -198,6 +201,84 @@ def fetch_awards(season):
     return out
 
 
+def fetch_team_pergame(season, seasontype):
+    """team own per-game numbers from byteam: code -> {pts, reb, ast, stl, blk, tov, games}"""
+    try:
+        d = get(f'{BASE_WEB}/common/v3/sports/basketball/nba/statistics/byteam'
+                f'?region=us&lang=en&season={season}&seasontype={seasontype}')
+    except Exception as e:
+        print(f'  byteam st={seasontype} unavailable: {e}')
+        return {}
+    names_by_cat = {}
+    for c in d.get('categories', []):
+        if c.get('names'):
+            names_by_cat.setdefault(c['name'], c['names'])
+    out = {}
+    for row in d.get('teams', []):
+        code = code_of(row['team']['abbreviation'])
+        vals = {}
+        for cat in row.get('categories', []):
+            names = names_by_cat.get(cat['name'], [])
+            for k, v in zip(names, cat.get('values') or []):
+                vals.setdefault(k, v)  # first occurrence = own side
+        out[code] = {
+            'pts': vals.get('avgPoints'), 'reb': vals.get('avgRebounds'), 'ast': vals.get('avgAssists'),
+            'stl': vals.get('avgSteals'), 'blk': vals.get('avgBlocks'), 'tov': vals.get('avgTurnovers'),
+            'games': int(vals.get('gamesPlayed') or 0),
+        }
+    return out
+
+
+def fetch_playoff_results(season, team_ids, po_codes):
+    """PLAYOFF_RESULT per team, derived from playoff game wins:
+    16 -> 总冠军, 12-15 -> 总决赛, 8-11 -> 分区决赛, 4-7 -> 半决赛, <4 -> 首轮; rest 未进季后赛"""
+    out = {code: '未进季后赛' for code in team_ids}
+    for code in po_codes:
+        tid = team_ids.get(code)
+        if not tid:
+            continue
+        try:
+            s = get(f'{BASE_SITE}/teams/{tid}/schedule?season={season}&seasontype=3')
+        except Exception as e:
+            print(f'  schedule fail {code}: {e}')
+            continue
+        wins = 0
+        for ev in s.get('events', []):
+            for c in ev.get('competitions', [{}])[0].get('competitors', []):
+                if str(c.get('team', {}).get('id')) == str(tid) and c.get('winner') is True:
+                    wins += 1
+        out[code] = ('总冠军' if wins >= 16 else '总决赛' if wins >= 12
+                     else '分区决赛' if wins >= 8 else '半决赛' if wins >= 4 else '首轮')
+        time.sleep(0.2)
+    return out
+
+
+def fetch_athlete_details(season, seasontype, espn_ids):
+    """per-athlete core stats (threaded): id -> {gs, oreb, dreb} — the byathlete list
+    endpoint lacks games-started and the offensive/defensive rebound split"""
+    def one(aid):
+        try:
+            d = get(f'https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/{season}'
+                    f'/types/{seasontype}/athletes/{aid}/statistics', retries=2)
+            vals = {}
+            for cat in d.get('splits', {}).get('categories', []):
+                for st in cat.get('stats', []):
+                    vals.setdefault(st['name'], st.get('value'))
+            return aid, {'gs': vals.get('gamesStarted'),
+                         'oreb': vals.get('avgOffensiveRebounds'), 'dreb': vals.get('avgDefensiveRebounds')}
+        except Exception:
+            return aid, {}
+    out = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
+        done = 0
+        for aid, v in ex.map(one, espn_ids):
+            out[aid] = v
+            done += 1
+            if done % 100 == 0:
+                print(f'  athlete details {done}/{len(espn_ids)}')
+    return out
+
+
 def fetch_playoff_opp_ppg(season):
     """teamCode -> opponents' playoff PPG (byteam st=3: 2nd occurrence of each category = opponents)"""
     try:
@@ -227,14 +308,17 @@ def fetch_playoff_opp_ppg(season):
 STAT_COLS = ('STATS_ID, PLAYER_ID, SEASON, SEASON_NUM, PLAYER_TEAM, PLAYER_POSITION, PLAYER_APPEARANCE, '
              'PLAYING_TIME, PLAYER_AVG_SCORE, PLAYER_AVG_REB, PLAYER_AVG_ASS, PLAYER_AVG_STEAL, PLAYER_AVG_BLOCK, '
              'PLAYER_AVG_TURNOVER, PLAYER_AVG_FGM, PLAYER_AVG_FGA, PLAYER_ACCURACY, PLAYER_AVG_TPM, PLAYER_AVG_TPA, '
-             'PLAYER_THREE_ACCURACY, PLAYER_AVG_FTM, PLAYER_AVG_FTA, PLAYER_FREETHROW_ACCURACY, PLAYER_PER')
+             'PLAYER_THREE_ACCURACY, PLAYER_AVG_FTM, PLAYER_AVG_FTA, PLAYER_FREETHROW_ACCURACY, PLAYER_PER, '
+             'PLAYER_FR_APPEARANCE, PLAYER_SR_APPEARANCE, PLAYER_AVG_OFF_REB, PLAYER_AVG_DEF_REB')
 
 
-def stat_row_sql(table, season_num, suffix, r, ident):
+def stat_row_sql(table, season_num, suffix, r, ident, detail):
     s = r['stats']
     gp = s.get('gamesPlayed')
     if not gp:
         return None
+    det = detail.get(r['espnId']) or {}
+    gs = det.get('gs')
     pid = f"nba-{r['espnId']}"
     pos = ident.get(r['espnId'], {}).get('pos') or ''
     # classic NBA efficiency (EFF) per game — the site's 效率值 column (real PER isn't public)
@@ -253,6 +337,9 @@ def stat_row_sql(table, season_num, suffix, r, ident):
         pct('fieldGoalPct'), num(s.get('avgThreePointFieldGoalsMade')), num(s.get('avgThreePointFieldGoalsAttempted')),
         pct('threePointFieldGoalPct'), num(s.get('avgFreeThrowsMade')), num(s.get('avgFreeThrowsAttempted')),
         pct('freeThrowPct'), num(eff, 1),
+        'NULL' if gs is None else str(int(gs)),
+        'NULL' if gs is None else str(max(0, int(gp) - int(gs))),
+        num(det.get('oreb')), num(det.get('dreb')),
     ]
     return f"INSERT INTO {table} ({STAT_COLS}) VALUES ({', '.join(vals)});"
 
@@ -271,7 +358,9 @@ def career_sql(table):
         f"{w('PLAYER_AVG_FGM')}, {w('PLAYER_AVG_FGA')}, {ratio('PLAYER_AVG_FGM', 'PLAYER_AVG_FGA')}, "
         f"{w('PLAYER_AVG_TPM')}, {w('PLAYER_AVG_TPA')}, {ratio('PLAYER_AVG_TPM', 'PLAYER_AVG_TPA')}, "
         f"{w('PLAYER_AVG_FTM')}, {w('PLAYER_AVG_FTA')}, {ratio('PLAYER_AVG_FTM', 'PLAYER_AVG_FTA')}, "
-        f"{w('PLAYER_PER')} "
+        f"{w('PLAYER_PER')}, "
+        f"SUM(PLAYER_FR_APPEARANCE), SUM(PLAYER_SR_APPEARANCE), "
+        f"{w('PLAYER_AVG_OFF_REB')}, {w('PLAYER_AVG_DEF_REB')} "
         f"FROM {table} WHERE PLAYER_ID LIKE 'nba-%' AND SEASON_NUM<>50 GROUP BY PLAYER_ID;"
     )
 
@@ -284,23 +373,29 @@ def main():
     season_num = args.season - 2008  # 2026 -> 18 -> label 2025-2026 (site formula: (2007+n)-(2008+n))
     print(f'== NBA sync: ESPN season {args.season} -> site season_num {season_num} ==')
 
-    print('[1/5] rosters (identity: jersey/position/birthday)')
-    ident = fetch_rosters()
+    print('[1/6] rosters (identity: jersey/position/birthday)')
+    ident, team_ids = fetch_rosters()
     print(f'  identities: {len(ident)}')
 
-    print('[2/5] regular-season player averages')
+    print('[2/6] regular-season player averages')
     reg = fetch_athlete_stats(args.season, 2)
-    print('[3/5] playoff player averages')
+    print('[3/6] playoff player averages')
     po = fetch_athlete_stats(args.season, 3)
-    print('[4/5] team standings + playoff opponents ppg + season awards')
+    print('[4/6] per-athlete details (starters + off/def rebounds, threaded)')
+    det_reg = fetch_athlete_details(args.season, 2, [r['espnId'] for r in reg])
+    det_po = fetch_athlete_details(args.season, 3, [r['espnId'] for r in po])
+    print('[5/6] team stats + standings + playoff rounds + season awards')
     standings = fetch_standings(args.season)
     po_opp = fetch_playoff_opp_ppg(args.season)
+    team_reg = fetch_team_pergame(args.season, 2)
+    team_po = fetch_team_pergame(args.season, 3)
+    po_results = fetch_playoff_results(args.season, team_ids, set(team_po.keys()))
     awards = fetch_awards(args.season)
     print(f'  players: reg {len(reg)}, playoffs {len(po)}; teams {len(standings)}, po-teams {len(po_opp)}')
     if len(reg) < 100 or len(standings) < 30:
         sys.exit('ABORT: source data looks incomplete — nothing was written')
 
-    print('[5/5] generating SQL')
+    print('[6/6] generating SQL')
     lines = ['SET NAMES utf8mb4;', 'START TRANSACTION;']
     # players upsert: PLAYER_NAME only on insert (hand-translated Chinese must survive)
     seen = set()
@@ -316,10 +411,11 @@ def main():
             f"VALUES ('nba-{r['espnId']}', '{esc(name)}', '{esc(info.get('jersey') or '')}', {dob}, '{esc(name)}', '{r['espnId']}') "
             f"ON DUPLICATE KEY UPDATE PLAYER_NUMBER=VALUES(PLAYER_NUMBER), PLAYER_BIRTHDAY=VALUES(PLAYER_BIRTHDAY), NAME_EN=VALUES(NAME_EN);")
     # season rows: replace this season's nba rows wholesale
-    for table, rows, suffix in (('player_stats', reg, f's{season_num}'), ('player_playoff_stats', po, f'p{season_num}')):
+    for table, rows, suffix, det in (('player_stats', reg, f's{season_num}', det_reg),
+                                     ('player_playoff_stats', po, f'p{season_num}', det_po)):
         lines.append(f"DELETE FROM {table} WHERE PLAYER_ID LIKE 'nba-%' AND SEASON_NUM={season_num};")
         for r in rows:
-            sql = stat_row_sql(table, season_num, suffix, r, ident)
+            sql = stat_row_sql(table, season_num, suffix, r, ident, det)
             if sql:
                 lines.append(sql)
         lines.append(career_sql(table))
@@ -338,25 +434,29 @@ def main():
         if awards.get(field):
             lines.append("INSERT INTO season_award (SEASON_NUM, AWARD, PLAYER_ID) "
                          f"VALUES ({season_num}, '{field}', 'nba-{awards[field]}');")
-    # team_season: upsert W/L + points allowed; other PLAYOFF_RESULT values stay hand-maintained
+    # team_season: real per-game team numbers + W/L + points allowed + derived playoff round
     for code, st in standings.items():
         oppg = num(st['oppg']) if st.get('oppg') is not None else 'NULL'
         po_pa = num(po_opp[code]) if code in po_opp else 'NULL'
+        tr = team_reg.get(code) or {}
+        tp = team_po.get(code) or {}
+        result = po_results.get(code, '未进季后赛')
         lines.append(
-            "INSERT INTO team_season (TEAM_CODE, SEASON_NUM, WINS, LOSSES, PTS_ALLOWED, PLAYOFF_PTS_ALLOWED) "
-            f"VALUES ('{esc(code)}', {season_num}, {st['wins']}, {st['losses']}, {oppg}, {po_pa}) "
+            "INSERT INTO team_season (TEAM_CODE, SEASON_NUM, WINS, LOSSES, PTS_ALLOWED, PLAYOFF_PTS_ALLOWED, "
+            "PTS, REB, AST, STL, BLK, TOV, PLAYOFF_GAMES, PLAYOFF_PTS, PLAYOFF_REB, PLAYOFF_AST, PLAYOFF_STL, "
+            "PLAYOFF_BLK, PLAYOFF_TOV, PLAYOFF_RESULT) "
+            f"VALUES ('{esc(code)}', {season_num}, {st['wins']}, {st['losses']}, {oppg}, {po_pa}, "
+            f"{num(tr.get('pts'))}, {num(tr.get('reb'))}, {num(tr.get('ast'))}, {num(tr.get('stl'))}, "
+            f"{num(tr.get('blk'))}, {num(tr.get('tov'))}, "
+            f"{tp.get('games') if tp.get('games') else 'NULL'}, {num(tp.get('pts'))}, {num(tp.get('reb'))}, "
+            f"{num(tp.get('ast'))}, {num(tp.get('stl'))}, {num(tp.get('blk'))}, {num(tp.get('tov'))}, "
+            f"'{esc(result)}') "
             "ON DUPLICATE KEY UPDATE WINS=VALUES(WINS), LOSSES=VALUES(LOSSES), "
-            "PTS_ALLOWED=VALUES(PTS_ALLOWED), PLAYOFF_PTS_ALLOWED=VALUES(PLAYOFF_PTS_ALLOWED);")
-    # champion / runner-up derived from FMVP + the two conference-finals MVPs' teams
-    # (after the team upserts so a brand-new season's rows already exist)
-    team_of = {r['espnId']: r['teamCode'] for r in reg if r.get('teamCode')}
-    champ = team_of.get(awards.get('fmvp'))
-    if champ:
-        lines.append(f"UPDATE team_season SET PLAYOFF_RESULT='总冠军' WHERE SEASON_NUM={season_num} AND TEAM_CODE='{esc(champ)}';")
-        for cid in awards['conf_mvps']:
-            runner = team_of.get(cid)
-            if runner and runner != champ:
-                lines.append(f"UPDATE team_season SET PLAYOFF_RESULT='总决赛' WHERE SEASON_NUM={season_num} AND TEAM_CODE='{esc(runner)}' AND (PLAYOFF_RESULT IS NULL OR PLAYOFF_RESULT='');")
+            "PTS_ALLOWED=VALUES(PTS_ALLOWED), PLAYOFF_PTS_ALLOWED=VALUES(PLAYOFF_PTS_ALLOWED), "
+            "PTS=VALUES(PTS), REB=VALUES(REB), AST=VALUES(AST), STL=VALUES(STL), BLK=VALUES(BLK), TOV=VALUES(TOV), "
+            "PLAYOFF_GAMES=VALUES(PLAYOFF_GAMES), PLAYOFF_PTS=VALUES(PLAYOFF_PTS), PLAYOFF_REB=VALUES(PLAYOFF_REB), "
+            "PLAYOFF_AST=VALUES(PLAYOFF_AST), PLAYOFF_STL=VALUES(PLAYOFF_STL), PLAYOFF_TOV=VALUES(PLAYOFF_TOV), "
+            "PLAYOFF_BLK=VALUES(PLAYOFF_BLK), PLAYOFF_RESULT=VALUES(PLAYOFF_RESULT);")
     lines.append('COMMIT;')
 
     out = Path(__file__).parent / f'nba_sync_{args.season}.sql'
