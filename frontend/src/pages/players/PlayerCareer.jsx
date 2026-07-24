@@ -88,7 +88,7 @@ function CareerTable({ playerId }) {
     { title: '得分', dataIndex: 'playerAvgScore', width: 62, sorter: true, render: (v) => num(v) },
     {
       title: '篮板', dataIndex: 'playerAvgReb', width: 120, sorter: true,
-      render: (_, r) => fmtReb(r.playerAvgReb, r.playerAvgOffReb, r.playerAvgDefReb),
+      render: (_, r) => <span style={{ whiteSpace: 'nowrap' }}>{fmtReb(r.playerAvgReb, r.playerAvgOffReb, r.playerAvgDefReb)}</span>,
     },
     { title: '助攻', dataIndex: 'playerAvgAss', width: 60, sorter: true, render: (v) => num(v) },
     { title: '投篮', dataIndex: 'playerAvgFgm', width: 86, render: (_, r) => fmtPair(r.playerAvgFgm, r.playerAvgFga) },
@@ -163,7 +163,7 @@ function PlayoffTable({ playerId }) {
     { title: '得分', dataIndex: 'playerAvgScore', width: 62, render: (v) => <b style={{ color: '#fa541c' }}>{num(v)}</b> },
     {
       title: '篮板', dataIndex: 'playerAvgReb', width: 120,
-      render: (_, r) => fmtReb(r.playerAvgReb, r.playerAvgOffReb, r.playerAvgDefReb),
+      render: (_, r) => <span style={{ whiteSpace: 'nowrap' }}>{fmtReb(r.playerAvgReb, r.playerAvgOffReb, r.playerAvgDefReb)}</span>,
     },
     { title: '助攻', dataIndex: 'playerAvgAss', width: 60, render: (v) => num(v) },
     { title: '投篮', dataIndex: 'playerAvgFgm', width: 86, render: (_, r) => fmtPair(r.playerAvgFgm, r.playerAvgFga) },

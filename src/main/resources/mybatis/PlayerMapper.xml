@@ -46,7 +46,8 @@
                 order by ${param.field}
             </when>
             <otherwise>
-                order by s.SEASON_NUM
+                <!-- career page default: newest season on top, career summary row (50) pinned last -->
+                order by (s.SEASON_NUM = 50), s.SEASON_NUM desc
             </otherwise>
         </choose>
     </select>
@@ -118,7 +119,7 @@
         left join team_season ts on ts.SEASON_NUM = s.SEASON_NUM
             and ts.TEAM_CODE = SUBSTRING_INDEX(s.PLAYER_TEAM, '->', -1)
         where s.PLAYER_ID = #{playerId}
-        order by s.SEASON_NUM
+        order by (s.SEASON_NUM = 50), s.SEASON_NUM desc
     </select>
 
     <!-- 该球员的特别奖（FMVP/最佳第六人/最快进步球员/最佳新秀），来自 season_award 表 -->

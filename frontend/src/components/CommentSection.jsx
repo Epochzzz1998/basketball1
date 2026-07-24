@@ -24,11 +24,16 @@ const avatarColor = (name) => {
   return `hsl(${h}, 52%, 52%)`
 }
 
-function UserAvatar({ name, src, size }) {
+function UserAvatar({ name, src, size, userId }) {
+  const navigate = useNavigate()
+  // 给了 userId 就可点跳作者主页（评论者头像；自己在输入框旁的头像不传）
+  const clickable = userId
+    ? { onClick: () => navigate(`/users/${userId}`), style: { cursor: 'pointer', flexShrink: 0 } }
+    : { style: { flexShrink: 0 } }
   return src ? (
-    <Avatar size={size} src={src} style={{ flexShrink: 0 }} />
+    <Avatar size={size} src={src} {...clickable} />
   ) : (
-    <Avatar size={size} style={{ background: avatarColor(name), fontWeight: 700, flexShrink: 0 }}>
+    <Avatar size={size} {...clickable} style={{ ...clickable.style, background: avatarColor(name), fontWeight: 700 }}>
       {String(name || '匿')[0].toUpperCase()}
     </Avatar>
   )
@@ -234,7 +239,7 @@ function FloorReplies({ floorId, newsId, authorId, topicOwnerIds, locked, bump, 
     <div style={{ background: '#fafafa', borderRadius: 10, padding: isMobile ? '2px 10px' : '4px 14px', marginTop: 8 }}>
       {rows.map((r) => (
         <div key={r.commentId} style={{ display: 'flex', gap: 10, padding: '10px 0', borderBottom: '1px solid #f0f0f0' }}>
-          {r.deleted !== '1' && <UserAvatar name={r.userName} src={r.commenterAvatar} size={24} />}
+          {r.deleted !== '1' && <UserAvatar name={r.userName} src={r.commenterAvatar} size={24} userId={r.userId} />}
           <div style={{ flex: 1, minWidth: 0 }}>
             {r.deleted !== '1' && <MetaRow c={r} authorId={authorId} topicOwnerIds={topicOwnerIds} />}
             {/* 平级楼层："A 回复 B：内容"。直接回楼的不带"回复 B"前缀；已删的整行变墓碑 */}
@@ -370,7 +375,7 @@ function FloorNode({ comment, newsId, authorId, topicOwnerIds, locked, ratingIte
 
   return (
     <div style={{ display: 'flex', gap: 12, paddingTop: 16, paddingBottom: 16, borderBottom: '1px solid #f5f5f5' }}>
-      {c.deleted === '1' ? <UserAvatar name="?" size={36} /> : <UserAvatar name={c.userName} src={c.commenterAvatar} size={36} />}
+      {c.deleted === '1' ? <UserAvatar name="?" size={36} /> : <UserAvatar name={c.userName} src={c.commenterAvatar} size={36} userId={c.userId} />}
       <div style={{ flex: 1, minWidth: 0 }}>
         {c.deleted !== '1' && <MetaRow c={c} authorId={authorId} topicOwnerIds={topicOwnerIds} showFloor />}
 

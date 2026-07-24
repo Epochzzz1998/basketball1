@@ -88,9 +88,9 @@ export const qualifiedBoard = (rows, field, season) => {
 export const fmtPair = (made, att, d = 1) =>
   made == null && att == null ? '-' : `${fmtNum(made, d)}/${fmtNum(att, d)}`
 
-// 篮板 = 总数（前场/后场），如 "8.5（2.1/6.4）"；无分项数据时只显示总数
+// 篮板 = 总数(前场/后场)，如 "8.5(2.1/6.4)"；半角括号不换行，窄列一行放得下
 export const fmtReb = (total, off, def) =>
-  off == null && def == null ? fmtNum(total) : `${fmtNum(total)}（${fmtNum(off)}/${fmtNum(def)}）`
+  off == null && def == null ? fmtNum(total) : `${fmtNum(total)}(${fmtNum(off)}/${fmtNum(def)})`
 
 // 季后赛成绩 → Tag 颜色（球队排行/球队页共用）
 export const PLAYOFF_TAG = {

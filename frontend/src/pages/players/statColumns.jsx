@@ -21,7 +21,8 @@ export function buildFullStatColumns({ serverSort = true } = {}) {
     { title: '得分', dataIndex: 'playerAvgScore', width: 62, ...srt, render: (v) => num(v) },
     {
       title: '篮板', dataIndex: 'playerAvgReb', width: 120, ...srt,
-      render: (_, r) => fmtReb(r.playerAvgReb, r.playerAvgOffReb, r.playerAvgDefReb),
+      // nowrap：名字长换行把行撑高时，前后场拆分不许跟着折行
+      render: (_, r) => <span style={{ whiteSpace: 'nowrap' }}>{fmtReb(r.playerAvgReb, r.playerAvgOffReb, r.playerAvgDefReb)}</span>,
     },
     { title: '助攻', dataIndex: 'playerAvgAss', width: 60, ...srt, render: (v) => num(v) },
     { title: '投篮', dataIndex: 'playerAvgFgm', width: 86, render: (_, r) => fmtPair(r.playerAvgFgm, r.playerAvgFga) },
@@ -48,15 +49,18 @@ export const FULL_COLUMNS_SCROLL_X = 1990
  * index.css 里 .stat-compact 的字号/内边距媒体查询，一屏约多看 40% 的列。 */
 const COMPACT_W = {
   playerName: 88, playerTeam: 56, playerPosition: 40, playerAppearance: 58, playingTime: 44,
-  playerAvgScore: 46, playerAvgReb: 94, playerAvgAss: 44, playerAvgFgm: 64, playerAccuracy: 52,
+  playerAvgScore: 46, playerAvgReb: 104, playerAvgAss: 44, playerAvgFgm: 64, playerAccuracy: 52,
   playerAvgTpm: 64, playerThreeAccuracy: 52, playerAvgFtm: 64, playerFreethrowAccuracy: 52,
   playerAvgBlock: 44, playerAvgSteal: 44, playerAvgTurnover: 44, playerPer: 46,
   mvpRank: 44, dpoyRank: 48, allDbaTeam: 60, allDefTeam: 60, seasonNum: 56,
 }
 
-/** 列表 → 紧凑列表：命中紧凑表的用表值，其余按 0.72 收缩（下限 40） */
+/** 列表 → 紧凑列表：命中紧凑表的用表值，其余按 0.72 收缩（下限 40）；
+ * 同时去掉表头排序（窄列里排序箭头和标题文字重叠，移动端排序一律砍掉） */
 export const compactColumns = (cols) =>
-  cols.map((c) => ({ ...c, width: COMPACT_W[c.dataIndex] ?? Math.max(40, Math.round((c.width || 60) * 0.72)) }))
+  cols.map(({ sorter, sortOrder, defaultSortOrder, ...c }) => ({
+    ...c, width: COMPACT_W[c.dataIndex] ?? Math.max(40, Math.round((c.width || 60) * 0.72)),
+  }))
 
 /** 横向滚动宽度 = 列宽求和（列随紧凑与否变化，滚动宽度跟着算） */
 export const sumColWidth = (cols) => cols.reduce((s, c) => s + (c.width || 0), 0)

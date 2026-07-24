@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Card, Col, Empty, Row, Space, Spin, Tag } from 'antd'
 import SeasonPicker from '../../components/SeasonPicker'
 import RadarChart from '../../components/RadarChart'
@@ -56,20 +57,22 @@ const Radar = ({ data, color = '#fa541c', fill = 'rgba(250,84,28,.22)' }) => (
   <RadarChart series={[{ color, fill, data }]} />
 )
 
-function RankChip({ rank, prefix = '联盟第' }) {
+function RankChip({ rank, prefix = '联盟第', to }) {
   if (!rank) return null
   const color = rank <= 3 ? MEDAL[rank - 1] : '#999'
-  return (
+  const chip = (
     <span
       style={{
         fontSize: 12, fontWeight: 600, color,
         background: rank <= 3 ? 'rgba(250,84,28,.08)' : '#f5f5f5',
-        padding: '1px 8px', borderRadius: 10,
+        padding: '1px 8px', borderRadius: 10, cursor: to ? 'pointer' : undefined,
       }}
     >
       {prefix} {rank}
     </span>
   )
+  // 点名次胶囊 → 当季该单项的完整联盟排名
+  return to ? <Link to={to}>{chip}</Link> : chip
 }
 
 export default function SeasonProfile({ playerId, honors }) {
@@ -158,7 +161,7 @@ export default function SeasonProfile({ playerId, honors }) {
   const rankIn = (rows, s, mine) =>
     rows?.length ? 1 + rows.filter((r) => (s.asc ? val(r, s.key) < mine : val(r, s.key) > mine)).length : null
 
-  const statCard = (dataRow, leagueRows, prefix, color) => (
+  const statCard = (dataRow, leagueRows, prefix, color, stage) => (
     <Row gutter={[10, 10]}>
       {GRID_STATS.map((s) => {
         const mine = val(dataRow, s.key)
@@ -172,7 +175,11 @@ export default function SeasonProfile({ playerId, honors }) {
               <div style={{ fontSize: 20, fontWeight: 800, color, margin: '2px 0 4px', fontVariantNumeric: 'tabular-nums' }}>
                 {s.pct ? fmtPct(mine) : fmtNum(mine, s.digits ?? 1)}
               </div>
-              <RankChip rank={rankIn(leagueRows, s, mine)} prefix={prefix} />
+              <RankChip
+                rank={rankIn(leagueRows, s, mine)}
+                prefix={prefix}
+                to={`/rankings/${s.key}?seasonNum=${seasonNum}&stage=${stage}`}
+              />
             </div>
           </Col>
         )
@@ -210,22 +217,17 @@ export default function SeasonProfile({ playerId, honors }) {
           )}
         </Space>
 
-        <Row gutter={[20, 20]}>
-          {/* 能力雷达 */}
-          <Col xs={24} lg={9}>
-            {league === null
-              ? <Spin style={{ display: 'block', margin: '90px auto' }} />
-              : <Radar data={radarOf(row, league)} />}
-            <div style={{ textAlign: 'center', color: '#bbb', fontSize: 12, marginTop: 2 }}>
-              六维 = {isCareer ? '生涯场均' : '当季'}联盟百分位（0-100；防守 = 抢断+盖帽，真实命中 = TS%）
-            </div>
-          </Col>
-          {/* 常规赛数据卡 */}
-          <Col xs={24} lg={15}>
-            <div style={{ fontWeight: 700, marginBottom: 10, fontSize: 15 }}>常规赛</div>
-            {statCard(row, league, '联盟第', '#fa541c')}
-          </Col>
-        </Row>
+        {/* 常规赛数据卡（六维雷达挪到卡片下方） */}
+        <div style={{ fontWeight: 700, marginBottom: 10, fontSize: 15 }}>常规赛</div>
+        {statCard(row, league, '联盟第', '#fa541c', 'rg')}
+        <div style={{ maxWidth: 440, margin: '20px auto 0' }}>
+          {league === null
+            ? <Spin style={{ display: 'block', margin: '60px auto' }} />
+            : <Radar data={radarOf(row, league)} />}
+          <div style={{ textAlign: 'center', color: '#bbb', fontSize: 12, marginTop: 2 }}>
+            六维 = {isCareer ? '生涯场均' : '当季'}联盟百分位（0-100；防守 = 抢断+盖帽，真实命中 = TS%）
+          </div>
+        </div>
       </Card>
 
       {/* 季后赛区块 */}
@@ -249,21 +251,17 @@ export default function SeasonProfile({ playerId, honors }) {
               <Tag>出战 {poRow.playerAppearance} 场{poRow.playerFrAppearance != null ? `（先发 ${poRow.playerFrAppearance}）` : ''}</Tag>
               <Tag>场均 {fmtNum(poRow.playingTime)} 分钟</Tag>
             </Space>
-            <Row gutter={[20, 20]}>
-              {/* 季后赛能力雷达（只和当季季后赛球员比） */}
-              <Col xs={24} lg={9}>
-                {poLeague === null
-                  ? <Spin style={{ display: 'block', margin: '90px auto' }} />
-                  : <Radar data={radarOf(poRow, poLeague)} color="#d4380d" fill="rgba(212,56,13,.20)" />}
-                <div style={{ textAlign: 'center', color: '#bbb', fontSize: 12, marginTop: 2 }}>
-                  六维 = {isCareer ? '生涯' : '当季'}季后赛球员百分位（0-100）
-                </div>
-              </Col>
-              <Col xs={24} lg={15}>
-                <div style={{ fontWeight: 700, marginBottom: 10, fontSize: 15 }}>季后赛</div>
-                {statCard(poRow, poLeague, '季后赛第', '#d4380d')}
-              </Col>
-            </Row>
+            {/* 季后赛数据卡（雷达同样在卡片下方，只和当季季后赛球员比） */}
+            <div style={{ fontWeight: 700, marginBottom: 10, fontSize: 15 }}>季后赛</div>
+            {statCard(poRow, poLeague, '季后赛第', '#d4380d', 'po')}
+            <div style={{ maxWidth: 440, margin: '20px auto 0' }}>
+              {poLeague === null
+                ? <Spin style={{ display: 'block', margin: '60px auto' }} />
+                : <Radar data={radarOf(poRow, poLeague)} color="#d4380d" fill="rgba(212,56,13,.20)" />}
+              <div style={{ textAlign: 'center', color: '#bbb', fontSize: 12, marginTop: 2 }}>
+                六维 = {isCareer ? '生涯' : '当季'}季后赛球员百分位（0-100）
+              </div>
+            </div>
           </>
         )}
       </Card>

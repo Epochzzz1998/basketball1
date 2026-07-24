@@ -9,6 +9,7 @@ import { teamApi } from '../../api/team'
 import { NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, fmtNum, playoffRecord, seasonYearLabel, seasonShort, teamRegion, LATEST_SEASON } from './rankConfig'
 import SeasonPicker from '../../components/SeasonPicker'
 import useIsMobile from '../../hooks/useIsMobile'
+import { compactColumns, sumColWidth } from './statColumns'
 
 const MEDAL = ['#f5b301', '#9aa0a6', '#b87333']
 
@@ -252,12 +253,13 @@ function PlayoffOverview({ teamCode, seasonNum }) {
 /* ============ 季后赛：球队历史 ============ */
 
 function PlayoffHistory({ teamCode }) {
+  const isMobile = useIsMobile()
   const [rows, setRows] = useState(null)
 
   useEffect(() => {
     let alive = true
     teamApi.playoffHistory(teamCode)
-      .then((r) => { if (alive) setRows(r || []) })
+      .then((r) => { if (alive) setRows((r || []).slice().sort((a, b) => b.seasonNum - a.seasonNum)) })
       .catch(() => { if (alive) setRows([]) })
     return () => { alive = false }
   }, [teamCode])
@@ -342,7 +344,7 @@ function PlayoffHistory({ teamCode }) {
       }
       styles={{ body: { padding: '4px 12px 12px' } }}
     >
-      <Table className="clean-table stat-compact" rowKey="seasonNum" dataSource={rows} columns={columns} pagination={false} size="middle" scroll={{ x: 'max-content' }} />
+      <Table className="clean-table stat-compact" rowKey="seasonNum" dataSource={rows} columns={isMobile ? compactColumns(columns) : columns} pagination={false} size="middle" scroll={{ x: isMobile ? sumColWidth(compactColumns(columns)) : 'max-content' }} />
     </Card>
   )
 }
@@ -350,6 +352,7 @@ function PlayoffHistory({ teamCode }) {
 /* ============ 常规赛：球队历史 ============ */
 
 function TeamHistory({ teamCode }) {
+  const isMobile = useIsMobile()
   const [rows, setRows] = useState(null)
   const [allRecs, setAllRecs] = useState(null) // 全联盟历季胜场，算分区/分部第一用
 
@@ -358,7 +361,8 @@ function TeamHistory({ teamCode }) {
     Promise.all([teamApi.history(teamCode), teamApi.allRecords()])
       .then(([r, all]) => {
         if (!alive) return
-        setRows(r || [])
+        // 数据层就按最新赛季在前排好（移动端没有表头排序可依赖）
+        setRows((r || []).slice().sort((a, b) => b.seasonNum - a.seasonNum))
         setAllRecs(all || [])
       })
       .catch(() => { if (alive) { setRows([]); setAllRecs([]) } })
@@ -477,7 +481,7 @@ function TeamHistory({ teamCode }) {
       }
       styles={{ body: { padding: '4px 12px 12px' } }}
     >
-      <Table className="clean-table stat-compact" rowKey="seasonNum" dataSource={rows} columns={columns} pagination={false} size="middle" scroll={{ x: 'max-content' }} />
+      <Table className="clean-table stat-compact" rowKey="seasonNum" dataSource={rows} columns={isMobile ? compactColumns(columns) : columns} pagination={false} size="middle" scroll={{ x: isMobile ? sumColWidth(compactColumns(columns)) : 'max-content' }} />
     </Card>
   )
 }

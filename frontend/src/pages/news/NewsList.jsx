@@ -61,8 +61,13 @@ const hotOf = (p) => (p.goodNum ?? 0) * 2 + (p.commentNum ?? 0) * 3
 /** 单条帖子卡：头像 + 标题/摘要/元信息 + 首图缩略图 */
 function PostCard({ post, topicOwnerIds }) {
   const isMobile = useIsMobile()
+  const navigate = useNavigate()
   const cover = coverOf(post.content)
   const excerpt = textOf(post.content)
+  // 整卡是跳帖子的 Link；点头像/名字改跳作者主页（拦掉卡片默认跳转）
+  const toProfile = post.authorId
+    ? (e) => { e.preventDefault(); e.stopPropagation(); navigate(`/users/${post.authorId}`) }
+    : undefined
   return (
     <Link
       to={`/news/${post.newsId}`}
@@ -73,17 +78,19 @@ function PostCard({ post, topicOwnerIds }) {
         transition: 'all .2s',
       }}
     >
-      {post.authorAvatar ? (
-        <Avatar size={42} src={post.authorAvatar} style={{ flexShrink: 0 }} />
-      ) : (
-        <Avatar size={42} style={{ background: avatarColor(post.author), fontWeight: 700, flexShrink: 0 }}>
-          {String(post.author || '?').slice(0, 1).toUpperCase()}
-        </Avatar>
-      )}
+      <span onClick={toProfile} style={{ cursor: toProfile ? 'pointer' : undefined, flexShrink: 0 }}>
+        {post.authorAvatar ? (
+          <Avatar size={42} src={post.authorAvatar} />
+        ) : (
+          <Avatar size={42} style={{ background: avatarColor(post.author), fontWeight: 700 }}>
+            {String(post.author || '?').slice(0, 1).toUpperCase()}
+          </Avatar>
+        )}
+      </span>
       <div style={{ flex: 1, minWidth: 0 }}>
         {/* 作者行：头像旁对齐——名字 + 身份标识（超管/题主）+ 头衔 + 时间 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#999', flexWrap: 'wrap' }}>
-          <span style={{ color: '#333', fontWeight: 600, fontSize: 13 }}>{post.author || '匿名'}</span>
+          <span onClick={toProfile} style={{ color: '#333', fontWeight: 600, fontSize: 13, cursor: toProfile ? 'pointer' : undefined }}>{post.author || '匿名'}</span>
           {post.authorSuperManager && <SuperAdminBadge />}
           {topicOwnerIds?.includes(post.authorId) && <TopicOwnerBadge />}
           <UserTitles titles={post.authorTitles} size="sm" />

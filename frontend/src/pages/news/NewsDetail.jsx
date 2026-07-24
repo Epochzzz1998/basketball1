@@ -343,13 +343,18 @@ export default function NewsDetail() {
                     borderBottom: '1px solid #f0f0f0',
                   }}
                 >
-                  {news.authorAvatar ? (
-                    <Avatar size={44} src={news.authorAvatar} />
-                  ) : (
-                    <Avatar size={44} style={{ background: avatarColor(news.author), fontWeight: 700 }}>
-                      {String(news.author || '?').slice(0, 1).toUpperCase()}
-                    </Avatar>
-                  )}
+                  <span
+                    onClick={() => news.authorId && navigate(`/users/${news.authorId}`)}
+                    style={{ cursor: news.authorId ? 'pointer' : undefined }}
+                  >
+                    {news.authorAvatar ? (
+                      <Avatar size={44} src={news.authorAvatar} />
+                    ) : (
+                      <Avatar size={44} style={{ background: avatarColor(news.author), fontWeight: 700 }}>
+                        {String(news.author || '?').slice(0, 1).toUpperCase()}
+                      </Avatar>
+                    )}
+                  </span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       {news.authorId
@@ -511,16 +516,24 @@ export default function NewsDetail() {
           {news && (
             <Card style={{ borderRadius: 14 }} styles={{ body: { padding: '18px 20px' } }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                {news.authorAvatar ? (
-                  <Avatar size={48} src={news.authorAvatar} />
-                ) : (
-                  <Avatar size={48} style={{ background: avatarColor(news.author), fontWeight: 700, fontSize: 18 }}>
-                    {String(news.author || '?').slice(0, 1).toUpperCase()}
-                  </Avatar>
-                )}
+                <span
+                  onClick={() => news.authorId && navigate(`/users/${news.authorId}`)}
+                  style={{ cursor: news.authorId ? 'pointer' : undefined }}
+                >
+                  {news.authorAvatar ? (
+                    <Avatar size={48} src={news.authorAvatar} />
+                  ) : (
+                    <Avatar size={48} style={{ background: avatarColor(news.author), fontWeight: 700, fontSize: 18 }}>
+                      {String(news.author || '?').slice(0, 1).toUpperCase()}
+                    </Avatar>
+                  )}
+                </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                    <span style={{ fontWeight: 700, fontSize: 15 }}>{news.author || '匿名'}</span>
+                    <span
+                      onClick={() => news.authorId && navigate(`/users/${news.authorId}`)}
+                      style={{ fontWeight: 700, fontSize: 15, cursor: news.authorId ? 'pointer' : undefined }}
+                    >{news.author || '匿名'}</span>
                     {news.authorSuperManager && <SuperAdminBadge />}
                     <UserTitles titles={news.authorTitles} size="sm" />
                   </div>
