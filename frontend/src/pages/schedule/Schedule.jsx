@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { Avatar, Button, Calendar, Card, Col, DatePicker, Empty, Input, InputNumber, Popconfirm, Popover, Row, Select, Tag, TimePicker, message } from 'antd'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Avatar, Button, Calendar, Card, DatePicker, Drawer, Empty, Input, InputNumber, Modal, Popconfirm, Popover, Select, Tag, TimePicker, message } from 'antd'
 import {
   CalendarOutlined, CheckCircleFilled, CheckCircleOutlined, ClockCircleOutlined,
   DeleteOutlined, FieldTimeOutlined, LeftOutlined, PlusOutlined, RetweetOutlined, RightOutlined,
@@ -84,6 +84,9 @@ export default function Schedule() {
     return d && d.isValid() ? d : dayjs()
   })
   const [events, setEvents] = useState([])
+  // 当天详情弹层（PC 弹窗 / 移动端底部抽屉）；从消息深链带 ?date= 进来时自动打开
+  const [detailOpen, setDetailOpen] = useState(() => !!(paramDate && dayjs(paramDate, 'YYYY-MM-DD', true).isValid()))
+  const navigate = useNavigate()
   const [assignees, setAssignees] = useState([])
   // 新增表单
   const [taskType, setTaskType] = useState('day') // day 单日 | deadline 截止任务 | rday 每日循环 | rweek 每周循环
@@ -231,7 +234,7 @@ export default function Schedule() {
     }
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {list.slice(0, 2).map((e) => {
+        {list.slice(0, 3).map((e) => {
           const od = isOverdue(e)
           const c = od ? RED : e.done ? '#bfbfbf' : catColor(e)
           return (
@@ -255,7 +258,7 @@ export default function Schedule() {
             </div>
           )
         })}
-        {list.length > 2 && <div style={{ fontSize: 11, color: '#999', paddingLeft: 6 }}>+{list.length - 2} 项</div>}
+        {list.length > 3 && <div style={{ fontSize: 11, color: '#999', paddingLeft: 6 }}>+{list.length - 3} 项</div>}
       </div>
     )
   }
@@ -285,8 +288,7 @@ export default function Schedule() {
         </div>
       </div>
 
-      <Row gutter={[16, 16]}>
-        <Col xs={24} lg={15}>
+      {/* 大日历占满整行：一眼看清每天的大致安排；点日期格子弹出当天详情 */}
           <Card style={{ borderRadius: 16 }} styles={{ body: { padding: isMobile ? '10px 8px' : '14px 18px' } }}>
             {/* 自绘月份头：‹ 2026年7月 › + 回到今天（青色胶囊） */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '2px 6px 10px' }}>
@@ -314,23 +316,26 @@ export default function Schedule() {
               <Calendar
                 fullscreen={!isMobile}
                 value={selected}
-                onSelect={(d) => setSelected(d)}
+                onSelect={(d, info) => { setSelected(d); if (info?.source === 'date') setDetailOpen(true) }}
                 headerRender={() => null}
                 cellRender={cellRender}
               />
             </div>
           </Card>
-        </Col>
 
-        <Col xs={24} lg={9}>
-          <Card style={{ borderRadius: 16 }} styles={{ body: { padding: isMobile ? '14px 14px' : '16px 18px' } }}>
-            {/* 选中日头部 */}
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 12 }}>
-              <span style={{ fontSize: 18, fontWeight: 800 }}>{selected.format('M月D日')}</span>
-              <span style={{ fontSize: 13, color: '#999' }}>周{WEEK[selected.day()]}</span>
-              <span style={{ flex: 1 }} />
-              <span style={{ fontSize: 12, color: '#999' }}>{dayEvents.length ? `${dayEvents.length} 件事` : ''}</span>
-            </div>
+      {/* 当天详情：PC=居中弹窗、移动端=底部抽屉（拇指顺手、和 PC 交互一致）。
+          detailBody 是普通 JSX 变量而非内部组件——内部组件会因身份变化整树重挂、输入框丢焦点（Burning 踩过） */}
+      {(() => {
+        const detailTitle = (
+          <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 10 }}>
+            <span style={{ fontSize: 17, fontWeight: 800 }}>{selected.format('M月D日')}</span>
+            <span style={{ fontSize: 13, color: '#999', fontWeight: 400 }}>
+              周{WEEK[selected.day()]}{dayEvents.length ? ` · ${dayEvents.length} 件事` : ''}
+            </span>
+          </span>
+        )
+        const detailBody = (
+          <>
 
             {/* 当天事件列表 */}
             {dayEvents.length ? (
@@ -408,9 +413,13 @@ export default function Schedule() {
                         {(e.assigneeId || !e.mine) && (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
                             {e.assigneeId && (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#666', background: '#fff', border: '1px solid #ececec', borderRadius: 999, padding: '1px 9px 1px 2px' }}>
-                                <Avatar size={18} src={e.assigneeAvatar || undefined}>{String(e.assigneeName || '?')[0]}</Avatar>
-                                {e.assigneeId === selfId ? '我负责' : `${dn(e.assigneeId, e.assigneeName)} 负责`}
+                              <span
+                                onClick={() => navigate(`/users/${e.assigneeId}`)}
+                                title="进入个人主页"
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#666', cursor: 'pointer' }}
+                              >
+                                <Avatar size={18} src={e.assigneeAvatar || undefined}>{String(dn(e.assigneeId, e.assigneeName) || '?')[0]}</Avatar>
+                                {dn(e.assigneeId, e.assigneeName)}{e.assigneeId === selfId ? '（我）' : ''}
                               </span>
                             )}
                             {!e.mine && <span style={{ fontSize: 11, color: '#bbb' }}>来自 {dn(e.ownerId, e.ownerName)}</span>}
@@ -542,9 +551,25 @@ export default function Schedule() {
                     : '时间段可选；负责人只能是"我自己或关注我的人"，有负责人的事件当天早 8 点自动提醒'}
               </div>
             </div>
-          </Card>
-        </Col>
-      </Row>
+          </>
+        )
+        return isMobile ? (
+          <Drawer
+            placement="bottom"
+            height="82%"
+            open={detailOpen}
+            onClose={() => setDetailOpen(false)}
+            title={detailTitle}
+            styles={{ body: { padding: '12px 14px' } }}
+          >
+            {detailBody}
+          </Drawer>
+        ) : (
+          <Modal open={detailOpen} onCancel={() => setDetailOpen(false)} footer={null} title={detailTitle} width={640}>
+            {detailBody}
+          </Modal>
+        )
+      })()}
     </>
   )
 }
