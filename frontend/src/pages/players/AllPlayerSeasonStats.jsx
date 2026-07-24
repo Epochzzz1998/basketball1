@@ -3,6 +3,7 @@ import { ProTable } from '@ant-design/pro-components'
 import { Input } from 'antd'
 import { playerApi } from '../../api/player'
 import SeasonPicker from '../../components/SeasonPicker'
+import { LATEST_SEASON } from './rankConfig'
 import { buildFullStatColumns, FULL_COLUMNS_SCROLL_X, HONOR_COLUMN_KEYS, PLAYOFF_COLUMNS_SCROLL_X } from './statColumns'
 
 /**

@@ -34,8 +34,11 @@ http.interceptors.response.use(
   (error) => {
     const status = error.response?.status
     if (status === 401) {
-      // 未登录 / 会话过期：跳登录页（避免在登录页自身死循环）
-      if (window.location.pathname !== '/login') {
+      // 未登录 / 会话过期：跳登录页（避免在登录页自身死循环）。
+      // 例外：/user/current 是启动时的"我登录了吗"探测——匿名访客必然 401，
+      // 跳转会把所有游客踢出公开页面（公开浏览是设计能力，别拦）
+      const probe = String(error.config?.url || '').includes('/user/current')
+      if (!probe && window.location.pathname !== '/login') {
         window.location.href = '/login'
       }
     } else if (status === 403) {

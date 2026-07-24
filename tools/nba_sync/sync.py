@@ -391,6 +391,16 @@ def main():
     team_po = fetch_team_pergame(args.season, 3)
     po_results = fetch_playoff_results(args.season, team_ids, set(team_po.keys()))
     awards = fetch_awards(args.season)
+    # NBA-only filter: keep players on a current NBA roster OR with a real body of NBA work
+    # (>=15 games). Drops G-League call-ups / 10-day passersby the league list sweeps in.
+    def is_nba(r):
+        gp = r['stats'].get('gamesPlayed') or 0
+        return r['espnId'] in ident or gp >= 15
+    dropped = [r['name'] for r in reg if not is_nba(r)]
+    reg = [r for r in reg if is_nba(r)]
+    po = [r for r in po if is_nba(r)]
+    if dropped:
+        print(f'  filtered out {len(dropped)} fringe non-roster players (e.g. {", ".join(dropped[:5])})')
     print(f'  players: reg {len(reg)}, playoffs {len(po)}; teams {len(standings)}, po-teams {len(po_opp)}')
     if len(reg) < 100 or len(standings) < 30:
         sys.exit('ABORT: source data looks incomplete — nothing was written')
@@ -457,6 +467,10 @@ def main():
             "PLAYOFF_GAMES=VALUES(PLAYOFF_GAMES), PLAYOFF_PTS=VALUES(PLAYOFF_PTS), PLAYOFF_REB=VALUES(PLAYOFF_REB), "
             "PLAYOFF_AST=VALUES(PLAYOFF_AST), PLAYOFF_STL=VALUES(PLAYOFF_STL), PLAYOFF_TOV=VALUES(PLAYOFF_TOV), "
             "PLAYOFF_BLK=VALUES(PLAYOFF_BLK), PLAYOFF_RESULT=VALUES(PLAYOFF_RESULT);")
+    # drop nba players left without any stat rows (filtered out this run or gone from the source)
+    lines.append("DELETE p FROM dream_player p WHERE p.PLAYER_ID LIKE 'nba-%' "
+                 "AND NOT EXISTS (SELECT 1 FROM player_stats s WHERE s.PLAYER_ID=p.PLAYER_ID) "
+                 "AND NOT EXISTS (SELECT 1 FROM player_playoff_stats s2 WHERE s2.PLAYER_ID=p.PLAYER_ID);")
     lines.append('COMMIT;')
 
     out = Path(__file__).parent / f'nba_sync_{args.season}.sql'
