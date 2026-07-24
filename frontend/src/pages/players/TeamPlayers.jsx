@@ -9,6 +9,7 @@ import { teamApi } from '../../api/team'
 import { NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, fmtNum, playoffRecord, seasonYearLabel, seasonShort, teamRegion, LATEST_SEASON } from './rankConfig'
 import SeasonPicker from '../../components/SeasonPicker'
 import useIsMobile from '../../hooks/useIsMobile'
+import useUrlState from '../../hooks/useUrlState'
 import { compactColumns, sumColWidth } from './statColumns'
 
 const MEDAL = ['#f5b301', '#9aa0a6', '#b87333']
@@ -344,7 +345,7 @@ function PlayoffHistory({ teamCode }) {
       }
       styles={{ body: { padding: '4px 12px 12px' } }}
     >
-      <Table className="clean-table stat-compact" rowKey="seasonNum" dataSource={rows} columns={isMobile ? compactColumns(columns) : columns} pagination={false} size="middle" scroll={{ x: isMobile ? sumColWidth(compactColumns(columns)) : 'max-content' }} />
+      <Table className="clean-table stat-compact" bordered rowKey="seasonNum" dataSource={rows} columns={isMobile ? compactColumns(columns) : columns} pagination={false} size="middle" scroll={{ x: isMobile ? sumColWidth(compactColumns(columns)) : 'max-content' }} />
     </Card>
   )
 }
@@ -481,7 +482,7 @@ function TeamHistory({ teamCode }) {
       }
       styles={{ body: { padding: '4px 12px 12px' } }}
     >
-      <Table className="clean-table stat-compact" rowKey="seasonNum" dataSource={rows} columns={isMobile ? compactColumns(columns) : columns} pagination={false} size="middle" scroll={{ x: isMobile ? sumColWidth(compactColumns(columns)) : 'max-content' }} />
+      <Table className="clean-table stat-compact" bordered rowKey="seasonNum" dataSource={rows} columns={isMobile ? compactColumns(columns) : columns} pagination={false} size="middle" scroll={{ x: isMobile ? sumColWidth(compactColumns(columns)) : 'max-content' }} />
     </Card>
   )
 }
@@ -497,8 +498,8 @@ export default function TeamPlayers() {
   const { teamCode } = useParams()
   const navigate = useNavigate()
   const { conf, div } = teamRegion(teamCode)
-  const [stage, setStage] = useState('reg') // reg=常规赛 po=季后赛
-  const [seasonNum, setSeasonNum] = useState(LATEST_SEASON)
+  const [stage, setStage] = useUrlState('stage', 'reg') // reg=常规赛 po=季后赛（写进 URL，返回时保留）
+  const [seasonNum, setSeasonNum] = useUrlState('seasonNum', LATEST_SEASON, true)
   const [tab, setTab] = useState('season')
   const po = stage === 'po'
 

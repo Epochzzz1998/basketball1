@@ -14,10 +14,15 @@ const MEDAL = ['#f5b301', '#9aa0a6', '#b87333']
 /** 某项荣誉的完整数据（/rankings/honors/:group）：该组全部球员 + 全量数据列 */
 export default function HonorDetail() {
   const { group: groupKey } = useParams()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const group = HONOR_GROUPS.find((g) => g.key === groupKey) || HONOR_GROUPS[0]
-  const [seasonNum, setSeasonNum] = useState(Number(searchParams.get('seasonNum')) || LATEST_SEASON)
+  const [seasonNum, setSeasonNumRaw] = useState(Number(searchParams.get('seasonNum')) || LATEST_SEASON)
+  // 换赛季同步写回 URL（replace）：往下钻再返回时本页赛季不丢
+  const setSeasonNum = (v) => {
+    setSeasonNumRaw(v)
+    setSearchParams((prev) => { const q = new URLSearchParams(prev); q.set('seasonNum', v); return q }, { replace: true })
+  }
   const [rows, setRows] = useState(null)
   const isMobile = useIsMobile()
 
@@ -38,7 +43,7 @@ export default function HonorDetail() {
       ? [{
           title: '名次', width: isMobile ? 48 : 70, fixed: 'left',
           render: (_, r, i) => (
-            <span style={{ fontWeight: 700, fontStyle: 'italic', color: i < 3 ? MEDAL[i] : '#bbb', fontSize: i < 3 ? 16 : 14 }}>
+            <span style={{ fontWeight: 700, color: i < 3 ? MEDAL[i] : '#bbb', fontSize: i < 3 ? 16 : 14 }}>
               {group.rankOf(r)}
             </span>
           ),
@@ -51,6 +56,7 @@ export default function HonorDetail() {
     <>
       <ProTable
         className="stat-compact"
+        bordered
         headerTitle={`${seasonYearLabel(seasonNum)} · ${group.title} · 完整数据`}
         rowKey="statsId"
         loading={rows === null}

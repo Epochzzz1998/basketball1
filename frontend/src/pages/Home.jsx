@@ -10,6 +10,7 @@ import { playerApi } from '../api/player'
 import { teamApi } from '../api/team'
 import SeasonPicker from '../components/SeasonPicker'
 import useIsMobile from '../hooks/useIsMobile'
+import useUrlState from '../hooks/useUrlState'
 import { LATEST_SEASON, NBA_TEAM_NAMES, fmtNum, playoffRecord, qualifiedBoard, teamRegion } from './players/rankConfig'
 
 /**
@@ -266,7 +267,7 @@ function HotList({ posts }) {
 export default function Home() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [seasonNum, setSeasonNum] = useState(LATEST_SEASON)
+  const [seasonNum, setSeasonNum] = useUrlState('seasonNum', LATEST_SEASON, true) // 写进 URL，返回时保留
   const [forum, setForum] = useState(null) //      论坛帖（热帖榜；不随赛季变）
   const [topicNameMap, setTopicNameMap] = useState({}) // topicId → 话题名（热帖榜标注所属话题）
   const [leaders, setLeaders] = useState(null) //  [{stat, rows}] 五单项 Top3

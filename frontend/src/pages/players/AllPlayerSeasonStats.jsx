@@ -4,6 +4,7 @@ import { Input } from 'antd'
 import { playerApi } from '../../api/player'
 import SeasonPicker from '../../components/SeasonPicker'
 import useIsMobile from '../../hooks/useIsMobile'
+import useUrlState from '../../hooks/useUrlState'
 import { LATEST_SEASON } from './rankConfig'
 import { buildFullStatColumns, HONOR_COLUMN_KEYS, compactColumns, sumColWidth } from './statColumns'
 
@@ -14,7 +15,8 @@ import { buildFullStatColumns, HONOR_COLUMN_KEYS, compactColumns, sumColWidth } 
  * - 排序直连 P3-1 白名单；不分页一滚到底；球员名模糊搜索。
  */
 export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: seasonProp }) {
-  const [seasonState, setSeasonState] = useState(LATEST_SEASON)
+  // 独立使用时赛季写进 URL（返回可恢复）；受控嵌入（球队页）时忽略此值
+  const [seasonState, setSeasonState] = useUrlState('seasonNum', LATEST_SEASON, true)
   const [playerName, setPlayerName] = useState() // 球员名模糊搜索（后端 LIKE）
   const isMobile = useIsMobile()
   const controlled = seasonProp != null
@@ -27,6 +29,7 @@ export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: s
   return (
     <ProTable
       className="stat-compact"
+      bordered
       headerTitle={team ? `${team} · ${po ? '季后赛' : ''}球员数据` : '球员赛季数据榜'}
       rowKey="statsId"
       columns={columns}

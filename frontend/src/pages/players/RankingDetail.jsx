@@ -16,11 +16,16 @@ const MEDAL = ['#f5b301', '#9aa0a6', '#b87333']
  */
 export default function RankingDetail() {
   const { field } = useParams()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const stat = RANKING_STATS.find((s) => s.field === field) || { field, label: '数据', digits: 1 }
   const stage = searchParams.get('stage') === 'po' ? 'po' : 'reg' // 跟随联盟排行的赛段切换
-  const [seasonNum, setSeasonNum] = useState(Number(searchParams.get('seasonNum')) || LATEST_SEASON)
+  const [seasonNum, setSeasonNumRaw] = useState(Number(searchParams.get('seasonNum')) || LATEST_SEASON)
+  // 换赛季同步写回 URL（replace）：往下钻再返回时本页赛季不丢
+  const setSeasonNum = (v) => {
+    setSeasonNumRaw(v)
+    setSearchParams((prev) => { const q = new URLSearchParams(prev); q.set('seasonNum', v); return q }, { replace: true })
+  }
   const isMobile = useIsMobile()
 
   const baseColumns = [
@@ -29,7 +34,7 @@ export default function RankingDetail() {
       render: (_, __, index) => {
         const rank = index + 1
         return (
-          <span style={{ fontWeight: 700, fontStyle: 'italic', color: rank <= 3 ? MEDAL[rank - 1] : '#bbb', fontSize: rank <= 3 ? 16 : 14 }}>
+          <span style={{ fontWeight: 700, color: rank <= 3 ? MEDAL[rank - 1] : '#bbb', fontSize: rank <= 3 ? 16 : 14 }}>
             {rank}
           </span>
         )
@@ -59,6 +64,7 @@ export default function RankingDetail() {
     <>
       <ProTable
         className="stat-compact"
+        bordered
         headerTitle={`${stage === 'po' ? '季后赛 · ' : ''}${stat.label}榜 · 完整排行`}
         rowKey="statsId"
         columns={baseColumns}

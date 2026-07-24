@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Card, Col, Empty, Row, Space, Spin, Tag } from 'antd'
 import SeasonPicker from '../../components/SeasonPicker'
 import RadarChart from '../../components/RadarChart'
@@ -78,7 +78,9 @@ function RankChip({ rank, prefix = '联盟第', to }) {
 export default function SeasonProfile({ playerId, honors }) {
   const [career, setCareer] = useState(null)   // 本人常规赛逐季
   const [poRows, setPoRows] = useState(null)   // 本人季后赛逐季
-  const [seasonNum, setSeasonNum] = useState(null)
+  // 用户手选的赛季写进 URL（返回本页可恢复）；自动兜底（最近打过的赛季）不写
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [seasonNum, setSeasonNum] = useState(Number(searchParams.get('seasonNum')) || null)
   const [league, setLeague] = useState(null)   // 当季全联盟（常规）
   const [poLeague, setPoLeague] = useState(null)
 
@@ -86,7 +88,6 @@ export default function SeasonProfile({ playerId, honors }) {
     let alive = true
     setCareer(null)
     setPoRows(null)
-    setSeasonNum(null)
     Promise.all([
       playerApi.listPlayerCareer({ playerId, page: 1, limit: 100 }),
       playerApi.listPlayerPlayoffs(playerId),
@@ -96,13 +97,13 @@ export default function SeasonProfile({ playerId, honors }) {
       setCareer(rows)
       setPoRows(p || [])
       const played = rows.filter((r) => r.seasonNum < 50).map((r) => r.seasonNum)
-      // 默认展示最近打过的赛季
-      setSeasonNum(played.length ? Math.max(...played) : 1)
+      // URL 没带赛季时默认展示最近打过的赛季
+      setSeasonNum((cur) => cur || (played.length ? Math.max(...played) : 1))
     }).catch(() => {
       if (!alive) return
       setCareer([])
       setPoRows([])
-      setSeasonNum(1)
+      setSeasonNum((cur) => cur || 1)
     })
     return () => { alive = false }
   }, [playerId])
@@ -148,7 +149,15 @@ export default function SeasonProfile({ playerId, honors }) {
 
   const isCareer = seasonNum === 50
   const seasonLabel = isCareer ? '生涯' : seasonYearLabel(seasonNum)
-  const picker = <SeasonPicker value={seasonNum} onChange={setSeasonNum} />
+  const changeSeason = (v) => {
+    setSeasonNum(v)
+    setSearchParams((prev) => {
+      const q = new URLSearchParams(prev)
+      q.set('seasonNum', v)
+      return q
+    }, { replace: true })
+  }
+  const picker = <SeasonPicker value={seasonNum} onChange={changeSeason} />
 
   if (!row) {
     return (

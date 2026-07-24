@@ -111,6 +111,7 @@ function CareerTable({ playerId }) {
   return (
     <ProTable
       className="stat-compact"
+      bordered
       headerTitle="生涯逐季数据"
       rowKey="statsId"
       columns={cols}
@@ -182,6 +183,7 @@ function PlayoffTable({ playerId }) {
   return (
     <ProTable
       className="stat-compact"
+      bordered
       headerTitle="季后赛逐季数据"
       rowKey="statsId"
       dataSource={rows}
