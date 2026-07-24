@@ -234,7 +234,7 @@ export default function Schedule() {
     }
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {list.slice(0, 3).map((e) => {
+        {list.slice(0, 4).map((e) => {
           const od = isOverdue(e)
           const c = od ? RED : e.done ? '#bfbfbf' : catColor(e)
           return (
@@ -258,7 +258,7 @@ export default function Schedule() {
             </div>
           )
         })}
-        {list.length > 3 && <div style={{ fontSize: 11, color: '#999', paddingLeft: 6 }}>+{list.length - 3} 项</div>}
+        {list.length > 4 && <div style={{ fontSize: 11, color: '#999', paddingLeft: 6 }}>+{list.length - 4} 项</div>}
       </div>
     )
   }
@@ -311,6 +311,10 @@ export default function Schedule() {
               .schedule-cal .ant-picker-cell-selected .ant-picker-calendar-date { background: #e6fffb !important; }
               .schedule-cal .ant-picker-calendar-date-today { border-color: ${TEAL} !important; }
               .schedule-cal .ant-picker-cell-selected .ant-picker-calendar-date-value { color: ${TEAL_DARK} !important; font-weight: 700; }
+              /* 桌面端把格子拉高：默认 ~86px 太局促，反正整页可滚，给足空间放 4 条胶囊 */
+              @media (min-width: 768px) {
+                .schedule-cal .ant-picker-calendar-date-content { height: 132px !important; }
+              }
             `}</style>
             <div className="schedule-cal">
               <Calendar
@@ -322,6 +326,54 @@ export default function Schedule() {
               />
             </div>
           </Card>
+
+      {/* 移动端日历下方的「接下来 7 天」速览：填补原面板留下的空档，点某天直接开抽屉。
+          事件数据来自当前加载的月份，所以只在浏览本月时展示（翻到别的月份就收起） */}
+      {isMobile && monthKey === dayjs().format('YYYY-MM') && (
+        <Card style={{ borderRadius: 16, marginTop: 16 }} styles={{ body: { padding: '12px 14px' } }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: TEAL_DARK, marginBottom: 8 }}>
+            <FieldTimeOutlined style={{ marginRight: 6 }} />接下来 7 天
+          </div>
+          {(() => {
+            const days = Array.from({ length: 7 }, (_, i) => dayjs().add(i, 'day'))
+            const rows = days.filter((d) => (byDate[key(d)] || []).length > 0)
+            if (rows.length === 0) {
+              return <div style={{ color: '#9bd4d0', fontSize: 13, padding: '6px 0' }}>未来 7 天没有安排，点上面日历的某一天加一件</div>
+            }
+            return rows.map((d) => {
+              const list = byDate[key(d)] || []
+              const undone = list.filter((e) => !e.done).length
+              return (
+                <div
+                  key={key(d)}
+                  onClick={() => { setSelected(d); setDetailOpen(true) }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 2px', borderTop: '1px solid #f5f5f5', cursor: 'pointer' }}
+                >
+                  <div style={{ width: 44, flexShrink: 0, textAlign: 'center' }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: d.isSame(dayjs(), 'day') ? TEAL_DARK : '#262626' }}>
+                      {d.isSame(dayjs(), 'day') ? '今天' : d.format('M/D')}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#bbb' }}>周{WEEK[d.day()]}</div>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {list.slice(0, 3).map((e) => (
+                      <div key={`${e.eventId}-${e.occDate || ''}`} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, lineHeight: 1.9, minWidth: 0 }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: isOverdue(e) ? RED : e.done ? '#d9d9d9' : catColor(e) }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: e.done ? '#bbb' : '#595959', textDecoration: e.done ? 'line-through' : 'none' }}>
+                          {e.time ? `${e.time} ` : ''}{e.title}
+                        </span>
+                      </div>
+                    ))}
+                    {list.length > 3 && <div style={{ fontSize: 12, color: '#999' }}>还有 {list.length - 3} 项…</div>}
+                  </div>
+                  <span style={{ fontSize: 12, color: '#bbb', flexShrink: 0 }}>{undone ? `${undone} 待办` : '全部完成'}</span>
+                  <RightOutlined style={{ fontSize: 10, color: '#ccc', flexShrink: 0 }} />
+                </div>
+              )
+            })
+          })()}
+        </Card>
+      )}
 
       {/* 当天详情：PC=居中弹窗、移动端=底部抽屉（拇指顺手、和 PC 交互一致）。
           detailBody 是普通 JSX 变量而非内部组件——内部组件会因身份变化整树重挂、输入框丢焦点（Burning 踩过） */}
@@ -416,7 +468,7 @@ export default function Schedule() {
                               <span
                                 onClick={() => navigate(`/users/${e.assigneeId}`)}
                                 title="进入个人主页"
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#666', cursor: 'pointer' }}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#666', cursor: 'pointer', background: '#fff', border: '1px solid #ececec', borderRadius: 999, padding: '1px 9px 1px 2px' }}
                               >
                                 <Avatar size={18} src={e.assigneeAvatar || undefined}>{String(dn(e.assigneeId, e.assigneeName) || '?')[0]}</Avatar>
                                 {dn(e.assigneeId, e.assigneeName)}{e.assigneeId === selfId ? '（我）' : ''}
