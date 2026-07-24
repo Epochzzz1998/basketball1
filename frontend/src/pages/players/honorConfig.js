@@ -8,15 +8,26 @@ const defSub = (r) => `${f(r.playerAvgSteal)}断 ${f(r.playerAvgBlock)}帽 ${f(r
 const byMvp = (a, b) => (a.mvpRank ?? 999) - (b.mvpRank ?? 999)
 const byDpoy = (a, b) => (a.dpoyRank ?? 999) - (b.dpoyRank ?? 999)
 
+// 该季存在官方投票名次时只列名次内球员（并列共享名次）；一个名次都没有的
+// 赛季回退为全员预览前 10——避免"8 个正主 + 2 个凑数行"的混排
+const ranked = (rows, rankOf, by) => rows.filter((r) => rankOf(r) != null).sort(by)
+const pickVoted = (rankOf, by, cap) => (rows) => {
+  const rk = ranked(rows, rankOf, by)
+  return rk.length ? (cap ? rk.slice(0, cap) : rk) : [...rows].sort(by).slice(0, 10)
+}
+
 /**
- * 赛季荣誉分组：pick(rows) 取该组成员（已排序），sub(row) 出小字，rankOf(row) 出名次角标。
+ * 赛季荣誉分组：pick(rows) 取该组成员（已排序），sub(row) 出小字，rankOf(row) 出名次角标；
+ * MVP/DPOY 另有 pickFull（完整数据页不截前 10，得票并列一并展示）。
  * key 同时用于完整数据页路由 /rankings/honors/:key。
  */
 export const HONOR_GROUPS = [
   { key: 'mvp', title: 'MVP 榜', note: '常规赛价值排名', span: 12,
-    pick: (rows) => [...rows].sort(byMvp).slice(0, 10), sub: offSub, rankOf: (r) => r.mvpRank },
+    pick: pickVoted((r) => r.mvpRank, byMvp, 10), pickFull: pickVoted((r) => r.mvpRank, byMvp, 0),
+    sub: offSub, rankOf: (r) => r.mvpRank },
   { key: 'dpoy', title: 'DPOY 榜', note: '最佳防守球员排名', span: 12,
-    pick: (rows) => [...rows].sort(byDpoy).slice(0, 10), sub: defSub, rankOf: (r) => r.dpoyRank },
+    pick: pickVoted((r) => r.dpoyRank, byDpoy, 10), pickFull: pickVoted((r) => r.dpoyRank, byDpoy, 0),
+    sub: defSub, rankOf: (r) => r.dpoyRank },
   { key: 'all1', title: '最佳一阵', span: 8,
     pick: (rows) => rows.filter((r) => r.allDbaTeam === '一阵').sort(byMvp), sub: offSub, rankOf: (r) => r.mvpRank },
   { key: 'all2', title: '最佳二阵', span: 8,

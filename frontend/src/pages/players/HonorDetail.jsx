@@ -28,7 +28,7 @@ export default function HonorDetail() {
     return () => { alive = false }
   }, [seasonNum])
 
-  const members = rows ? group.pick(rows) : []
+  const members = rows ? (group.pickFull || group.pick)(rows) : []
   const columns = [
     {
       title: '名次', width: 70, fixed: 'left',
