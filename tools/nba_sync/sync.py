@@ -122,7 +122,10 @@ def fetch_athlete_stats(season, seasontype):
             rows.append({
                 'espnId': str(ath['id']),
                 'name': ath.get('displayName') or '',
+                # CAUTION: this is the athlete's CURRENT team (mutates through the offseason);
+                # season rows use fetch_season_teams instead, this is only a last-resort fallback
                 'teamCode': code_of(team_abbr) if team_abbr else '',
+                'pos': ((ath.get('position') or {}).get('abbreviation') or '').strip(),
                 'stats': stats,
             })
         pag = d.get('pagination') or {}
@@ -279,6 +282,47 @@ def fetch_athlete_details(season, seasontype, espn_ids):
     return out
 
 
+def fetch_season_teams(season, espn_ids, id_to_code):
+    """SEASON-FROZEN team affiliation per athlete (threaded), from the core season-scoped
+    athlete object /seasons/{y}/athletes/{id}: 'team' = end-of-that-season club, 'teams' =
+    chronological clubs within the season (mid-season trades). The byathlete list's team is
+    the athlete's live club and keeps mutating through the offseason — never use it for
+    season rows (rosters must reflect the squad as of that season's Finals).
+    Returns id -> {'chain': 'DAL->LAL' | 'BOS', 'dob': 'YYYY-MM-DD'|''}."""
+    import re as _re
+
+    def one(aid):
+        try:
+            a = get(f'https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba'
+                    f'/seasons/{season}/athletes/{aid}?lang=en', retries=2)
+        except Exception:
+            return aid, {}
+        refs = [t.get('$ref', '') for t in (a.get('teams') or [])]
+        if not refs and a.get('team'):
+            refs = [a['team'].get('$ref', '')]
+        codes = []
+        for ref in refs:
+            m = _re.search(r'/teams/(\d+)', ref)
+            code = id_to_code.get(m.group(1)) if m else None
+            if code and code not in codes:
+                codes.append(code)
+        return aid, {'chain': '->'.join(codes), 'dob': (a.get('dateOfBirth') or '')[:10]}
+
+    out = {}
+    ids = list(espn_ids)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
+        done = 0
+        for aid, v in ex.map(one, ids):
+            out[aid] = v
+            done += 1
+            if done % 100 == 0:
+                print(f'  season teams {done}/{len(ids)}')
+    missing = sum(1 for v in out.values() if not v.get('chain'))
+    if missing:
+        print(f'  season team unresolved for {missing} athletes (falls back to live team)')
+    return out
+
+
 def fetch_playoff_opp_ppg(season):
     """teamCode -> opponents' playoff PPG (byteam st=3: 2nd occurrence of each category = opponents)"""
     try:
@@ -312,7 +356,7 @@ STAT_COLS = ('STATS_ID, PLAYER_ID, SEASON, SEASON_NUM, PLAYER_TEAM, PLAYER_POSIT
              'PLAYER_FR_APPEARANCE, PLAYER_SR_APPEARANCE, PLAYER_AVG_OFF_REB, PLAYER_AVG_DEF_REB')
 
 
-def stat_row_sql(table, season_num, suffix, r, ident, detail):
+def stat_row_sql(table, season_num, suffix, r, ident, detail, season_teams):
     s = r['stats']
     gp = s.get('gamesPlayed')
     if not gp:
@@ -320,7 +364,12 @@ def stat_row_sql(table, season_num, suffix, r, ident, detail):
     det = detail.get(r['espnId']) or {}
     gs = det.get('gs')
     pid = f"nba-{r['espnId']}"
-    pos = ident.get(r['espnId'], {}).get('pos') or ''
+    # position: current roster first, byathlete's own position as fallback (retired players)
+    pos = ident.get(r['espnId'], {}).get('pos') or r.get('pos') or ''
+    # team: season-frozen chain ('DAL->LAL' for mid-season trades); playoff rows only ever
+    # belong to the final club. Live byathlete team is the last-resort fallback only.
+    chain = (season_teams.get(r['espnId']) or {}).get('chain') or r['teamCode']
+    team = chain if table == 'player_stats' else chain.split('->')[-1]
     # classic NBA efficiency (EFF) per game — the site's 效率值 column (real PER isn't public)
     eff = ((s.get('avgPoints') or 0) + (s.get('avgRebounds') or 0) + (s.get('avgAssists') or 0)
            + (s.get('avgSteals') or 0) + (s.get('avgBlocks') or 0)
@@ -330,7 +379,7 @@ def stat_row_sql(table, season_num, suffix, r, ident, detail):
     pct = lambda k: num(s[k] / 100.0, 4) if s.get(k) is not None else 'NULL'
     vals = [
         f"'{pid}-{suffix}'", f"'{pid}'", str(season_num), str(season_num),
-        f"'{esc(r['teamCode'])}'", f"'{esc(pos)}'", str(int(gp)),
+        f"'{esc(team)}'", f"'{esc(pos)}'", str(int(gp)),
         num(s.get('avgMinutes'), 1), num(s.get('avgPoints')), num(s.get('avgRebounds')),
         num(s.get('avgAssists')), num(s.get('avgSteals')), num(s.get('avgBlocks')),
         num(s.get('avgTurnovers')), num(s.get('avgFieldGoalsMade')), num(s.get('avgFieldGoalsAttempted')),
@@ -384,6 +433,9 @@ def main():
     print('[4/6] per-athlete details (starters + off/def rebounds, threaded)')
     det_reg = fetch_athlete_details(args.season, 2, [r['espnId'] for r in reg])
     det_po = fetch_athlete_details(args.season, 3, [r['espnId'] for r in po])
+    print('  season-frozen team affiliations (core season athlete objects)')
+    season_teams = fetch_season_teams(args.season, {r['espnId'] for r in reg} | {r['espnId'] for r in po},
+                                      {str(v): k for k, v in team_ids.items()})
     print('[5/6] team stats + standings + playoff rounds + season awards')
     standings = fetch_standings(args.season)
     po_opp = fetch_playoff_opp_ppg(args.season)
@@ -398,7 +450,10 @@ def main():
         return r['espnId'] in ident or gp >= 15
     dropped = [r['name'] for r in reg if not is_nba(r)]
     reg = [r for r in reg if is_nba(r)]
-    po = [r for r in po if is_nba(r)]
+    # playoff rows keep everyone who survived the REGULAR-season cut: playoff gp is 4-28,
+    # so a 15-game line here would wrongly drop retired rotation players of past runs
+    reg_ids = {r['espnId'] for r in reg}
+    po = [r for r in po if r['espnId'] in reg_ids or r['espnId'] in ident]
     if dropped:
         print(f'  filtered out {len(dropped)} fringe non-roster players (e.g. {", ".join(dropped[:5])})')
     print(f'  players: reg {len(reg)}, playoffs {len(po)}; teams {len(standings)}, po-teams {len(po_opp)}')
@@ -415,11 +470,16 @@ def main():
         seen.add(r['espnId'])
         info = ident.get(r['espnId'], {})
         name = info.get('name') or r['name']
-        dob = f"'{info['dob']}'" if info.get('dob') else 'NULL'
+        # dob: current roster first, core season athlete object as fallback (retired players)
+        dob_v = info.get('dob') or (season_teams.get(r['espnId']) or {}).get('dob') or ''
+        dob = f"'{dob_v}'" if dob_v else 'NULL'
+        # backfill runs must never blank out identity data a newer season already wrote
         lines.append(
             "INSERT INTO dream_player (PLAYER_ID, PLAYER_NAME, PLAYER_NUMBER, PLAYER_BIRTHDAY, NAME_EN, ESPN_ID) "
             f"VALUES ('nba-{r['espnId']}', '{esc(name)}', '{esc(info.get('jersey') or '')}', {dob}, '{esc(name)}', '{r['espnId']}') "
-            f"ON DUPLICATE KEY UPDATE PLAYER_NUMBER=VALUES(PLAYER_NUMBER), PLAYER_BIRTHDAY=VALUES(PLAYER_BIRTHDAY), NAME_EN=VALUES(NAME_EN);")
+            "ON DUPLICATE KEY UPDATE "
+            "PLAYER_NUMBER=IF(VALUES(PLAYER_NUMBER)='', PLAYER_NUMBER, VALUES(PLAYER_NUMBER)), "
+            "PLAYER_BIRTHDAY=IFNULL(VALUES(PLAYER_BIRTHDAY), PLAYER_BIRTHDAY), NAME_EN=VALUES(NAME_EN);")
     # honor columns live on player_stats rows — stash them so the wholesale
     # DELETE+INSERT below can't wipe hand-filled vote ranks (2-10) and teams
     lines.append("DROP TEMPORARY TABLE IF EXISTS tmp_nba_honors;")
@@ -432,7 +492,7 @@ def main():
                                      ('player_playoff_stats', po, f'p{season_num}', det_po)):
         lines.append(f"DELETE FROM {table} WHERE PLAYER_ID LIKE 'nba-%' AND SEASON_NUM={season_num};")
         for r in rows:
-            sql = stat_row_sql(table, season_num, suffix, r, ident, det)
+            sql = stat_row_sql(table, season_num, suffix, r, ident, det, season_teams)
             if sql:
                 lines.append(sql)
         lines.append(career_sql(table))
