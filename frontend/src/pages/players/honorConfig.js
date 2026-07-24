@@ -4,8 +4,9 @@ import { fmtNum as f } from './rankConfig'
 const offSub = (r) => `${f(r.playerAvgScore)}分 ${f(r.playerAvgReb)}板 ${f(r.playerAvgAss)}助`
 const defSub = (r) => `${f(r.playerAvgSteal)}断 ${f(r.playerAvgBlock)}帽 ${f(r.playerAvgReb)}板`
 
-const byMvp = (a, b) => a.mvpRank - b.mvpRank
-const byDpoy = (a, b) => a.dpoyRank - b.dpoyRank
+// 空名次垫底（数据源只给获奖者名次；手工补 2-10 名后自然按名次排）
+const byMvp = (a, b) => (a.mvpRank ?? 999) - (b.mvpRank ?? 999)
+const byDpoy = (a, b) => (a.dpoyRank ?? 999) - (b.dpoyRank ?? 999)
 
 /**
  * 赛季荣誉分组：pick(rows) 取该组成员（已排序），sub(row) 出小字，rankOf(row) 出名次角标。

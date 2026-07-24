@@ -367,10 +367,10 @@ def career_sql(table):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--season', type=int, default=2026, help='ESPN season year (2026 = 2025-26 season)')
+    ap.add_argument('--season', type=int, default=2026, help='ESPN season year (2026 = 2025-26 = site season 20)')
     ap.add_argument('--dry-run', action='store_true', help='write the SQL file but do not execute it')
     args = ap.parse_args()
-    season_num = args.season - 2008  # 2026 -> 18 -> label 2025-2026 (site formula: (2007+n)-(2008+n))
+    season_num = args.season - 2006  # 2026 -> 20 -> label 2025-2026 (site formula: (2005+n)-(2006+n), latest-20-years window)
     print(f'== NBA sync: ESPN season {args.season} -> site season_num {season_num} ==')
 
     print('[1/6] rosters (identity: jersey/position/birthday)')

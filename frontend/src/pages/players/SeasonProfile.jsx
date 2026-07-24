@@ -3,7 +3,7 @@ import { Card, Col, Empty, Row, Space, Spin, Tag } from 'antd'
 import SeasonPicker from '../../components/SeasonPicker'
 import RadarChart from '../../components/RadarChart'
 import { playerApi } from '../../api/player'
-import { PLAYOFF_TAG, fmtNum, seasonYearLabel } from './rankConfig'
+import { PLAYOFF_TAG, fmtNum, seasonYearLabel, fmtPct, statQualified } from './rankConfig'
 import { CAREER_AWARDS } from './honorConfig'
 
 /**
@@ -38,9 +38,9 @@ export const GRID_STATS = [
   { key: 'playerAvgTurnover', label: '失误', asc: true, note: '最少排' },
   { key: 'playerPer', label: '效率值' },
   { key: 'playerAvgFgm', label: '场均投篮命中' },
-  { key: 'playerAccuracy', label: '投篮%', digits: 3 },
+  { key: 'playerAccuracy', label: '投篮%', pct: true },
   { key: 'playerAvgTpm', label: '场均三分命中' },
-  { key: 'playerThreeAccuracy', label: '三分%', digits: 3 },
+  { key: 'playerThreeAccuracy', label: '三分%', pct: true },
 ]
 
 const MEDAL = ['#f5b301', '#9aa0a6', '#b87333']
@@ -109,8 +109,9 @@ export default function SeasonProfile({ playerId, honors }) {
     let alive = true
     setLeague(null)
     setPoLeague(null)
+    // 联盟池（算"联盟第 N"和雷达百分位）套 58 场资格线——两场秀不该抬高或压低全联盟基准
     playerApi.listSeasonStats({ page: 1, limit: 2000, seasonNum })
-      .then((r) => { if (alive) setLeague(r.records || []) })
+      .then((r) => { if (alive) setLeague((r.records || []).filter(statQualified)) })
       .catch(() => { if (alive) setLeague([]) })
     playerApi.listPlayoffSeasonStats({ page: 1, limit: 2000, seasonNum })
       .then((r) => { if (alive) setPoLeague(r.records || []) })
@@ -169,7 +170,7 @@ export default function SeasonProfile({ playerId, honors }) {
                 {s.note && <span style={{ marginLeft: 4, fontSize: 11, color: '#ccc' }}>{s.note}</span>}
               </div>
               <div style={{ fontSize: 20, fontWeight: 800, color, margin: '2px 0 4px', fontVariantNumeric: 'tabular-nums' }}>
-                {fmtNum(mine, s.digits ?? 1)}
+                {s.pct ? fmtPct(mine) : fmtNum(mine, s.digits ?? 1)}
               </div>
               <RankChip rank={rankIn(leagueRows, s, mine)} prefix={prefix} />
             </div>

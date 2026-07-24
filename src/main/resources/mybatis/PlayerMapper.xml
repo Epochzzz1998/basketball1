@@ -56,23 +56,33 @@
         select award, season from (
             select 'scoring' as award, ps.SEASON_NUM as season from player_stats ps
             where ps.PLAYER_ID = #{playerId} and ps.SEASON_NUM &lt; 50 and ps.PLAYER_AVG_SCORE is not null
-              and ps.PLAYER_AVG_SCORE &gt;= (select max(p2.PLAYER_AVG_SCORE) from player_stats p2 where p2.SEASON_NUM = ps.SEASON_NUM)
+              <!-- 数据王资格：对手池限出场≥58；本人不足 58 场时按补 0 到 58 场折算（NBA 补场规则） -->
+              and ps.PLAYER_AVG_SCORE * LEAST(IFNULL(ps.PLAYER_APPEARANCE, 0), 58) / 58 &gt;=
+                  (select max(p2.PLAYER_AVG_SCORE) from player_stats p2 where p2.SEASON_NUM = ps.SEASON_NUM and IFNULL(p2.PLAYER_APPEARANCE, 0) &gt;= 58)
             union all
             select 'rebounds', ps.SEASON_NUM from player_stats ps
             where ps.PLAYER_ID = #{playerId} and ps.SEASON_NUM &lt; 50 and ps.PLAYER_AVG_REB is not null
-              and ps.PLAYER_AVG_REB &gt;= (select max(p2.PLAYER_AVG_REB) from player_stats p2 where p2.SEASON_NUM = ps.SEASON_NUM)
+              <!-- 数据王资格：对手池限出场≥58；本人不足 58 场时按补 0 到 58 场折算（NBA 补场规则） -->
+              and ps.PLAYER_AVG_REB * LEAST(IFNULL(ps.PLAYER_APPEARANCE, 0), 58) / 58 &gt;=
+                  (select max(p2.PLAYER_AVG_REB) from player_stats p2 where p2.SEASON_NUM = ps.SEASON_NUM and IFNULL(p2.PLAYER_APPEARANCE, 0) &gt;= 58)
             union all
             select 'assists', ps.SEASON_NUM from player_stats ps
             where ps.PLAYER_ID = #{playerId} and ps.SEASON_NUM &lt; 50 and ps.PLAYER_AVG_ASS is not null
-              and ps.PLAYER_AVG_ASS &gt;= (select max(p2.PLAYER_AVG_ASS) from player_stats p2 where p2.SEASON_NUM = ps.SEASON_NUM)
+              <!-- 数据王资格：对手池限出场≥58；本人不足 58 场时按补 0 到 58 场折算（NBA 补场规则） -->
+              and ps.PLAYER_AVG_ASS * LEAST(IFNULL(ps.PLAYER_APPEARANCE, 0), 58) / 58 &gt;=
+                  (select max(p2.PLAYER_AVG_ASS) from player_stats p2 where p2.SEASON_NUM = ps.SEASON_NUM and IFNULL(p2.PLAYER_APPEARANCE, 0) &gt;= 58)
             union all
             select 'steals', ps.SEASON_NUM from player_stats ps
             where ps.PLAYER_ID = #{playerId} and ps.SEASON_NUM &lt; 50 and ps.PLAYER_AVG_STEAL is not null
-              and ps.PLAYER_AVG_STEAL &gt;= (select max(p2.PLAYER_AVG_STEAL) from player_stats p2 where p2.SEASON_NUM = ps.SEASON_NUM)
+              <!-- 数据王资格：对手池限出场≥58；本人不足 58 场时按补 0 到 58 场折算（NBA 补场规则） -->
+              and ps.PLAYER_AVG_STEAL * LEAST(IFNULL(ps.PLAYER_APPEARANCE, 0), 58) / 58 &gt;=
+                  (select max(p2.PLAYER_AVG_STEAL) from player_stats p2 where p2.SEASON_NUM = ps.SEASON_NUM and IFNULL(p2.PLAYER_APPEARANCE, 0) &gt;= 58)
             union all
             select 'blocks', ps.SEASON_NUM from player_stats ps
             where ps.PLAYER_ID = #{playerId} and ps.SEASON_NUM &lt; 50 and ps.PLAYER_AVG_BLOCK is not null
-              and ps.PLAYER_AVG_BLOCK &gt;= (select max(p2.PLAYER_AVG_BLOCK) from player_stats p2 where p2.SEASON_NUM = ps.SEASON_NUM)
+              <!-- 数据王资格：对手池限出场≥58；本人不足 58 场时按补 0 到 58 场折算（NBA 补场规则） -->
+              and ps.PLAYER_AVG_BLOCK * LEAST(IFNULL(ps.PLAYER_APPEARANCE, 0), 58) / 58 &gt;=
+                  (select max(p2.PLAYER_AVG_BLOCK) from player_stats p2 where p2.SEASON_NUM = ps.SEASON_NUM and IFNULL(p2.PLAYER_APPEARANCE, 0) &gt;= 58)
         ) t order by season
     </select>
 

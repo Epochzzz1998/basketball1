@@ -7,7 +7,7 @@ import SeasonPicker from '../../components/SeasonPicker'
 import PillTabs from '../../components/PillTabs'
 import { playerApi } from '../../api/player'
 import { searchApi } from '../../api/search'
-import { fmtNum, seasonYearLabel, PLAYOFF_TAG } from './rankConfig'
+import { fmtNum, seasonYearLabel, PLAYOFF_TAG, statQualified } from './rankConfig'
 import { CAREER_AWARDS } from './honorConfig'
 import { GRID_STATS, RADAR_AXES, percentileOf, val } from './SeasonProfile'
 import useIsMobile from '../../hooks/useIsMobile'
@@ -337,7 +337,7 @@ export default function PlayerCompare() {
     setStatLeague(null)
     setStatPoLeague(null)
     playerApi.listSeasonStats({ page: 1, limit: 2000, seasonNum: statSeason })
-      .then((r) => { if (alive) setStatLeague(r.records || []) })
+      .then((r) => { if (alive) setStatLeague((r.records || []).filter(statQualified)) })
       .catch(() => { if (alive) setStatLeague([]) })
     playerApi.listPlayoffSeasonStats({ page: 1, limit: 2000, seasonNum: statSeason })
       .then((r) => { if (alive) setStatPoLeague(r.records || []) })
@@ -351,7 +351,7 @@ export default function PlayerCompare() {
     setLeague(null)
     setPoLeague(null)
     playerApi.listSeasonStats({ page: 1, limit: 2000, seasonNum })
-      .then((r) => { if (alive) setLeague(r.records || []) })
+      .then((r) => { if (alive) setLeague((r.records || []).filter(statQualified)) })
       .catch(() => { if (alive) setLeague([]) })
     playerApi.listPlayoffSeasonStats({ page: 1, limit: 2000, seasonNum })
       .then((r) => { if (alive) setPoLeague(r.records || []) })

@@ -3,7 +3,7 @@ import { ProTable } from '@ant-design/pro-components'
 import { Button } from 'antd'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { playerApi } from '../../api/player'
-import { RANKING_STATS, fmtNum } from './rankConfig'
+import { RANKING_STATS, fmtNum, fmtPct, LATEST_SEASON, qualifiedBoard } from './rankConfig'
 import SeasonPicker from '../../components/SeasonPicker'
 import { buildFullStatColumns, FULL_COLUMNS_SCROLL_X, HONOR_COLUMN_KEYS, PLAYOFF_COLUMNS_SCROLL_X } from './statColumns'
 
@@ -19,7 +19,7 @@ export default function RankingDetail() {
   const navigate = useNavigate()
   const stat = RANKING_STATS.find((s) => s.field === field) || { field, label: '数据', digits: 1 }
   const stage = searchParams.get('stage') === 'po' ? 'po' : 'reg' // 跟随联盟排行的赛段切换
-  const [seasonNum, setSeasonNum] = useState(Number(searchParams.get('seasonNum')) || 1)
+  const [seasonNum, setSeasonNum] = useState(Number(searchParams.get('seasonNum')) || LATEST_SEASON)
 
   const columns = [
     {
@@ -44,7 +44,7 @@ export default function RankingDetail() {
               ...c,
               render: (v, row, idx) => (
                 <span style={{ fontWeight: 700, color: '#fa541c' }}>
-                  {c.render ? c.render(v, row, idx) : fmtNum(v, stat.digits)}
+                  {c.render ? c.render(v, row, idx) : stat.pct ? fmtPct(v) : fmtNum(v, stat.digits)}
                 </span>
               ),
             }
@@ -75,7 +75,9 @@ export default function RankingDetail() {
             field: stat.field,
             order: stat.order || 'desc',
           })
-          return { data: res.records || [], total: res.total || 0, success: true }
+          // 常规赛套 58 场资格线（含补场规则）；季后赛不设
+          const list = stage === 'po' ? (res.records || []) : qualifiedBoard(res.records || [], stat.field)
+          return { data: list, total: list.length, success: true }
         }}
       />
     </>

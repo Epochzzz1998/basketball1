@@ -4,7 +4,7 @@ import { Button } from 'antd'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { playerApi } from '../../api/player'
 import { HONOR_GROUPS } from './honorConfig'
-import { seasonYearLabel } from './rankConfig'
+import { seasonYearLabel, LATEST_SEASON, honorEligible } from './rankConfig'
 import SeasonPicker from '../../components/SeasonPicker'
 import { buildFullStatColumns, FULL_COLUMNS_SCROLL_X } from './statColumns'
 
@@ -16,14 +16,14 @@ export default function HonorDetail() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const group = HONOR_GROUPS.find((g) => g.key === groupKey) || HONOR_GROUPS[0]
-  const [seasonNum, setSeasonNum] = useState(Number(searchParams.get('seasonNum')) || 1)
+  const [seasonNum, setSeasonNum] = useState(Number(searchParams.get('seasonNum')) || LATEST_SEASON)
   const [rows, setRows] = useState(null)
 
   useEffect(() => {
     let alive = true
     setRows(null)
     playerApi.listSeasonStats({ page: 1, limit: 2000, seasonNum })
-      .then((r) => { if (alive) setRows(r.records || []) })
+      .then((r) => { if (alive) setRows((r.records || []).filter(honorEligible)) })
       .catch(() => { if (alive) setRows([]) })
     return () => { alive = false }
   }, [seasonNum])

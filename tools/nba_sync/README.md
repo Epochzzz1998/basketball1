@@ -11,7 +11,7 @@ python3 tools/nba_sync/sync.py --season 2025  # 回补别的赛季（2024-25）
 
 - 依赖：无（纯标准库）；需要本机 docker 里的 mysql 容器在跑。
 - DB 密码：读环境变量 `DREAM_DB_PWD`，或本目录下 git 忽略的 `.dbpwd` 文件。
-- 赛季号换算：ESPN 年份 − 2008 = 站内 season_num（2026 → 18 → 显示 2025-2026 赛季）。
+- 赛季号换算：ESPN 年份 − 2006 = 站内 season_num（2026 → 20 → 显示 2025-2026 赛季；第 1 季=2006-2007，正好最近 20 年）。
   前端 `rankConfig.js` 的 `LATEST_SEASON` 要与最新赛季保持一致。
 
 幂等设计（每天重复跑安全）：

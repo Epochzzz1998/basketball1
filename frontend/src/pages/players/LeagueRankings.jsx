@@ -6,7 +6,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { playerApi } from '../../api/player'
 import { teamApi } from '../../api/team'
 import { HONOR_GROUPS } from './honorConfig'
-import { NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, RANKING_STATS, fmtNum, playoffRecord, LATEST_SEASON } from './rankConfig'
+import { NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, RANKING_STATS, fmtNum, fmtPct, playoffRecord, LATEST_SEASON, honorEligible, qualifiedBoard } from './rankConfig'
 import SeasonPicker from '../../components/SeasonPicker'
 import useIsMobile from '../../hooks/useIsMobile'
 
@@ -22,8 +22,13 @@ function StatRankCard({ stat, seasonNum, stage }) {
     let alive = true
     setRows(null)
     const api = stage === 'po' ? playerApi.listPlayoffSeasonStats : playerApi.listSeasonStats
-    api({ page: 1, limit: 10, seasonNum, field: stat.field, order: stat.order || 'desc' })
-      .then((r) => { if (alive) setRows(r.records || []) })
+    // 多取一段再按场次资格线过滤（58 场 + 补场规则），常规赛才有资格线；季后赛不设
+    api({ page: 1, limit: 200, seasonNum, field: stat.field, order: stat.order || 'desc' })
+      .then((r) => {
+        if (!alive) return
+        const list = r.records || []
+        setRows((stage === 'po' ? list : qualifiedBoard(list, stat.field)).slice(0, 10))
+      })
       .catch(() => { if (alive) setRows([]) })
     return () => { alive = false }
   }, [stat.field, stat.order, seasonNum, stage])
@@ -57,7 +62,7 @@ function StatRankCard({ stat, seasonNum, stage }) {
             </Link>
             <span style={{ color: '#999', fontSize: 12, marginRight: 14 }}>{r.playerTeam}</span>
             <span style={{ fontWeight: 700, color: '#fa541c', fontVariantNumeric: 'tabular-nums' }}>
-              {fmtNum(r[stat.field], stat.digits)}
+              {stat.pct ? fmtPct(r[stat.field]) : fmtNum(r[stat.field], stat.digits)}
             </span>
           </div>
         ))
@@ -225,13 +230,15 @@ function HonorsTab({ seasonNum }) {
   }, [seasonNum])
 
   if (rows === null) return <Card loading style={{ minHeight: 240 }} />
+  // 荣誉资格线：≥65 场或特例豁免（东契奇/坎宁安/文班），不够场次不上荣誉榜
+  const eligibleRows = rows.filter(honorEligible)
   return (
     <>
-      <SpecialAwardCards seasonNum={seasonNum} rows={rows} />
+      <SpecialAwardCards seasonNum={seasonNum} rows={eligibleRows} />
       <Row gutter={[16, 16]}>
         {HONOR_GROUPS.map((g) => (
           <Col key={g.key} xs={24} sm={g.span === 12 ? 24 : 12} lg={g.span}>
-            <HonorCard group={g} rows={rows} seasonNum={seasonNum} />
+            <HonorCard group={g} rows={eligibleRows} seasonNum={seasonNum} />
           </Col>
         ))}
       </Row>

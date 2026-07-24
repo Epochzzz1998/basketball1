@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { fmtNum as num, fmtPair, fmtReb } from './rankConfig'
+import { fmtNum as num, fmtPair, fmtPct, fmtReb } from './rankConfig'
 
 /**
  * 球员全量数据列（总览/球队页/荣誉完整数据页共用）。
@@ -25,11 +25,11 @@ export function buildFullStatColumns({ serverSort = true } = {}) {
     },
     { title: '助攻', dataIndex: 'playerAvgAss', width: 60, ...srt, render: (v) => num(v) },
     { title: '投篮', dataIndex: 'playerAvgFgm', width: 86, render: (_, r) => fmtPair(r.playerAvgFgm, r.playerAvgFga) },
-    { title: '投篮%', dataIndex: 'playerAccuracy', width: 68, ...srt, render: (v) => num(v, 3) },
+    { title: '投篮%', dataIndex: 'playerAccuracy', width: 68, ...srt, render: (v) => fmtPct(v) },
     { title: '三分', dataIndex: 'playerAvgTpm', width: 86, render: (_, r) => fmtPair(r.playerAvgTpm, r.playerAvgTpa) },
-    { title: '三分%', dataIndex: 'playerThreeAccuracy', width: 68, ...srt, render: (v) => num(v, 3) },
+    { title: '三分%', dataIndex: 'playerThreeAccuracy', width: 68, ...srt, render: (v) => fmtPct(v) },
     { title: '罚球', dataIndex: 'playerAvgFtm', width: 86, render: (_, r) => fmtPair(r.playerAvgFtm, r.playerAvgFta) },
-    { title: '罚球%', dataIndex: 'playerFreethrowAccuracy', width: 68, ...srt, render: (v) => num(v, 3) },
+    { title: '罚球%', dataIndex: 'playerFreethrowAccuracy', width: 68, ...srt, render: (v) => fmtPct(v) },
     { title: '盖帽', dataIndex: 'playerAvgBlock', width: 58, ...srt, render: (v) => num(v) },
     { title: '抢断', dataIndex: 'playerAvgSteal', width: 58, ...srt, render: (v) => num(v) },
     { title: '失误', dataIndex: 'playerAvgTurnover', width: 58, ...srt, render: (v) => num(v) },

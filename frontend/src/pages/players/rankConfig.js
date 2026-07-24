@@ -1,26 +1,68 @@
 /** 球员数据模块共享配置：赛季选项、数字格式化、单项排行榜配置、NBA 队名映射 */
 
-// 第 N 赛季 = (2007+N)-(2008+N)：第 1 赛季即 2008-2009 赛季
+// 第 N 赛季 = (2005+N)-(2006+N)：第 1 赛季即 2006-2007 赛季（锚点 2006，覆盖最近 20 年）
 export const seasonYearLabel = (n) =>
-  n === 50 ? '生涯场均' : `${2007 + Number(n)}-${2008 + Number(n)} 赛季`
+  n === 50 ? '生涯场均' : `${2005 + Number(n)}-${2006 + Number(n)} 赛季`
 
-// 数据表的赛季列用：只留年份后两位，如 2008-2009 → 08-09（生涯档=生涯）
+// 数据表的赛季列用：只留年份后两位，如 2006-2007 → 06-07（生涯档=生涯）
 export const seasonShort = (n) =>
   Number(n) === 50
     ? '生涯'
-    : `${String(2007 + Number(n)).slice(-2)}-${String(2008 + Number(n)).slice(-2)}`
+    : `${String(2005 + Number(n)).slice(-2)}-${String(2006 + Number(n)).slice(-2)}`
 
-// 最新赛季（NBA 真实数据从第 18 季 = 2025-2026 起；同步工具每天维护这一季）
-export const LATEST_SEASON = 18
+// 最新赛季（第 20 季 = 2025-2026；同步工具每天维护这一季，ESPN 年份 − 2006 = 赛季号）
+export const LATEST_SEASON = 20
 
 export const seasonOptions = [
-  // 最新在前，老赛季仍可选（没数据的显示空态）
+  // 最近 20 年、最新在前；老赛季未回补前显示空态
   ...Array.from({ length: LATEST_SEASON }, (_, i) => ({ value: LATEST_SEASON - i, label: seasonYearLabel(LATEST_SEASON - i) })),
   { value: 50, label: '生涯场均' },
 ]
 
 // 后端 BigDecimal 序列化成 20.100000 这样，统一格式化显示
 export const fmtNum = (v, d = 1) => (v == null ? '-' : Number(v).toFixed(d))
+
+// 命中率：库里存 0.453 小数，展示统一为 45.3%
+export const fmtPct = (v, d = 1) => (v == null ? '-' : `${(Number(v) * 100).toFixed(d)}%`)
+
+/* ===== NBA 现行两套场次资格线（只挡展示、不删数据）=====
+ * 数据王/场均榜：出场 ≥ 球队场次 70%（82 场赛季 = 58 场）；
+ * 荣誉评选（MVP/DPOY/最佳阵容/防阵/MIP）：≥65 场（以出场数近似"20 分钟有效出场"）；
+ * 特例名单：官方批准参评的伤病豁免球员（2025-26：东契奇/坎宁安/文班亚马）。 */
+export const STAT_QUALIFY_GAMES = 58
+export const HONOR_QUALIFY_GAMES = 65
+export const HONOR_EXEMPT_PLAYERS = new Set(['nba-3945274', 'nba-4432166', 'nba-5104157'])
+export const statQualified = (r) => Number(r?.playerAppearance ?? 0) >= STAT_QUALIFY_GAMES
+export const honorEligible = (r) =>
+  Number(r?.playerAppearance ?? 0) >= HONOR_QUALIFY_GAMES || HONOR_EXEMPT_PLAYERS.has(r?.playerId)
+
+// 适用"补场计算"的场均项（得分/篮板/助攻/抢断/盖帽/上场时间王）
+export const AVG_CROWN_FIELDS = new Set([
+  'playerAvgScore', 'playerAvgReb', 'playerAvgAss', 'playerAvgSteal', 'playerAvgBlock', 'playingTime',
+])
+
+// 命中率榜不看场次、看命中数（NBA 官方门槛，82 场赛季）：投篮 300 中 / 三分 82 中 / 罚球 125 中
+// ——不设的话低出手中锋会以 2 投 2 中 100% 霸榜
+export const PCT_QUALIFY = {
+  playerAccuracy: { madeField: 'playerAvgFgm', min: 300 },
+  playerThreeAccuracy: { madeField: 'playerAvgTpm', min: 82 },
+  playerFreethrowAccuracy: { madeField: 'playerAvgFtm', min: 125 },
+}
+
+/** 常规赛榜单参赛池：命中率项按命中数门槛；场均项达标者全收，未达标者仅当
+ * "缺的场次全按 0 补满 58 场后场均仍是联盟第一"才保留（NBA 数据王补场规则）。 */
+export const qualifiedBoard = (rows, field) => {
+  const pctRule = PCT_QUALIFY[field]
+  if (pctRule) {
+    return rows.filter((r) => Number(r[pctRule.madeField] ?? 0) * Number(r.playerAppearance ?? 0) >= pctRule.min)
+  }
+  const ok = rows.filter(statQualified)
+  if (!AVG_CROWN_FIELDS.has(field)) return ok
+  const bestOk = ok.length ? Math.max(...ok.map((r) => Number(r[field] ?? 0))) : 0
+  const padded = rows.filter((r) => !statQualified(r)
+    && (Number(r[field] ?? 0) * Number(r.playerAppearance ?? 0)) / STAT_QUALIFY_GAMES >= bestOk)
+  return [...rows.filter((r) => statQualified(r) || padded.includes(r))]
+}
 
 // 命中/出手 成对显示，如 "10.2/19.5"（投篮、三分、罚球通用）
 export const fmtPair = (made, att, d = 1) =>
@@ -92,9 +134,9 @@ export const RANKING_STATS = [
   { field: 'playerAvgBlock', label: '盖帽' },
   { field: 'playerAvgFgm', label: '场均投篮命中', note: '每场命中球数' },
   { field: 'playerAvgTpm', label: '场均三分命中', note: '每场命中三分数' },
-  { field: 'playerAccuracy', label: '投篮%', digits: 3 },
-  { field: 'playerThreeAccuracy', label: '三分%', digits: 3 },
-  { field: 'playerFreethrowAccuracy', label: '罚球%', digits: 3 },
+  { field: 'playerAccuracy', label: '投篮%', pct: true },
+  { field: 'playerThreeAccuracy', label: '三分%', pct: true },
+  { field: 'playerFreethrowAccuracy', label: '罚球%', pct: true },
   { field: 'playingTime', label: '上场时间' },
   { field: 'playerAppearance', label: '出场', digits: 0 },
   { field: 'playerPer', label: '效率值', note: '得分+板+助+断+帽−打铁−失误' },
