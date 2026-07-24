@@ -6,7 +6,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { playerApi } from '../../api/player'
 import { teamApi } from '../../api/team'
 import { HONOR_GROUPS } from './honorConfig'
-import { NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, RANKING_STATS, fmtNum, playoffRecord } from './rankConfig'
+import { NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, RANKING_STATS, fmtNum, playoffRecord, LATEST_SEASON } from './rankConfig'
 import SeasonPicker from '../../components/SeasonPicker'
 import useIsMobile from '../../hooks/useIsMobile'
 
@@ -376,7 +376,7 @@ function TeamsTab({ seasonNum, stage }) {
 
 /** 联盟排行：单项排行 / 赛季荣誉 / 球队排行 三个 Tab，共用赛季选择 + 常规赛/季后赛切换 */
 export default function LeagueRankings() {
-  const [seasonNum, setSeasonNum] = useState(1) // 默认第一赛季（2008-2009）
+  const [seasonNum, setSeasonNum] = useState(LATEST_SEASON) // 默认最新赛季
   const [stage, setStage] = useState('reg') // reg=常规赛 po=季后赛（作用于单项/球队排行；荣誉为全季评选）
   const [tab, setTab] = useState('stats')
 

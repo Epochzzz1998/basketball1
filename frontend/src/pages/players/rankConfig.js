@@ -10,8 +10,12 @@ export const seasonShort = (n) =>
     ? '生涯'
     : `${String(2007 + Number(n)).slice(-2)}-${String(2008 + Number(n)).slice(-2)}`
 
+// 最新赛季（NBA 真实数据从第 18 季 = 2025-2026 起；同步工具每天维护这一季）
+export const LATEST_SEASON = 18
+
 export const seasonOptions = [
-  ...Array.from({ length: 16 }, (_, i) => ({ value: i + 1, label: seasonYearLabel(i + 1) })),
+  // 最新在前，老赛季仍可选（没数据的显示空态）
+  ...Array.from({ length: LATEST_SEASON }, (_, i) => ({ value: LATEST_SEASON - i, label: seasonYearLabel(LATEST_SEASON - i) })),
   { value: 50, label: '生涯场均' },
 ]
 
@@ -93,12 +97,6 @@ export const RANKING_STATS = [
   { field: 'playerFreethrowAccuracy', label: '罚球%', digits: 3 },
   { field: 'playingTime', label: '上场时间' },
   { field: 'playerAppearance', label: '出场', digits: 0 },
-  { field: 'playerPer', label: 'PER' },
-  { field: 'playerPie', label: 'PIE' },
-  { field: 'playerWs', label: 'WS' },
-  { field: 'playerOffEff', label: '进攻效率' },
-  { field: 'playerDefEff', label: '防守效率', order: 'asc', note: '越低越好' },
-  { field: 'playerNetEff', label: '净效率' },
-  { field: 'playerAvgPn', label: '正负值' },
+  { field: 'playerPer', label: '效率值', note: '得分+板+助+断+帽−打铁−失误' },
   { field: 'playerAvgTurnover', label: '失误', note: '场均最多' },
 ]

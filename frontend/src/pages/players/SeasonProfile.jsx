@@ -36,8 +36,7 @@ export const GRID_STATS = [
   { key: 'playerAvgSteal', label: '抢断' },
   { key: 'playerAvgBlock', label: '盖帽' },
   { key: 'playerAvgTurnover', label: '失误', asc: true, note: '最少排' },
-  { key: 'playerPer', label: 'PER' },
-  { key: 'playerWs', label: 'WS' },
+  { key: 'playerPer', label: '效率值' },
   { key: 'playerAvgFgm', label: '场均投篮命中' },
   { key: 'playerAccuracy', label: '投篮%', digits: 3 },
   { key: 'playerAvgTpm', label: '场均三分命中' },
@@ -195,7 +194,7 @@ export default function SeasonProfile({ playerId, honors }) {
         <Space size={[6, 8]} wrap style={{ marginBottom: 16 }}>
           {!isCareer && <Tag color="volcano">{String(row.playerTeam || '').replace('->', ' → ')}</Tag>}
           {!isCareer && row.playerPosition && <Tag>{row.playerPosition}</Tag>}
-          <Tag>出场 {row.playerAppearance}（先发 {row.playerFrAppearance}）</Tag>
+          <Tag>出场 {row.playerAppearance}{row.playerFrAppearance != null ? `（先发 ${row.playerFrAppearance}）` : ''}</Tag>
           <Tag>场均 {fmtNum(row.playingTime)} 分钟</Tag>
           {chips.map((a) => (
             <Tag key={a.key} color={a.gold ? 'gold' : 'orange'} style={{ fontWeight: 600 }}>
@@ -246,7 +245,7 @@ export default function SeasonProfile({ playerId, honors }) {
           <>
             <Space size={[6, 8]} wrap style={{ marginBottom: 14 }}>
               {!isCareer && <Tag color="volcano">{String(poRow.playerTeam || '').replace('->', ' → ')}</Tag>}
-              <Tag>出战 {poRow.playerAppearance} 场（先发 {poRow.playerFrAppearance}）</Tag>
+              <Tag>出战 {poRow.playerAppearance} 场{poRow.playerFrAppearance != null ? `（先发 ${poRow.playerFrAppearance}）` : ''}</Tag>
               <Tag>场均 {fmtNum(poRow.playingTime)} 分钟</Tag>
             </Space>
             <Row gutter={[20, 20]}>

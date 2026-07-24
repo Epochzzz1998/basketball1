@@ -47,3 +47,5 @@ application-*-local.yml
 
 # bundled frontend build (generated at deploy time)
 /src/main/resources/static/
+tools/nba_sync/.dbpwd
+tools/nba_sync/nba_sync_*.sql

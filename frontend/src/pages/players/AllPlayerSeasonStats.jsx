@@ -12,7 +12,7 @@ import { buildFullStatColumns, FULL_COLUMNS_SCROLL_X, HONOR_COLUMN_KEYS, PLAYOFF
  * - 排序直连 P3-1 白名单；不分页一滚到底；球员名模糊搜索。
  */
 export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: seasonProp }) {
-  const [seasonState, setSeasonState] = useState(1)
+  const [seasonState, setSeasonState] = useState(LATEST_SEASON)
   const [playerName, setPlayerName] = useState() // 球员名模糊搜索（后端 LIKE）
   const controlled = seasonProp != null
   const seasonNum = controlled ? seasonProp : seasonState

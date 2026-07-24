@@ -6,7 +6,7 @@ import { TrophyFilled } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import AllPlayerSeasonStats from './AllPlayerSeasonStats'
 import { teamApi } from '../../api/team'
-import { NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, fmtNum, playoffRecord, seasonYearLabel, seasonShort, teamRegion } from './rankConfig'
+import { NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, fmtNum, playoffRecord, seasonYearLabel, seasonShort, teamRegion, LATEST_SEASON } from './rankConfig'
 import SeasonPicker from '../../components/SeasonPicker'
 import useIsMobile from '../../hooks/useIsMobile'
 
@@ -494,7 +494,7 @@ export default function TeamPlayers() {
   const navigate = useNavigate()
   const { conf, div } = teamRegion(teamCode)
   const [stage, setStage] = useState('reg') // reg=常规赛 po=季后赛
-  const [seasonNum, setSeasonNum] = useState(1)
+  const [seasonNum, setSeasonNum] = useState(LATEST_SEASON)
   const [tab, setTab] = useState('season')
   const po = stage === 'po'
 
