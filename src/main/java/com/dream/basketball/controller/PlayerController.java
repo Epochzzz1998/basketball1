@@ -103,7 +103,7 @@ public class PlayerController extends BaseUtils {
     public Object honors(String playerId) {
         DreamPlayer player = playerService.getById(playerId);
         List<PlayerStats> rows = playerStatsService.list(new QueryWrapper<PlayerStats>()
-                .eq("PLAYER_ID", playerId).lt("SEASON_NUM", 50).orderByAsc("SEASON_NUM"));
+                .eq("PLAYER_ID", playerId).lt("SEASON_NUM", com.dream.basketball.utils.Constants.CAREER_SUMMARY_SEASON).orderByAsc("SEASON_NUM"));
         Map<String, Object> data = new HashMap<>();
         data.put("playerName", player == null ? "" : player.getPlayerName());
         data.put("nameEn", player == null ? "" : player.getNameEn());

@@ -7,7 +7,7 @@ import SeasonPicker from '../../components/SeasonPicker'
 import PillTabs from '../../components/PillTabs'
 import { playerApi } from '../../api/player'
 import { searchApi } from '../../api/search'
-import { fmtNum, fmtTeamChain, seasonYearLabel, seasonShort, PLAYOFF_TAG, statQualified, LATEST_SEASON, NBA_TEAM_NAMES } from './rankConfig'
+import { CAREER_SEASON, fmtNum, fmtTeamChain, seasonYearLabel, seasonShort, PLAYOFF_TAG, statQualified, LATEST_SEASON, NBA_TEAM_NAMES } from './rankConfig'
 import { CAREER_AWARDS } from './honorConfig'
 import { GRID_STATS, RADAR_AXES, percentileOf, val } from './SeasonProfile'
 import useIsMobile from '../../hooks/useIsMobile'
@@ -421,7 +421,7 @@ function NamesBar({ a, b, extraA, extraB }) {
 
 // 每侧一个赛季标签（含生涯档）
 const seasonTag = (season, color) => (
-  <Tag color={color} style={{ marginInlineEnd: 0 }}>{season === 50 ? '生涯' : seasonShort(season)}</Tag>
+  <Tag color={color} style={{ marginInlineEnd: 0 }}>{season === CAREER_SEASON ? '生涯' : seasonShort(season)}</Tag>
 )
 
 export default function PlayerCompare() {
@@ -430,7 +430,7 @@ export default function PlayerCompare() {
   const [b, setB] = useState(null)
   const [tab, setTab] = useState('profile')
   const [bundle, setBundle] = useState(null) // {careerA, careerB, poA, poB, honorsA, honorsB}
-  // 两侧各自独立的赛季（50=生涯场均）；跨时代对比时各取各的年代
+  // 两侧各自独立的赛季（CAREER_SEASON=生涯场均）；跨时代对比时各取各的年代
   const [seasonA, setSeasonA] = useState(null)
   const [seasonB, setSeasonB] = useState(null)
   const [lgA, setLgA] = useState({ reg: null, po: null }) // A 侧赛季的联盟池
@@ -456,8 +456,8 @@ export default function PlayerCompare() {
       setBundle({ careerA, careerB, poA: pa || [], poB: pb || [], honorsA: ha || {}, honorsB: hb || {} })
       // 默认赛季：各自最近打过的赛季（按球队选人时优先用选队时的赛季）
       const latest = (rows) => {
-        const played = rows.filter((r) => r.seasonNum < 50).map((r) => r.seasonNum)
-        return played.length ? Math.max(...played) : 50
+        const played = rows.filter((r) => r.seasonNum < CAREER_SEASON).map((r) => r.seasonNum)
+        return played.length ? Math.max(...played) : CAREER_SEASON
       }
       setSeasonA(pendA.current || latest(careerA))
       setSeasonB(pendB.current || latest(careerB))
@@ -515,8 +515,8 @@ export default function PlayerCompare() {
     border: '2px solid rgba(255,255,255,.15)', ...pos,
   })
 
-  const teamTagA = (r) => (seasonA === 50 ? <Tag>生涯</Tag> : <Tag color="volcano">{fmtTeamChain(r.playerTeam, ' → ')}</Tag>)
-  const teamTagB = (r) => (seasonB === 50 ? <Tag>生涯</Tag> : <Tag color="blue">{fmtTeamChain(r.playerTeam, ' → ')}</Tag>)
+  const teamTagA = (r) => (seasonA === CAREER_SEASON ? <Tag>生涯</Tag> : <Tag color="volcano">{fmtTeamChain(r.playerTeam, ' → ')}</Tag>)
+  const teamTagB = (r) => (seasonB === CAREER_SEASON ? <Tag>生涯</Tag> : <Tag color="blue">{fmtTeamChain(r.playerTeam, ' → ')}</Tag>)
 
   return (
     <>
@@ -549,17 +549,18 @@ export default function PlayerCompare() {
             <PlayerPick value={b} onChange={(p, season) => { pendB.current = season || null; setB(p) }} side="B" />
           </div>
         </div>
-        {/* 两侧各自的赛季（跨时代对比：一人一个年代） */}
+        {/* 两侧各自的赛季（跨时代对比：一人一个年代）。
+            手机上两只紧凑版并排分居左右（原样两只 200px 宽放不下会叠成两行），提示文案只在桌面出 */}
         {a && b && seasonA && seasonB && (
           <div
             style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
-              flexWrap: 'wrap', rowGap: 8, padding: isMobile ? '0 16px 14px' : '0 28px 18px', position: 'relative',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: isMobile ? 6 : 10,
+              flexWrap: 'wrap', rowGap: 8, padding: isMobile ? '0 12px 14px' : '0 28px 18px', position: 'relative',
             }}
           >
-            <SeasonPicker value={seasonA} onChange={setSeasonA} />
-            <span style={{ color: 'rgba(255,255,255,.75)', fontSize: 12 }}>两侧赛季各自独立</span>
-            <SeasonPicker value={seasonB} onChange={setSeasonB} />
+            <SeasonPicker value={seasonA} onChange={setSeasonA} compact={isMobile} />
+            {!isMobile && <span style={{ color: 'rgba(255,255,255,.75)', fontSize: 12 }}>两侧赛季各自独立</span>}
+            <SeasonPicker value={seasonB} onChange={setSeasonB} compact={isMobile} />
           </div>
         )}
       </div>
@@ -617,10 +618,10 @@ export default function PlayerCompare() {
                     <NamesBar
                       a={a} b={b}
                       extraA={poRowA
-                        ? <>{seasonTag(seasonA, 'volcano')}{seasonA === 50 ? <Tag>生涯</Tag> : <Tag color={PLAYOFF_TAG[poRowA.playoffResult] || 'default'}>{poRowA.playoffResult}</Tag>}</>
+                        ? <>{seasonTag(seasonA, 'volcano')}{seasonA === CAREER_SEASON ? <Tag>生涯</Tag> : <Tag color={PLAYOFF_TAG[poRowA.playoffResult] || 'default'}>{poRowA.playoffResult}</Tag>}</>
                         : missTag(a.name, '未进季后赛')}
                       extraB={poRowB
-                        ? <>{seasonB === 50 ? <Tag>生涯</Tag> : <Tag color={PLAYOFF_TAG[poRowB.playoffResult] || 'default'}>{poRowB.playoffResult}</Tag>}{seasonTag(seasonB, 'blue')}</>
+                        ? <>{seasonB === CAREER_SEASON ? <Tag>生涯</Tag> : <Tag color={PLAYOFF_TAG[poRowB.playoffResult] || 'default'}>{poRowB.playoffResult}</Tag>}{seasonTag(seasonB, 'blue')}</>
                         : missTag(b.name, '未进季后赛')}
                     />
                     <ScoreStrip rowA={poRowA} rowB={poRowB} stats={GRID_STATS} />
@@ -650,11 +651,11 @@ export default function PlayerCompare() {
             >
               <NamesBar
                 a={a} b={b}
-                extraA={<>{seasonTag(seasonA, 'volcano')}{seasonA === 50
-                  ? <Tag>{bundle.careerA.filter((r) => r.seasonNum < 50).length} 个赛季</Tag>
+                extraA={<>{seasonTag(seasonA, 'volcano')}{seasonA === CAREER_SEASON
+                  ? <Tag>{bundle.careerA.filter((r) => r.seasonNum < CAREER_SEASON).length} 个赛季</Tag>
                   : rowA ? teamTagA(rowA) : missTag('', '未出战')}</>}
-                extraB={<>{seasonB === 50
-                  ? <Tag>{bundle.careerB.filter((r) => r.seasonNum < 50).length} 个赛季</Tag>
+                extraB={<>{seasonB === CAREER_SEASON
+                  ? <Tag>{bundle.careerB.filter((r) => r.seasonNum < CAREER_SEASON).length} 个赛季</Tag>
                   : rowB ? teamTagB(rowB) : missTag('', '未出战')}{seasonTag(seasonB, 'blue')}</>}
               />
               {!rowA && !rowB
@@ -682,15 +683,15 @@ export default function PlayerCompare() {
                   <NamesBar
                     a={a} b={b}
                     extraA={poRowA
-                      ? <>{seasonTag(seasonA, 'volcano')}{seasonA === 50
-                          ? <Tag>{bundle.poA.filter((r) => r.seasonNum < 50).length} 次季后赛</Tag>
+                      ? <>{seasonTag(seasonA, 'volcano')}{seasonA === CAREER_SEASON
+                          ? <Tag>{bundle.poA.filter((r) => r.seasonNum < CAREER_SEASON).length} 次季后赛</Tag>
                           : <Tag color={PLAYOFF_TAG[poRowA.playoffResult] || 'default'}>{poRowA.playoffResult}</Tag>}</>
-                      : missTag(a.name, seasonA === 50 ? '未进过季后赛' : '未进季后赛')}
+                      : missTag(a.name, seasonA === CAREER_SEASON ? '未进过季后赛' : '未进季后赛')}
                     extraB={poRowB
-                      ? <>{seasonB === 50
-                          ? <Tag>{bundle.poB.filter((r) => r.seasonNum < 50).length} 次季后赛</Tag>
+                      ? <>{seasonB === CAREER_SEASON
+                          ? <Tag>{bundle.poB.filter((r) => r.seasonNum < CAREER_SEASON).length} 次季后赛</Tag>
                           : <Tag color={PLAYOFF_TAG[poRowB.playoffResult] || 'default'}>{poRowB.playoffResult}</Tag>}{seasonTag(seasonB, 'blue')}</>
-                      : missTag(b.name, seasonB === 50 ? '未进过季后赛' : '未进季后赛')}
+                      : missTag(b.name, seasonB === CAREER_SEASON ? '未进过季后赛' : '未进季后赛')}
                   />
                   <ScoreStrip rowA={poRowA} rowB={poRowB} stats={CAREER_STATS} />
                   <CompareRows rowA={poRowA} rowB={poRowB} stats={CAREER_STATS} leagueA={lgA.po} leagueB={lgB.po} rankPrefix="季后赛第" />
@@ -704,7 +705,7 @@ export default function PlayerCompare() {
             const countOf = (h, aw, season) => {
               const arr = h?.[aw.key]
               if (!arr?.length) return 0
-              if (season === 50) return arr.length
+              if (season === CAREER_SEASON) return arr.length
               const hit = aw.key === 'champion'
                 ? arr.some((e) => Number(e.season) === season)
                 : arr.some((x) => Number(x) === season)
@@ -714,7 +715,7 @@ export default function PlayerCompare() {
               .map((aw) => ({ aw, ca: countOf(bundle.honorsA, aw, seasonA), cb: countOf(bundle.honorsB, aw, seasonB) }))
               .filter((r) => r.ca || r.cb)
             // 单赛季附加：MVP/DPOY 票选名次对位（名次小者胜；任一侧为生涯档则不列）
-            const voteRows = (seasonA === 50 || seasonB === 50) ? [] : [
+            const voteRows = (seasonA === CAREER_SEASON || seasonB === CAREER_SEASON) ? [] : [
               { label: 'MVP 票选名次', va: Number(rowA?.mvpRank) || null, vb: Number(rowB?.mvpRank) || null },
               { label: 'DPOY 票选名次', va: Number(rowA?.dpoyRank) || null, vb: Number(rowB?.dpoyRank) || null },
             ].filter((r) => r.va || r.vb)
@@ -749,11 +750,11 @@ export default function PlayerCompare() {
                   <style>{'.hon-row { transition: background .15s; border-radius: 8px; } .hon-row:hover { background: #fafafa; }'}</style>
                   {rows.map(({ aw, ca, cb }) => (
                     <div key={aw.key} className="hon-row" style={{ display: 'flex', alignItems: 'center', padding: '9px 8px' }}>
-                      <div style={{ flex: 1, textAlign: 'right' }}>{cell(ca, ca, cb, A_COLOR, A_TINT, seasonA === 50)}</div>
+                      <div style={{ flex: 1, textAlign: 'right' }}>{cell(ca, ca, cb, A_COLOR, A_TINT, seasonA === CAREER_SEASON)}</div>
                       <div style={{ width: isMobile ? 120 : 190, textAlign: 'center', fontWeight: aw.gold ? 700 : 500 }}>
                         <span style={{ marginRight: 6 }}>{aw.icon}</span>{aw.label}
                       </div>
-                      <div style={{ flex: 1, textAlign: 'left' }}>{cell(cb, cb, ca, B_COLOR, B_TINT, seasonB === 50)}</div>
+                      <div style={{ flex: 1, textAlign: 'left' }}>{cell(cb, cb, ca, B_COLOR, B_TINT, seasonB === CAREER_SEASON)}</div>
                     </div>
                   ))}
                   {voteRows.map((r) => {

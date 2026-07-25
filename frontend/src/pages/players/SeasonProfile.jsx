@@ -4,7 +4,7 @@ import { Card, Col, Empty, Row, Space, Spin, Tag } from 'antd'
 import SeasonPicker from '../../components/SeasonPicker'
 import RadarChart from '../../components/RadarChart'
 import { playerApi } from '../../api/player'
-import { PLAYOFF_TAG, fmtNum, fmtTeamChain, seasonYearLabel, fmtPct, statQualified } from './rankConfig'
+import { CAREER_SEASON, PLAYOFF_TAG, fmtNum, fmtTeamChain, seasonYearLabel, fmtPct, statQualified } from './rankConfig'
 import { CAREER_AWARDS } from './honorConfig'
 
 /**
@@ -93,10 +93,10 @@ export default function SeasonProfile({ playerId, honors }) {
       playerApi.listPlayerPlayoffs(playerId),
     ]).then(([c, p]) => {
       if (!alive) return
-      const rows = c.records || [] // 含 seasonNum=50 生涯汇总行（"生涯"档用）
+      const rows = c.records || [] // 含 seasonNum=CAREER_SEASON 生涯汇总行（"生涯"档用）
       setCareer(rows)
       setPoRows(p || [])
-      const played = rows.filter((r) => r.seasonNum < 50).map((r) => r.seasonNum)
+      const played = rows.filter((r) => r.seasonNum < CAREER_SEASON).map((r) => r.seasonNum)
       // URL 没带赛季时默认展示最近打过的赛季
       setSeasonNum((cur) => cur || (played.length ? Math.max(...played) : 1))
     }).catch(() => {
@@ -133,7 +133,7 @@ export default function SeasonProfile({ playerId, honors }) {
     CAREER_AWARDS.forEach((a) => {
       const arr = honors[a.key]
       if (!arr?.length) return
-      if (seasonNum === 50) {
+      if (seasonNum === CAREER_SEASON) {
         out.push({ ...a, count: arr.length }) // 生涯档：全部荣誉 ×N
         return
       }

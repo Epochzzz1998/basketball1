@@ -3,6 +3,7 @@ import { EditableProTable } from '@ant-design/pro-components'
 import { Button, Popconfirm, message } from 'antd'
 import { useParams, Link } from 'react-router-dom'
 import { playerApi } from '../../api/player'
+import { CAREER_SEASON } from './rankConfig'
 
 // [字段, 列名, 类型]：数字用 digit(InputNumber)，文本用 text
 const STAT_FIELDS = [
@@ -22,13 +23,13 @@ const STAT_FIELDS = [
   ['allDbaTeam', '最佳阵容', 'text'], ['allDefTeam', '最佳防守', 'text'],
 ]
 
-const SUMMARY_SEASON = 50 // 生涯汇总行（season/seasonNum=50），由后端重算，不可删
+const SUMMARY_SEASON = CAREER_SEASON // 生涯汇总行（season/seasonNum=CAREER_SEASON），由后端重算，不可删
 const isTemp = (id) => typeof id === 'string' && id.startsWith('new-')
 
 /**
  * 某球员生涯逐季数据管理（superManager）。替代 player-stats-manager-list.ftl。
  * "新增一行赛季"只在前端本地追加（带 new- 临时 id），点"保存全部"才入库——
- * savePlayerStats 对空 statsId 会补 UUID 再保存，并重算生涯汇总行(seasonNum=50)。
+ * savePlayerStats 对空 statsId 会补 UUID 再保存，并重算生涯汇总行(seasonNum=99)。
  */
 export default function PlayerStatsManage() {
   const { playerId } = useParams()

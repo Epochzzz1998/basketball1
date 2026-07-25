@@ -29,7 +29,9 @@ import po_rounds_br  # authoritative playoff rounds from B-R series lists
 
 CACHE = Path(__file__).parent / 'br_ids_cache.json'
 BR2CODE = {'CHH': 'CHA', 'WSB': 'WAS', 'VAN': 'MEM', 'SEA': 'OKC', 'NJN': 'BKN', 'PHO': 'PHX',
-           'NOH': 'NOP', 'NOK': 'NOP', 'BRK': 'BKN', 'CHO': 'CHA'}
+           'NOH': 'NOP', 'NOK': 'NOP', 'BRK': 'BKN', 'CHO': 'CHA',
+           # 1976-1986 era franchises (mapped to their modern lines)
+           'BUF': 'LAC', 'SDC': 'LAC', 'NOJ': 'UTA', 'KCK': 'SAC', 'NYN': 'BKN'}
 
 
 def norm(s):
@@ -37,6 +39,54 @@ def norm(s):
     s = ''.join(c for c in s if not unicodedata.combining(c))
     s = s.lower().replace('.', '').replace("'", '').replace('-', ' ').replace('*', '')
     return re.sub(r'\s+', ' ', s).strip()
+
+
+def fetch_br_standings(year):
+    """teamCode -> {wins, losses, ppg, oppg, reb, ast, stl, blk, tov} from the B-R season
+    page. ESPN standings come back EMPTY before the mid-80s; B-R has W/L plus full team
+    per-game splits in one page (secondary tables are hidden inside HTML comments)."""
+    req = urllib.request.Request(f'https://www.basketball-reference.com/leagues/NBA_{year}.html',
+                                 headers=sync.UA)
+    page = urllib.request.urlopen(req, timeout=30).read().decode('utf-8', 'replace')
+    page = page.replace('<!--', '').replace('-->', '')
+    out = {}
+    for tid in ('divs_standings_E', 'divs_standings_W'):
+        m = re.search(rf'<table[^>]*id="{tid}".*?</table>', page, re.S)
+        if not m:
+            continue
+        for br, w, l in re.findall(
+                rf'/teams/([A-Z]{{3}})/{year}\.html[^>]*>[^<]+</a>.*?'
+                rf'data-stat="wins"[^>]*>(\d+)<.*?data-stat="losses"[^>]*>(\d+)<',
+                m.group(0), re.S):
+            out[BR2CODE.get(br, br)] = {'wins': int(w), 'losses': int(l)}
+
+    def table_vals(table_id, stat_keys):
+        m = re.search(rf'<table[^>]*id="{table_id}".*?</table>', page, re.S)
+        res = {}
+        if not m:
+            return res
+        for row in re.findall(r'<tr[^>]*>.*?</tr>', m.group(0), re.S):
+            t = re.search(rf'/teams/([A-Z]{{3}})/{year}\.html', row)
+            if not t:
+                continue
+            vals = {}
+            for k in stat_keys:
+                mm = re.search(rf'data-stat="{k}"[^>]*>([0-9.]+)<', row)
+                if mm:
+                    vals[k] = float(mm.group(1))
+            res[BR2CODE.get(t.group(1), t.group(1))] = vals
+        return res
+
+    team_pg = table_vals('per_game-team', ('pts', 'trb', 'ast', 'stl', 'blk', 'tov'))
+    opp_pg = table_vals('per_game-opponent', ('opp_pts', 'pts'))
+    for code, st in out.items():
+        pg = team_pg.get(code, {})
+        st['ppg'] = pg.get('pts')
+        st['reb'], st['ast'], st['stl'] = pg.get('trb'), pg.get('ast'), pg.get('stl')
+        st['blk'], st['tov'] = pg.get('blk'), pg.get('tov')
+        opp = opp_pg.get(code, {})
+        st['oppg'] = opp.get('opp_pts') or opp.get('pts')
+    return out
 
 
 def strip_suffix(n):
@@ -218,7 +268,7 @@ def main():
     ap.add_argument('--dry-run', action='store_true')
     args = ap.parse_args()
     year = args.season
-    season_num = year - 1986
+    season_num = year - 1976
     print(f'== B-R backfill: {year - 1}-{str(year)[2:]} -> site season {season_num} ==')
 
     print('[1/5] B-R per-game tables')
@@ -242,6 +292,10 @@ def main():
     team_ids = {sync.code_of(t['team']['abbreviation']): t['team']['id'] for t in teams}
     id_to_code = {str(v): k for k, v in team_ids.items()}
     standings = sync.fetch_standings(year, id_to_code)
+    # old years: ESPN returns W/L but no points at all (or nothing) — B-R page has the lot
+    if not standings or all(st.get('ppg') is None for st in standings.values()):
+        print('  ESPN standings unusable this year -> B-R season page (W/L + team per-game)')
+        standings = fetch_br_standings(year)
     # ESPN playoff schedules are incomplete this far back — rounds come from B-R series lists
     po_results = po_rounds_br.rounds_map(year)
     time.sleep(3.5)
@@ -291,16 +345,20 @@ def main():
         if awards.get(field):
             lines.append("INSERT INTO season_award (SEASON_NUM, AWARD, PLAYER_ID) "
                          f"VALUES ({season_num}, '{field}', 'nba-{awards[field]}');")
-    # team_season: W/L + ppg/oppg from standings totals; per-game detail columns stay NULL pre-1994
+    # team_season: W/L + ppg/oppg; when the B-R fallback supplied per-game detail
+    # (reb/ast/stl/blk/tov) write it too — ESPN-era pre-1994 rows keep those NULL
     for code, st in standings.items():
         result = po_results.get(code, '未进季后赛')
-        po_games = sum(1 for v in po.values() if v['chain'] and v['chain'][-1] == code)
         lines.append(
-            "INSERT INTO team_season (TEAM_CODE, SEASON_NUM, WINS, LOSSES, PTS_ALLOWED, PTS, PLAYOFF_RESULT) "
+            "INSERT INTO team_season (TEAM_CODE, SEASON_NUM, WINS, LOSSES, PTS_ALLOWED, PTS, "
+            "REB, AST, STL, BLK, TOV, PLAYOFF_RESULT) "
             f"VALUES ('{sync.esc(code)}', {season_num}, {st['wins']}, {st['losses']}, "
-            f"{sync.num(st.get('oppg'))}, {sync.num(st.get('ppg'))}, '{sync.esc(result)}') "
+            f"{sync.num(st.get('oppg'))}, {sync.num(st.get('ppg'))}, "
+            f"{sync.num(st.get('reb'))}, {sync.num(st.get('ast'))}, {sync.num(st.get('stl'))}, "
+            f"{sync.num(st.get('blk'))}, {sync.num(st.get('tov'))}, '{sync.esc(result)}') "
             "ON DUPLICATE KEY UPDATE WINS=VALUES(WINS), LOSSES=VALUES(LOSSES), "
-            "PTS_ALLOWED=VALUES(PTS_ALLOWED), PTS=VALUES(PTS), PLAYOFF_RESULT=VALUES(PLAYOFF_RESULT);")
+            "PTS_ALLOWED=VALUES(PTS_ALLOWED), PTS=VALUES(PTS), REB=VALUES(REB), AST=VALUES(AST), "
+            "STL=VALUES(STL), BLK=VALUES(BLK), TOV=VALUES(TOV), PLAYOFF_RESULT=VALUES(PLAYOFF_RESULT);")
     lines.append("COMMIT;")
 
     out = Path(__file__).parent / f'nba_sync_{year}.sql'

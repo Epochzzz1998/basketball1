@@ -36,6 +36,9 @@ NAME2CODE = {
     'Portland Trail Blazers': 'POR', 'Sacramento Kings': 'SAC', 'San Antonio Spurs': 'SAS',
     'Toronto Raptors': 'TOR', 'Utah Jazz': 'UTA',
     'Washington Wizards': 'WAS', 'Washington Bullets': 'WAS',
+    # 1976-1986 era franchises
+    'Buffalo Braves': 'LAC', 'San Diego Clippers': 'LAC', 'New Orleans Jazz': 'UTA',
+    'Kansas City Kings': 'SAC', 'New York Nets': 'BKN',
 }
 ROUND_LABEL = [
     ('Finals', None),  # handled specially (winner champion / loser finals)
@@ -75,8 +78,11 @@ def fetch_series(year):
 def rounds_map(year):
     """teamCode -> PLAYOFF_RESULT for that season, from B-R series list"""
     series = fetch_series(year)
-    if len(series) < 15:
-        raise RuntimeError(f'{year}: only {len(series)} series parsed')
+    # 1977-1983: 12-team bracket (top-2 seeds bye the first round) = 11 series total;
+    # 16-team era = 15 series
+    expected = 11 if year <= 1983 else 15
+    if len(series) < expected:
+        raise RuntimeError(f'{year}: only {len(series)} series parsed (expected {expected})')
     res = {}
     for rnd, w, l in series:
         # the championship series is labeled "Finals" or "NBA Finals" depending on era
@@ -93,7 +99,7 @@ def rounds_map(year):
 
 
 def apply(year, dry=False):
-    season_num = year - 1986
+    season_num = year - 1976
     res = rounds_map(year)
     champ = [c for c, r in res.items() if r == '总冠军']
     print(f'{year} (season {season_num}): {len(res)} playoff teams, champion={champ}')

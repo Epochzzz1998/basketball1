@@ -1,39 +1,40 @@
 import { useEffect, useState } from 'react'
 import { Popover, Segmented } from 'antd'
 import { CaretDownOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons'
-import { LATEST_SEASON, seasonShort, seasonYearLabel } from '../pages/players/rankConfig'
+import { CAREER_SEASON, LATEST_SEASON, SEASON_BASE, seasonShort, seasonYearLabel } from '../pages/players/rankConfig'
 
 /**
  * 全站统一的赛季选择器（与顶栏搜索胶囊同一设计语言）：
  * `‹ | 2015-2016 赛季 ▾ | ›` 三段式胶囊——左右箭头逐季步进，
- * 点中间弹出**按年代分组**的年份网格（40 季一页太长：顶部 80/90/00/10/20 年代
+ * 点中间弹出**按年代分组**的年份网格（50 季一页太长：顶部 70/80/90/00/10/20 年代
  * 切换，每组最多 10 个芯片；默认落在当前选中赛季的年代）。
- * 赛季范围/标签一律来自 rankConfig（锚点 1986、最近 40 年），不在此处另行硬编码。
+ * 赛季范围/标签一律来自 rankConfig（锚点 1976、最近 50 年），不在此处另行硬编码。
  */
 
 const MAX_SEASON = LATEST_SEASON
-// 赛季 → 起始年所在年代（1985+n：第 1 季=1986 → 80 年代）
-const eraOf = (n) => Math.floor((1985 + n) / 10) * 10
+// 赛季 → 起始年所在年代（SEASON_BASE+n：第 1 季=1976 → 70 年代）
+const eraOf = (n) => Math.floor((SEASON_BASE + n) / 10) * 10
 const ERAS = [...new Set(Array.from({ length: MAX_SEASON }, (_, i) => eraOf(i + 1)))]
 const eraLabel = (e) => `${String(e).slice(-2)}s` // '80s'——「80年代」在分段条里放不下会截断
 
-export default function SeasonPicker({ value, onChange, includeCareer = true }) {
+export default function SeasonPicker({ value, onChange, includeCareer = true, compact = false }) {
   const [open, setOpen] = useState(false)
   const [hover, setHover] = useState(false)
-  const [era, setEra] = useState(eraOf(value === 50 ? MAX_SEASON : value || MAX_SEASON))
+  const [era, setEra] = useState(eraOf(value === CAREER_SEASON ? MAX_SEASON : value || MAX_SEASON))
 
   // 每次展开都回到当前选中赛季所在的年代
   useEffect(() => {
-    if (open) setEra(eraOf(value === 50 ? MAX_SEASON : value || MAX_SEASON))
+    if (open) setEra(eraOf(value === CAREER_SEASON ? MAX_SEASON : value || MAX_SEASON))
   }, [open, value])
-  const isCareer = value === 50
+  const isCareer = value === CAREER_SEASON
   const canPrev = !isCareer && value > 1
   const canNext = !isCareer && value < MAX_SEASON
 
   const step = (d) => onChange(Math.min(MAX_SEASON, Math.max(1, value + d)))
 
+  // compact：给窄屏并排两只用（对比页移动端）——箭头/字号/内边距整体收紧
   const arrow = (enabled, side) => ({
-    width: 28, alignSelf: 'stretch', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    width: compact ? 22 : 28, alignSelf: 'stretch', display: 'flex', alignItems: 'center', justifyContent: 'center',
     color: enabled ? '#888' : '#ddd', cursor: enabled ? 'pointer' : 'not-allowed', fontSize: 10,
     borderRight: side === 'l' ? '1px solid #f0f0f0' : 'none',
     borderLeft: side === 'r' ? '1px solid #f0f0f0' : 'none',
@@ -81,7 +82,7 @@ export default function SeasonPicker({ value, onChange, includeCareer = true }) 
       {includeCareer && (
         <div
           className="season-chip"
-          onClick={() => { onChange(50); setOpen(false) }}
+          onClick={() => { onChange(CAREER_SEASON); setOpen(false) }}
           style={{
             ...chipBase, marginTop: 8,
             ...(isCareer ? { background: '#fa541c', borderColor: '#fa541c', color: '#fff', fontWeight: 700 } : { color: '#555' }),
@@ -115,12 +116,15 @@ export default function SeasonPicker({ value, onChange, includeCareer = true }) 
       >
         <div
           style={{
-            display: 'flex', alignItems: 'center', gap: 6, padding: '0 12px', cursor: 'pointer',
-            fontSize: 13, fontWeight: 600, color: '#333', minWidth: 122, justifyContent: 'center',
+            display: 'flex', alignItems: 'center', gap: compact ? 4 : 6, padding: compact ? '0 8px' : '0 12px',
+            cursor: 'pointer',
+            fontSize: compact ? 12 : 13, fontWeight: 600, color: '#333', minWidth: compact ? 0 : 122,
+            justifyContent: 'center',
             fontVariantNumeric: 'tabular-nums',
           }}
         >
-          {value === 50 ? '生涯' : seasonYearLabel(value)}
+          {/* compact 用短标签（25-26）——全称两只并排在 390px 宽度里放不下 */}
+          {value === CAREER_SEASON ? '生涯' : compact ? seasonShort(value) : seasonYearLabel(value)}
           <CaretDownOutlined
             style={{ fontSize: 10, color: '#999', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}
           />

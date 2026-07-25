@@ -4,7 +4,7 @@ import { useParams, Link } from 'react-router-dom'
 import { Button, Card, Col, ConfigProvider, Empty, Row, Segmented, Space, Spin, Tag } from 'antd'
 import { BarChartOutlined, FireOutlined, IdcardOutlined, TrophyOutlined } from '@ant-design/icons'
 import { playerApi } from '../../api/player'
-import { PLAYOFF_TAG, fmtNum as num, fmtPair, fmtReb, fmtTeamChain, seasonYearLabel, seasonShort, fmtPct } from './rankConfig'
+import { CAREER_SEASON, PLAYOFF_TAG, fmtNum as num, fmtPair, fmtReb, fmtTeamChain, seasonYearLabel, seasonShort, fmtPct } from './rankConfig'
 import { CAREER_AWARDS } from './honorConfig'
 import { compactColumns, sumColWidth } from './statColumns'
 import SeasonProfile from './SeasonProfile'
@@ -80,7 +80,7 @@ function HonorShelf({ honors }) {
 function CareerTable({ playerId }) {
   const isMobile = useIsMobile()
   const columns = [
-    { title: '赛季', dataIndex: 'seasonNum', width: 64, fixed: 'left', render: (s) => (s === 50 ? '生涯' : seasonShort(s)) },
+    { title: '赛季', dataIndex: 'seasonNum', width: 64, fixed: 'left', render: (s) => (s === CAREER_SEASON ? '生涯' : seasonShort(s)) },
     { title: '球队', dataIndex: 'playerTeam', width: 64, render: (v) => fmtTeamChain(v) },
     { title: '位置', dataIndex: 'playerPosition', width: 46 },
     { title: '首发/出场', dataIndex: 'playerAppearance', width: 80, render: (_, r) => `${r.playerFrAppearance ?? 0}/${r.playerAppearance ?? 0}` },
@@ -153,7 +153,7 @@ function PlayoffTable({ playerId }) {
   if (!rows.length) return <Empty description="生涯未进过季后赛" />
 
   const columns = [
-    { title: '赛季', dataIndex: 'seasonNum', width: 64, fixed: 'left', render: (s) => (s === 50 ? '生涯' : seasonShort(s)) },
+    { title: '赛季', dataIndex: 'seasonNum', width: 64, fixed: 'left', render: (s) => (s === CAREER_SEASON ? '生涯' : seasonShort(s)) },
     { title: '球队', dataIndex: 'playerTeam', width: 64, render: (v) => fmtTeamChain(v) },
     {
       title: '成绩', dataIndex: 'playoffResult', width: 92,

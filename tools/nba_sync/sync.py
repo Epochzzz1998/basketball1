@@ -8,7 +8,7 @@ Idempotent by design:
   - players upsert on PLAYER_ID 'nba-<espnId>'; PLAYER_NAME is written on INSERT only,
     so a later hand-translation to Chinese survives every future sync (NAME_EN keeps English)
   - per-season rows are DELETE+INSERT scoped to (this season, PLAYER_ID LIKE 'nba-%')
-  - career rows (SEASON_NUM=50) recomputed from all nba-% season rows, games-weighted
+  - career rows (SEASON_NUM=99, decimal(2,0) ceiling) recomputed from all nba-% season rows, games-weighted
   - team_season upserts W/L and points-allowed only — PLAYOFF_RESULT (总冠军 etc) and all
     honor columns / season_award rows are hand-maintained and never touched
 
@@ -461,13 +461,13 @@ def stat_row_sql(table, season_num, suffix, r, ident, detail, season_teams):
 
 
 def career_sql(table):
-    """recompute career rows (SEASON_NUM=50) for all nba-% players: games-weighted over their season rows"""
+    """recompute career rows (SEASON_NUM=99 sentinel) for all nba-% players: games-weighted over their season rows"""
     w = lambda col: f'ROUND(SUM({col}*PLAYER_APPEARANCE)/NULLIF(SUM(PLAYER_APPEARANCE),0),3)'
     ratio = lambda made, att: f'ROUND(SUM({made}*PLAYER_APPEARANCE)/NULLIF(SUM({att}*PLAYER_APPEARANCE),0),4)'
     return (
-        f"DELETE FROM {table} WHERE PLAYER_ID LIKE 'nba-%' AND SEASON_NUM=50;\n"
+        f"DELETE FROM {table} WHERE PLAYER_ID LIKE 'nba-%' AND SEASON_NUM=99;\n"
         f"INSERT INTO {table} ({STAT_COLS})\n"
-        f"SELECT CONCAT(PLAYER_ID,'-career'), PLAYER_ID, 50, 50, '/', "
+        f"SELECT CONCAT(PLAYER_ID,'-career'), PLAYER_ID, 99, 99, '/', "
         f"SUBSTRING_INDEX(GROUP_CONCAT(PLAYER_POSITION ORDER BY SEASON_NUM DESC),',',1), SUM(PLAYER_APPEARANCE), "
         f"{w('PLAYING_TIME')}, {w('PLAYER_AVG_SCORE')}, {w('PLAYER_AVG_REB')}, {w('PLAYER_AVG_ASS')}, "
         f"{w('PLAYER_AVG_STEAL')}, {w('PLAYER_AVG_BLOCK')}, {w('PLAYER_AVG_TURNOVER')}, "
@@ -477,17 +477,17 @@ def career_sql(table):
         f"{w('PLAYER_PER')}, "
         f"SUM(PLAYER_FR_APPEARANCE), SUM(PLAYER_SR_APPEARANCE), "
         f"{w('PLAYER_AVG_OFF_REB')}, {w('PLAYER_AVG_DEF_REB')} "
-        f"FROM {table} WHERE PLAYER_ID LIKE 'nba-%' AND SEASON_NUM<>50 GROUP BY PLAYER_ID;"
+        f"FROM {table} WHERE PLAYER_ID LIKE 'nba-%' AND SEASON_NUM<>99 GROUP BY PLAYER_ID;"
     )
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--season', type=int, default=2026, help='ESPN season year (2026 = 2025-26 = site season 40)')
+    ap.add_argument('--season', type=int, default=2026, help='ESPN season year (2026 = 2025-26 = site season 50)')
     ap.add_argument('--ids-file', help='JSON list of {espnId,name,pos,team} to force-include (pre-1994 discovery)')
     ap.add_argument('--dry-run', action='store_true', help='write the SQL file but do not execute it')
     args = ap.parse_args()
-    season_num = args.season - 1986  # 2026 -> 40 -> label 2025-2026 (site formula: (1985+n)-(1986+n), 40-year window since 1986-87)
+    season_num = args.season - 1976  # 2026 -> 50 -> label 2025-2026 (site formula: (1975+n)-(1976+n), 50-year window since 1976-77)
     print(f'== NBA sync: ESPN season {args.season} -> site season_num {season_num} ==')
 
     print('[1/6] rosters (identity: jersey/position/birthday)')

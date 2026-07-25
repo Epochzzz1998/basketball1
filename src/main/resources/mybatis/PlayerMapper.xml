@@ -49,7 +49,7 @@
             </when>
             <otherwise>
                 <!-- career page default: newest season on top, career summary row (50) pinned last -->
-                order by (s.SEASON_NUM = 50), s.SEASON_NUM desc
+                order by (s.SEASON_NUM = 99), s.SEASON_NUM desc
             </otherwise>
         </choose>
     </select>
@@ -58,31 +58,31 @@
     <select id="findPlayerCrowns" resultType="java.util.HashMap">
         select award, season from (
             select 'scoring' as award, ps.SEASON_NUM as season from player_stats ps
-            where ps.PLAYER_ID = #{playerId} and ps.SEASON_NUM &lt; 50 and ps.PLAYER_AVG_SCORE is not null
+            where ps.PLAYER_ID = #{playerId} and ps.SEASON_NUM &lt; 99 and ps.PLAYER_AVG_SCORE is not null
               <!-- 数据王资格：对手池限出场≥58；本人不足 58 场时按补 0 到 58 场折算（NBA 补场规则） -->
               and ps.PLAYER_AVG_SCORE * LEAST(IFNULL(ps.PLAYER_APPEARANCE, 0), 58) / 58 &gt;=
                   (select max(p2.PLAYER_AVG_SCORE) from player_stats p2 where p2.SEASON_NUM = ps.SEASON_NUM and IFNULL(p2.PLAYER_APPEARANCE, 0) &gt;= 58)
             union all
             select 'rebounds', ps.SEASON_NUM from player_stats ps
-            where ps.PLAYER_ID = #{playerId} and ps.SEASON_NUM &lt; 50 and ps.PLAYER_AVG_REB is not null
+            where ps.PLAYER_ID = #{playerId} and ps.SEASON_NUM &lt; 99 and ps.PLAYER_AVG_REB is not null
               <!-- 数据王资格：对手池限出场≥58；本人不足 58 场时按补 0 到 58 场折算（NBA 补场规则） -->
               and ps.PLAYER_AVG_REB * LEAST(IFNULL(ps.PLAYER_APPEARANCE, 0), 58) / 58 &gt;=
                   (select max(p2.PLAYER_AVG_REB) from player_stats p2 where p2.SEASON_NUM = ps.SEASON_NUM and IFNULL(p2.PLAYER_APPEARANCE, 0) &gt;= 58)
             union all
             select 'assists', ps.SEASON_NUM from player_stats ps
-            where ps.PLAYER_ID = #{playerId} and ps.SEASON_NUM &lt; 50 and ps.PLAYER_AVG_ASS is not null
+            where ps.PLAYER_ID = #{playerId} and ps.SEASON_NUM &lt; 99 and ps.PLAYER_AVG_ASS is not null
               <!-- 数据王资格：对手池限出场≥58；本人不足 58 场时按补 0 到 58 场折算（NBA 补场规则） -->
               and ps.PLAYER_AVG_ASS * LEAST(IFNULL(ps.PLAYER_APPEARANCE, 0), 58) / 58 &gt;=
                   (select max(p2.PLAYER_AVG_ASS) from player_stats p2 where p2.SEASON_NUM = ps.SEASON_NUM and IFNULL(p2.PLAYER_APPEARANCE, 0) &gt;= 58)
             union all
             select 'steals', ps.SEASON_NUM from player_stats ps
-            where ps.PLAYER_ID = #{playerId} and ps.SEASON_NUM &lt; 50 and ps.PLAYER_AVG_STEAL is not null
+            where ps.PLAYER_ID = #{playerId} and ps.SEASON_NUM &lt; 99 and ps.PLAYER_AVG_STEAL is not null
               <!-- 数据王资格：对手池限出场≥58；本人不足 58 场时按补 0 到 58 场折算（NBA 补场规则） -->
               and ps.PLAYER_AVG_STEAL * LEAST(IFNULL(ps.PLAYER_APPEARANCE, 0), 58) / 58 &gt;=
                   (select max(p2.PLAYER_AVG_STEAL) from player_stats p2 where p2.SEASON_NUM = ps.SEASON_NUM and IFNULL(p2.PLAYER_APPEARANCE, 0) &gt;= 58)
             union all
             select 'blocks', ps.SEASON_NUM from player_stats ps
-            where ps.PLAYER_ID = #{playerId} and ps.SEASON_NUM &lt; 50 and ps.PLAYER_AVG_BLOCK is not null
+            where ps.PLAYER_ID = #{playerId} and ps.SEASON_NUM &lt; 99 and ps.PLAYER_AVG_BLOCK is not null
               <!-- 数据王资格：对手池限出场≥58；本人不足 58 场时按补 0 到 58 场折算（NBA 补场规则） -->
               and ps.PLAYER_AVG_BLOCK * LEAST(IFNULL(ps.PLAYER_APPEARANCE, 0), 58) / 58 &gt;=
                   (select max(p2.PLAYER_AVG_BLOCK) from player_stats p2 where p2.SEASON_NUM = ps.SEASON_NUM and IFNULL(p2.PLAYER_APPEARANCE, 0) &gt;= 58)
@@ -122,7 +122,7 @@
         left join team_season ts on ts.SEASON_NUM = s.SEASON_NUM
             and ts.TEAM_CODE = SUBSTRING_INDEX(s.PLAYER_TEAM, '->', -1)
         where s.PLAYER_ID = #{playerId}
-        order by (s.SEASON_NUM = 50), s.SEASON_NUM desc
+        order by (s.SEASON_NUM = 99), s.SEASON_NUM desc
     </select>
 
     <!-- 该球员的特别奖（FMVP/最佳第六人/最快进步球员/最佳新秀），来自 season_award 表 -->
