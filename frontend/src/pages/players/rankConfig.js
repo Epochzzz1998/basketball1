@@ -102,6 +102,13 @@ export const fmtReb = (total, off, def) =>
 // 零宽空格，窄列只在队码边界换行；标签类宽松场合可传 ' → '。
 export const fmtTeamChain = (v, sep = '\u2192\u200b') => String(v || '').split('->').join(sep)
 
+// \u961f\u7801 \u2192 \u4e2d\u6587\u961f\u540d\uff08\u6570\u636e\u8868\u4e00\u5f8b\u663e\u793a\u4e2d\u6587\uff1b\u751f\u6daf\u6c47\u603b\u884c\u7684\u5360\u4f4d\u7b26 '/' \u4e0e\u8ba4\u4e0d\u51fa\u7684\u961f\u7801\u539f\u6837\u8f93\u51fa\uff09
+export const teamZh = (code) => NBA_TEAM_NAMES[String(code ?? '').trim().toUpperCase()] || String(code ?? '')
+
+// \u4ea4\u6613\u94fe\u7684\u4e2d\u6587\u7248\uff1a'CHI->BOS' \u2192 '\u516c\u725b\u2192\u51ef\u5c14\u7279\u4eba'\uff08\u7bad\u5934\u540e\u540c\u6837\u57ab\u96f6\u5bbd\u7a7a\u683c\uff0c\u7a84\u5217\u53ea\u5728\u961f\u540d\u8fb9\u754c\u65ad\u884c\uff09
+export const fmtTeamChainZh = (v, sep = '\u2192\u200b') =>
+  String(v || '').split('->').map((s) => teamZh(s)).join(sep)
+
 // 季后赛成绩 → Tag 颜色（球队排行/球队页共用）
 export const PLAYOFF_TAG = {
   总冠军: 'gold', 总决赛: 'volcano', 分区决赛: 'purple', 半决赛: 'geekblue', 首轮: 'cyan', 未进季后赛: 'default',

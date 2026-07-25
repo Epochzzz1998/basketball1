@@ -4,10 +4,10 @@ import { useParams, Link } from 'react-router-dom'
 import { Button, Card, Col, ConfigProvider, Empty, Row, Segmented, Space, Spin, Tag } from 'antd'
 import { BarChartOutlined, FireOutlined, IdcardOutlined, TrophyOutlined } from '@ant-design/icons'
 import { playerApi } from '../../api/player'
-import { CAREER_SEASON, PLAYOFF_TAG, fmtNum as num, fmtPair, fmtReb, seasonYearLabel, seasonShort, fmtPct } from './rankConfig'
+import { CAREER_SEASON, NBA_TEAM_NAMES, PLAYOFF_TAG, fmtNum as num, fmtPair, fmtReb, seasonYearLabel, seasonShort, fmtPct } from './rankConfig'
 import { CAREER_AWARDS } from './honorConfig'
 import { compactColumns, sumColWidth } from './statColumns'
-import { TeamCell } from '../../components/TeamLogo'
+import TeamLogo, { TeamNames } from '../../components/TeamLogo'
 import SeasonProfile from './SeasonProfile'
 import useIsMobile from '../../hooks/useIsMobile'
 
@@ -82,7 +82,7 @@ function CareerTable({ playerId }) {
   const isMobile = useIsMobile()
   const columns = [
     { title: '赛季', dataIndex: 'seasonNum', width: 64, fixed: 'left', render: (s) => (s === CAREER_SEASON ? '生涯' : seasonShort(s)) },
-    { title: '球队', dataIndex: 'playerTeam', width: 78, render: (v) => <TeamCell value={v} /> },
+    { title: '球队', dataIndex: 'playerTeam', width: 78, render: (v) => <TeamNames value={v} /> },
     { title: '位置', dataIndex: 'playerPosition', width: 46 },
     { title: '首发/出场', dataIndex: 'playerAppearance', width: 80, render: (_, r) => `${r.playerFrAppearance ?? 0}/${r.playerAppearance ?? 0}` },
     { title: '时间', dataIndex: 'playingTime', width: 48, render: (v) => num(v) },
@@ -155,7 +155,7 @@ function PlayoffTable({ playerId }) {
 
   const columns = [
     { title: '赛季', dataIndex: 'seasonNum', width: 64, fixed: 'left', render: (s) => (s === CAREER_SEASON ? '生涯' : seasonShort(s)) },
-    { title: '球队', dataIndex: 'playerTeam', width: 78, render: (v) => <TeamCell value={v} /> },
+    { title: '球队', dataIndex: 'playerTeam', width: 78, render: (v) => <TeamNames value={v} /> },
     {
       title: '成绩', dataIndex: 'playoffResult', width: 92,
       render: (v) => (v ? <Tag color={PLAYOFF_TAG[v] || 'default'}>{v}</Tag> : '-'),
@@ -210,12 +210,19 @@ const TAB_OPTIONS = [
 /** 球员主页（/players/:playerId）：身份头 + 赛季资料卡 / 生涯数据 / 生涯荣誉 */
 export default function PlayerCareer() {
   const { playerId } = useParams()
+  const isMobile = useIsMobile()
   const [honors, setHonors] = useState(null)
   const [tab, setTab] = useState('profile')
+  // 资料卡选中赛季所属球队（由 SeasonProfile 回报）：身份头右侧那枚大队标就认它。
+  // 交易赛季取最后一站＝赛季结束时所在的队；生涯档没有单一球队，不出队标。
+  const [seasonTeam, setSeasonTeam] = useState(null)
+  const teamCode = String(seasonTeam || '').split('->').pop().trim().toUpperCase()
+  const showTeamLogo = !!NBA_TEAM_NAMES[teamCode]
 
   useEffect(() => {
     let alive = true
     setHonors(null)
+    setSeasonTeam(null) // 换球员先清掉，别让上一位的队标停在头上
     playerApi.playerHonors(playerId)
       .then((d) => { if (alive) setHonors(d || {}) })
       .catch(() => { if (alive) setHonors({}) })
@@ -228,8 +235,9 @@ export default function PlayerCareer() {
 
   return (
     <>
-      {/* 球员身份头 */}
+      {/* 球员身份头：左边身份，右边一枚大队标（资料卡当前赛季所属球队） */}
       <Card style={{ marginBottom: 16 }} styles={{ body: { padding: '18px 24px' } }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <Space size={16} align="center">
           {/* 有照片就上照片（超管在球员管理里传），没有则沿用球衣号圆牌 */}
           {honors?.photo ? (
@@ -263,11 +271,18 @@ export default function PlayerCareer() {
             {honors?.nameEn && honors.nameEn !== honors.playerName && (
               <div style={{ color: '#999', fontSize: 13, fontStyle: 'italic' }}>{honors.nameEn}</div>
             )}
+            {/* 手机上省掉括号里的注解，否则右边那枚队标一挤，这行会从「冠军」中间断开 */}
             <div style={{ color: '#999', fontSize: 13 }}>
-              {goldCount > 0 ? `顶级荣誉 ×${goldCount}（冠军/MVP/DPOY）` : '生涯逐季数据与荣誉'}
+              {goldCount > 0
+                ? `顶级荣誉 ×${goldCount}${isMobile ? '' : '（冠军/MVP/DPOY）'}`
+                : '生涯逐季数据与荣誉'}
             </div>
           </div>
         </Space>
+        {showTeamLogo && (
+          <TeamLogo code={teamCode} size={isMobile ? 60 : 76} style={{ flexShrink: 0 }} />
+        )}
+        </div>
       </Card>
       {/* 胶囊分段器（替代默认 Tabs） */}
       <ConfigProvider
@@ -300,7 +315,7 @@ export default function PlayerCareer() {
           }))}
         />
       </ConfigProvider>
-      {tab === 'profile' && <SeasonProfile playerId={playerId} honors={honors} />}
+      {tab === 'profile' && <SeasonProfile playerId={playerId} honors={honors} onTeamChange={setSeasonTeam} />}
       {tab === 'career' && <CareerTable playerId={playerId} />}
       {tab === 'playoffs' && <PlayoffTable playerId={playerId} />}
       {tab === 'honors' && <HonorShelf honors={honors} />}

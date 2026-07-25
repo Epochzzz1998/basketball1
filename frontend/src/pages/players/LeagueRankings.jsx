@@ -6,10 +6,10 @@ import { Link, useNavigate } from 'react-router-dom'
 import { playerApi } from '../../api/player'
 import { teamApi } from '../../api/team'
 import { HONOR_GROUPS } from './honorConfig'
-import { NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, RANKING_STATS, fmtNum, fmtPct, fmtTeamChain, playoffRecord, LATEST_SEASON, honorEligible, qualifiedBoard } from './rankConfig'
+import { NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, RANKING_STATS, fmtNum, fmtPct, fmtTeamChainZh, playoffRecord, LATEST_SEASON, honorEligible, qualifiedBoard } from './rankConfig'
 import { compactColumns, sumColWidth } from './statColumns'
 import SeasonPicker from '../../components/SeasonPicker'
-import TeamLogo, { TeamCell } from '../../components/TeamLogo'
+import { TeamCell } from '../../components/TeamLogo'
 import useIsMobile from '../../hooks/useIsMobile'
 import useUrlState from '../../hooks/useUrlState'
 
@@ -120,7 +120,7 @@ function HonorCard({ group, rows, seasonNum }) {
             )}
             <div style={{ flex: 1, minWidth: 0 }}>
               <Link to={`/players/${r.playerId}`} style={{ fontWeight: i < 3 ? 600 : 400 }}>{r.playerName}</Link>
-              <span style={{ color: '#999', fontSize: 12, marginLeft: 8 }}>{fmtTeamChain(r.playerTeam)} · {r.playerPosition}</span>
+              <span style={{ color: '#999', fontSize: 12, marginLeft: 8 }}>{fmtTeamChainZh(r.playerTeam)} · {r.playerPosition}</span>
               <div style={{ color: '#8c8c8c', fontSize: 12 }}>{group.sub(r)}</div>
             </div>
           </div>
@@ -315,10 +315,10 @@ function TeamsTab({ seasonNum, stage }) {
     ),
   }
   const teamCol = {
-    title: '球队', dataIndex: 'teamCode', width: 156, fixed: 'left',
+    // 表格里不放队标（队标只在球员卡片/卡片墙这些地方出现）
+    title: '球队', dataIndex: 'teamCode', width: 140, fixed: 'left',
     render: (code) => (
       <Space size={6}>
-        <TeamLogo code={code} size={isMobile ? 16 : 20} />
         <Link to={`/players/team/${code}`}><b>{NBA_TEAM_NAMES[code] || code}</b></Link>
         <span style={{ color: '#999', fontSize: 12 }}>{code}</span>
       </Space>
@@ -381,7 +381,7 @@ function TeamsTab({ seasonNum, stage }) {
         dataSource={list}
         columns={isMobile ? compactColumns(columns) : columns}
         pagination={false}
-        scroll={{ x: isMobile ? sumColWidth(compactColumns(columns)) : 1306 }}
+        scroll={{ x: isMobile ? sumColWidth(compactColumns(columns)) : 1290 }}
         size="middle"
       />
     </Card>

@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { fmtNum as num, fmtPair, fmtPct, fmtReb } from './rankConfig'
-import { TeamCell } from '../../components/TeamLogo'
+import { TeamNames } from '../../components/TeamLogo'
 
 /**
  * 球员全量数据列（总览/球队页/荣誉完整数据页共用）。
@@ -15,7 +15,7 @@ export function buildFullStatColumns({ serverSort = true } = {}) {
       title: '球员', dataIndex: 'playerName', fixed: 'left', width: 96,
       render: (text, row) => <Link to={`/players/${row.playerId}`}>{text}</Link>,
     },
-    { title: '球队', dataIndex: 'playerTeam', width: 78, render: (v) => <TeamCell value={v} /> },
+    { title: '球队', dataIndex: 'playerTeam', width: 78, render: (v) => <TeamNames value={v} /> },
     { title: '位置', dataIndex: 'playerPosition', width: 46 },
     { title: '首发/出场', dataIndex: 'playerAppearance', width: 80, ...srt, render: (_, r) => `${r.playerFrAppearance ?? 0}/${r.playerAppearance ?? 0}` },
     { title: '时间', dataIndex: 'playingTime', width: 48, ...srt, render: (v) => num(v) },
@@ -51,8 +51,8 @@ export const FULL_COLUMNS_SCROLL_X = 2004
 const COMPACT_W = {
   // 首发/出场 74：生涯行最长 "1620/1622" 12px 下不换行；篮板 94：最长 "18.7(6.4/12.3)" 一行；
   // 投篮/三分/罚球 74：最长 "11.5/23.2" 一行（62 会折行）；
-  // 球队 66：单队格是「队标(15)+队码」，52 会把队码挤下去；teamCode 是球队排行表的队名列
-  playerName: 86, playerTeam: 66, teamCode: 116, playerPosition: 36, playerAppearance: 74, playingTime: 42,
+  // 球队 66：中文队名最长四字（凯尔特人），12px 下 48px 加内边距，52 会折行
+  playerName: 86, playerTeam: 66, playerPosition: 36, playerAppearance: 74, playingTime: 42,
   playerAvgScore: 42, playerAvgReb: 94, playerAvgAss: 42, playerAvgFgm: 74, playerAccuracy: 50,
   playerAvgTpm: 74, playerThreeAccuracy: 50, playerAvgFtm: 74, playerFreethrowAccuracy: 50,
   playerAvgBlock: 42, playerAvgSteal: 42, playerAvgTurnover: 42, playerPer: 46,

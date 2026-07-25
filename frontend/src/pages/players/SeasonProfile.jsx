@@ -5,7 +5,7 @@ import SeasonPicker from '../../components/SeasonPicker'
 import RadarChart from '../../components/RadarChart'
 import { playerApi } from '../../api/player'
 import { CAREER_SEASON, PLAYOFF_TAG, fmtNum, seasonYearLabel, fmtPct, statQualified } from './rankConfig'
-import { TeamChain } from '../../components/TeamLogo'
+import { TeamNames } from '../../components/TeamLogo'
 import { CAREER_AWARDS } from './honorConfig'
 
 /**
@@ -76,7 +76,7 @@ function RankChip({ rank, prefix = '联盟第', to }) {
   return to ? <Link to={to}>{chip}</Link> : chip
 }
 
-export default function SeasonProfile({ playerId, honors }) {
+export default function SeasonProfile({ playerId, honors, onTeamChange }) {
   const [career, setCareer] = useState(null)   // 本人常规赛逐季
   const [poRows, setPoRows] = useState(null)   // 本人季后赛逐季
   // 用户手选的赛季写进 URL（返回本页可恢复）；自动兜底（最近打过的赛季）不写
@@ -126,6 +126,11 @@ export default function SeasonProfile({ playerId, honors }) {
 
   const row = useMemo(() => career?.find((r) => r.seasonNum === seasonNum), [career, seasonNum])
   const poRow = useMemo(() => poRows?.find((r) => r.seasonNum === seasonNum), [poRows, seasonNum])
+
+  // 把当前赛季所属球队回报给球员主页（身份头右侧那枚大队标）
+  useEffect(() => {
+    onTeamChange?.(row?.playerTeam || null)
+  }, [row, onTeamChange])
 
   // 当季荣誉徽章（与荣誉柜同源）
   const chips = useMemo(() => {
@@ -210,7 +215,8 @@ export default function SeasonProfile({ playerId, honors }) {
       >
         {/* 基本信息 + 当季荣誉 */}
         <Space size={[6, 8]} wrap style={{ marginBottom: 16 }}>
-          {!isCareer && <Tag color="volcano"><TeamChain value={row.playerTeam} size={14} /></Tag>}
+          {/* 队标已经在身份头那枚大的上了，这里只留中文队名 */}
+          {!isCareer && <Tag color="volcano"><TeamNames value={row.playerTeam} /></Tag>}
           {!isCareer && row.playerPosition && <Tag>{row.playerPosition}</Tag>}
           <Tag>出场 {row.playerAppearance}{row.playerFrAppearance != null ? `（先发 ${row.playerFrAppearance}）` : ''}</Tag>
           <Tag>场均 {fmtNum(row.playingTime)} 分钟</Tag>
@@ -257,7 +263,7 @@ export default function SeasonProfile({ playerId, honors }) {
         ) : (
           <>
             <Space size={[6, 8]} wrap style={{ marginBottom: 14 }}>
-              {!isCareer && <Tag color="volcano"><TeamChain value={poRow.playerTeam} size={14} /></Tag>}
+              {!isCareer && <Tag color="volcano"><TeamNames value={poRow.playerTeam} /></Tag>}
               <Tag>出战 {poRow.playerAppearance} 场{poRow.playerFrAppearance != null ? `（先发 ${poRow.playerFrAppearance}）` : ''}</Tag>
               <Tag>场均 {fmtNum(poRow.playingTime)} 分钟</Tag>
             </Space>
