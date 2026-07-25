@@ -147,7 +147,7 @@ export default function SeasonProfile({ playerId, honors }) {
 
   if (career === null || seasonNum === null) return <Spin style={{ display: 'block', margin: '60px auto' }} />
 
-  const isCareer = seasonNum === 50
+  const isCareer = seasonNum === CAREER_SEASON
   const seasonLabel = isCareer ? '生涯' : seasonYearLabel(seasonNum)
   const changeSeason = (v) => {
     setSeasonNum(v)
