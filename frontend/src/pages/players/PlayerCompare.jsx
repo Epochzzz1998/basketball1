@@ -36,6 +36,7 @@ const CAREER_STATS = [
 
 /** 对战台内的选人位：搜索 / 按球队（赛季→球队→当季阵容）双模式 Modal */
 function PlayerPick({ value, onChange, side }) {
+  const isMobile = useIsMobile()
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState('search')
   const [opts, setOpts] = useState([])
@@ -61,7 +62,7 @@ function PlayerPick({ value, onChange, side }) {
     }, 300)
   }
 
-  // 球队 + 赛季 → 当季阵容（转会行两队都会出现）
+  // 球队 + 赛季 → 当季阵容（按交易链最后一站归队，与球队页同规则）
   useEffect(() => {
     if (!open || mode !== 'team' || !team) return
     let alive = true
@@ -93,7 +94,7 @@ function PlayerPick({ value, onChange, side }) {
       <div
         onClick={() => setOpen(true)}
         style={{
-          display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', minWidth: 0,
+          display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 14, cursor: 'pointer', minWidth: 0,
           flexDirection: mirror ? 'row-reverse' : 'row', textAlign: mirror ? 'right' : 'left',
         }}
       >
@@ -101,30 +102,36 @@ function PlayerPick({ value, onChange, side }) {
           <>
             <div
               style={{
-                width: 52, height: 52, borderRadius: '50%', background: 'rgba(255,255,255,.95)', color,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 15,
+                width: isMobile ? 38 : 52, height: isMobile ? 38 : 52, borderRadius: '50%',
+                background: 'rgba(255,255,255,.95)', color,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900,
+                fontSize: isMobile ? 12 : 15,
                 flexShrink: 0, boxShadow: '0 3px 10px rgba(0,0,0,.18)',
               }}
             >
               #{value.number ?? '-'}
             </div>
             <div style={{ minWidth: 0 }}>
+              {/* 手机上名字允许换到两行整名展示——截断成「勒布…」没法看 */}
               <div
                 style={{
-                  fontWeight: 900, fontSize: 21, color: '#fff', textShadow: '0 2px 6px rgba(0,0,0,.25)',
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  fontWeight: 900, fontSize: isMobile ? 14 : 21, color: '#fff', textShadow: '0 2px 6px rgba(0,0,0,.25)',
+                  ...(isMobile
+                    ? { lineHeight: 1.25 }
+                    : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }),
                 }}
               >
                 {value.name}
               </div>
-              <div style={{ fontSize: 12, color: 'rgba(255,255,255,.78)' }}>点击更换球员</div>
+              <div style={{ fontSize: isMobile ? 11 : 12, color: 'rgba(255,255,255,.78)' }}>点击更换球员</div>
             </div>
           </>
         ) : (
           <div
             style={{
               border: '1.5px dashed rgba(255,255,255,.65)', color: '#fff', borderRadius: 12,
-              padding: '14px 24px', fontWeight: 700, background: 'rgba(255,255,255,.10)',
+              padding: isMobile ? '10px 14px' : '14px 24px', fontWeight: 700, background: 'rgba(255,255,255,.10)',
+              whiteSpace: 'nowrap',
             }}
           >
             + 选择球员 {side}
@@ -352,11 +359,49 @@ function CompareRows({ rowA, rowB, stats, leagueA, leagueB, rankPrefix = '联盟
   )
 }
 
-/** 名字行（A vs B，色点 + 各自链到个人页） */
+/** 名字行（A vs B，色点 + 各自链到个人页）。
+ * 手机上名字和标签挤一行会在名字中间折行、标签横插其间——改成每侧竖排：
+ * 名字整行（放不下换整行，不截断），赛季/球队标签独立第二行。 */
 function NamesBar({ a, b, extraA, extraB }) {
+  const isMobile = useIsMobile()
   const dot = (color) => (
-    <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 4, background: color, verticalAlign: 2 }} />
+    <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 4, background: color, verticalAlign: 2, flexShrink: 0 }} />
   )
+  const vsBadge = (
+    <span
+      style={{
+        margin: isMobile ? '0 8px' : '0 16px', color: '#c0c0c0', fontWeight: 900, fontStyle: 'italic',
+        fontSize: isMobile ? 11 : 13,
+        border: '1.5px solid #eee', borderRadius: '50%', width: isMobile ? 28 : 34, height: isMobile ? 28 : 34,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+      }}
+    >
+      VS
+    </span>
+  )
+  if (isMobile) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 14 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ textAlign: 'right', lineHeight: 1.3 }}>
+            {dot(A_COLOR)}
+            <Link to={`/players/${a.id}`} style={{ color: A_COLOR, fontWeight: 800, fontSize: 15, marginLeft: 6 }}>{a.name}</Link>
+          </div>
+          {extraA && (
+            <div style={{ marginTop: 6, display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 4 }}>{extraA}</div>
+          )}
+        </div>
+        {vsBadge}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ lineHeight: 1.3 }}>
+            <Link to={`/players/${b.id}`} style={{ color: B_COLOR, fontWeight: 800, fontSize: 15, marginRight: 6 }}>{b.name}</Link>
+            {dot(B_COLOR)}
+          </div>
+          {extraB && <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4 }}>{extraB}</div>}
+        </div>
+      </div>
+    )
+  }
   return (
     <div style={{ display: 'flex', alignItems: 'center', marginBottom: 14 }}>
       <div style={{ flex: 1, textAlign: 'right' }}>
@@ -364,15 +409,7 @@ function NamesBar({ a, b, extraA, extraB }) {
         <Link to={`/players/${a.id}`} style={{ color: A_COLOR, fontWeight: 800, fontSize: 17, margin: '0 0 0 8px' }}>{a.name}</Link>
         {extraA && <span style={{ marginLeft: 8 }}>{extraA}</span>}
       </div>
-      <span
-        style={{
-          margin: '0 16px', color: '#c0c0c0', fontWeight: 900, fontStyle: 'italic', fontSize: 13,
-          border: '1.5px solid #eee', borderRadius: '50%', width: 34, height: 34,
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-        }}
-      >
-        VS
-      </span>
+      {vsBadge}
       <div style={{ flex: 1 }}>
         {extraB && <span style={{ marginRight: 8 }}>{extraB}</span>}
         <Link to={`/players/${b.id}`} style={{ color: B_COLOR, fontWeight: 800, fontSize: 17, marginRight: 8 }}>{b.name}</Link>
@@ -494,15 +531,15 @@ export default function PlayerCompare() {
         <div style={ring(210, { top: -90, left: -60 })} />
         <div style={ring(150, { bottom: -60, left: '30%' })} />
         <div style={ring(190, { top: -70, right: -50 })} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: isMobile ? '18px 16px' : '26px 28px', position: 'relative' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 16, padding: isMobile ? '16px 12px' : '26px 28px', position: 'relative' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <PlayerPick value={a} onChange={(p, season) => { pendA.current = season || null; setA(p) }} side="A" />
           </div>
           <div
             style={{
-              width: 54, height: 54, borderRadius: '50%', background: '#fff', flexShrink: 0,
+              width: isMobile ? 42 : 54, height: isMobile ? 42 : 54, borderRadius: '50%', background: '#fff', flexShrink: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontStyle: 'italic', fontWeight: 900, fontSize: 17, color: '#1f1f1f', letterSpacing: 1,
+              fontStyle: 'italic', fontWeight: 900, fontSize: isMobile ? 13 : 17, color: '#1f1f1f', letterSpacing: 1,
               boxShadow: '0 4px 14px rgba(0,0,0,.28)',
             }}
           >

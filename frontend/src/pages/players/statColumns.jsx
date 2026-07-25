@@ -25,11 +25,11 @@ export function buildFullStatColumns({ serverSort = true } = {}) {
       render: (_, r) => <span style={{ whiteSpace: 'nowrap' }}>{fmtReb(r.playerAvgReb, r.playerAvgOffReb, r.playerAvgDefReb)}</span>,
     },
     { title: '助攻', dataIndex: 'playerAvgAss', width: 48, ...srt, render: (v) => num(v) },
-    { title: '投篮', dataIndex: 'playerAvgFgm', width: 84, render: (_, r) => fmtPair(r.playerAvgFgm, r.playerAvgFga) },
+    { title: '投篮', dataIndex: 'playerAvgFgm', width: 88, render: (_, r) => fmtPair(r.playerAvgFgm, r.playerAvgFga) },
     { title: '投篮%', dataIndex: 'playerAccuracy', width: 56, ...srt, render: (v) => fmtPct(v) },
-    { title: '三分', dataIndex: 'playerAvgTpm', width: 84, render: (_, r) => fmtPair(r.playerAvgTpm, r.playerAvgTpa) },
+    { title: '三分', dataIndex: 'playerAvgTpm', width: 88, render: (_, r) => fmtPair(r.playerAvgTpm, r.playerAvgTpa) },
     { title: '三分%', dataIndex: 'playerThreeAccuracy', width: 56, ...srt, render: (v) => fmtPct(v) },
-    { title: '罚球', dataIndex: 'playerAvgFtm', width: 84, render: (_, r) => fmtPair(r.playerAvgFtm, r.playerAvgFta) },
+    { title: '罚球', dataIndex: 'playerAvgFtm', width: 88, render: (_, r) => fmtPair(r.playerAvgFtm, r.playerAvgFta) },
     { title: '罚球%', dataIndex: 'playerFreethrowAccuracy', width: 56, ...srt, render: (v) => fmtPct(v) },
     { title: '盖帽', dataIndex: 'playerAvgBlock', width: 48, ...srt, render: (v) => num(v) },
     { title: '抢断', dataIndex: 'playerAvgSteal', width: 48, ...srt, render: (v) => num(v) },
@@ -48,10 +48,11 @@ export const FULL_COLUMNS_SCROLL_X = 1990
  * 手机上全量表横向太长、频繁横滑：紧凑列宽（12px 字号下正好不挤）配合
  * index.css 里 .stat-compact 的字号/内边距媒体查询，一屏约多看 40% 的列。 */
 const COMPACT_W = {
-  // 首发/出场 74：生涯行最长 "1620/1622"（9 字符）12px 下不换行；篮板 94：最长 "18.7(6.4/12.3)" 一行放下
+  // 首发/出场 74：生涯行最长 "1620/1622" 12px 下不换行；篮板 94：最长 "18.7(6.4/12.3)" 一行；
+  // 投篮/三分/罚球 74：最长 "11.5/23.2" 一行（62 会折行）
   playerName: 86, playerTeam: 52, playerPosition: 36, playerAppearance: 74, playingTime: 42,
-  playerAvgScore: 42, playerAvgReb: 94, playerAvgAss: 42, playerAvgFgm: 62, playerAccuracy: 50,
-  playerAvgTpm: 62, playerThreeAccuracy: 50, playerAvgFtm: 62, playerFreethrowAccuracy: 50,
+  playerAvgScore: 42, playerAvgReb: 94, playerAvgAss: 42, playerAvgFgm: 74, playerAccuracy: 50,
+  playerAvgTpm: 74, playerThreeAccuracy: 50, playerAvgFtm: 74, playerFreethrowAccuracy: 50,
   playerAvgBlock: 42, playerAvgSteal: 42, playerAvgTurnover: 42, playerPer: 46,
   mvpRank: 42, dpoyRank: 46, allDbaTeam: 58, allDefTeam: 58, seasonNum: 52, playoffResult: 76,
 }

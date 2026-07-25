@@ -54,9 +54,12 @@ function flatten(d, kw, canData) {
     key: `player:${p.playerId}`,
     to: `/players/${p.playerId}`,
     node: (
-      <span>
-        <Tag color="volcano" style={{ marginRight: 8 }}>#{p.playerNumber ?? '-'}</Tag>
-        <b>{p.playerName}</b>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+        <Tag color="volcano" style={{ marginInlineEnd: 0, flexShrink: 0 }}>#{p.playerNumber ?? '-'}</Tag>
+        <b style={{ flexShrink: 0 }}>{p.playerName}</b>
+        {p.nameEn && p.nameEn !== p.playerName && (
+          <span style={{ color: '#bbb', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nameEn}</span>
+        )}
       </span>
     ),
   })))

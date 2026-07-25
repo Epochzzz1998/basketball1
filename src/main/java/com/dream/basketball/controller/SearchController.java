@@ -68,14 +68,17 @@ public class SearchController {
         boolean featForum = meFresh == null || isSuper || !"0".equals(meFresh.getFeatForum()); // 百家说：论坛帖
         boolean featNews = meFresh == null || isSuper || !"0".equals(meFresh.getFeatNews());   // 新闻：官方资讯
 
-        // 球员：按名字模糊（仅当 Dream Union 对本人开放）
+        // 球员：按名字模糊（仅当 Dream Union 对本人开放）。
+        // PLAYER_NAME 已汉化、NAME_EN 存英文名——两列都命中，中英文都能搜到
         List<Map<String, Object>> players = new ArrayList<>();
         if (featData) {
             for (DreamPlayer p : playerService.list(new QueryWrapper<DreamPlayer>()
-                    .like("PLAYER_NAME", kw).last("limit " + GROUP_LIMIT))) {
+                    .and(w -> w.like("PLAYER_NAME", kw).or().like("NAME_EN", kw))
+                    .last("limit " + GROUP_LIMIT))) {
                 Map<String, Object> m = new HashMap<>();
                 m.put("playerId", p.getPlayerId());
                 m.put("playerName", p.getPlayerName());
+                m.put("nameEn", p.getNameEn());
                 m.put("playerNumber", p.getPlayerNumber());
                 players.add(m);
             }

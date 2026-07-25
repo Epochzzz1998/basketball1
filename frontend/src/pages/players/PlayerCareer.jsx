@@ -91,11 +91,11 @@ function CareerTable({ playerId }) {
       render: (_, r) => <span style={{ whiteSpace: 'nowrap' }}>{fmtReb(r.playerAvgReb, r.playerAvgOffReb, r.playerAvgDefReb)}</span>,
     },
     { title: '助攻', dataIndex: 'playerAvgAss', width: 48, render: (v) => num(v) },
-    { title: '投篮', dataIndex: 'playerAvgFgm', width: 84, render: (_, r) => fmtPair(r.playerAvgFgm, r.playerAvgFga) },
+    { title: '投篮', dataIndex: 'playerAvgFgm', width: 88, render: (_, r) => fmtPair(r.playerAvgFgm, r.playerAvgFga) },
     { title: '投篮%', dataIndex: 'playerAccuracy', width: 56, render: (v) => fmtPct(v) },
-    { title: '三分', dataIndex: 'playerAvgTpm', width: 84, render: (_, r) => fmtPair(r.playerAvgTpm, r.playerAvgTpa) },
+    { title: '三分', dataIndex: 'playerAvgTpm', width: 88, render: (_, r) => fmtPair(r.playerAvgTpm, r.playerAvgTpa) },
     { title: '三分%', dataIndex: 'playerThreeAccuracy', width: 56, render: (v) => fmtPct(v) },
-    { title: '罚球', dataIndex: 'playerAvgFtm', width: 84, render: (_, r) => fmtPair(r.playerAvgFtm, r.playerAvgFta) },
+    { title: '罚球', dataIndex: 'playerAvgFtm', width: 88, render: (_, r) => fmtPair(r.playerAvgFtm, r.playerAvgFta) },
     { title: '罚球%', dataIndex: 'playerFreethrowAccuracy', width: 56, render: (v) => fmtPct(v) },
     { title: '盖帽', dataIndex: 'playerAvgBlock', width: 48, render: (v) => num(v) },
     { title: '抢断', dataIndex: 'playerAvgSteal', width: 48, render: (v) => num(v) },
@@ -167,11 +167,11 @@ function PlayoffTable({ playerId }) {
       render: (_, r) => <span style={{ whiteSpace: 'nowrap' }}>{fmtReb(r.playerAvgReb, r.playerAvgOffReb, r.playerAvgDefReb)}</span>,
     },
     { title: '助攻', dataIndex: 'playerAvgAss', width: 48, render: (v) => num(v) },
-    { title: '投篮', dataIndex: 'playerAvgFgm', width: 84, render: (_, r) => fmtPair(r.playerAvgFgm, r.playerAvgFga) },
+    { title: '投篮', dataIndex: 'playerAvgFgm', width: 88, render: (_, r) => fmtPair(r.playerAvgFgm, r.playerAvgFga) },
     { title: '投篮%', dataIndex: 'playerAccuracy', width: 56, render: (v) => fmtPct(v) },
-    { title: '三分', dataIndex: 'playerAvgTpm', width: 84, render: (_, r) => fmtPair(r.playerAvgTpm, r.playerAvgTpa) },
+    { title: '三分', dataIndex: 'playerAvgTpm', width: 88, render: (_, r) => fmtPair(r.playerAvgTpm, r.playerAvgTpa) },
     { title: '三分%', dataIndex: 'playerThreeAccuracy', width: 56, render: (v) => fmtPct(v) },
-    { title: '罚球', dataIndex: 'playerAvgFtm', width: 84, render: (_, r) => fmtPair(r.playerAvgFtm, r.playerAvgFta) },
+    { title: '罚球', dataIndex: 'playerAvgFtm', width: 88, render: (_, r) => fmtPair(r.playerAvgFtm, r.playerAvgFta) },
     { title: '罚球%', dataIndex: 'playerFreethrowAccuracy', width: 56, render: (v) => fmtPct(v) },
     { title: '盖帽', dataIndex: 'playerAvgBlock', width: 48, render: (v) => num(v) },
     { title: '抢断', dataIndex: 'playerAvgSteal', width: 48, render: (v) => num(v) },
@@ -240,9 +240,11 @@ export default function PlayerCareer() {
           </div>
           <div>
             <div style={{ fontSize: 20, fontWeight: 700 }}>{honors?.playerName || '…'}</div>
+            {/* 英文原名独立一行（未汉化时两者相同则不重复展示） */}
+            {honors?.nameEn && honors.nameEn !== honors.playerName && (
+              <div style={{ color: '#999', fontSize: 13, fontStyle: 'italic' }}>{honors.nameEn}</div>
+            )}
             <div style={{ color: '#999', fontSize: 13 }}>
-              {/* 汉化后中文为主名，英文原名跟在副标题里（未汉化时两者相同则不重复展示） */}
-              {honors?.nameEn && honors.nameEn !== honors.playerName ? `${honors.nameEn} · ` : ''}
               {goldCount > 0 ? `顶级荣誉 ×${goldCount}（冠军/MVP/DPOY）` : '生涯逐季数据与荣誉'}
             </div>
           </div>
