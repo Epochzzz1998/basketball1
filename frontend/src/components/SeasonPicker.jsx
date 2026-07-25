@@ -1,20 +1,31 @@
-import { useState } from 'react'
-import { Popover } from 'antd'
+import { useEffect, useState } from 'react'
+import { Popover, Segmented } from 'antd'
 import { CaretDownOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons'
 import { LATEST_SEASON, seasonShort, seasonYearLabel } from '../pages/players/rankConfig'
 
 /**
  * 全站统一的赛季选择器（与顶栏搜索胶囊同一设计语言）：
  * `‹ | 2015-2016 赛季 ▾ | ›` 三段式胶囊——左右箭头逐季步进，
- * 点中间弹出年份网格（4 列芯片，选中=品牌橙填充；可选"生涯场均"整行芯片）。
+ * 点中间弹出**按年代分组**的年份网格（40 季一页太长：顶部 80/90/00/10/20 年代
+ * 切换，每组最多 10 个芯片；默认落在当前选中赛季的年代）。
  * 赛季范围/标签一律来自 rankConfig（锚点 1986、最近 40 年），不在此处另行硬编码。
  */
 
 const MAX_SEASON = LATEST_SEASON
+// 赛季 → 起始年所在年代（1985+n：第 1 季=1986 → 80 年代）
+const eraOf = (n) => Math.floor((1985 + n) / 10) * 10
+const ERAS = [...new Set(Array.from({ length: MAX_SEASON }, (_, i) => eraOf(i + 1)))]
+const eraLabel = (e) => `${String(e).slice(-2)}年代`
 
 export default function SeasonPicker({ value, onChange, includeCareer = true }) {
   const [open, setOpen] = useState(false)
   const [hover, setHover] = useState(false)
+  const [era, setEra] = useState(eraOf(value === 50 ? MAX_SEASON : value || MAX_SEASON))
+
+  // 每次展开都回到当前选中赛季所在的年代
+  useEffect(() => {
+    if (open) setEra(eraOf(value === 50 ? MAX_SEASON : value || MAX_SEASON))
+  }, [open, value])
   const isCareer = value === 50
   const canPrev = !isCareer && value > 1
   const canNext = !isCareer && value < MAX_SEASON
@@ -35,26 +46,36 @@ export default function SeasonPicker({ value, onChange, includeCareer = true }) 
   }
 
   const grid = (
-    <div style={{ width: 252 }}>
+    <div style={{ width: 268 }}>
       {/* 芯片 hover 描边走一小段局部样式（inline 写不了 :hover） */}
       <style>{'.season-chip:hover{border-color:#fa541c;color:#fa541c}'}</style>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
-        {Array.from({ length: MAX_SEASON }, (_, i) => i + 1).map((n) => {
-          const sel = n === value
-          return (
-            <div
-              key={n}
-              className="season-chip"
-              onClick={() => { onChange(n); setOpen(false) }}
-              style={{
-                ...chipBase,
-                ...(sel ? { background: '#fa541c', borderColor: '#fa541c', color: '#fff', fontWeight: 700 } : { color: '#555' }),
-              }}
-            >
-              {seasonShort(n)}
-            </div>
-          )
-        })}
+      <Segmented
+        block
+        size="small"
+        value={era}
+        onChange={setEra}
+        options={ERAS.map((e) => ({ label: eraLabel(e), value: e }))}
+        style={{ marginBottom: 8 }}
+      />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, minHeight: 96 }}>
+        {Array.from({ length: MAX_SEASON }, (_, i) => i + 1)
+          .filter((n) => eraOf(n) === era)
+          .map((n) => {
+            const sel = n === value
+            return (
+              <div
+                key={n}
+                className="season-chip"
+                onClick={() => { onChange(n); setOpen(false) }}
+                style={{
+                  ...chipBase,
+                  ...(sel ? { background: '#fa541c', borderColor: '#fa541c', color: '#fff', fontWeight: 700 } : { color: '#555' }),
+                }}
+              >
+                {seasonShort(n)}
+              </div>
+            )
+          })}
       </div>
       {includeCareer && (
         <div
