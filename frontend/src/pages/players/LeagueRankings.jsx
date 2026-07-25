@@ -6,7 +6,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { playerApi } from '../../api/player'
 import { teamApi } from '../../api/team'
 import { HONOR_GROUPS } from './honorConfig'
-import { NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, RANKING_STATS, fmtNum, fmtPct, playoffRecord, LATEST_SEASON, honorEligible, qualifiedBoard } from './rankConfig'
+import { NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, RANKING_STATS, fmtNum, fmtPct, fmtTeamChain, playoffRecord, LATEST_SEASON, honorEligible, qualifiedBoard } from './rankConfig'
 import { compactColumns, sumColWidth } from './statColumns'
 import SeasonPicker from '../../components/SeasonPicker'
 import useIsMobile from '../../hooks/useIsMobile'
@@ -62,7 +62,7 @@ function StatRankCard({ stat, seasonNum, stage }) {
             <Link to={`/players/${r.playerId}`} style={{ flex: 1, fontWeight: i < 3 ? 600 : 400 }}>
               {r.playerName}
             </Link>
-            <span style={{ color: '#999', fontSize: 12, marginRight: 14 }}>{r.playerTeam}</span>
+            <span style={{ color: '#999', fontSize: 12, marginRight: 14 }}>{fmtTeamChain(r.playerTeam)}</span>
             <span style={{ fontWeight: 700, color: '#fa541c', fontVariantNumeric: 'tabular-nums' }}>
               {stat.pct ? fmtPct(r[stat.field]) : fmtNum(r[stat.field], stat.digits)}
             </span>
@@ -119,7 +119,7 @@ function HonorCard({ group, rows, seasonNum }) {
             )}
             <div style={{ flex: 1, minWidth: 0 }}>
               <Link to={`/players/${r.playerId}`} style={{ fontWeight: i < 3 ? 600 : 400 }}>{r.playerName}</Link>
-              <span style={{ color: '#999', fontSize: 12, marginLeft: 8 }}>{r.playerTeam} · {r.playerPosition}</span>
+              <span style={{ color: '#999', fontSize: 12, marginLeft: 8 }}>{fmtTeamChain(r.playerTeam)} · {r.playerPosition}</span>
               <div style={{ color: '#8c8c8c', fontSize: 12 }}>{group.sub(r)}</div>
             </div>
           </div>
@@ -210,7 +210,7 @@ function SpecialAwardCards({ seasonNum, rows }) {
                 <div>
                   <div style={{ color: '#888', fontSize: 12 }}>{meta.label}</div>
                   <Link to={`/players/${e.playerId}`} style={{ fontWeight: 700, fontSize: 16 }}>{e.playerName}</Link>
-                  <span style={{ color: '#999', fontSize: 12, marginLeft: 8 }}>{e.playerTeam}</span>
+                  <span style={{ color: '#999', fontSize: 12, marginLeft: 8 }}>{fmtTeamChain(e.playerTeam)}</span>
                   {e.lines}
                 </div>
               </Space>

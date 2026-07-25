@@ -93,6 +93,11 @@ export const fmtPair = (made, att, d = 1) =>
 export const fmtReb = (total, off, def) =>
   off == null && def == null ? fmtNum(total) : `${fmtNum(total)}(${fmtNum(off)}/${fmtNum(def)})`
 
+// 交易链 'CHI->BOS' → 'CHI→BOS'：原样输出会在 '-' 处断成「CHI- >BOS」；替换所有箭头
+// （.replace('->') 只换第一个，多次交易如 'MEM->PHI->BOS->GSW' 会漏）。默认箭头后垫
+// 零宽空格，窄列只在队码边界换行；标签类宽松场合可传 ' → '。
+export const fmtTeamChain = (v, sep = '\u2192\u200b') => String(v || '').split('->').join(sep)
+
 // 季后赛成绩 → Tag 颜色（球队排行/球队页共用）
 export const PLAYOFF_TAG = {
   总冠军: 'gold', 总决赛: 'volcano', 分区决赛: 'purple', 半决赛: 'geekblue', 首轮: 'cyan', 未进季后赛: 'default',

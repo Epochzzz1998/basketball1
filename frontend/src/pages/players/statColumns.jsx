@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { fmtNum as num, fmtPair, fmtPct, fmtReb } from './rankConfig'
+import { fmtNum as num, fmtPair, fmtPct, fmtReb, fmtTeamChain } from './rankConfig'
 
 /**
  * 球员全量数据列（总览/球队页/荣誉完整数据页共用）。
@@ -14,7 +14,7 @@ export function buildFullStatColumns({ serverSort = true } = {}) {
       title: '球员', dataIndex: 'playerName', fixed: 'left', width: 96,
       render: (text, row) => <Link to={`/players/${row.playerId}`}>{text}</Link>,
     },
-    { title: '球队', dataIndex: 'playerTeam', width: 64 },
+    { title: '球队', dataIndex: 'playerTeam', width: 64, render: (v) => fmtTeamChain(v) },
     { title: '位置', dataIndex: 'playerPosition', width: 46 },
     { title: '首发/出场', dataIndex: 'playerAppearance', width: 80, ...srt, render: (_, r) => `${r.playerFrAppearance ?? 0}/${r.playerAppearance ?? 0}` },
     { title: '时间', dataIndex: 'playingTime', width: 48, ...srt, render: (v) => num(v) },

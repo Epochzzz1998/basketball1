@@ -10,9 +10,10 @@ import { buildFullStatColumns, HONOR_COLUMN_KEYS, compactColumns, sumColWidth } 
 
 /**
  * 球员数据榜（公开）。可独立使用（自带赛季选择），也可受控嵌入（传 seasonNum 则隐藏内部选择）。
- * - team：只显示该队球员（后端 PLAYER_TEAM LIKE，转会行两队都算）；
+ * - team：只显示该队球员（按交易链最后一站归队，赛季末不在该队的不算），
+ *   且不渲染工具条（无标题无搜索，与球员卡片逐季表同款纯表格）；
  * - stage：'reg' 常规赛 / 'po' 季后赛（各查各的表，同一套排序白名单）；
- * - 排序直连 P3-1 白名单；不分页一滚到底；球员名模糊搜索。
+ * - 排序直连 P3-1 白名单；不分页一滚到底；独立使用时带球员名模糊搜索。
  */
 export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: seasonProp }) {
   // 独立使用时赛季写进 URL（返回可恢复）；受控嵌入（球队页）时忽略此值
@@ -30,14 +31,14 @@ export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: s
     <ProTable
       className="stat-compact"
       bordered
-      headerTitle={team ? `${team} · ${po ? '季后赛' : ''}球员数据` : '球员赛季数据榜'}
+      headerTitle={team ? undefined : '球员赛季数据榜'}
       rowKey="statsId"
       columns={columns}
       params={{ seasonNum, playerTeam: team, playerName, stage }} /* 任一变化都会自动重新请求 */
       search={false}
       scroll={{ x: sumColWidth(columns) }}
       options={false}
-      toolBarRender={() => [
+      toolBarRender={team ? false : () => [
         <Input.Search
           key="search"
           allowClear

@@ -7,7 +7,7 @@ import SeasonPicker from '../../components/SeasonPicker'
 import PillTabs from '../../components/PillTabs'
 import { playerApi } from '../../api/player'
 import { searchApi } from '../../api/search'
-import { fmtNum, seasonYearLabel, seasonShort, PLAYOFF_TAG, statQualified, LATEST_SEASON, NBA_TEAM_NAMES } from './rankConfig'
+import { fmtNum, fmtTeamChain, seasonYearLabel, seasonShort, PLAYOFF_TAG, statQualified, LATEST_SEASON, NBA_TEAM_NAMES } from './rankConfig'
 import { CAREER_AWARDS } from './honorConfig'
 import { GRID_STATS, RADAR_AXES, percentileOf, val } from './SeasonProfile'
 import useIsMobile from '../../hooks/useIsMobile'
@@ -478,8 +478,8 @@ export default function PlayerCompare() {
     border: '2px solid rgba(255,255,255,.15)', ...pos,
   })
 
-  const teamTagA = (r) => (seasonA === 50 ? <Tag>生涯</Tag> : <Tag color="volcano">{String(r.playerTeam || '').replace('->', ' → ')}</Tag>)
-  const teamTagB = (r) => (seasonB === 50 ? <Tag>生涯</Tag> : <Tag color="blue">{String(r.playerTeam || '').replace('->', ' → ')}</Tag>)
+  const teamTagA = (r) => (seasonA === 50 ? <Tag>生涯</Tag> : <Tag color="volcano">{fmtTeamChain(r.playerTeam, ' → ')}</Tag>)
+  const teamTagB = (r) => (seasonB === 50 ? <Tag>生涯</Tag> : <Tag color="blue">{fmtTeamChain(r.playerTeam, ' → ')}</Tag>)
 
   return (
     <>

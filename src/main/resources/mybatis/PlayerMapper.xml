@@ -20,7 +20,9 @@
             and s.PLAYER_POSITION like CONCAT('%',#{param.playerPosition},'%')
         </if>
         <if test="param.playerTeam != null and param.playerTeam !=''">
-            and s.PLAYER_TEAM like CONCAT('%',#{param.playerTeam},'%')
+            <!-- roster membership = end-of-season team, i.e. last hop of a trade chain
+                 ('BOS->CHI' belongs to CHI only, not every team along the chain) -->
+            and SUBSTRING_INDEX(s.PLAYER_TEAM, '->', -1) = #{param.playerTeam}
         </if>
         <choose>
             <!-- param.field 仅来自 SortUtil 白名单（"列 asc|desc"），故 ${} 拼接安全；见 P3-1 -->
@@ -98,7 +100,8 @@
             and s.PLAYER_POSITION like CONCAT('%',#{param.playerPosition},'%')
         </if>
         <if test="param.playerTeam != null and param.playerTeam !=''">
-            and s.PLAYER_TEAM like CONCAT('%',#{param.playerTeam},'%')
+            <!-- same final-team rule as the regular-season roster above -->
+            and SUBSTRING_INDEX(s.PLAYER_TEAM, '->', -1) = #{param.playerTeam}
         </if>
         <choose>
             <!-- param.field 仅来自 SortUtil 白名单（"列 asc|desc"），故 ${} 拼接安全；见 P3-1 -->

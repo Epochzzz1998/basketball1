@@ -11,7 +11,7 @@ import { teamApi } from '../api/team'
 import SeasonPicker from '../components/SeasonPicker'
 import useIsMobile from '../hooks/useIsMobile'
 import useUrlState from '../hooks/useUrlState'
-import { LATEST_SEASON, NBA_TEAM_NAMES, fmtNum, playoffRecord, qualifiedBoard, teamRegion } from './players/rankConfig'
+import { LATEST_SEASON, NBA_TEAM_NAMES, fmtNum, fmtTeamChain, playoffRecord, qualifiedBoard, teamRegion } from './players/rankConfig'
 
 /**
  * 首页（P5-2 现代化改版 v2）：赛季维度的联盟总览仪表盘
@@ -80,7 +80,7 @@ function LeaderCard({ stat, rows, seasonNum }) {
             >
               {top.playerName}
             </Link>
-            <span style={{ fontSize: 12, color: '#999', flexShrink: 0 }}>{top.playerTeam}</span>
+            <span style={{ fontSize: 12, color: '#999', flexShrink: 0 }}>{fmtTeamChain(top.playerTeam)}</span>
           </div>
           <div style={{ fontSize: isMobile ? 22 : 30, fontWeight: 800, color: BRAND, fontVariantNumeric: 'tabular-nums', lineHeight: 1.25, marginBottom: 10 }}>
             {fmtNum(top[stat.field])}
