@@ -50,3 +50,4 @@ application-*-local.yml
 tools/nba_sync/.dbpwd
 tools/nba_sync/nba_sync_*.sql
 tools/nba_sync/__pycache__/
+tools/nba_sync/br_ids_cache.json
