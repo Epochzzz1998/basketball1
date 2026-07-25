@@ -106,6 +106,7 @@ public class PlayerController extends BaseUtils {
                 .eq("PLAYER_ID", playerId).lt("SEASON_NUM", 50).orderByAsc("SEASON_NUM"));
         Map<String, Object> data = new HashMap<>();
         data.put("playerName", player == null ? "" : player.getPlayerName());
+        data.put("nameEn", player == null ? "" : player.getNameEn());
         data.put("playerNumber", player == null ? "" : player.getPlayerNumber());
         List<Integer> mvp = new ArrayList<>();
         List<Integer> dpoy = new ArrayList<>();

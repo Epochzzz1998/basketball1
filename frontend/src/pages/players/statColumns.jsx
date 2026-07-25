@@ -48,8 +48,9 @@ export const FULL_COLUMNS_SCROLL_X = 1990
  * 手机上全量表横向太长、频繁横滑：紧凑列宽（12px 字号下正好不挤）配合
  * index.css 里 .stat-compact 的字号/内边距媒体查询，一屏约多看 40% 的列。 */
 const COMPACT_W = {
-  playerName: 86, playerTeam: 52, playerPosition: 36, playerAppearance: 56, playingTime: 42,
-  playerAvgScore: 42, playerAvgReb: 100, playerAvgAss: 42, playerAvgFgm: 62, playerAccuracy: 50,
+  // 首发/出场 74：生涯行最长 "1620/1622"（9 字符）12px 下不换行；篮板 94：最长 "18.7(6.4/12.3)" 一行放下
+  playerName: 86, playerTeam: 52, playerPosition: 36, playerAppearance: 74, playingTime: 42,
+  playerAvgScore: 42, playerAvgReb: 94, playerAvgAss: 42, playerAvgFgm: 62, playerAccuracy: 50,
   playerAvgTpm: 62, playerThreeAccuracy: 50, playerAvgFtm: 62, playerFreethrowAccuracy: 50,
   playerAvgBlock: 42, playerAvgSteal: 42, playerAvgTurnover: 42, playerPer: 46,
   mvpRank: 42, dpoyRank: 46, allDbaTeam: 58, allDefTeam: 58, seasonNum: 52, playoffResult: 76,

@@ -241,6 +241,8 @@ export default function PlayerCareer() {
           <div>
             <div style={{ fontSize: 20, fontWeight: 700 }}>{honors?.playerName || '…'}</div>
             <div style={{ color: '#999', fontSize: 13 }}>
+              {/* 汉化后中文为主名，英文原名跟在副标题里（未汉化时两者相同则不重复展示） */}
+              {honors?.nameEn && honors.nameEn !== honors.playerName ? `${honors.nameEn} · ` : ''}
               {goldCount > 0 ? `顶级荣誉 ×${goldCount}（冠军/MVP/DPOY）` : '生涯逐季数据与荣誉'}
             </div>
           </div>

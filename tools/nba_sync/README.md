@@ -57,3 +57,17 @@ python3 tools/nba_sync/sync.py --season 2025  # 回补别的赛季（2024-25）
 球员的**首发/替补场次与前后场篮板拆分**走逐球员接口（~800 次并发请求，全程 1-2 分钟）。
 数据源确实没有的字段（界面已裁掉展示）：PIE / WS / 进攻防守净效率 / 正负值。
 `PLAYER_PER` 存的是经典效率值 EFF（得分+板+助+断+帽−打铁−失误），界面标签为「效率值」。
+
+## 球员姓名汉化（zh_names.py + localize_names.py）
+
+展示名 `PLAYER_NAME` 已全量汉化（2026-07，2826 人），英文名永存 `NAME_EN`，
+后端搜索两列都命中。`zh_names.py` 是 NAME_EN → 中文名的完整字典（主流媒体译名；
+Jr.=小、II/III/IV=二世/三世/四世，连字符姓保留）。同步工具只在**首插**时写
+PLAYER_NAME（英文），所以每次同步进来新球员后跑一遍：
+
+```bash
+python3 localize_names.py --dry-run   # 看有多少未译、字典缺谁
+python3 localize_names.py             # 应用（只改 PLAYER_NAME=NAME_EN 的行，手工改名永不覆盖）
+```
+
+字典没有的新名字：把 `"英文名": "中文名"` 加进 `zh_names.py` 再跑即可。

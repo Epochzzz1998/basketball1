@@ -32,6 +32,10 @@ public class DreamPlayer extends Model<DreamPlayer> implements Serializable {
     @TableField("PLAYER_BIRTHDAY")
     private Date playerBirthday;
 
+    /** Permanent English name (sync identity); PLAYER_NAME holds the localized display name. */
+    @TableField("NAME_EN")
+    private String nameEn;
+
     @Override
     public String toString() {
         return "DreamPlayer{" +
@@ -72,6 +76,14 @@ public class DreamPlayer extends Model<DreamPlayer> implements Serializable {
 
     public void setPlayerBirthday(Date playerBirthday) {
         this.playerBirthday = playerBirthday;
+    }
+
+    public String getNameEn() {
+        return nameEn;
+    }
+
+    public void setNameEn(String nameEn) {
+        this.nameEn = nameEn;
     }
 
 }

@@ -167,9 +167,12 @@
 
     <sql id="whereConditionPlayer">
         1=1
-        <!-- fuzzy name search (player search box); #{} binding keeps it injection-safe -->
+        <!-- fuzzy name search (player search box); #{} binding keeps it injection-safe.
+             PLAYER_NAME is the localized display name, NAME_EN the permanent English one —
+             match both so Chinese and English queries work after localization -->
         <if test="param.playerName != null and param.playerName !=''">
-             and t.PLAYER_NAME like CONCAT('%', #{param.playerName}, '%')
+             and (t.PLAYER_NAME like CONCAT('%', #{param.playerName}, '%')
+                  or t.NAME_EN like CONCAT('%', #{param.playerName}, '%'))
         </if>
         <if test="param.playerId != null and param.playerId !=''">
             and t.PLAYER_ID = #{param.playerId}
