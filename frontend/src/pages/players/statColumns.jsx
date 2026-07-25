@@ -11,34 +11,34 @@ export function buildFullStatColumns({ serverSort = true } = {}) {
   // 列宽尽量收窄（不压文字）方便移动端一屏多看；出场两列合成「首发/出场」。
   return [
     {
-      title: '球员', dataIndex: 'playerName', fixed: 'left', width: 100,
+      title: '球员', dataIndex: 'playerName', fixed: 'left', width: 96,
       render: (text, row) => <Link to={`/players/${row.playerId}`}>{text}</Link>,
     },
-    { title: '球队', dataIndex: 'playerTeam', width: 72 },
-    { title: '位置', dataIndex: 'playerPosition', width: 60 },
-    { title: '首发/出场', dataIndex: 'playerAppearance', width: 82, ...srt, render: (_, r) => `${r.playerFrAppearance ?? 0}/${r.playerAppearance ?? 0}` },
-    { title: '时间', dataIndex: 'playingTime', width: 60, ...srt, render: (v) => num(v) },
-    { title: '得分', dataIndex: 'playerAvgScore', width: 62, ...srt, render: (v) => num(v) },
+    { title: '球队', dataIndex: 'playerTeam', width: 64 },
+    { title: '位置', dataIndex: 'playerPosition', width: 46 },
+    { title: '首发/出场', dataIndex: 'playerAppearance', width: 80, ...srt, render: (_, r) => `${r.playerFrAppearance ?? 0}/${r.playerAppearance ?? 0}` },
+    { title: '时间', dataIndex: 'playingTime', width: 48, ...srt, render: (v) => num(v) },
+    { title: '得分', dataIndex: 'playerAvgScore', width: 48, ...srt, render: (v) => num(v) },
     {
-      title: '篮板', dataIndex: 'playerAvgReb', width: 120, ...srt,
+      title: '篮板', dataIndex: 'playerAvgReb', width: 112, ...srt,
       // nowrap：名字长换行把行撑高时，前后场拆分不许跟着折行
       render: (_, r) => <span style={{ whiteSpace: 'nowrap' }}>{fmtReb(r.playerAvgReb, r.playerAvgOffReb, r.playerAvgDefReb)}</span>,
     },
-    { title: '助攻', dataIndex: 'playerAvgAss', width: 60, ...srt, render: (v) => num(v) },
-    { title: '投篮', dataIndex: 'playerAvgFgm', width: 86, render: (_, r) => fmtPair(r.playerAvgFgm, r.playerAvgFga) },
-    { title: '投篮%', dataIndex: 'playerAccuracy', width: 68, ...srt, render: (v) => fmtPct(v) },
-    { title: '三分', dataIndex: 'playerAvgTpm', width: 86, render: (_, r) => fmtPair(r.playerAvgTpm, r.playerAvgTpa) },
-    { title: '三分%', dataIndex: 'playerThreeAccuracy', width: 68, ...srt, render: (v) => fmtPct(v) },
-    { title: '罚球', dataIndex: 'playerAvgFtm', width: 86, render: (_, r) => fmtPair(r.playerAvgFtm, r.playerAvgFta) },
-    { title: '罚球%', dataIndex: 'playerFreethrowAccuracy', width: 68, ...srt, render: (v) => fmtPct(v) },
-    { title: '盖帽', dataIndex: 'playerAvgBlock', width: 58, ...srt, render: (v) => num(v) },
-    { title: '抢断', dataIndex: 'playerAvgSteal', width: 58, ...srt, render: (v) => num(v) },
-    { title: '失误', dataIndex: 'playerAvgTurnover', width: 58, ...srt, render: (v) => num(v) },
+    { title: '助攻', dataIndex: 'playerAvgAss', width: 48, ...srt, render: (v) => num(v) },
+    { title: '投篮', dataIndex: 'playerAvgFgm', width: 84, render: (_, r) => fmtPair(r.playerAvgFgm, r.playerAvgFga) },
+    { title: '投篮%', dataIndex: 'playerAccuracy', width: 56, ...srt, render: (v) => fmtPct(v) },
+    { title: '三分', dataIndex: 'playerAvgTpm', width: 84, render: (_, r) => fmtPair(r.playerAvgTpm, r.playerAvgTpa) },
+    { title: '三分%', dataIndex: 'playerThreeAccuracy', width: 56, ...srt, render: (v) => fmtPct(v) },
+    { title: '罚球', dataIndex: 'playerAvgFtm', width: 84, render: (_, r) => fmtPair(r.playerAvgFtm, r.playerAvgFta) },
+    { title: '罚球%', dataIndex: 'playerFreethrowAccuracy', width: 56, ...srt, render: (v) => fmtPct(v) },
+    { title: '盖帽', dataIndex: 'playerAvgBlock', width: 48, ...srt, render: (v) => num(v) },
+    { title: '抢断', dataIndex: 'playerAvgSteal', width: 48, ...srt, render: (v) => num(v) },
+    { title: '失误', dataIndex: 'playerAvgTurnover', width: 48, ...srt, render: (v) => num(v) },
     { title: '效率值', dataIndex: 'playerPer', width: 58, ...srt, render: (v) => num(v) },
-    { title: 'MVP', dataIndex: 'mvpRank', width: 58, ...srt },
-    { title: 'DPOY', dataIndex: 'dpoyRank', width: 62, ...srt },
-    { title: '最佳阵容', dataIndex: 'allDbaTeam', width: 76 },
-    { title: '最佳防守', dataIndex: 'allDefTeam', width: 76 },
+    { title: 'MVP', dataIndex: 'mvpRank', width: 50, ...srt },
+    { title: 'DPOY', dataIndex: 'dpoyRank', width: 56, ...srt },
+    { title: '最佳阵容', dataIndex: 'allDbaTeam', width: 72 },
+    { title: '最佳防守', dataIndex: 'allDefTeam', width: 72 },
   ]
 }
 
@@ -48,11 +48,11 @@ export const FULL_COLUMNS_SCROLL_X = 1990
  * 手机上全量表横向太长、频繁横滑：紧凑列宽（12px 字号下正好不挤）配合
  * index.css 里 .stat-compact 的字号/内边距媒体查询，一屏约多看 40% 的列。 */
 const COMPACT_W = {
-  playerName: 88, playerTeam: 56, playerPosition: 40, playerAppearance: 58, playingTime: 44,
-  playerAvgScore: 46, playerAvgReb: 104, playerAvgAss: 44, playerAvgFgm: 64, playerAccuracy: 52,
-  playerAvgTpm: 64, playerThreeAccuracy: 52, playerAvgFtm: 64, playerFreethrowAccuracy: 52,
-  playerAvgBlock: 44, playerAvgSteal: 44, playerAvgTurnover: 44, playerPer: 46,
-  mvpRank: 44, dpoyRank: 48, allDbaTeam: 60, allDefTeam: 60, seasonNum: 56, playoffResult: 78,
+  playerName: 86, playerTeam: 52, playerPosition: 36, playerAppearance: 56, playingTime: 42,
+  playerAvgScore: 42, playerAvgReb: 100, playerAvgAss: 42, playerAvgFgm: 62, playerAccuracy: 50,
+  playerAvgTpm: 62, playerThreeAccuracy: 50, playerAvgFtm: 62, playerFreethrowAccuracy: 50,
+  playerAvgBlock: 42, playerAvgSteal: 42, playerAvgTurnover: 42, playerPer: 46,
+  mvpRank: 42, dpoyRank: 46, allDbaTeam: 58, allDefTeam: 58, seasonNum: 52, playoffResult: 76,
 }
 
 /** 列表 → 紧凑列表：命中紧凑表的用表值，其余按 0.72 收缩（下限 40）；

@@ -39,7 +39,7 @@ export default function HonorDetail() {
     // 阵容组没有名次角标（rankOf 不设），完整数据页也不出名次列
     ...(group.rankOf
       ? [{
-          title: '名次', width: isMobile ? 48 : 70, fixed: 'left',
+          title: '名次', width: isMobile ? 40 : 48, fixed: 'left',
           render: (_, r, i) => (
             <span style={{ color: '#888' }}>{group.rankOf(r)}</span>
           ),

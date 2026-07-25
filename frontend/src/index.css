@@ -108,6 +108,13 @@ body {
   min-height: 0 !important;
 }
 
+/* 数据表（.stat-compact）桌面端：antd 默认单元格左右各 16px 内边距太肥，
+   列宽收紧后内容被挤换行——统一压到 6px（移动端媒体查询里另有更紧的 5px 版本） */
+.stat-compact .ant-table-thead > tr > th,
+.stat-compact .ant-table-tbody > tr > td {
+  padding: 10px 6px !important; /* antd 注入样式同权重且更晚加载，必须 !important */
+}
+
 /* 移动端数据表（.stat-compact）：字号 12、内边距压缩——配合 statColumns 的紧凑列宽，
    手机一屏能多看约 40% 的列；桌面端不受影响（列宽同样只在移动端换紧凑表） */
 @media (max-width: 768px) {

@@ -28,7 +28,7 @@ export default function RankingDetail() {
 
   const baseColumns = [
     {
-      title: '名次', width: isMobile ? 48 : 70, fixed: 'left',
+      title: '名次', width: isMobile ? 40 : 48, fixed: 'left',
       render: (_, __, index) => {
         const rank = index + 1
         return (

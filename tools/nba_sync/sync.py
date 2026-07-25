@@ -34,8 +34,26 @@ BASE_WEB = 'https://site.web.api.espn.com/apis'
 # ESPN abbreviation -> the site's canonical 30 team codes (frontend NBA_TEAM_NAMES)
 ESPN2CODE = {'GS': 'GSW', 'NO': 'NOP', 'NY': 'NYK', 'SA': 'SAS', 'UTAH': 'UTA', 'WSH': 'WAS',
              # historical franchises map to their CURRENT club (site models 30 fixed teams):
-             # Seattle SuperSonics (≤2007-08) = OKC, New Jersey Nets (≤2011-12) = BKN
-             'SEA': 'OKC', 'NJ': 'BKN'}
+             # Seattle SuperSonics (≤2007-08) = OKC, New Jersey Nets (≤2011-12) = BKN,
+             # Vancouver Grizzlies (≤2000-01) = MEM, Washington Bullets abbr is WSH anyway
+             'SEA': 'OKC', 'NJ': 'BKN', 'VAN': 'MEM'}
+
+
+def code_of_id(tid, season, id_to_code):
+    """franchise espn-id -> current site code, season-aware. ESPN keeps the original
+    Charlotte Hornets (1988-2002) on the Pelicans franchise id (3), but the NBA's 2014
+    ruling assigns that history to today's CHA — remap those seasons by hand."""
+    tid = str(tid)
+    if tid == '3' and season <= 2002:
+        return 'CHA'
+    return id_to_code.get(tid)
+
+
+def id_of_code(code, season, team_ids):
+    """site code -> franchise espn-id for API calls (mirror of code_of_id)"""
+    if code == 'CHA' and season <= 2002:
+        return team_ids.get('NOP')
+    return team_ids.get(code)
 
 def mysql_cmd():
     # password from env DREAM_DB_PWD or the git-ignored .dbpwd file next to this script
@@ -141,17 +159,30 @@ def fetch_athlete_stats(season, seasontype):
     return rows
 
 
-def fetch_standings(season):
-    """teamCode -> {wins, losses, oppg}"""
+def fetch_standings(season, id_to_code):
+    """teamCode -> {wins, losses, oppg, ppg}. Teams map by FRANCHISE ID (season-aware);
+    for old seasons where the avg fields are 0/absent, derive from season totals."""
     d = get(f'{BASE_WEB}/v2/sports/basketball/nba/standings?region=us&lang=en&season={season}')
     out = {}
     for group in d.get('children', []):
         for e in group.get('standings', {}).get('entries', []):
             stats = {s['name']: s.get('value') for s in e.get('stats', [])}
-            out[code_of(e['team']['abbreviation'])] = {
-                'wins': int(stats.get('wins') or 0),
-                'losses': int(stats.get('losses') or 0),
-                'oppg': stats.get('avgPointsAgainst'),
+            t = e['team']
+            code = code_of_id(t.get('id'), season, id_to_code) or code_of(t['abbreviation'])
+            wins, losses = int(stats.get('wins') or 0), int(stats.get('losses') or 0)
+            games = wins + losses
+
+            def avg_or_total(avg_key, total_key):
+                v = stats.get(avg_key)
+                if v:
+                    return v
+                total = stats.get(total_key)
+                return round(total / games, 1) if total and games else None
+
+            out[code] = {
+                'wins': wins, 'losses': losses,
+                'oppg': avg_or_total('avgPointsAgainst', 'pointsAgainst'),
+                'ppg': avg_or_total('avgPointsFor', 'pointsFor'),
             }
     return out
 
@@ -207,7 +238,7 @@ def fetch_awards(season):
     return out
 
 
-def fetch_team_pergame(season, seasontype):
+def fetch_team_pergame(season, seasontype, id_to_code):
     """team own per-game numbers from byteam: code -> {pts, reb, ast, stl, blk, tov, games}"""
     try:
         d = get(f'{BASE_WEB}/common/v3/sports/basketball/nba/statistics/byteam'
@@ -221,7 +252,7 @@ def fetch_team_pergame(season, seasontype):
             names_by_cat.setdefault(c['name'], c['names'])
     out = {}
     for row in d.get('teams', []):
-        code = code_of(row['team']['abbreviation'])
+        code = code_of_id(row['team'].get('id'), season, id_to_code) or code_of(row['team']['abbreviation'])
         vals = {}
         for cat in row.get('categories', []):
             names = names_by_cat.get(cat['name'], [])
@@ -236,11 +267,12 @@ def fetch_team_pergame(season, seasontype):
 
 
 def fetch_playoff_results(season, team_ids, po_codes):
-    """PLAYOFF_RESULT per team, derived from playoff game wins:
-    16 -> 总冠军, 12-15 -> 总决赛, 8-11 -> 分区决赛, 4-7 -> 半决赛, <4 -> 首轮; rest 未进季后赛"""
+    """PLAYOFF_RESULT per team, derived from playoff game wins. First round was
+    best-of-5 through 2002 (champion = 15 wins), best-of-7 since 2003 (16 wins)."""
+    champ, finals, conff, semis = (15, 11, 7, 3) if season <= 2002 else (16, 12, 8, 4)
     out = {code: '未进季后赛' for code in team_ids}
     for code in po_codes:
-        tid = team_ids.get(code)
+        tid = id_of_code(code, season, team_ids)
         if not tid:
             continue
         try:
@@ -253,8 +285,8 @@ def fetch_playoff_results(season, team_ids, po_codes):
             for c in ev.get('competitions', [{}])[0].get('competitors', []):
                 if str(c.get('team', {}).get('id')) == str(tid) and c.get('winner') is True:
                     wins += 1
-        out[code] = ('总冠军' if wins >= 16 else '总决赛' if wins >= 12
-                     else '分区决赛' if wins >= 8 else '半决赛' if wins >= 4 else '首轮')
+        out[code] = ('总冠军' if wins >= champ else '总决赛' if wins >= finals
+                     else '分区决赛' if wins >= conff else '半决赛' if wins >= semis else '首轮')
         time.sleep(0.2)
     return out
 
@@ -306,7 +338,7 @@ def fetch_season_teams(season, espn_ids, id_to_code):
         codes = []
         for ref in refs:
             m = _re.search(r'/teams/(\d+)', ref)
-            code = id_to_code.get(m.group(1)) if m else None
+            code = code_of_id(m.group(1), season, id_to_code) if m else None
             if code and code not in codes:
                 codes.append(code)
         return aid, {'chain': '->'.join(codes), 'dob': (a.get('dateOfBirth') or '')[:10]}
@@ -358,7 +390,7 @@ def fetch_gap_rows(season, seasontype, have_ids, candidates):
     return out
 
 
-def fetch_playoff_opp_ppg(season):
+def fetch_playoff_opp_ppg(season, id_to_code):
     """teamCode -> opponents' playoff PPG (byteam st=3: 2nd occurrence of each category = opponents)"""
     try:
         d = get(f'{BASE_WEB}/common/v3/sports/basketball/nba/statistics/byteam'
@@ -372,7 +404,7 @@ def fetch_playoff_opp_ppg(season):
             names_by_cat.setdefault(c['name'], c['names'])
     out = {}
     for row in d.get('teams', []):
-        code = code_of(row['team']['abbreviation'])
+        code = code_of_id(row['team'].get('id'), season, id_to_code) or code_of(row['team']['abbreviation'])
         seen = set()
         for cat in row.get('categories', []):
             names = names_by_cat.get(cat['name'], [])
@@ -451,14 +483,16 @@ def career_sql(table):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--season', type=int, default=2026, help='ESPN season year (2026 = 2025-26 = site season 20)')
+    ap.add_argument('--season', type=int, default=2026, help='ESPN season year (2026 = 2025-26 = site season 40)')
+    ap.add_argument('--ids-file', help='JSON list of {espnId,name,pos,team} to force-include (pre-1994 discovery)')
     ap.add_argument('--dry-run', action='store_true', help='write the SQL file but do not execute it')
     args = ap.parse_args()
-    season_num = args.season - 2006  # 2026 -> 20 -> label 2025-2026 (site formula: (2005+n)-(2006+n), latest-20-years window)
+    season_num = args.season - 1986  # 2026 -> 40 -> label 2025-2026 (site formula: (1985+n)-(1986+n), 40-year window since 1986-87)
     print(f'== NBA sync: ESPN season {args.season} -> site season_num {season_num} ==')
 
     print('[1/6] rosters (identity: jersey/position/birthday)')
     ident, team_ids = fetch_rosters()
+    id_to_code = {str(v): k for k, v in team_ids.items()}
     print(f'  identities: {len(ident)}')
 
     print('[2/6] regular-season player averages')
@@ -485,17 +519,33 @@ def main():
     po += add_po
     if add_reg or add_po:
         print(f'  gap-filled: +{len(add_reg)} regular, +{len(add_po)} playoff rows')
+    # pre-1994 seasons have no usable byathlete index at all — a hand-built ids file
+    # (from Basketball-Reference name lists resolved to espn ids) drives discovery instead
+    if args.ids_file:
+        import json as _json
+        extra = {str(e['espnId']): {'espnId': str(e['espnId']), 'name': e['name'],
+                                    'teamCode': e.get('team') or '', 'pos': e.get('pos') or '', 'stats': {}}
+                 for e in _json.load(open(args.ids_file))}
+        add_f = fetch_gap_rows(args.season, 2, {r['espnId'] for r in reg}, extra)
+        reg += add_f
+        add_fp = fetch_gap_rows(args.season, 3, {r['espnId'] for r in po}, {r['espnId']: r for r in reg})
+        po += add_fp
+        print(f'  ids-file: +{len(add_f)} regular, +{len(add_fp)} playoff rows')
     print('[4/6] per-athlete details (starters + off/def rebounds, threaded)')
     det_reg = fetch_athlete_details(args.season, 2, [r['espnId'] for r in reg])
     det_po = fetch_athlete_details(args.season, 3, [r['espnId'] for r in po])
     print('  season-frozen team affiliations (core season athlete objects)')
     season_teams = fetch_season_teams(args.season, {r['espnId'] for r in reg} | {r['espnId'] for r in po},
-                                      {str(v): k for k, v in team_ids.items()})
+                                      id_to_code)
     print('[5/6] team stats + standings + playoff rounds + season awards')
-    standings = fetch_standings(args.season)
-    po_opp = fetch_playoff_opp_ppg(args.season)
-    team_reg = fetch_team_pergame(args.season, 2)
-    team_po = fetch_team_pergame(args.season, 3)
+    standings = fetch_standings(args.season, id_to_code)
+    po_opp = fetch_playoff_opp_ppg(args.season, id_to_code)
+    team_reg = fetch_team_pergame(args.season, 2, id_to_code)
+    team_po = fetch_team_pergame(args.season, 3, id_to_code)
+    # pre-1994 the byteam endpoint is empty — at least fill team PPG from standings totals
+    for code, st in standings.items():
+        if st.get('ppg') is not None:
+            team_reg.setdefault(code, {}).setdefault('pts', st['ppg'])
     po_results = fetch_playoff_results(args.season, team_ids, set(team_po.keys()))
     awards = fetch_awards(args.season)
     # NBA-only filter: keep players on a current NBA roster OR with a real body of NBA work
@@ -512,7 +562,7 @@ def main():
     if dropped:
         print(f'  filtered out {len(dropped)} fringe non-roster players (e.g. {", ".join(dropped[:5])})')
     print(f'  players: reg {len(reg)}, playoffs {len(po)}; teams {len(standings)}, po-teams {len(po_opp)}')
-    if len(reg) < 100 or len(standings) < 30:
+    if len(reg) < 100 or len(standings) < 20:  # 1987 had 23 teams; expansion reached 30 in 2004
         sys.exit('ABORT: source data looks incomplete — nothing was written')
 
     print('[6/6] generating SQL')
