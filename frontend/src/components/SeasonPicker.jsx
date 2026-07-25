@@ -15,7 +15,7 @@ const MAX_SEASON = LATEST_SEASON
 // 赛季 → 起始年所在年代（1985+n：第 1 季=1986 → 80 年代）
 const eraOf = (n) => Math.floor((1985 + n) / 10) * 10
 const ERAS = [...new Set(Array.from({ length: MAX_SEASON }, (_, i) => eraOf(i + 1)))]
-const eraLabel = (e) => `${String(e).slice(-2)}年代`
+const eraLabel = (e) => `${String(e).slice(-2)}s` // '80s'——「80年代」在分段条里放不下会截断
 
 export default function SeasonPicker({ value, onChange, includeCareer = true }) {
   const [open, setOpen] = useState(false)
@@ -57,7 +57,8 @@ export default function SeasonPicker({ value, onChange, includeCareer = true }) 
         options={ERAS.map((e) => ({ label: eraLabel(e), value: e }))}
         style={{ marginBottom: 8 }}
       />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, minHeight: 96 }}>
+      {/* 不设 minHeight：行数随年代变化，芯片保持紧凑不被拉伸 */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, alignContent: 'start' }}>
         {Array.from({ length: MAX_SEASON }, (_, i) => i + 1)
           .filter((n) => eraOf(n) === era)
           .map((n) => {
