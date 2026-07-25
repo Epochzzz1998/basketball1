@@ -7,7 +7,7 @@ import { LATEST_SEASON, seasonShort, seasonYearLabel } from '../pages/players/ra
  * 全站统一的赛季选择器（与顶栏搜索胶囊同一设计语言）：
  * `‹ | 2015-2016 赛季 ▾ | ›` 三段式胶囊——左右箭头逐季步进，
  * 点中间弹出年份网格（4 列芯片，选中=品牌橙填充；可选"生涯场均"整行芯片）。
- * 赛季范围/标签一律来自 rankConfig（锚点 2006、最近 20 年），不在此处另行硬编码。
+ * 赛季范围/标签一律来自 rankConfig（锚点 1986、最近 40 年），不在此处另行硬编码。
  */
 
 const MAX_SEASON = LATEST_SEASON

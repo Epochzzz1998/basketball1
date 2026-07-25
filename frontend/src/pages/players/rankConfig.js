@@ -1,20 +1,21 @@
 /** 球员数据模块共享配置：赛季选项、数字格式化、单项排行榜配置、NBA 队名映射 */
 
-// 第 N 赛季 = (2005+N)-(2006+N)：第 1 赛季即 2006-2007 赛季（锚点 2006，覆盖最近 20 年）
+// 第 N 赛季 = (1985+N)-(1986+N)：第 1 赛季即 1986-1987 赛季（锚点 1986，覆盖最近 40 年）
+// 注意：生涯档 sentinel 是 50，赛季号最多只能扩到 49——再往前回补就得另起 sentinel
 export const seasonYearLabel = (n) =>
-  n === 50 ? '生涯场均' : `${2005 + Number(n)}-${2006 + Number(n)} 赛季`
+  n === 50 ? '生涯场均' : `${1985 + Number(n)}-${1986 + Number(n)} 赛季`
 
-// 数据表的赛季列用：只留年份后两位，如 2006-2007 → 06-07（生涯档=生涯）
+// 数据表的赛季列用：只留年份后两位，如 1986-1987 → 86-87（生涯档=生涯）
 export const seasonShort = (n) =>
   Number(n) === 50
     ? '生涯'
-    : `${String(2005 + Number(n)).slice(-2)}-${String(2006 + Number(n)).slice(-2)}`
+    : `${String(1985 + Number(n)).slice(-2)}-${String(1986 + Number(n)).slice(-2)}`
 
-// 最新赛季（第 20 季 = 2025-2026；同步工具每天维护这一季，ESPN 年份 − 2006 = 赛季号）
-export const LATEST_SEASON = 20
+// 最新赛季（第 40 季 = 2025-2026；同步工具每天维护这一季，ESPN 年份 − 1986 = 赛季号）
+export const LATEST_SEASON = 40
 
 export const seasonOptions = [
-  // 最近 20 年、最新在前；老赛季未回补前显示空态
+  // 最近 40 年、最新在前；老赛季未回补前显示空态
   ...Array.from({ length: LATEST_SEASON }, (_, i) => ({ value: LATEST_SEASON - i, label: seasonYearLabel(LATEST_SEASON - i) })),
   { value: 50, label: '生涯场均' },
 ]

@@ -8,8 +8,6 @@ import SeasonPicker from '../../components/SeasonPicker'
 import useIsMobile from '../../hooks/useIsMobile'
 import { buildFullStatColumns, HONOR_COLUMN_KEYS, compactColumns, sumColWidth } from './statColumns'
 
-const MEDAL = ['#f5b301', '#9aa0a6', '#b87333']
-
 /**
  * 某数据项的完整排行（/rankings/:field）：按该项降序、不分页一滚到底，
  * 展示球员的全量数据列（排行项高亮为橙色）。
@@ -34,9 +32,7 @@ export default function RankingDetail() {
       render: (_, __, index) => {
         const rank = index + 1
         return (
-          <span style={{ fontWeight: 700, color: rank <= 3 ? MEDAL[rank - 1] : '#bbb', fontSize: rank <= 3 ? 16 : 14 }}>
-            {rank}
-          </span>
+          <span style={{ color: '#888' }}>{rank}</span>
         )
       },
     },

@@ -9,8 +9,6 @@ import SeasonPicker from '../../components/SeasonPicker'
 import useIsMobile from '../../hooks/useIsMobile'
 import { buildFullStatColumns, compactColumns, sumColWidth } from './statColumns'
 
-const MEDAL = ['#f5b301', '#9aa0a6', '#b87333']
-
 /** 某项荣誉的完整数据（/rankings/honors/:group）：该组全部球员 + 全量数据列 */
 export default function HonorDetail() {
   const { group: groupKey } = useParams()
@@ -43,9 +41,7 @@ export default function HonorDetail() {
       ? [{
           title: '名次', width: isMobile ? 48 : 70, fixed: 'left',
           render: (_, r, i) => (
-            <span style={{ fontWeight: 700, color: i < 3 ? MEDAL[i] : '#bbb', fontSize: i < 3 ? 16 : 14 }}>
-              {group.rankOf(r)}
-            </span>
+            <span style={{ color: '#888' }}>{group.rankOf(r)}</span>
           ),
         }]
       : []),

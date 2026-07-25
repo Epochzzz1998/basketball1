@@ -3,11 +3,11 @@ import { fmtNum as num, fmtPair, fmtPct, fmtReb } from './rankConfig'
 
 /**
  * 球员全量数据列（总览/球队页/荣誉完整数据页共用）。
- * serverSort=true 时对 P3-1 排序白名单内的列开启表头排序（服务端排序）；
- * 成对列（投篮/三分/罚球）与前后场分板不在白名单，不给排序。
+ * 表头一律不带排序（排序箭头会把"首发/出场"这类表头挤到换行，PC 移动端都去掉；
+ * 排行需求走「联盟排行/完整排行」页）。serverSort 参数保留只为兼容旧调用。
  */
 export function buildFullStatColumns({ serverSort = true } = {}) {
-  const srt = serverSort ? { sorter: true } : {}
+  const srt = {}
   // 列宽尽量收窄（不压文字）方便移动端一屏多看；出场两列合成「首发/出场」。
   return [
     {
