@@ -7,7 +7,8 @@ import SeasonPicker from '../../components/SeasonPicker'
 import PillTabs from '../../components/PillTabs'
 import { playerApi } from '../../api/player'
 import { searchApi } from '../../api/search'
-import { CAREER_SEASON, fmtNum, fmtTeamChain, seasonYearLabel, seasonShort, PLAYOFF_TAG, statQualified, LATEST_SEASON, NBA_TEAM_NAMES } from './rankConfig'
+import { CAREER_SEASON, fmtNum, seasonYearLabel, seasonShort, PLAYOFF_TAG, statQualified, LATEST_SEASON, NBA_TEAM_NAMES } from './rankConfig'
+import TeamLogo, { TeamChain } from '../../components/TeamLogo'
 import { CAREER_AWARDS } from './honorConfig'
 import { GRID_STATS, RADAR_AXES, percentileOf, val } from './SeasonProfile'
 import useIsMobile from '../../hooks/useIsMobile'
@@ -35,7 +36,7 @@ const CAREER_STATS = [
 ]
 
 /** 对战台内的选人位：搜索 / 按球队（赛季→球队→当季阵容）双模式 Modal */
-function PlayerPick({ value, onChange, side }) {
+function PlayerPick({ value, onChange, side, photo }) {
   const isMobile = useIsMobile()
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState('search')
@@ -100,17 +101,30 @@ function PlayerPick({ value, onChange, side }) {
       >
         {value ? (
           <>
-            <div
-              style={{
-                width: isMobile ? 38 : 52, height: isMobile ? 38 : 52, borderRadius: '50%',
-                background: 'rgba(255,255,255,.95)', color,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900,
-                fontSize: isMobile ? 12 : 15,
-                flexShrink: 0, boxShadow: '0 3px 10px rgba(0,0,0,.18)',
-              }}
-            >
-              #{value.number ?? '-'}
-            </div>
+            {/* 有照片就顶上照片（超管在球员管理里上传），没有照片仍是球衣号圆牌 */}
+            {photo ? (
+              <img
+                src={photo}
+                alt={value.name || ''}
+                style={{
+                  width: isMobile ? 38 : 52, height: isMobile ? 38 : 52, borderRadius: '50%',
+                  objectFit: 'cover', objectPosition: 'top center', background: 'rgba(255,255,255,.95)',
+                  flexShrink: 0, boxShadow: '0 3px 10px rgba(0,0,0,.18)',
+                }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: isMobile ? 38 : 52, height: isMobile ? 38 : 52, borderRadius: '50%',
+                  background: 'rgba(255,255,255,.95)', color,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900,
+                  fontSize: isMobile ? 12 : 15,
+                  flexShrink: 0, boxShadow: '0 3px 10px rgba(0,0,0,.18)',
+                }}
+              >
+                #{value.number ?? '-'}
+              </div>
+            )}
             <div style={{ minWidth: 0 }}>
               {/* 手机上名字允许换到两行整名展示——截断成「勒布…」没法看 */}
               <div
@@ -175,7 +189,7 @@ function PlayerPick({ value, onChange, side }) {
               {opts.map((pp) => (
                 <div
                   key={pp.playerId}
-                  onClick={() => pick({ id: pp.playerId, name: pp.playerName, number: pp.playerNumber })}
+                  onClick={() => pick({ id: pp.playerId, name: pp.playerName, number: pp.playerNumber, photo: pp.photo })}
                   style={rowStyle}
                   onMouseEnter={(e) => { e.currentTarget.style.background = tint }}
                   onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
@@ -195,7 +209,9 @@ function PlayerPick({ value, onChange, side }) {
               <SeasonPicker value={rosterSeason} onChange={(v) => { setRosterSeason(v); setRoster(null) }} includeCareer={false} />
               {team && (
                 <Tag color="volcano" style={{ marginInlineEnd: 0, cursor: 'pointer' }} onClick={() => { setTeam(null); setRoster(null) }}>
-                  {NBA_TEAM_NAMES[team]} ✕
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <TeamLogo code={team} size={14} /> {NBA_TEAM_NAMES[team]} ✕
+                  </span>
                 </Tag>
               )}
             </div>
@@ -209,7 +225,7 @@ function PlayerPick({ value, onChange, side }) {
                     onMouseEnter={(e) => { e.currentTarget.style.background = tint }}
                     onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
                   >
-                    <div style={{ fontWeight: 700 }}>{code}</div>
+                    <TeamLogo code={code} size={26} style={{ margin: '0 auto 2px', display: 'block' }} />
                     <div style={{ color: '#888' }}>{name}</div>
                   </div>
                 ))}
@@ -223,7 +239,7 @@ function PlayerPick({ value, onChange, side }) {
                 {roster.map((r) => (
                   <div
                     key={r.playerId}
-                    onClick={() => pick({ id: r.playerId, name: r.playerName, number: r.playerNumber }, rosterSeason)}
+                    onClick={() => pick({ id: r.playerId, name: r.playerName, number: r.playerNumber, photo: r.photo }, rosterSeason)}
                     style={rowStyle}
                     onMouseEnter={(e) => { e.currentTarget.style.background = tint }}
                     onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
@@ -515,8 +531,8 @@ export default function PlayerCompare() {
     border: '2px solid rgba(255,255,255,.15)', ...pos,
   })
 
-  const teamTagA = (r) => (seasonA === CAREER_SEASON ? <Tag>生涯</Tag> : <Tag color="volcano">{fmtTeamChain(r.playerTeam, ' → ')}</Tag>)
-  const teamTagB = (r) => (seasonB === CAREER_SEASON ? <Tag>生涯</Tag> : <Tag color="blue">{fmtTeamChain(r.playerTeam, ' → ')}</Tag>)
+  const teamTagA = (r) => (seasonA === CAREER_SEASON ? <Tag>生涯</Tag> : <Tag color="volcano"><TeamChain value={r.playerTeam} size={14} /></Tag>)
+  const teamTagB = (r) => (seasonB === CAREER_SEASON ? <Tag>生涯</Tag> : <Tag color="blue"><TeamChain value={r.playerTeam} size={14} /></Tag>)
 
   return (
     <>
@@ -533,7 +549,7 @@ export default function PlayerCompare() {
         <div style={ring(190, { top: -70, right: -50 })} />
         <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 16, padding: isMobile ? '16px 12px' : '26px 28px', position: 'relative' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <PlayerPick value={a} onChange={(p, season) => { pendA.current = season || null; setA(p) }} side="A" />
+            <PlayerPick value={a} photo={a?.photo || bundle?.honorsA?.photo} onChange={(p, season) => { pendA.current = season || null; setA(p) }} side="A" />
           </div>
           <div
             style={{
@@ -546,7 +562,7 @@ export default function PlayerCompare() {
             VS
           </div>
           <div style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'flex-end' }}>
-            <PlayerPick value={b} onChange={(p, season) => { pendB.current = season || null; setB(p) }} side="B" />
+            <PlayerPick value={b} photo={b?.photo || bundle?.honorsB?.photo} onChange={(p, season) => { pendB.current = season || null; setB(p) }} side="B" />
           </div>
         </div>
         {/* 两侧各自的赛季（跨时代对比：一人一个年代）。

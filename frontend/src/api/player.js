@@ -25,6 +25,14 @@ export const playerApi = {
   // ===== 写（superManager） =====
   // 新增行只在前端本地加（带 new- 临时 id），保存时把临时 id 清空交后端补 UUID，故不再用 insertAndSave* 接口。
   savePlayers: (rows) => http.post('/player/savePlayer', new URLSearchParams({ data: JSON.stringify(rows) })),
+  // 球员照片：一人一张，重传即覆盖（后端先清旧目录）；返回 { url }
+  uploadPhoto: (file, playerId) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('playerId', playerId)
+    return http.post('/player/uploadPhoto', fd)
+  },
+  deletePhoto: (playerId) => http.post('/player/deletePhoto', new URLSearchParams({ playerId })),
   savePlayerStats: (rows, playerId) => http.post('/player/savePlayerStats', new URLSearchParams({ data: JSON.stringify(rows), playerId })),
   deletePlayer: (playerId) => http.post('/player/deletePlayer', new URLSearchParams({ playerId })),
   deletePlayerStats: (statsId, playerId) => http.post('/player/deletePlayerStats', new URLSearchParams({ statsId, playerId })),

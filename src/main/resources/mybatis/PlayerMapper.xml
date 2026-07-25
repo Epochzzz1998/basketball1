@@ -11,7 +11,7 @@
 
     <!-- 查找球员赛季数据 -->
     <select id="findPlayersSeasonStats" parameterType="java.lang.String" resultType="com.dream.basketball.dto.PlayerStatsDto">
-        select t.PLAYER_NAME,t.PLAYER_NUMBER,s.* from dream_player t right join
+        select t.PLAYER_NAME,t.PLAYER_NUMBER,t.PHOTO,s.* from dream_player t right join
             (select * from player_stats where SEASON_NUM = #{param.seasonNum} ) s  on t.PLAYER_ID = s.PLAYER_ID
         <where>
             <include refid="whereConditionPlayer"></include>

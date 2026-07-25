@@ -4,9 +4,10 @@ import { useParams, Link } from 'react-router-dom'
 import { Button, Card, Col, ConfigProvider, Empty, Row, Segmented, Space, Spin, Tag } from 'antd'
 import { BarChartOutlined, FireOutlined, IdcardOutlined, TrophyOutlined } from '@ant-design/icons'
 import { playerApi } from '../../api/player'
-import { CAREER_SEASON, PLAYOFF_TAG, fmtNum as num, fmtPair, fmtReb, fmtTeamChain, seasonYearLabel, seasonShort, fmtPct } from './rankConfig'
+import { CAREER_SEASON, PLAYOFF_TAG, fmtNum as num, fmtPair, fmtReb, seasonYearLabel, seasonShort, fmtPct } from './rankConfig'
 import { CAREER_AWARDS } from './honorConfig'
 import { compactColumns, sumColWidth } from './statColumns'
+import { TeamCell } from '../../components/TeamLogo'
 import SeasonProfile from './SeasonProfile'
 import useIsMobile from '../../hooks/useIsMobile'
 
@@ -81,7 +82,7 @@ function CareerTable({ playerId }) {
   const isMobile = useIsMobile()
   const columns = [
     { title: '赛季', dataIndex: 'seasonNum', width: 64, fixed: 'left', render: (s) => (s === CAREER_SEASON ? '生涯' : seasonShort(s)) },
-    { title: '球队', dataIndex: 'playerTeam', width: 64, render: (v) => fmtTeamChain(v) },
+    { title: '球队', dataIndex: 'playerTeam', width: 78, render: (v) => <TeamCell value={v} /> },
     { title: '位置', dataIndex: 'playerPosition', width: 46 },
     { title: '首发/出场', dataIndex: 'playerAppearance', width: 80, render: (_, r) => `${r.playerFrAppearance ?? 0}/${r.playerAppearance ?? 0}` },
     { title: '时间', dataIndex: 'playingTime', width: 48, render: (v) => num(v) },
@@ -154,7 +155,7 @@ function PlayoffTable({ playerId }) {
 
   const columns = [
     { title: '赛季', dataIndex: 'seasonNum', width: 64, fixed: 'left', render: (s) => (s === CAREER_SEASON ? '生涯' : seasonShort(s)) },
-    { title: '球队', dataIndex: 'playerTeam', width: 64, render: (v) => fmtTeamChain(v) },
+    { title: '球队', dataIndex: 'playerTeam', width: 78, render: (v) => <TeamCell value={v} /> },
     {
       title: '成绩', dataIndex: 'playoffResult', width: 92,
       render: (v) => (v ? <Tag color={PLAYOFF_TAG[v] || 'default'}>{v}</Tag> : '-'),
@@ -230,16 +231,34 @@ export default function PlayerCareer() {
       {/* 球员身份头 */}
       <Card style={{ marginBottom: 16 }} styles={{ body: { padding: '18px 24px' } }}>
         <Space size={16} align="center">
-          <div
-            style={{
-              width: 56, height: 56, borderRadius: '50%', background: 'rgba(250,84,28,.1)', color: '#fa541c',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 20,
-            }}
-          >
-            {honors?.playerNumber ? `#${honors.playerNumber}` : '🏀'}
-          </div>
+          {/* 有照片就上照片（超管在球员管理里传），没有则沿用球衣号圆牌 */}
+          {honors?.photo ? (
+            <img
+              src={honors.photo}
+              alt={honors.playerName || ''}
+              style={{
+                width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', objectPosition: 'top center',
+                background: '#f5f5f5', border: '2px solid #fff', boxShadow: '0 2px 10px rgba(0,0,0,.14)',
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                width: 56, height: 56, borderRadius: '50%', background: 'rgba(250,84,28,.1)', color: '#fa541c',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 20,
+              }}
+            >
+              {honors?.playerNumber ? `#${honors.playerNumber}` : '🏀'}
+            </div>
+          )}
           <div>
-            <div style={{ fontSize: 20, fontWeight: 700 }}>{honors?.playerName || '…'}</div>
+            <div style={{ fontSize: 20, fontWeight: 700 }}>
+              {honors?.playerName || '…'}
+              {/* 圆牌让位给照片时，球衣号跟到名字后面，信息不丢 */}
+              {honors?.photo && honors?.playerNumber && (
+                <span style={{ marginLeft: 8, fontSize: 14, fontWeight: 800, color: '#fa541c' }}>#{honors.playerNumber}</span>
+              )}
+            </div>
             {/* 英文原名独立一行（未汉化时两者相同则不重复展示） */}
             {honors?.nameEn && honors.nameEn !== honors.playerName && (
               <div style={{ color: '#999', fontSize: 13, fontStyle: 'italic' }}>{honors.nameEn}</div>

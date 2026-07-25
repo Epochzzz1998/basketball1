@@ -2,6 +2,7 @@ package com.dream.basketball.controller;
 
 import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.dream.basketball.common.Result;
 import com.dream.basketball.config.RequiresRole;
 import com.dream.basketball.config.Role;
@@ -12,15 +13,20 @@ import com.dream.basketball.entity.PlayerStats;
 import com.dream.basketball.service.PlayerService;
 import com.dream.basketball.service.PlayerStatsService;
 import com.dream.basketball.utils.BaseUtils;
+import com.dream.basketball.utils.FileUtils;
 import com.dream.basketball.utils.SortUtil;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -40,6 +46,9 @@ public class PlayerController extends BaseUtils {
     private PlayerService playerService;
     @Autowired
     private PlayerStatsService playerStatsService;
+
+    @Value("${picPath.uploadPath:}")
+    private String uploadPath;
 
     /** 球员列表数据（按赛季） */
     @GetMapping("/getPlayerData")
@@ -108,6 +117,7 @@ public class PlayerController extends BaseUtils {
         data.put("playerName", player == null ? "" : player.getPlayerName());
         data.put("nameEn", player == null ? "" : player.getNameEn());
         data.put("playerNumber", player == null ? "" : player.getPlayerNumber());
+        data.put("photo", player == null ? "" : player.getPhoto());
         List<Integer> mvp = new ArrayList<>();
         List<Integer> dpoy = new ArrayList<>();
         List<Integer> all1 = new ArrayList<>();
@@ -222,5 +232,38 @@ public class PlayerController extends BaseUtils {
     public Object deletePlayerStats(String statsId, String playerId) {
         playerStatsService.deleteStatsAndRecomputeSummary(statsId, playerId);
         return handlerResultJson(true, "删除成功！");
+    }
+
+    /**
+     * 球员照片上传：图片白名单 / 限 5MB（FileUtils），每人一个目录 player-{id}，
+     * 先清旧再存新，URL 落库 dream_player.PHOTO 并回传给前端即时预览。
+     */
+    @RequiresRole(Role.SUPER_MANAGER)
+    @PostMapping("/uploadPhoto")
+    public Object uploadPhoto(MultipartFile file, String playerId) throws IOException {
+        DreamPlayer player = playerService.getById(StringUtils.trimToEmpty(playerId));
+        if (player == null) {
+            return new Result<>(1, "球员不存在", null);
+        }
+        String folderKey = "player-" + player.getPlayerId();
+        FileUtils.deleteUploadFolder(uploadPath, folderKey); // one photo per player — drop the old one
+        String url = FileUtils.upload(file, uploadPath, folderKey);
+        playerService.update(new UpdateWrapper<DreamPlayer>().eq("PLAYER_ID", player.getPlayerId()).set("PHOTO", url));
+        Map<String, Object> data = new HashMap<>();
+        data.put("url", url);
+        return new Result<>(0, "照片已更新", data);
+    }
+
+    /** 移除球员照片（清空 PHOTO 并删除该球员的上传目录） */
+    @RequiresRole(Role.SUPER_MANAGER)
+    @PostMapping("/deletePhoto")
+    public Object deletePhoto(String playerId) {
+        DreamPlayer player = playerService.getById(StringUtils.trimToEmpty(playerId));
+        if (player == null) {
+            return new Result<>(1, "球员不存在", null);
+        }
+        FileUtils.deleteUploadFolder(uploadPath, "player-" + player.getPlayerId());
+        playerService.update(new UpdateWrapper<DreamPlayer>().eq("PLAYER_ID", player.getPlayerId()).set("PHOTO", null));
+        return new Result<>(0, "照片已移除", null);
     }
 }

@@ -36,6 +36,10 @@ public class DreamPlayer extends Model<DreamPlayer> implements Serializable {
     @TableField("NAME_EN")
     private String nameEn;
 
+    /** Uploaded headshot URL (/picImg/player-{id}/xxx.jpg); null when nobody filled one in yet. */
+    @TableField("PHOTO")
+    private String photo;
+
     @Override
     public String toString() {
         return "DreamPlayer{" +
@@ -84,6 +88,14 @@ public class DreamPlayer extends Model<DreamPlayer> implements Serializable {
 
     public void setNameEn(String nameEn) {
         this.nameEn = nameEn;
+    }
+
+    public String getPhoto() {
+        return photo;
+    }
+
+    public void setPhoto(String photo) {
+        this.photo = photo;
     }
 
 }

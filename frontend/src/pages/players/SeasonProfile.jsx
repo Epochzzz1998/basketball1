@@ -4,7 +4,8 @@ import { Card, Col, Empty, Row, Space, Spin, Tag } from 'antd'
 import SeasonPicker from '../../components/SeasonPicker'
 import RadarChart from '../../components/RadarChart'
 import { playerApi } from '../../api/player'
-import { CAREER_SEASON, PLAYOFF_TAG, fmtNum, fmtTeamChain, seasonYearLabel, fmtPct, statQualified } from './rankConfig'
+import { CAREER_SEASON, PLAYOFF_TAG, fmtNum, seasonYearLabel, fmtPct, statQualified } from './rankConfig'
+import { TeamChain } from '../../components/TeamLogo'
 import { CAREER_AWARDS } from './honorConfig'
 
 /**
@@ -209,7 +210,7 @@ export default function SeasonProfile({ playerId, honors }) {
       >
         {/* 基本信息 + 当季荣誉 */}
         <Space size={[6, 8]} wrap style={{ marginBottom: 16 }}>
-          {!isCareer && <Tag color="volcano">{fmtTeamChain(row.playerTeam, ' → ')}</Tag>}
+          {!isCareer && <Tag color="volcano"><TeamChain value={row.playerTeam} size={14} /></Tag>}
           {!isCareer && row.playerPosition && <Tag>{row.playerPosition}</Tag>}
           <Tag>出场 {row.playerAppearance}{row.playerFrAppearance != null ? `（先发 ${row.playerFrAppearance}）` : ''}</Tag>
           <Tag>场均 {fmtNum(row.playingTime)} 分钟</Tag>
@@ -256,7 +257,7 @@ export default function SeasonProfile({ playerId, honors }) {
         ) : (
           <>
             <Space size={[6, 8]} wrap style={{ marginBottom: 14 }}>
-              {!isCareer && <Tag color="volcano">{fmtTeamChain(poRow.playerTeam, ' → ')}</Tag>}
+              {!isCareer && <Tag color="volcano"><TeamChain value={poRow.playerTeam} size={14} /></Tag>}
               <Tag>出战 {poRow.playerAppearance} 场{poRow.playerFrAppearance != null ? `（先发 ${poRow.playerFrAppearance}）` : ''}</Tag>
               <Tag>场均 {fmtNum(poRow.playingTime)} 分钟</Tag>
             </Space>

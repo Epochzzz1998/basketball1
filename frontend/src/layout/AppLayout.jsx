@@ -189,7 +189,9 @@ export default function AppLayout() {
               ],
             }]
           : []),
-        // 私信入口在右上角头像下拉里（不占侧栏）
+        // 私信：侧栏一个入口（未读数在 menuItemRender 里挂角标），头像下拉里那个也保留——
+        // 两个入口指同一页，习惯点哪个都行
+        ...(user && canUse('featPm') ? [{ path: '/messages', name: '私信', icon: <MessageOutlined /> }] : []),
         ...(user?.isSuperManager
           ? [
               { path: '/admin/players', name: '球员管理', icon: <DatabaseOutlined /> },
@@ -284,8 +286,17 @@ export default function AppLayout() {
       )}
       menuItemRender={(item, dom) => {
         if (!item.path) return dom
+        // 私信项挂未读角标（与头像上的角标同一个数）
+        const label = item.path === '/messages' && pmUnread > 0
+          ? (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              {dom}
+              <Badge count={pmUnread} size="small" />
+            </span>
+          )
+          : dom
         // 移动端：点完菜单项自动把抽屉收回去
-        return <Link to={item.path} onClick={() => { if (isMobile) setCollapsed(true) }}>{dom}</Link>
+        return <Link to={item.path} onClick={() => { if (isMobile) setCollapsed(true) }}>{label}</Link>
       }}
       avatarProps={
         user
@@ -305,7 +316,7 @@ export default function AppLayout() {
                         label: '个人主页',
                         onClick: () => navigate(`/users/${user.userId}`),
                       },
-                      // 私信：从侧栏挪回头像下拉，未读数实时角标
+                      // 私信：头像下拉与侧栏各有一个入口，未读数实时角标
                       ...(canUse('featPm')
                         ? [{
                             key: 'pm',

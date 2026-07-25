@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import AllPlayerSeasonStats from './AllPlayerSeasonStats'
 import { playerApi } from '../../api/player'
 import { NBA_TEAM_NAMES } from './rankConfig'
+import TeamLogo from '../../components/TeamLogo'
 
 /**
  * 球队卡片墙：NBA 30 队全量展示。有球员数据的队正常高亮（队码来自 /player/teams 去重），
@@ -35,17 +36,14 @@ function TeamGrid() {
               onClick={() => navigate(`/players/team/${code}`)}
               styles={{ body: { padding: 18, textAlign: 'center', opacity: active ? 1 : 0.55 } }}
             >
-              <div
-                style={{
-                  width: 56, height: 56, margin: '0 auto 10px', borderRadius: '50%',
-                  background: active ? 'rgba(250,84,28,.1)' : '#f0f0f0',
-                  color: active ? '#fa541c' : '#999', display: 'flex',
-                  alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 18,
-                }}
-              >
-                {code}
+              {/* 队标当门面；没有球员数据的赛季把标灰掉，仍可点进队页 */}
+              <div style={{ height: 62, margin: '0 auto 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <TeamLogo code={code} size={60} style={{ filter: active ? 'none' : 'grayscale(1)' }} />
               </div>
-              <div style={{ fontWeight: 600 }}>{name}</div>
+              <div style={{ fontWeight: 600 }}>
+                {name}
+                <span style={{ color: '#bbb', fontSize: 12, fontWeight: 400, marginLeft: 6 }}>{code}</span>
+              </div>
               <div style={{ color: '#999', fontSize: 12, marginTop: 2 }}>
                 {active ? '查看本队球员' : '暂无球员数据'}
               </div>

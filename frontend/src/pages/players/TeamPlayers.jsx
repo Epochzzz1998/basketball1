@@ -11,6 +11,7 @@ import SeasonPicker from '../../components/SeasonPicker'
 import useIsMobile from '../../hooks/useIsMobile'
 import useUrlState from '../../hooks/useUrlState'
 import { compactColumns, sumColWidth } from './statColumns'
+import TeamLogo from '../../components/TeamLogo'
 
 const MEDAL = ['#f5b301', '#9aa0a6', '#b87333']
 
@@ -509,16 +510,12 @@ export default function TeamPlayers() {
       <Card style={{ marginBottom: 16 }} styles={{ body: { padding: '18px 24px' } }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
           <Space size={16} align="center">
-            <div
-              style={{
-                width: 56, height: 56, borderRadius: '50%', background: 'rgba(250,84,28,.1)', color: '#fa541c',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 18,
-              }}
-            >
-              {teamCode}
-            </div>
+            <TeamLogo code={teamCode} size={58} />
             <div>
-              <div style={{ fontSize: 20, fontWeight: 700 }}>{NBA_TEAM_NAMES[teamCode] || teamCode}</div>
+              <div style={{ fontSize: 20, fontWeight: 700 }}>
+                {NBA_TEAM_NAMES[teamCode] || teamCode}
+                <span style={{ color: '#bbb', fontSize: 13, fontWeight: 400, marginLeft: 8 }}>{teamCode}</span>
+              </div>
               <div style={{ color: '#999', fontSize: 13 }}>{conf && div ? `${conf} · ${div}` : teamCode}</div>
             </div>
           </Space>

@@ -9,9 +9,10 @@ import { topicApi } from '../api/topic'
 import { playerApi } from '../api/player'
 import { teamApi } from '../api/team'
 import SeasonPicker from '../components/SeasonPicker'
+import TeamLogo, { TeamCell } from '../components/TeamLogo'
 import useIsMobile from '../hooks/useIsMobile'
 import useUrlState from '../hooks/useUrlState'
-import { LATEST_SEASON, NBA_TEAM_NAMES, fmtNum, fmtTeamChain, playoffRecord, qualifiedBoard, teamRegion } from './players/rankConfig'
+import { LATEST_SEASON, NBA_TEAM_NAMES, fmtNum, playoffRecord, qualifiedBoard, teamRegion } from './players/rankConfig'
 
 /**
  * 首页（P5-2 现代化改版 v2）：赛季维度的联盟总览仪表盘
@@ -80,7 +81,7 @@ function LeaderCard({ stat, rows, seasonNum }) {
             >
               {top.playerName}
             </Link>
-            <span style={{ fontSize: 12, color: '#999', flexShrink: 0 }}>{fmtTeamChain(top.playerTeam)}</span>
+            <span style={{ fontSize: 12, color: '#999', flexShrink: 0 }}><TeamCell value={top.playerTeam} size={14} /></span>
           </div>
           <div style={{ fontSize: isMobile ? 22 : 30, fontWeight: 800, color: BRAND, fontVariantNumeric: 'tabular-nums', lineHeight: 1.25, marginBottom: 10 }}>
             {fmtNum(top[stat.field])}
@@ -129,6 +130,7 @@ function StandingsCard({ conf, rows, accent }) {
               <span style={{ width: 20, textAlign: 'center', fontStyle: 'italic', fontWeight: 800, color: i < 3 ? MEDAL[i] : '#c8c8c8' }}>
                 {i + 1}
               </span>
+              <TeamLogo code={t.teamCode} size={20} />
               <span style={{ fontWeight: 600 }}>{NBA_TEAM_NAMES[t.teamCode] || t.teamCode}</span>
               <span style={{ fontSize: 11, color: '#bbb' }}>{t.teamCode}</span>
               {t.playoffResult === '总冠军' && <span title="总冠军" style={{ fontSize: 12 }}>🏆</span>}
@@ -163,7 +165,7 @@ function HonorsCard({ awards, poTeams }) {
   const rows = []
   if (champion) {
     rows.push({
-      key: 'champ', icon: '🏆', label: '总冠军',
+      key: 'champ', icon: '🏆', label: '总冠军', teamCode: champion.teamCode,
       name: NBA_TEAM_NAMES[champion.teamCode] || champion.teamCode, to: `/players/team/${champion.teamCode}`,
       sub: rec ? `季后赛 ${rec.wins}-${rec.losses} 夺冠` : '',
     })
@@ -202,7 +204,10 @@ function HonorsCard({ awards, poTeams }) {
             <span style={{ fontSize: 22 }}>{r.icon}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 12, color: '#ad8b00' }}>{r.label}</div>
-              <div style={{ fontWeight: 700 }}>{r.name}</div>
+              <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                {r.teamCode && <TeamLogo code={r.teamCode} size={20} />}
+                {r.name}
+              </div>
             </div>
             <span style={{ fontSize: 12, color: '#999', textAlign: 'right' }}>{r.sub}</span>
           </Link>

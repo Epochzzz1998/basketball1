@@ -6,6 +6,7 @@ import { searchApi } from '../api/search'
 import { useAuth } from '../auth/AuthContext'
 import useIsMobile from '../hooks/useIsMobile'
 import { NBA_TEAM_NAMES, teamRegion } from '../pages/players/rankConfig'
+import TeamLogo from './TeamLogo'
 
 /**
  * 全局搜索（cmd-k 风格）：顶栏是一枚自绘的触发胶囊（hover 样式完全自控，
@@ -32,10 +33,11 @@ function matchTeams(kw) {
         key: `team:${code}`,
         to: `/players/team/${code}`,
         node: (
-          <span>
-            <Tag color="orange" style={{ marginRight: 8 }}>{code}</Tag>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+            <TeamLogo code={code} size={20} />
             <b>{name}</b>
-            {conf && <span style={{ color: '#bbb', fontSize: 12, marginLeft: 8 }}>{conf} · {div}</span>}
+            <Tag color="orange" style={{ marginInlineEnd: 0 }}>{code}</Tag>
+            {conf && <span style={{ color: '#bbb', fontSize: 12 }}>{conf} · {div}</span>}
           </span>
         ),
       }
@@ -55,7 +57,16 @@ function flatten(d, kw, canData) {
     to: `/players/${p.playerId}`,
     node: (
       <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-        <Tag color="volcano" style={{ marginInlineEnd: 0, flexShrink: 0 }}>#{p.playerNumber ?? '-'}</Tag>
+        {/* 传过照片的球员出头像，否则还是球衣号标签 */}
+        {p.photo ? (
+          <img
+            src={p.photo}
+            alt=""
+            style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover', objectPosition: 'top center', flexShrink: 0, background: '#f0f0f0' }}
+          />
+        ) : (
+          <Tag color="volcano" style={{ marginInlineEnd: 0, flexShrink: 0 }}>#{p.playerNumber ?? '-'}</Tag>
+        )}
         <b style={{ flexShrink: 0 }}>{p.playerName}</b>
         {p.nameEn && p.nameEn !== p.playerName && (
           <span style={{ color: '#bbb', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nameEn}</span>

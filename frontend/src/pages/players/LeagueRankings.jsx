@@ -9,6 +9,7 @@ import { HONOR_GROUPS } from './honorConfig'
 import { NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, RANKING_STATS, fmtNum, fmtPct, fmtTeamChain, playoffRecord, LATEST_SEASON, honorEligible, qualifiedBoard } from './rankConfig'
 import { compactColumns, sumColWidth } from './statColumns'
 import SeasonPicker from '../../components/SeasonPicker'
+import TeamLogo, { TeamCell } from '../../components/TeamLogo'
 import useIsMobile from '../../hooks/useIsMobile'
 import useUrlState from '../../hooks/useUrlState'
 
@@ -62,7 +63,7 @@ function StatRankCard({ stat, seasonNum, stage }) {
             <Link to={`/players/${r.playerId}`} style={{ flex: 1, fontWeight: i < 3 ? 600 : 400 }}>
               {r.playerName}
             </Link>
-            <span style={{ color: '#999', fontSize: 12, marginRight: 14 }}>{fmtTeamChain(r.playerTeam)}</span>
+            <span style={{ color: '#999', fontSize: 12, marginRight: 14 }}><TeamCell value={r.playerTeam} size={14} /></span>
             <span style={{ fontWeight: 700, color: '#fa541c', fontVariantNumeric: 'tabular-nums' }}>
               {stat.pct ? fmtPct(r[stat.field]) : fmtNum(r[stat.field], stat.digits)}
             </span>
@@ -210,7 +211,7 @@ function SpecialAwardCards({ seasonNum, rows }) {
                 <div>
                   <div style={{ color: '#888', fontSize: 12 }}>{meta.label}</div>
                   <Link to={`/players/${e.playerId}`} style={{ fontWeight: 700, fontSize: 16 }}>{e.playerName}</Link>
-                  <span style={{ color: '#999', fontSize: 12, marginLeft: 8 }}>{fmtTeamChain(e.playerTeam)}</span>
+                  <span style={{ color: '#999', fontSize: 12, marginLeft: 8 }}><TeamCell value={e.playerTeam} size={14} /></span>
                   {e.lines}
                 </div>
               </Space>
@@ -314,9 +315,10 @@ function TeamsTab({ seasonNum, stage }) {
     ),
   }
   const teamCol = {
-    title: '球队', dataIndex: 'teamCode', width: 140, fixed: 'left',
+    title: '球队', dataIndex: 'teamCode', width: 156, fixed: 'left',
     render: (code) => (
       <Space size={6}>
+        <TeamLogo code={code} size={isMobile ? 16 : 20} />
         <Link to={`/players/team/${code}`}><b>{NBA_TEAM_NAMES[code] || code}</b></Link>
         <span style={{ color: '#999', fontSize: 12 }}>{code}</span>
       </Space>
@@ -379,7 +381,7 @@ function TeamsTab({ seasonNum, stage }) {
         dataSource={list}
         columns={isMobile ? compactColumns(columns) : columns}
         pagination={false}
-        scroll={{ x: isMobile ? sumColWidth(compactColumns(columns)) : 1290 }}
+        scroll={{ x: isMobile ? sumColWidth(compactColumns(columns)) : 1306 }}
         size="middle"
       />
     </Card>

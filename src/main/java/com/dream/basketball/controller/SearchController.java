@@ -80,6 +80,7 @@ public class SearchController {
                 m.put("playerName", p.getPlayerName());
                 m.put("nameEn", p.getNameEn());
                 m.put("playerNumber", p.getPlayerNumber());
+                m.put("photo", p.getPhoto()); // 有照片就在结果里出头像（超管在球员管理里上传）
                 players.add(m);
             }
         }

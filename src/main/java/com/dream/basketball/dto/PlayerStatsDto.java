@@ -7,6 +7,8 @@ import lombok.Data;
 public class PlayerStatsDto extends PlayerStats {
     private String playerName;
     private String playerNumber;
+    /** 球员照片 URL（dream_player.PHOTO；没上传过为 null） */
+    private String photo;
     private String field;
     private String order;
 
