@@ -29,6 +29,18 @@ public interface PlayerService extends IService<DreamPlayer> {
     /** All players' playoff stats for a season (mirrors findPlayersSeasonStats). */
     List<PlayerStatsDto> findPlayersPlayoffSeasonStats(PlayerStatsDto param);
 
+    /** One team's roster averages inside a single playoff round. */
+    List<PlayerStatsDto> findPlayersPlayoffRoundStats(PlayerStatsDto param);
+
+    /** Rounds a team actually played that season: {round, oppTeam, games}. */
+    List<Map<String, Object>> findTeamPlayoffRounds(Integer seasonNum, String teamCode);
+
+    /** One player's box score per game for a season (seasonType 2 regular / 3 playoffs). */
+    List<Map<String, Object>> findPlayerGameLog(String playerId, Integer seasonNum, Integer seasonType);
+
+    /** Seasons where this player has game-log rows. */
+    List<Map<String, Object>> findPlayerGameLogSeasons(String playerId);
+
     public List<DreamPlayerDto> findAllPlayers(@RequestBody(required = false) DreamPlayerDto param);
 
     public List<PlayerStatsDto> findPlayersSeasonStats(@RequestBody(required = false) PlayerStatsDto param);

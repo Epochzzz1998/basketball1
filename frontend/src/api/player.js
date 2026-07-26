@@ -21,6 +21,14 @@ export const playerApi = {
   playerHonors: (playerId) => http.get('/player/honors', { params: { playerId } }),
   // 某赛季特别奖得主（FMVP/最佳第六人/最快进步球员）
   seasonAwards: (seasonNum) => http.get('/player/seasonAwards', { params: { seasonNum } }),
+  // 某队某赛季单轮次阵容数据（1 首轮 / 2 半决赛 / 3 分区决赛 / 4 总决赛）
+  playoffRoundStats: (params) => http.get('/player/playoffRoundStats', { params }),
+  // 某队某赛季打过哪几轮（含对手与场次），没打过季后赛返回空数组
+  teamPlayoffRounds: (seasonNum, teamCode) => http.get('/player/teamPlayoffRounds', { params: { seasonNum, teamCode } }),
+  // 单个球员某赛季逐场数据（seasonType：2 常规赛 / 3 季后赛）
+  playerGameLog: (params) => http.get('/player/playerGameLog', { params }),
+  // 该球员有逐场数据的赛季，空数组说明还没回补到他
+  playerGameLogSeasons: (playerId) => http.get('/player/playerGameLogSeasons', { params: { playerId } }),
 
   // ===== 写（superManager） =====
   // 新增行只在前端本地加（带 new- 临时 id），保存时把临时 id 清空交后端补 UUID，故不再用 insertAndSave* 接口。

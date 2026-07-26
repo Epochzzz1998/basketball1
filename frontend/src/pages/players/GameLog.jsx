@@ -1,0 +1,112 @@
+import { useEffect, useState } from 'react'
+import { ProTable } from '@ant-design/pro-components'
+import { Empty, Select } from 'antd'
+import { playerApi } from '../../api/player'
+import { TeamNames } from '../../components/TeamLogo'
+import useIsMobile from '../../hooks/useIsMobile'
+import { seasonShort, seasonYearLabel } from './rankConfig'
+import { ROUND_LABEL, SEASON_TYPE } from './gameLogConfig'
+import { compactColumns, sumColWidth } from './statColumns'
+
+function buildColumns(seasonType, isMobile) {
+  const cols = [
+    { title: '日期', dataIndex: 'gameDate', width: 92, fixed: 'left', render: (v) => String(v || '').slice(5) },
+    // 轮次只对季后赛有意义，常规赛行的 ROUND 是 NULL
+    ...(seasonType === SEASON_TYPE.PO
+      ? [{ title: '轮次', dataIndex: 'round', width: 72, render: (v) => ROUND_LABEL[Number(v)] || '-' }]
+      : []),
+    {
+      title: '对手', dataIndex: 'oppTeam', width: 78,
+      render: (v, r) => (
+        <span style={{ whiteSpace: 'nowrap' }}>{Number(r.home) ? '' : '@'}<TeamNames value={v} /></span>
+      ),
+    },
+    {
+      title: '结果', dataIndex: 'win', width: 84,
+      render: (v, r) => (
+        <span style={{ whiteSpace: 'nowrap' }}>
+          <b style={{ color: Number(v) ? '#52c41a' : '#ff4d4f' }}>{Number(v) ? '胜' : '负'}</b>
+          <span style={{ color: '#999', marginLeft: 4 }}>{r.teamScore}-{r.oppScore}</span>
+        </span>
+      ),
+    },
+    { title: '首发', dataIndex: 'starter', width: 48, render: (v) => (Number(v) ? '✓' : '-') },
+    { title: '时间', dataIndex: 'playingTime', width: 48 },
+    { title: '得分', dataIndex: 'pts', width: 48, render: (v) => <b style={{ color: '#fa541c' }}>{v}</b> },
+    // 单场是整数，不套场均那套一位小数（"4(1/3)" 不是 "4.0(1.0/3.0)"）
+    { title: '篮板', dataIndex: 'reb', width: 86, render: (_, r) => (
+      <span style={{ whiteSpace: 'nowrap' }}>{r.reb}({r.offReb}/{r.defReb})</span>
+    ) },
+    { title: '助攻', dataIndex: 'ast', width: 48 },
+    { title: '投篮', dataIndex: 'fgm', width: 88, render: (_, r) => `${r.fgm}/${r.fga}` },
+    { title: '三分', dataIndex: 'tpm', width: 88, render: (_, r) => `${r.tpm}/${r.tpa}` },
+    { title: '罚球', dataIndex: 'ftm', width: 88, render: (_, r) => `${r.ftm}/${r.fta}` },
+    { title: '抢断', dataIndex: 'stl', width: 48 },
+    { title: '盖帽', dataIndex: 'blk', width: 48 },
+    { title: '失误', dataIndex: 'tov', width: 48 },
+    { title: '犯规', dataIndex: 'pf', width: 48 },
+    {
+      title: '+/-', dataIndex: 'plusMinus', width: 56,
+      render: (v) => <span style={{ color: v > 0 ? '#52c41a' : v < 0 ? '#ff4d4f' : '#999' }}>{v > 0 ? `+${v}` : v}</span>,
+    },
+  ]
+  return isMobile ? compactColumns(cols) : cols
+}
+
+/**
+ * 逐场 box score 表（player_game_stats）。
+ * 赛季选择就长在表的上方，选项只列这名球员在这个类型下真有数据的赛季，
+ * 默认落在最新的一季 —— 常规赛和季后赛用的是同一套控件，只是 seasonType 不同。
+ */
+export default function GameLogTable({ playerId, seasonType, seasons }) {
+  const isMobile = useIsMobile()
+  const [season, setSeason] = useState(seasons?.[0]?.seasonNum ?? null)
+  const [rows, setRows] = useState(null)
+
+  // 换球员时列表会整个换掉，把选中赛季拉回新列表的最新一季
+  useEffect(() => { setSeason(seasons?.[0]?.seasonNum ?? null) }, [seasons])
+
+  useEffect(() => {
+    if (season == null) return
+    let alive = true
+    setRows(null)
+    playerApi
+      .playerGameLog({ playerId, seasonNum: season, seasonType })
+      .then((r) => alive && setRows(r || []))
+      .catch(() => alive && setRows([]))
+    return () => { alive = false }
+  }, [playerId, season, seasonType])
+
+  if (!seasons?.length) return <Empty description="该球员暂无逐场数据" />
+
+  const cols = buildColumns(seasonType, isMobile)
+  return (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <span style={{ color: '#999', fontSize: 13 }}>赛季</span>
+        <Select
+          value={season}
+          onChange={setSeason}
+          style={{ width: isMobile ? 168 : 210 }}
+          options={seasons.map((s) => ({
+            value: s.seasonNum,
+            label: `${isMobile ? seasonShort(s.seasonNum) : seasonYearLabel(s.seasonNum)} · ${s.games} 场`,
+          }))}
+        />
+      </div>
+      <ProTable
+        className="stat-compact"
+        bordered
+        toolBarRender={false}
+        rowKey="gameId"
+        loading={rows === null}
+        dataSource={rows || []}
+        columns={cols}
+        search={false}
+        options={false}
+        pagination={false}
+        scroll={{ x: sumColWidth(cols) }}
+      />
+    </>
+  )
+}

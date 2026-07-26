@@ -34,4 +34,19 @@ public interface PlayerMapper extends BaseMapper<DreamPlayer> {
 
     /** All players' playoff stats for a season (mirrors findPlayersSeasonStats). */
     List<PlayerStatsDto> findPlayersPlayoffSeasonStats(@Param("param") PlayerStatsDto param);
+
+    /** One team's roster averages inside a single playoff round (B-R series data). */
+    List<PlayerStatsDto> findPlayersPlayoffRoundStats(@Param("param") PlayerStatsDto param);
+
+    /** Rounds a team actually played that season: {round, oppTeam, games}. */
+    List<Map<String, Object>> findTeamPlayoffRounds(@Param("seasonNum") Integer seasonNum,
+                                                    @Param("teamCode") String teamCode);
+
+    /** One player's box score per game for a season (seasonType 2 regular / 3 playoffs). */
+    List<Map<String, Object>> findPlayerGameLog(@Param("playerId") String playerId,
+                                                @Param("seasonNum") Integer seasonNum,
+                                                @Param("seasonType") Integer seasonType);
+
+    /** Seasons where this player has game-log rows: {seasonNum, seasonType, games}. */
+    List<Map<String, Object>> findPlayerGameLogSeasons(@Param("playerId") String playerId);
 }

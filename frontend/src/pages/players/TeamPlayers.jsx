@@ -6,6 +6,7 @@ import { TrophyFilled } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import AllPlayerSeasonStats from './AllPlayerSeasonStats'
 import { teamApi } from '../../api/team'
+import { playerApi } from '../../api/player'
 import { NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, fmtNum, playoffRecord, seasonYearLabel, seasonShort, teamRegion, LATEST_SEASON } from './rankConfig'
 import SeasonPicker from '../../components/SeasonPicker'
 import useIsMobile from '../../hooks/useIsMobile'
@@ -488,6 +489,58 @@ function TeamHistory({ teamCode }) {
   )
 }
 
+/* ============ 季后赛阵容：轮次细分 ============ */
+
+const ROUND_LABEL = { 1: '首轮', 2: '半决赛', 3: '分区决赛', 4: '总决赛' }
+
+/**
+ * 季后赛球员表 + 轮次选择。
+ * 轮次来自 player_playoff_round_stats（B-R 系列赛页），被淘汰的球队只会列出他打过的几轮；
+ * 该季没有轮次数据（或没进季后赛）时选择器整体不渲染，退回整个季后赛的汇总表。
+ */
+function PlayoffRoster({ teamCode, seasonNum }) {
+  const [rounds, setRounds] = useState(null)
+  const [round, setRound] = useState(null) // null = 全部轮次（汇总）
+  const isMobile = useIsMobile()
+
+  useEffect(() => {
+    setRounds(null)
+    setRound(null)
+    let alive = true
+    playerApi
+      .teamPlayoffRounds(seasonNum, teamCode)
+      .then((rs) => alive && setRounds(rs || []))
+      .catch(() => alive && setRounds([]))
+    return () => { alive = false }
+  }, [teamCode, seasonNum])
+
+  const picked = (rounds || []).find((r) => Number(r.round) === round)
+
+  return (
+    <>
+      {rounds?.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+          <Segmented
+            size={isMobile ? 'small' : 'middle'}
+            value={round ?? 'all'}
+            onChange={(v) => setRound(v === 'all' ? null : Number(v))}
+            options={[
+              { label: '全部轮次', value: 'all' },
+              ...rounds.map((r) => ({ label: ROUND_LABEL[Number(r.round)] || `第${r.round}轮`, value: Number(r.round) })),
+            ]}
+          />
+          {picked && (
+            <span style={{ color: '#999', fontSize: 12 }}>
+              对 {NBA_TEAM_NAMES[picked.oppTeam] || picked.oppTeam} · 系列赛 {picked.games} 场
+            </span>
+          )}
+        </div>
+      )}
+      <AllPlayerSeasonStats team={teamCode} stage="po" seasonNum={seasonNum} round={round} />
+    </>
+  )
+}
+
 /* ============ 页面 ============ */
 
 /**
@@ -543,7 +596,9 @@ export default function TeamPlayers() {
             ? <PlayoffOverview teamCode={teamCode} seasonNum={seasonNum} />
             : <SeasonOverview teamCode={teamCode} seasonNum={seasonNum} />}
           <div style={{ marginTop: 16 }}>
-            <AllPlayerSeasonStats team={teamCode} stage={stage} seasonNum={seasonNum} />
+            {po
+              ? <PlayoffRoster teamCode={teamCode} seasonNum={seasonNum} />
+              : <AllPlayerSeasonStats team={teamCode} stage={stage} seasonNum={seasonNum} />}
           </div>
         </>
       )}

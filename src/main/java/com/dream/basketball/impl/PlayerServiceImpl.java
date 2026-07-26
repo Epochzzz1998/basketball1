@@ -70,6 +70,26 @@ public class PlayerServiceImpl extends ServiceImpl<PlayerMapper, DreamPlayer> im
     }
 
     @Override
+    public List<PlayerStatsDto> findPlayersPlayoffRoundStats(PlayerStatsDto param) {
+        return baseMapper.findPlayersPlayoffRoundStats(param);
+    }
+
+    @Override
+    public List<Map<String, Object>> findTeamPlayoffRounds(Integer seasonNum, String teamCode) {
+        return baseMapper.findTeamPlayoffRounds(seasonNum, teamCode);
+    }
+
+    @Override
+    public List<Map<String, Object>> findPlayerGameLog(String playerId, Integer seasonNum, Integer seasonType) {
+        return baseMapper.findPlayerGameLog(playerId, seasonNum, seasonType);
+    }
+
+    @Override
+    public List<Map<String, Object>> findPlayerGameLogSeasons(String playerId) {
+        return baseMapper.findPlayerGameLogSeasons(playerId);
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public void savePlayers(List<DreamPlayer> players) {
         if (players == null) {

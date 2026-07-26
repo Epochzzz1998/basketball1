@@ -71,3 +71,47 @@ python3 localize_names.py             # 应用（只改 PLAYER_NAME=NAME_EN 的�
 ```
 
 字典没有的新名字：把 `"英文名": "中文名"` 加进 `zh_names.py` 再跑即可。
+
+## 季后赛轮次细分（po_round_stats.py）
+
+表 `player_playoff_round_stats`：一名球员一个赛季一轮一行（1 首轮 / 2 半决赛 /
+3 分区决赛 / 4 总决赛），字段与 `player_playoff_stats` 同构，另加 `ROUND` 和 `OPP_TEAM`。
+
+数据源是 **B-R 的免费系列赛页**，不是 ESPN：ESPN 的球员单场数据只到 1993 年，
+而且从不标注轮次；B-R 每轮一个页面、轮次直接写在 URL 里，一路覆盖到 1947 年。
+
+```bash
+python3 po_round_stats.py --scrape                 # 全部 50 季，约 45 分钟
+python3 po_round_stats.py --scrape --seasons 2026  # 只补当季（每年季后赛结束后跑一次）
+python3 po_round_stats.py --build --dry-run        # 出 SQL + 对账报告，不入库
+python3 po_round_stats.py --build                  # 入库（按赛季整删整插）
+```
+
+- **两段式**：`--scrape` 把每季结果落到 `po_rounds_cache/<年>.json`，已缓存的赛季直接跳过，
+  中途断了重跑不会重复抓；`--build` 只读缓存，改匹配逻辑可以反复跑不碰网络。
+  缓存和生成的 SQL 都不进 git（同 `nba_sync_*.sql` 的规矩），权威结果在库里、有每日备份兜底；
+  真丢了重跑一次 `--scrape` 即可。
+- **限速**：B-R 约 20 次/分钟，脚本固定 3.5 秒一次；碰到 429 会退避 90 秒再试。
+  别改小 `DELAY`，被封要等一小时。
+- **身份匹配**：B-R 只给名字。先在「该队该赛季季后赛名单」（十几个人）里匹配，
+  再退到 `br_ids_cache.json` 的 slug 映射，再退到全库唯一同名，都不中就报出来不写。
+- **对账是硬门槛**：每名球员各轮场次之和必须等于 `player_playoff_stats` 里的整季场次，
+  `--build` 会打印不一致的行。2025 季实测 405 行、零不一致。
+
+## 逐场数据（game_logs.py）
+
+表 `player_game_stats`：一名球员一场一行，含对手、主客、胜负、比分、首发、正负值。
+`SEASON_TYPE` 2 = 常规赛、3 = 季后赛；季后赛行带 `ROUND`。
+
+这里用 **ESPN**，因为它的 box score 直接带球员 ESPN id，就是我们的主键 `nba-<espnId>`，
+完全不用猜名字。代价是只能追到 1993 年（更早的比赛 ESPN 有赛程但球员数据为空，已探测）。
+
+```bash
+python3 game_logs.py --season 2026 --type po    # 当季季后赛，85 场约 15 秒
+python3 game_logs.py --season 2026 --type reg   # 当季常规赛，1239 场
+```
+
+- 轮次是**推导**的：season type 3 固定 16 队 4 轮，按对阵分组、每队的第 N 个系列赛就是第 N 轮。
+  季中附加赛在 season type 5，不会混进来。
+- 只写 `dream_player` 里已有的球员，避免产生孤儿行。
+- 校验：逐场累加应等于 `player_playoff_stats` 的整季场均。第 50 季实测 227 人四项零误差。

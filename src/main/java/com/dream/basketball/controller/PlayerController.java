@@ -190,6 +190,40 @@ public class PlayerController extends BaseUtils {
         return handlerSuccessPageJson(0, "成功", (int) new PageInfo<>(rows).getTotal(), rows);
     }
 
+    /** 某队某赛季单轮次的阵容数据（公开）。round 缺省为首轮。 */
+    @GetMapping("/playoffRoundStats")
+    public Object playoffRoundStats(PlayerStatsDto param) {
+        param.setField(SortUtil.safeRoundStatsOrderBy(param.getField(), param.getOrder()));
+        if (param.getSeasonNum() == null) {
+            param.setSeasonNum(1);
+        }
+        if (param.getRound() == null) {
+            param.setRound(1);
+        }
+        return new Result<>(0, "成功", playerService.findPlayersPlayoffRoundStats(param));
+    }
+
+    /** 某队某赛季打过哪几轮（公开），前端据此渲染轮次选项。 */
+    @GetMapping("/teamPlayoffRounds")
+    public Object teamPlayoffRounds(Integer seasonNum, String teamCode) {
+        return new Result<>(0, "成功",
+                playerService.findTeamPlayoffRounds(seasonNum, StringUtils.trimToEmpty(teamCode)));
+    }
+
+    /** 单个球员某赛季的逐场数据（公开）。seasonType：2 常规赛 / 3 季后赛，缺省季后赛。 */
+    @GetMapping("/playerGameLog")
+    public Object playerGameLog(String playerId, Integer seasonNum, Integer seasonType) {
+        return new Result<>(0, "成功", playerService.findPlayerGameLog(
+                StringUtils.trimToEmpty(playerId), seasonNum, seasonType == null ? 3 : seasonType));
+    }
+
+    /** 该球员有逐场数据的赛季（公开），空数组表示这一块还没回补到他。 */
+    @GetMapping("/playerGameLogSeasons")
+    public Object playerGameLogSeasons(String playerId) {
+        return new Result<>(0, "成功",
+                playerService.findPlayerGameLogSeasons(StringUtils.trimToEmpty(playerId)));
+    }
+
     // ===== 写接口：superManager 专属（P2-5），多步写已下沉为 @Transactional 服务方法（P3-2） =====
 
     @RequiresRole(Role.SUPER_MANAGER)

@@ -51,3 +51,7 @@ tools/nba_sync/.dbpwd
 tools/nba_sync/nba_sync_*.sql
 tools/nba_sync/__pycache__/
 tools/nba_sync/br_ids_cache.json
+tools/nba_sync/po_round_stats.sql
+tools/nba_sync/game_logs_*.sql
+# scraped B-R series pages; re-creatable with --scrape (45 min), the DB holds the result
+tools/nba_sync/po_rounds_cache/

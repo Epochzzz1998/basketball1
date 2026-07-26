@@ -9,6 +9,8 @@ import { CAREER_AWARDS } from './honorConfig'
 import { compactColumns, sumColWidth } from './statColumns'
 import TeamLogo, { TeamNames } from '../../components/TeamLogo'
 import SeasonProfile from './SeasonProfile'
+import GameLogTable from './GameLog'
+import { SEASON_TYPE, useGameLogSeasons } from './gameLogConfig'
 import useIsMobile from '../../hooks/useIsMobile'
 
 const shortSeason = (s) => seasonYearLabel(s).replace(' 赛季', '')
@@ -197,6 +199,39 @@ function PlayoffTable({ playerId }) {
   )
 }
 
+/* ============ 逐季汇总 / 逐场数据 ============ */
+
+/**
+ * 一个赛段（常规赛或季后赛）的内容区。
+ * 逐场数据是逐步回补的，所以「逐场数据」这个选项只在该球员该赛段确实有数据时才出现 —— 
+ * 常规赛回补进来之后，同一个开关会自动长在常规赛页签上，不用改代码。
+ */
+function StagePane({ playerId, seasonType, seasons, children }) {
+  const [view, setView] = useState('season')
+  const hasLog = !!seasons?.length
+
+  // 换到没有逐场数据的球员时，把视图拉回逐季汇总，免得停在一个空表上
+  useEffect(() => { if (!hasLog) setView('season') }, [hasLog])
+
+  return (
+    <>
+      {hasLog && (
+        <div style={{ marginBottom: 12 }}>
+          <Segmented
+            value={view}
+            onChange={setView}
+            options={[{ label: '逐季汇总', value: 'season' }, { label: '逐场数据', value: 'game' }]}
+          />
+        </div>
+      )}
+      {view === 'season'
+        ? children
+        : <GameLogTable playerId={playerId} seasonType={seasonType} seasons={seasons} />}
+    </>
+  )
+}
+
+
 /* ============ 页面 ============ */
 
 // 分段器选项（品牌橙胶囊，与数据概览同一设计语言）
@@ -218,6 +253,8 @@ export default function PlayerCareer() {
   const [seasonTeam, setSeasonTeam] = useState(null)
   const teamCode = String(seasonTeam || '').split('->').pop().trim().toUpperCase()
   const showTeamLogo = !!NBA_TEAM_NAMES[teamCode]
+  // 一次查清这名球员哪些赛季有逐场数据，常规赛/季后赛两个页签共用这一份结果
+  const gameLogSeasons = useGameLogSeasons(playerId)
 
   useEffect(() => {
     let alive = true
@@ -316,8 +353,16 @@ export default function PlayerCareer() {
         />
       </ConfigProvider>
       {tab === 'profile' && <SeasonProfile playerId={playerId} honors={honors} onTeamChange={setSeasonTeam} />}
-      {tab === 'career' && <CareerTable playerId={playerId} />}
-      {tab === 'playoffs' && <PlayoffTable playerId={playerId} />}
+      {tab === 'career' && (
+        <StagePane playerId={playerId} seasonType={SEASON_TYPE.REG} seasons={gameLogSeasons?.[SEASON_TYPE.REG]}>
+          <CareerTable playerId={playerId} />
+        </StagePane>
+      )}
+      {tab === 'playoffs' && (
+        <StagePane playerId={playerId} seasonType={SEASON_TYPE.PO} seasons={gameLogSeasons?.[SEASON_TYPE.PO]}>
+          <PlayoffTable playerId={playerId} />
+        </StagePane>
+      )}
       {tab === 'honors' && <HonorShelf honors={honors} />}
     </>
   )

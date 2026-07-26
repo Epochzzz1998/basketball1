@@ -32,6 +32,20 @@ public final class SortUtil {
             "player_off_eff", "player_def_eff", "player_net_eff", "player_avg_pn",
             "mvp_rank", "dpoy_rank"));
 
+    /**
+     * Sortable columns of player_playoff_round_stats. It is a narrower table than
+     * player_stats — no position, no honor ranks, no advanced-efficiency columns — so a
+     * crafted field= would otherwise splice a column MySQL cannot resolve.
+     */
+    private static final Set<String> ALLOWED_ROUND_COLUMNS = new HashSet<>(Arrays.asList(
+            "season_num", "round", "player_team", "opp_team",
+            "player_appearance", "player_fr_appearance", "playing_time",
+            "player_avg_score", "player_avg_reb", "player_avg_off_reb", "player_avg_def_reb",
+            "player_avg_ass", "player_avg_steal", "player_avg_block", "player_avg_turnover",
+            "player_avg_fgm", "player_avg_fga", "player_avg_tpm", "player_avg_tpa",
+            "player_avg_ftm", "player_avg_fta",
+            "player_accuracy", "player_three_accuracy", "player_freethrow_accuracy", "player_per"));
+
     private SortUtil() {
     }
 
@@ -40,11 +54,20 @@ public final class SortUtil {
      * is blank/unknown. The result is safe to use with mybatis {@code ${}}.
      */
     public static String safeStatsOrderBy(String camelField, String order) {
+        return build(camelField, order, ALLOWED_STATS_COLUMNS);
+    }
+
+    /** Same contract as {@link #safeStatsOrderBy}, against the per-round playoff table. */
+    public static String safeRoundStatsOrderBy(String camelField, String order) {
+        return build(camelField, order, ALLOWED_ROUND_COLUMNS);
+    }
+
+    private static String build(String camelField, String order, Set<String> allowed) {
         if (StringUtils.isBlank(camelField)) {
             return null;
         }
         String column = camelField.replaceAll("[A-Z]", "_$0").toLowerCase();
-        if (!ALLOWED_STATS_COLUMNS.contains(column)) {
+        if (!allowed.contains(column)) {
             return null;
         }
         String direction = "desc".equalsIgnoreCase(StringUtils.trimToEmpty(order)) ? "desc" : "asc";

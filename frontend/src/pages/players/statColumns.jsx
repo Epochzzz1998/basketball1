@@ -52,11 +52,14 @@ const COMPACT_W = {
   // 首发/出场 74：生涯行最长 "1620/1622" 12px 下不换行；篮板 94：最长 "18.7(6.4/12.3)" 一行；
   // 投篮/三分/罚球 74：最长 "11.5/23.2" 一行（62 会折行）；
   // 球队 66：中文队名最长四字（凯尔特人），12px 下 48px 加内边距，52 会折行
-  playerName: 86, playerTeam: 66, playerPosition: 36, playerAppearance: 74, playingTime: 42,
+  playerName: 86, playerTeam: 66, oppTeam: 66, playerPosition: 36, playerAppearance: 74, playingTime: 42,
   playerAvgScore: 42, playerAvgReb: 94, playerAvgAss: 42, playerAvgFgm: 74, playerAccuracy: 50,
   playerAvgTpm: 74, playerThreeAccuracy: 50, playerAvgFtm: 74, playerFreethrowAccuracy: 50,
   playerAvgBlock: 42, playerAvgSteal: 42, playerAvgTurnover: 42, playerPer: 46,
   mvpRank: 42, dpoyRank: 46, allDbaTeam: 58, allDefTeam: 58, seasonNum: 52, playoffResult: 76,
+  // 逐场数据表（单场 box score）：都是整数，比场均窄；结果列要放下「胜 105-95」
+  gameDate: 60, round: 60, win: 78, starter: 40, pts: 40, reb: 76, ast: 40,
+  fgm: 56, tpm: 56, ftm: 56, stl: 40, blk: 40, tov: 40, pf: 40, plusMinus: 46,
 }
 
 /** 列表 → 紧凑列表：命中紧凑表的用表值，其余按 0.72 收缩（下限 40）；

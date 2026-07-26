@@ -165,6 +165,60 @@
         order by ts.SEASON_NUM
     </select>
 
+    <!-- 单轮次的球队阵容数据（player_playoff_round_stats，B-R 系列赛页抓取）。
+         该表的 PLAYER_TEAM 已经是这一轮的具体球队，不是赛季转会链，无需 SUBSTRING_INDEX。 -->
+    <select id="findPlayersPlayoffRoundStats" resultType="com.dream.basketball.dto.PlayerStatsDto">
+        select t.PLAYER_NAME, t.PLAYER_NUMBER, t.PHOTO, s.*
+        from dream_player t right join
+            (select * from player_playoff_round_stats
+             where SEASON_NUM = #{param.seasonNum} and `ROUND` = #{param.round}) s
+            on t.PLAYER_ID = s.PLAYER_ID
+        <where>
+            <include refid="whereConditionPlayer"></include>
+            <if test="param.playerTeam != null and param.playerTeam !=''">
+                and s.PLAYER_TEAM = #{param.playerTeam}
+            </if>
+        </where>
+        <choose>
+            <!-- param.field 仅来自 SortUtil 白名单（"列 asc|desc"），故 ${} 拼接安全；见 P3-1 -->
+            <when test="param.field != null and param.field !=''">
+                order by ${param.field}
+            </when>
+            <otherwise>
+                order by s.PLAYER_AVG_SCORE desc
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 某队某季实际打过的轮次（被淘汰的队只有前几轮），供前端渲染轮次选项 -->
+    <select id="findTeamPlayoffRounds" resultType="java.util.Map">
+        select `ROUND` as round, max(OPP_TEAM) as oppTeam, max(PLAYER_APPEARANCE) as games
+        from player_playoff_round_stats
+        where SEASON_NUM = #{seasonNum} and PLAYER_TEAM = #{teamCode}
+        group by `ROUND` order by `ROUND`
+    </select>
+
+    <!-- 球员逐场数据（player_game_stats，ESPN 单场 box score） -->
+    <select id="findPlayerGameLog" resultType="java.util.Map">
+        select GAME_ID as gameId, GAME_DATE as gameDate, `ROUND` as round,
+               PLAYER_TEAM as playerTeam, OPP_TEAM as oppTeam, HOME as home, WIN as win,
+               TEAM_SCORE as teamScore, OPP_SCORE as oppScore, STARTER as starter,
+               PLAYING_TIME as playingTime, PTS as pts, REB as reb, OFF_REB as offReb,
+               DEF_REB as defReb, AST as ast, STL as stl, BLK as blk, TOV as tov, PF as pf,
+               FGM as fgm, FGA as fga, TPM as tpm, TPA as tpa, FTM as ftm, FTA as fta,
+               PLUS_MINUS as plusMinus
+        from player_game_stats
+        where PLAYER_ID = #{playerId} and SEASON_NUM = #{seasonNum} and SEASON_TYPE = #{seasonType}
+        order by GAME_DATE
+    </select>
+
+    <!-- 该球员有哪些赛季/类型的逐场数据（前端据此决定是否显示「逐场」入口） -->
+    <select id="findPlayerGameLogSeasons" resultType="java.util.Map">
+        select SEASON_NUM as seasonNum, SEASON_TYPE as seasonType, count(*) as games
+        from player_game_stats where PLAYER_ID = #{playerId}
+        group by SEASON_NUM, SEASON_TYPE order by SEASON_NUM desc, SEASON_TYPE
+    </select>
+
     <sql id="whereConditionPlayer">
         1=1
         <!-- fuzzy name search (player search box); #{} binding keeps it injection-safe.
