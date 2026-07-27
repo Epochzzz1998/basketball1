@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { ProTable } from '@ant-design/pro-components'
-import { Input, Segmented } from 'antd'
+import { Input } from 'antd'
 import { playerApi } from '../../api/player'
 import SeasonPicker from '../../components/SeasonPicker'
 import useIsMobile from '../../hooks/useIsMobile'
 import useUrlState from '../../hooks/useUrlState'
 import { LATEST_SEASON } from './rankConfig'
 import { TeamNames } from '../../components/TeamLogo'
-import { GlossaryButton } from './statGlossary'
+import StatViewSwitch from './StatViewSwitch'
 import { buildFullStatColumns, buildAdvancedStatColumns, HONOR_COLUMN_KEYS, compactColumns, sumColWidth } from './statColumns'
 
 /**
@@ -49,7 +49,12 @@ export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: s
     })
   const columns = isMobile ? compactColumns(base) : base
 
+  // 轮次视图的数据来自 B-R 系列赛页，没有高阶指标，那种情况下不给切换
+  const showSwitch = !byRound
+
   return (
+    <>
+    {showSwitch && <StatViewSwitch value={view} onChange={setView} />}
     <ProTable
       className="stat-compact"
       bordered
@@ -60,20 +65,8 @@ export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: s
       search={false}
       scroll={{ x: sumColWidth(columns) }}
       options={false}
-      toolBarRender={() => [
-        // 轮次视图的数据来自 B-R 系列赛页，没有高阶指标，那种情况下不给切换
-        ...(byRound ? [] : [
-          <Segmented
-            key="view"
-            size="small"
-            value={view}
-            onChange={setView}
-            options={[{ label: '基础数据', value: 'basic' }, { label: '高阶数据', value: 'adv' }]}
-          />,
-          // 表头的虚下划线在手机上不好悬停，高阶视图额外给一个说明书入口
-          ...(adv ? [<GlossaryButton key="g" />] : []),
-        ]),
-        ...(team ? [] : [
+      /* 球队页嵌入：开关挪到表外后工具条就空了，整条关掉回到纯表格 */
+      toolBarRender={team ? false : () => [
         <Input.Search
           key="search"
           allowClear
@@ -81,12 +74,7 @@ export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: s
           style={{ width: isMobile ? 150 : 200 }}
           onSearch={(v) => setPlayerName(v.trim() || undefined)}
         />,
-        ...(controlled
-          ? []
-          : [
-              <SeasonPicker key="season" value={seasonNum} onChange={setSeasonState} />,
-            ]),
-        ]),
+        ...(controlled ? [] : [<SeasonPicker key="season" value={seasonNum} onChange={setSeasonState} />]),
       ]}
       pagination={false} /* 不分页，一滚到底 */
       request={async (params, sort) => {
@@ -109,5 +97,6 @@ export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: s
         return { data: res.records || [], total: res.total || 0, success: true }
       }}
     />
+    </>
   )
 }

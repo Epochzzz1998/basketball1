@@ -4,7 +4,8 @@ import { useParams, Link } from 'react-router-dom'
 import { Button, Card, Col, ConfigProvider, Empty, Row, Segmented, Space, Spin, Tag } from 'antd'
 import { BarChartOutlined, FireOutlined, IdcardOutlined, TrophyOutlined } from '@ant-design/icons'
 import { playerApi } from '../../api/player'
-import { GlossaryButton, withGlossary } from './statGlossary'
+import { withGlossary } from './statGlossary'
+import StatViewSwitch from './StatViewSwitch'
 import { CAREER_SEASON, NBA_TEAM_NAMES, PLAYOFF_TAG, fmtNum as num, fmtPair, seasonYearLabel, seasonShort, fmtPct } from './rankConfig'
 import { CAREER_AWARDS } from './honorConfig'
 import { advColWidth, compactColumns, sumColWidth } from './statColumns'
@@ -131,15 +132,12 @@ function CareerTable({ playerId }) {
   const columns = view === 'adv' ? advSeasonColumns(false) : basicColumns
   const cols = isMobile ? compactColumns(columns) : columns
   return (
+    <>
+    <StatViewSwitch value={view} onChange={setView} />
     <ProTable
       className="stat-compact"
       bordered
-      toolBarRender={() => [
-        <Segmented key="v" size="small" value={view} onChange={setView}
-          options={[{ label: '基础数据', value: 'basic' }, { label: '高阶数据', value: 'adv' }]} />,
-        // 高阶列的释义在表头虚下划线上，手机不好悬停，这里再给一个明确入口
-        ...(view === 'adv' ? [<GlossaryButton key="g" />] : []),
-      ]}
+      toolBarRender={false} /* 开关已挪到表外，这里回归纯表格 */
       rowKey="statsId"
       columns={cols}
       search={false}
@@ -158,6 +156,7 @@ function CareerTable({ playerId }) {
         return { data: res.records || [], total: res.total || 0, success: true }
       }}
     />
+    </>
   )
 }
 
@@ -210,15 +209,12 @@ function PlayoffTable({ playerId }) {
   const columns = view === 'adv' ? advSeasonColumns(true) : basicColumns
   const cols = isMobile ? compactColumns(columns) : columns
   return (
+    <>
+    <StatViewSwitch value={view} onChange={setView} />
     <ProTable
       className="stat-compact"
       bordered
-      toolBarRender={() => [
-        <Segmented key="v" size="small" value={view} onChange={setView}
-          options={[{ label: '基础数据', value: 'basic' }, { label: '高阶数据', value: 'adv' }]} />,
-        // 高阶列的释义在表头虚下划线上，手机不好悬停，这里再给一个明确入口
-        ...(view === 'adv' ? [<GlossaryButton key="g" />] : []),
-      ]}
+      toolBarRender={false} /* 开关已挪到表外，这里回归纯表格 */
       rowKey="statsId"
       dataSource={rows}
       columns={cols}
@@ -227,6 +223,7 @@ function PlayoffTable({ playerId }) {
       pagination={false}
       scroll={{ x: sumColWidth(cols) }}
     />
+    </>
   )
 }
 
