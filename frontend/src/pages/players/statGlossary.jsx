@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Col, Modal, Row, Tooltip } from 'antd'
-import { QuestionCircleOutlined } from '@ant-design/icons'
+import { InfoCircleOutlined, QuestionCircleOutlined } from '@ant-design/icons'
 import useIsMobile from '../../hooks/useIsMobile'
 
 /**
@@ -239,9 +239,11 @@ export function GlossaryButton() {
 }
 
 /**
- * 单条释义的悬停卡片。命中词条就给一条虚下划线，悬停（手机点按）出解释；
- * 不是高阶项就原样返回，调用方不用自己判断。
- * 用虚下划线而不是加 ⓘ 图标，是因为高阶列最窄只有 62px，多一个图标就要折行。
+ * 单条释义的悬停卡片。不是高阶项就原样返回，调用方不用自己判断。
+ *
+ * 平时不加任何常驻装饰（试过虚下划线，21 列一起挂上去很脏），鼠标移上去才淡入
+ * 一个小 ⓘ。图标在 CSS 里绝对定位、脱离文档流，所以不占列宽——高阶表头本来就是
+ * 按字形算到刚好的宽度，多一个字形就会折行。手机没有悬停，走工具条的「指标说明」。
  */
 export function GlossaryTip({ field, children }) {
   const it = BY_FIELD[field]
@@ -265,7 +267,10 @@ export function GlossaryTip({ field, children }) {
         </div>
       }
     >
-      <span style={{ borderBottom: '1px dashed #bfbfbf', cursor: 'help' }}>{children}</span>
+      <span className="stat-tip">
+        {children}
+        <InfoCircleOutlined className="stat-tip-icon" />
+      </span>
     </Tooltip>
   )
 }

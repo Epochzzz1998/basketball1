@@ -108,6 +108,27 @@ body {
   min-height: 0 !important;
 }
 
+/* 高阶指标的释义提示（表头 / 资料卡格子标题）：平时完全干净，鼠标移上去才淡入一个小 ⓘ。
+   图标绝对定位脱离文档流——高阶表头的宽度是按字形算到刚好的，多占一个字形就会折行。
+   手机没有悬停，改走工具条的「指标说明」入口。 */
+.stat-tip {
+  position: relative;
+  cursor: help;
+}
+.stat-tip .stat-tip-icon {
+  position: absolute;
+  left: calc(100% + 2px);
+  top: 0.15em;
+  font-size: 0.8em;
+  color: #bfbfbf;
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none; /* 图标本身不接鼠标，避免在自己身上反复触发进出 */
+}
+.stat-tip:hover .stat-tip-icon {
+  opacity: 1;
+}
+
 /* 数据表（.stat-compact）桌面端：antd 默认单元格左右各 16px 内边距太肥，
    列宽收紧后内容被挤换行——统一压到 6px（移动端媒体查询里另有更紧的 5px 版本） */
 .stat-compact .ant-table-thead > tr > th,

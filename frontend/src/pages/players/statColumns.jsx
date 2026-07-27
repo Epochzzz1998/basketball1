@@ -49,9 +49,20 @@ export function buildFullStatColumns({ serverSort = true } = {}) {
 }
 
 /**
+ * 高阶列的表头宽度。原来按 `label.length` 分档，但中文字宽差不多是拉丁字母的一倍，
+ * 「进攻胜利贡献」（6 字）和「WS/48」（5 字）按字数算是同一档，结果前者必定折行。
+ * 改成按字形估：中文算一个 em，拉丁/数字/斜杠算 0.62 em，再加两侧内边距。
+ * 下限 46 是给数值留的（"-2.3"、"0.123" 这类比表头还宽）。
+ */
+export const headerWidth = (label, em, pad) =>
+  Math.max(46, Math.ceil([...label].reduce((w, c) => w + (/[一-鿿]/.test(c) ? em : em * 0.62), 0)) + pad)
+
+/** 桌面端 14px 字号 + 左右各 6px 内边距（.stat-compact 的规则） */
+const advWidth = (label) => headerWidth(label, 14, 14)
+
+/**
  * 高阶数据列。基础表已经 20+ 列，再把 20 个高阶指标并进去就没法看了，
  * 所以拆成两组、由页面上的「基础 / 高阶」开关切换（AllPlayerSeasonStats、生涯表都接了）。
- * 前四列跟基础表保持一致，切换时视线不用重新找人。
  */
 export function buildAdvancedStatColumns({ po = false } = {}) {
   return withGlossary([
@@ -62,13 +73,14 @@ export function buildAdvancedStatColumns({ po = false } = {}) {
       ),
     },
     { title: '球队', dataIndex: 'playerTeam', width: 78, render: (v) => <TeamNames value={v} /> },
-    { title: '出场', dataIndex: 'playerAppearance', width: 48 },
+    // 出场场次不在这儿重复——基础表已经有「首发/出场」。时间留着：使用率、篮板率
+    // 这些率值得配上场时间才读得懂
     { title: '时间', dataIndex: 'playingTime', width: 48, render: (v) => num(v) },
     ...(po ? [{ title: '正负值', dataIndex: 'playerAvgPn', width: 62, render: (v) => num(v) }] : []),
     ...ADVANCED_STATS.map((a) => ({
       title: a.label,
       dataIndex: a.field,
-      width: a.label.length >= 5 ? 86 : a.label.length >= 4 ? 74 : 62,
+      width: advWidth(a.label),
       render: (v) => fmtAdv(v, a),
     })),
   ])
@@ -92,13 +104,23 @@ const COMPACT_W = {
   // 逐场数据表（单场 box score）：都是整数，比场均窄；结果列要放下「胜 105-95」
   gameDate: 60, round: 60, win: 78, starter: 40, pts: 40, reb: 40, offReb: 40, defReb: 40, ast: 40,
   fgm: 56, tpm: 56, ftm: 56, stl: 40, blk: 40, tov: 40, pf: 40, plusMinus: 46,
+  playerAvgPn: 50,
+  // 高阶列按标签实际字形算（12px 字号、左右各 5px 内边距），别再统一乘 0.72——
+  // 那样「进攻胜利贡献」只剩 62px，六个汉字铁定折行
+  ...Object.fromEntries(ADVANCED_STATS.map((a) => [a.field, headerWidth(a.label, 12, 10)])),
 }
+
+// 移动端表头省字：桌面写「效率值EFF」是为了跟真实 PER 区分开，手机上那三个字母
+// 只是把列撑宽，去掉不影响理解（要查区别有「指标说明」）
+const COMPACT_TITLE = { playerPer: '效率值' }
 
 /** 列表 → 紧凑列表：命中紧凑表的用表值，其余按 0.72 收缩（下限 40）；
  * 同时去掉表头排序（窄列里排序箭头和标题文字重叠，移动端排序一律砍掉） */
 export const compactColumns = (cols) =>
   cols.map(({ sorter, sortOrder, defaultSortOrder, ...c }) => ({
-    ...c, width: COMPACT_W[c.dataIndex] ?? Math.max(40, Math.round((c.width || 60) * 0.72)),
+    ...c,
+    title: COMPACT_TITLE[c.dataIndex] ?? c.title,
+    width: COMPACT_W[c.dataIndex] ?? Math.max(40, Math.round((c.width || 60) * 0.72)),
   }))
 
 /** 横向滚动宽度 = 列宽求和（列随紧凑与否变化，滚动宽度跟着算） */

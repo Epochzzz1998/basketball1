@@ -7,7 +7,7 @@ import { playerApi } from '../../api/player'
 import { GlossaryButton, withGlossary } from './statGlossary'
 import { CAREER_SEASON, NBA_TEAM_NAMES, PLAYOFF_TAG, fmtNum as num, fmtPair, seasonYearLabel, seasonShort, fmtPct } from './rankConfig'
 import { CAREER_AWARDS } from './honorConfig'
-import { compactColumns, sumColWidth } from './statColumns'
+import { compactColumns, headerWidth, sumColWidth } from './statColumns'
 import { ADVANCED_STATS, fmtAdv } from './rankConfig'
 import TeamLogo, { TeamNames } from '../../components/TeamLogo'
 import SeasonProfile from './SeasonProfile'
@@ -84,13 +84,13 @@ function HonorShelf({ honors }) {
 const advSeasonColumns = (po) => withGlossary([
   { title: '赛季', dataIndex: 'seasonNum', width: 64, fixed: 'left', render: (s) => (s === CAREER_SEASON ? '生涯' : seasonShort(s)) },
   { title: '球队', dataIndex: 'playerTeam', width: 78, render: (v) => <TeamNames value={v} /> },
-  { title: '出场', dataIndex: 'playerAppearance', width: 48 },
+  // 出场不重复（基础表的「首发/出场」已有），时间留着——率值要配上场时间才读得懂
   { title: '时间', dataIndex: 'playingTime', width: 48, render: (v) => num(v) },
   ...(po ? [{ title: '正负值', dataIndex: 'playerAvgPn', width: 62, render: (v) => num(v) }] : []),
   ...ADVANCED_STATS.map((a) => ({
     title: a.label,
     dataIndex: a.field,
-    width: a.label.length >= 5 ? 86 : a.label.length >= 4 ? 74 : 62,
+    width: headerWidth(a.label, 14, 14),
     render: (v) => fmtAdv(v, a),
   })),
 ])
