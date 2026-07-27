@@ -326,11 +326,13 @@ export default function PlayerCareer() {
             </div>
           )}
           <div>
-            <div style={{ fontSize: 20, fontWeight: 700 }}>
+            {/* 手机上降一档：中文译名长的（「扬尼斯·阿德托昆博」这一类）在 20px 下，
+                左边头像和右边队标一夹就换行 */}
+            <div style={{ fontSize: isMobile ? 17 : 20, fontWeight: 700, lineHeight: 1.3 }}>
               {honors?.playerName || '…'}
               {/* 圆牌让位给照片时，球衣号跟到名字后面，信息不丢 */}
               {honors?.photo && honors?.playerNumber && (
-                <span style={{ marginLeft: 8, fontSize: 14, fontWeight: 800, color: '#fa541c' }}>#{honors.playerNumber}</span>
+                <span style={{ marginLeft: 8, fontSize: isMobile ? 13 : 14, fontWeight: 800, color: '#fa541c' }}>#{honors.playerNumber}</span>
               )}
             </div>
             {/* 英文原名独立一行（未汉化时两者相同则不重复展示） */}
