@@ -236,8 +236,10 @@
          窗口函数先给全表排好名，再挑出这一个人；表只有几千行，代价可以忽略。
          rank() 而非 row_number()：同分并列同名次，跟体育口径一致。 -->
     <sql id="careerTotalsSelect">
-            select BR_ID as brId, PLAYER_ID as playerId, PLAYER_NAME as playerName,
-                   FIRST_YEAR as firstYear, LAST_YEAR as lastYear, SEASONS as seasons,
+            select c.BR_ID as brId, c.PLAYER_ID as playerId,
+                   coalesce(p.PLAYER_NAME, c.PLAYER_NAME_ZH, c.PLAYER_NAME) as playerName,
+                   c.PLAYER_NAME as nameEn,
+                   c.FIRST_YEAR as firstYear, c.LAST_YEAR as lastYear, c.SEASONS as seasons,
                    G as g, rank() over (order by G desc) as gRank,
                    GS as gs, rank() over (order by GS desc) as gsRank,
                    MP as mp, rank() over (order by MP desc) as mpRank,
@@ -262,7 +264,8 @@
                    (FGA - FG) as fgMiss, rank() over (order by (FGA - FG) desc) as fgMissRank,
                    (FG3A - FG3) as fg3Miss, rank() over (order by (FG3A - FG3) desc) as fg3MissRank,
                    (FTA - FT) as ftMiss, rank() over (order by (FTA - FT) desc) as ftMissRank
-            from nba_career_totals
+            from nba_career_totals c
+            left join dream_player p on p.PLAYER_ID = c.PLAYER_ID
     </sql>
 
     <select id="findCareerTotals" resultType="java.util.Map">
@@ -276,11 +279,15 @@
          算式），故 ${} 拼接安全。值为 0 的一律不入榜：抢断/盖帽/失误/前场篮板 1973-74 才
          统计、三分 1979-80 才有，老球员那几项恒为 0，让他们并列几千名毫无意义。 -->
     <select id="findAllTimeBoard" resultType="java.util.Map">
-        select BR_ID as brId, PLAYER_ID as playerId, PLAYER_NAME as playerName,
-               FIRST_YEAR as firstYear, LAST_YEAR as lastYear, SEASONS as seasons,
+        select c.BR_ID as brId, c.PLAYER_ID as playerId,
+               <!-- 中文名优先级：dream_player（可手工微调，最权威）> 词典 > 英文原名 -->
+               coalesce(p.PLAYER_NAME, c.PLAYER_NAME_ZH, c.PLAYER_NAME) as playerName,
+               c.PLAYER_NAME as nameEn,
+               c.FIRST_YEAR as firstYear, c.LAST_YEAR as lastYear, c.SEASONS as seasons,
                ${expr} as val,
                rank() over (order by ${expr} desc) as rk
-        from nba_career_totals
+        from nba_career_totals c
+        left join dream_player p on p.PLAYER_ID = c.PLAYER_ID
         where ${expr} &gt; 0
         order by ${expr} desc
     </select>

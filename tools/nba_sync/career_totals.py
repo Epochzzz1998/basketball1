@@ -45,6 +45,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 import sync
 from br_backfill import norm, strip_suffix
+from zh_names import ZH_NAMES
 
 BASE = 'https://www.basketball-reference.com'
 FIRST_YEAR = 1947          # BAA 元年，B-R 最早的一季
@@ -131,10 +132,13 @@ def scrape(years):
         print(f'{y}: {len(rows)} players', flush=True)
 
 
+# 整表由缓存派生，重建永远是安全的——所以直接删了重来，改列不用手写 ALTER
 DDL = """
-CREATE TABLE IF NOT EXISTS nba_career_totals (
+DROP TABLE IF EXISTS nba_career_totals;
+CREATE TABLE nba_career_totals (
   BR_ID       varchar(24)  NOT NULL COMMENT 'Basketball-Reference slug, e.g. jokicni01',
   PLAYER_NAME varchar(120) NOT NULL COMMENT 'B-R display name (English)',
+  PLAYER_NAME_ZH varchar(120) NULL   COMMENT '中文名（zh_names.py）；本库有资料卡的以 dream_player 为准',
   PLAYER_ID   varchar(100) NULL     COMMENT 'dream_player.PLAYER_ID when this is one of ours',
   FIRST_YEAR  smallint     NULL,
   LAST_YEAR   smallint     NULL,
@@ -200,7 +204,7 @@ def build():
                 return cand[0]
         return None
 
-    stmts = [DDL, 'TRUNCATE TABLE nba_career_totals;']
+    stmts = [DDL]
     matched = 0
     for slug, t in totals.items():
         pid = match(t['name'])
@@ -208,11 +212,15 @@ def build():
             matched += 1
         vals = ', '.join(str(t[c]) for c in COLS)
         pid_sql = "'%s'" % sync.esc(pid) if pid else 'NULL'
+        # 池子里 1453 人本库没有资料卡（张伯伦那一代），他们的中文名只能来自词典
+        zh = ZH_NAMES.get(t['name'])
+        zh_sql = "'%s'" % sync.esc(zh) if zh else 'NULL'
         stmts.append(
-            f"INSERT INTO nba_career_totals (BR_ID, PLAYER_NAME, PLAYER_ID, FIRST_YEAR, LAST_YEAR, SEASONS, {', '.join(COLS)}) "
-            f"VALUES ('{sync.esc(slug)}', '{sync.esc(t['name'])}', "
+            f"INSERT INTO nba_career_totals (BR_ID, PLAYER_NAME, PLAYER_NAME_ZH, PLAYER_ID, FIRST_YEAR, LAST_YEAR, SEASONS, {', '.join(COLS)}) "
+            f"VALUES ('{sync.esc(slug)}', '{sync.esc(t['name'])}', {zh_sql}, "
             f"{pid_sql}, {t['first']}, {t['last']}, {t['seasons']}, {vals});")
-    print(f'其中 {matched} 人挂上了我们库里的 PLAYER_ID')
+    zh_hit = sum(1 for t in totals.values() if ZH_NAMES.get(t['name']))
+    print(f'其中 {matched} 人挂上了我们库里的 PLAYER_ID，{zh_hit} 人有中文名')
 
     run_sql('START TRANSACTION;\n' + '\n'.join(stmts) + '\nCOMMIT;\n', 'career totals')
 
