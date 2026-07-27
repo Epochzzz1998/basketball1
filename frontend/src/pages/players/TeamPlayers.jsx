@@ -345,7 +345,7 @@ function PlayoffHistory({ teamCode }) {
           <Tag color="gold"><TrophyFilled /> 总冠军 ×{champs}</Tag>
         </Space>
       }
-      styles={{ body: { padding: '4px 12px 12px' } }}
+      styles={{ body: { padding: '4px 0 0' } }} /* 表格铺满卡片：左右与底部贴齐 */
     >
       <Table className="clean-table stat-compact" bordered rowKey="seasonNum" dataSource={rows} columns={isMobile ? compactColumns(columns) : columns} pagination={false} size="middle" scroll={{ x: isMobile ? sumColWidth(compactColumns(columns)) : 'max-content' }} />
     </Card>
@@ -483,7 +483,7 @@ function TeamHistory({ teamCode }) {
           <Tag color="gold"><TrophyFilled /> 总冠军 ×{champs}</Tag>
         </Space>
       }
-      styles={{ body: { padding: '4px 12px 12px' } }}
+      styles={{ body: { padding: '4px 0 0' } }} /* 表格铺满卡片：左右与底部贴齐 */
     >
       <Table className="clean-table stat-compact" bordered rowKey="seasonNum" dataSource={rows} columns={isMobile ? compactColumns(columns) : columns} pagination={false} size="middle" scroll={{ x: isMobile ? sumColWidth(compactColumns(columns)) : 'max-content' }} />
     </Card>

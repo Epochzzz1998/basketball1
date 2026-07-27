@@ -4,7 +4,7 @@ import { Card, Col, Empty, Row, Space, Spin, Tag } from 'antd'
 import SeasonPicker from '../../components/SeasonPicker'
 import RadarChart from '../../components/RadarChart'
 import { playerApi } from '../../api/player'
-import { ADV_EMPTY, CAREER_SEASON, PLAYOFF_TAG, fmtNum, seasonYearLabel, fmtPct, statQualified, qualifiedFor, rankIn, unqualifiedReason, tiedCount, ADVANCED_STATS, fmtAdv } from './rankConfig'
+import { ADV_EMPTY, CAREER_SEASON, PLAYOFF_TAG, fmtNum, seasonYearLabel, statQualified, qualifiedFor, rankIn, unqualifiedReason, tiedCount, ADVANCED_STATS, fmtAdv } from './rankConfig'
 import { TeamNames } from '../../components/TeamLogo'
 import { CAREER_AWARDS } from './honorConfig'
 import { GlossaryIcon, GlossaryTip } from './statGlossary'
@@ -35,6 +35,22 @@ export const RADAR_AXES = [
   { label: '防守', get: defOf },
   { label: '效率', get: (r) => val(r, 'playerPer') },
   { label: '真实命中', get: tsOf },
+]
+
+/**
+ * 高阶视图下的六维：换成高阶指标本身，而不是继续画基础数据的百分位。
+ * 选这六项是为了各占一角——效率(PER)、真实产出效率(TS%)、球权占比(USG%)、
+ * 进攻与防守各一个(OBPM/DBPM)、总价值(VORP)，跟基础版一样有攻有守。
+ * 注意生涯档：那一行根本没有高阶数据，六个轴全按 0 参与百分位，而 BPM 这类有负值的
+ * 轴会因此落在中游而不是原点——生涯档看高阶雷达本来就没有意义（数据行那边显示的是「/」）。
+ */
+export const ADV_RADAR_AXES = [
+  { label: 'PER', get: (r) => val(r, 'playerPerReal') },
+  { label: '真实命中', get: (r) => val(r, 'playerTsPct') },
+  { label: '使用率', get: (r) => val(r, 'playerUsgPct') },
+  { label: '进攻BPM', get: (r) => val(r, 'playerObpm') },
+  { label: '防守BPM', get: (r) => val(r, 'playerDbpm') },
+  { label: 'VORP', get: (r) => val(r, 'playerVorp') },
 ]
 
 export const GRID_STATS = [
@@ -209,7 +225,10 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
   }
 
 
-  const statCard = (dataRow, leagueRows, prefix, color, stage, stats = GRID_STATS) => (
+  const statCard = (dataRow, leagueRows, prefix, color, stage, stats = GRID_STATS) => {
+    // 季后赛不套 58 场资格线（最多才 28 场），否则名次全没、全员「场次不足」
+    const po = stage === 'po'
+    return (
     <Row gutter={[10, 10]}>
       {stats.filter((s) => stage === 'po' || !s.poOnly).map((raw) => {
         const s = { ...raw, key: raw.key || raw.field }
@@ -231,9 +250,9 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
               </div>
               {!missing && (
                 <RankChip
-                  rank={rankIn(leagueRows, s.key, mine, s.asc)}
-                  unqualified={leagueRows?.length && !qualifiedFor(leagueRows, s.key, dataRow) ? unqualifiedReason(s.key) : null}
-                  tied={tiedCount(leagueRows, s.key, mine)}
+                  rank={rankIn(leagueRows, s.key, mine, s.asc, po)}
+                  unqualified={!po && leagueRows?.length && !qualifiedFor(leagueRows, s.key, dataRow) ? unqualifiedReason(s.key) : null}
+                  tied={tiedCount(leagueRows, s.key, mine, po)}
                   prefix={prefix}
                   to={`/rankings/${s.key}?seasonNum=${seasonNum}&stage=${stage}`}
                 />
@@ -243,7 +262,8 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
         )
       })}
     </Row>
-  )
+    )
+  }
 
   const radarOf = (dataRow, leagueRows) =>
     RADAR_AXES.map((a) => ({ label: a.label, value: percentileOf(leagueRows, a.get, a.get(dataRow)) }))

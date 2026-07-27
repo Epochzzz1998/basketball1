@@ -108,7 +108,7 @@ const COMPACT_W = {
   playerAvgScore: 42, playerAvgReb: 42, playerAvgOffReb: 42, playerAvgDefReb: 42, playerAvgAss: 42, playerAvgFgm: 74, playerAccuracy: 56,
   playerAvgTpm: 74, playerThreeAccuracy: 56, playerAvgFtm: 74, playerFreethrowAccuracy: 56,
   playerAvgBlock: 42, playerAvgSteal: 42, playerAvgTurnover: 42, playerAvgPf: 42, playerPer: 46,
-  mvpRank: 42, dpoyRank: 46, allDbaTeam: 58, allDefTeam: 58, seasonNum: 52, playoffResult: 76,
+  mvpRank: 42, dpoyRank: 46, allDbaTeam: 58, allDefTeam: 58, seasonNum: 60, playoffResult: 76,
   // 逐场数据表（单场 box score）：都是整数，比场均窄；结果列要放下「胜 105-95」
   gameDate: 60, round: 60, win: 78, starter: 40, pts: 40, reb: 40, offReb: 40, defReb: 40, ast: 40,
   fgm: 56, tpm: 56, ftm: 56, stl: 40, blk: 40, tov: 40, pf: 40, plusMinus: 46,

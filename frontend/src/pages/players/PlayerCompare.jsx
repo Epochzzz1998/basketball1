@@ -10,7 +10,7 @@ import { searchApi } from '../../api/search'
 import { ADVANCED_STATS, ADV_EMPTY, CAREER_SEASON, fmtAdv, fmtNum, seasonShort, PLAYOFF_TAG, statQualified, LATEST_SEASON, NBA_TEAM_NAMES, qualifiedFor, rankIn, unqualifiedReason } from './rankConfig'
 import TeamLogo, { TeamChain } from '../../components/TeamLogo'
 import { CAREER_AWARDS } from './honorConfig'
-import { GRID_STATS, RADAR_AXES, percentileOf } from './SeasonProfile'
+import { ADV_RADAR_AXES, GRID_STATS, RADAR_AXES, percentileOf } from './SeasonProfile'
 import StatViewSwitch from './StatViewSwitch'
 import useIsMobile from '../../hooks/useIsMobile'
 
@@ -306,7 +306,7 @@ function ScoreStrip({ rowA, rowB, stats }) {
 
 /** 对位行：A 数值(+排名) | 双向渐变条形+项目名药丸 | B 数值(+排名)。
  * 两侧排名各对各的联盟池（leagueA/leagueB），跨时代对比时各自成立。 */
-function CompareRows({ rowA, rowB, stats, leagueA, leagueB, rankPrefix = '联盟第', fmtOverride }) {
+function CompareRows({ rowA, rowB, stats, leagueA, leagueB, rankPrefix = '联盟第', fmtOverride, po = false }) {
   const chip = (rank, align, unqualified) =>
     unqualified ? (
       <div style={{ fontSize: 11, fontWeight: 600, color: '#d46b08', textAlign: align, marginTop: 1 }}>{unqualified}</div>
@@ -342,7 +342,7 @@ function CompareRows({ rowA, rowB, stats, leagueA, leagueB, rankPrefix = '联盟
               >
                 {fmtV(av)}
               </div>
-              {av != null && chip(rankIn(leagueA, s.key, av, s.asc), 'right', leagueA?.length && rowA && !qualifiedFor(leagueA, s.key, rowA) ? unqualifiedReason(s.key) : null)}
+              {av != null && chip(rankIn(leagueA, s.key, av, s.asc, po), 'right', !po && leagueA?.length && rowA && !qualifiedFor(leagueA, s.key, rowA) ? unqualifiedReason(s.key) : null)}
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ textAlign: 'center', marginBottom: 5 }}>
@@ -384,7 +384,7 @@ function CompareRows({ rowA, rowB, stats, leagueA, leagueB, rankPrefix = '联盟
               >
                 {fmtV(bv)}
               </div>
-              {bv != null && chip(rankIn(leagueB, s.key, bv, s.asc), 'left', leagueB?.length && rowB && !qualifiedFor(leagueB, s.key, rowB) ? unqualifiedReason(s.key) : null)}
+              {bv != null && chip(rankIn(leagueB, s.key, bv, s.asc, po), 'left', !po && leagueB?.length && rowB && !qualifiedFor(leagueB, s.key, rowB) ? unqualifiedReason(s.key) : null)}
             </div>
           </div>
         )
@@ -544,9 +544,11 @@ export default function PlayerCompare() {
 
   // 双侧雷达：各自对各自赛季的联盟池取百分位
   const radarSeries = (ra, rb, rowsA, rowsB) => {
+    // 数据行切到高阶了，雷达还画基础六维会对不上号
+    const AXES = view === 'adv' ? ADV_RADAR_AXES : RADAR_AXES
     const series = []
-    if (ra && rowsA?.length) series.push({ color: A_COLOR, fill: A_FILL, data: RADAR_AXES.map((x) => ({ label: x.label, value: percentileOf(rowsA, x.get, x.get(ra)) })) })
-    if (rb && rowsB?.length) series.push({ color: B_COLOR, fill: B_FILL, data: RADAR_AXES.map((x) => ({ label: x.label, value: percentileOf(rowsB, x.get, x.get(rb)) })) })
+    if (ra && rowsA?.length) series.push({ color: A_COLOR, fill: A_FILL, data: AXES.map((x) => ({ label: x.label, value: percentileOf(rowsA, x.get, x.get(ra)) })) })
+    if (rb && rowsB?.length) series.push({ color: B_COLOR, fill: B_FILL, data: AXES.map((x) => ({ label: x.label, value: percentileOf(rowsB, x.get, x.get(rb)) })) })
     return series
   }
 
@@ -677,7 +679,7 @@ export default function PlayerCompare() {
                         <div style={{ textAlign: 'center', color: '#bbb', fontSize: 12 }}>季后赛 · 各自赛季的季后赛球员百分位</div>
                       </Col>
                       <Col xs={24} lg={14}>
-                        <CompareRows rowA={poRowA} rowB={poRowB} stats={statsOf(GRID_STATS)} leagueA={lgA.po} leagueB={lgB.po} rankPrefix="季后赛第" />
+                        <CompareRows rowA={poRowA} rowB={poRowB} stats={statsOf(GRID_STATS)} leagueA={lgA.po} leagueB={lgB.po} rankPrefix="季后赛第" po />
                       </Col>
                     </Row>
                   </>
@@ -740,7 +742,7 @@ export default function PlayerCompare() {
                   />
                   <StatViewSwitch value={view} onChange={setView} />
                   <ScoreStrip rowA={poRowA} rowB={poRowB} stats={statsOf(CAREER_STATS)} />
-                  <CompareRows rowA={poRowA} rowB={poRowB} stats={statsOf(CAREER_STATS)} leagueA={lgA.po} leagueB={lgB.po} rankPrefix="季后赛第" />
+                  <CompareRows rowA={poRowA} rowB={poRowB} stats={statsOf(CAREER_STATS)} leagueA={lgA.po} leagueB={lgB.po} rankPrefix="季后赛第" po />
                 </>
               )}
             </Card>

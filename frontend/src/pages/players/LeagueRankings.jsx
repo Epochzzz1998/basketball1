@@ -376,8 +376,8 @@ function TeamsTab({ seasonNum, stage }) {
       ]
 
   return (
-    <Card styles={{ body: { padding: '4px 12px 12px' } }}>
-      <div style={{ padding: '10px 8px 14px' }}>
+    <Card styles={{ body: { padding: '4px 0 0' } }} /* 表格铺满卡片：左右与底部贴齐 */>
+      <div style={{ padding: '10px 20px 14px' }}> {/* 卡体已无左右内边距，这行自己缩进 */}
         <Space size="middle" wrap>
           范围：
           <Select value={scope} onChange={setScope} options={SCOPES} style={{ width: 140 }} />

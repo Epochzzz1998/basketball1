@@ -75,8 +75,12 @@ export const PCT_QUALIFY = {
  * 不在池子里的人：榜单里不出现，资料卡/对比页也不给名次，改标「场次不足 / 出手不足」。
  * 放开池子试过一版，结果是打 1-3 场的人霸占抢断榜和「失误最少」榜，比藏人更糟。
  */
-export const boardPool = (rows, field, season) => {
+export const boardPool = (rows, field, season, po = false) => {
   const all = rows || []
+  // 季后赛不设资格线：58 场、300 记投篮这些都是常规赛口径，季后赛最多打 28 场，
+  // 套上去等于全员不合格——名次全没了，还会一律标成「场次不足」。
+  // 联盟排行页早就绕开了（stage === 'po' 直接用原始列表），资料卡和对比页漏了。
+  if (po) return all
   let out
   const pctRule = PCT_QUALIFY[field]
   if (pctRule) {
@@ -101,15 +105,15 @@ export const boardPool = (rows, field, season) => {
 }
 
 /** 这名球员在该项上有没有名次；没有就该显示「场次不足/出手不足」而不是一个数字 */
-export const qualifiedFor = (rows, field, row) =>
-  !!row?.playerId && boardPool(rows, field).some((r) => r.playerId === row.playerId)
+export const qualifiedFor = (rows, field, row, po = false) =>
+  po || (!!row?.playerId && boardPool(rows, field, undefined, po).some((r) => r.playerId === row.playerId))
 
 /** 不达标的原因，决定标签文案 */
 export const unqualifiedReason = (field) => (PCT_QUALIFY[field] ? '出手不足' : '场次不足')
 
 /** 名次 = 池子里比他强的人数 + 1；asc 项（失误/犯规）越少越前 */
-export const rankIn = (rows, field, value, asc) => {
-  const pool = boardPool(rows, field)
+export const rankIn = (rows, field, value, asc, po = false) => {
+  const pool = boardPool(rows, field, undefined, po)
   if (value == null || !pool.length) {
     return null
   }
@@ -118,11 +122,11 @@ export const rankIn = (rows, field, value, asc) => {
 
 /** 池子里跟他同值的人数（>1 就是并列）。ORtg/DRtg 这类整数指标同分极多，
  *  只写「联盟第 3」会让人以为是独一份。 */
-export const tiedCount = (rows, field, value) => {
+export const tiedCount = (rows, field, value, po = false) => {
   if (value == null) {
     return 0
   }
-  return boardPool(rows, field).filter((r) => Number(r[field] ?? 0) === Number(value)).length
+  return boardPool(rows, field, undefined, po).filter((r) => Number(r[field] ?? 0) === Number(value)).length
 }
 
 /** 榜单行：池子内按该项排序 */
