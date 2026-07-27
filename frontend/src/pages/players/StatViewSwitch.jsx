@@ -1,6 +1,7 @@
 import { Segmented } from 'antd'
 import { GlossaryButton } from './statGlossary'
 import ControlGroup from './ControlGroup'
+import useIsMobile from '../../hooks/useIsMobile'
 
 /**
  * 「基础数据 / 高阶数据」开关，放在表格外面而不是 ProTable 的工具条里。
@@ -11,14 +12,19 @@ import ControlGroup from './ControlGroup'
  * 同一种视觉层级。
  */
 export default function StatViewSwitch({ value, onChange, style, children }) {
+  const isMobile = useIsMobile()
+  // 手机上省成「基础/高阶」：跟位置筛选并排时，那两个「数据」字正好是溢出的量
+  const opts = isMobile
+    ? [{ label: '基础', value: 'basic' }, { label: '高阶', value: 'adv' }]
+    : [{ label: '基础数据', value: 'basic' }, { label: '高阶数据', value: 'adv' }]
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 12, ...style }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 12, flexWrap: 'wrap', marginBottom: 12, ...style }}>
       <ControlGroup label="数据">
         <Segmented
           size="small"
           value={value}
           onChange={onChange}
-          options={[{ label: '基础数据', value: 'basic' }, { label: '高阶数据', value: 'adv' }]}
+          options={opts}
         />
       </ControlGroup>
       {/* 同一行还能放位置筛选之类的控件（窄屏 flexWrap 自己折行） */}
