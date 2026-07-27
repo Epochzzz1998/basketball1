@@ -285,7 +285,7 @@ function PlayoffHistory({ teamCode }) {
   )
 
   const numCol = (title, key) => ({
-    title, dataIndex: key, width: 62, align: 'right',
+    title, dataIndex: key, width: 62,
     sorter: (a, b) => Number(a[key]) - Number(b[key]),
     render: (v) => fmtNum(v),
   })
@@ -297,7 +297,7 @@ function PlayoffHistory({ teamCode }) {
       render: (v) => seasonShort(v),
     },
     {
-      title: '成绩', dataIndex: 'playoffResult', width: 96, align: 'right',
+      title: '成绩', dataIndex: 'playoffResult', width: 96,
       render: (v) => (
         <Tag color={PLAYOFF_TAG[v] || 'default'} style={{ marginInlineEnd: 0 }}>
           {v === '总冠军' && <TrophyFilled style={{ marginRight: 4 }} />}
@@ -306,18 +306,18 @@ function PlayoffHistory({ teamCode }) {
       ),
     },
     {
-      title: '战绩', width: 80, align: 'right',
+      title: '战绩', width: 80,
       sorter: (a, b) => (playoffRecord(a.playoffResult, a.games)?.wins ?? 0) - (playoffRecord(b.playoffResult, b.games)?.wins ?? 0),
       render: (_, r) => {
         const rec = playoffRecord(r.playoffResult, r.games)
         return rec ? <b>{rec.wins}-{rec.losses}</b> : '-'
       },
     },
-    { title: '出战', dataIndex: 'games', width: 56, align: 'right', sorter: (a, b) => a.games - b.games },
+    { title: '出战', dataIndex: 'games', width: 56, sorter: (a, b) => a.games - b.games },
     numCol('得分', 'pts'),
     numCol('失分', 'ptsAllowed'),
     {
-      title: '净胜', width: 66, align: 'right',
+      title: '净胜', width: 66,
       sorter: (a, b) => (a.pts - a.ptsAllowed) - (b.pts - b.ptsAllowed),
       render: (_, r) => {
         const d = Number(r.pts) - Number(r.ptsAllowed)
@@ -416,7 +416,7 @@ function TeamHistory({ teamCode }) {
   const confShort = conf === '东部' ? '东部' : conf === '西部' ? '西部' : ''
 
   const numCol = (title, key) => ({
-    title, dataIndex: key, width: 62, align: 'right',
+    title, dataIndex: key, width: 62,
     sorter: (a, b) => Number(a[key]) - Number(b[key]),
     render: (v) => fmtNum(v),
   })
@@ -427,10 +427,10 @@ function TeamHistory({ teamCode }) {
       sorter: (a, b) => a.seasonNum - b.seasonNum, defaultSortOrder: 'descend',
       render: (v) => seasonShort(v),
     },
-    { title: '胜', dataIndex: 'wins', width: 48, align: 'right', sorter: (a, b) => a.wins - b.wins },
-    { title: '负', dataIndex: 'losses', width: 48, align: 'right', sorter: (a, b) => a.losses - b.losses },
+    { title: '胜', dataIndex: 'wins', width: 48, sorter: (a, b) => a.wins - b.wins },
+    { title: '负', dataIndex: 'losses', width: 48, sorter: (a, b) => a.losses - b.losses },
     {
-      title: '胜率', width: 70, align: 'right',
+      title: '胜率', width: 70,
       sorter: (a, b) => a.wins / (a.wins + a.losses) - b.wins / (b.wins + b.losses),
       render: (_, r) => `${((r.wins / (r.wins + r.losses)) * 100).toFixed(1)}%`,
     },
@@ -450,7 +450,7 @@ function TeamHistory({ teamCode }) {
     },
     {
       // 与相邻的数据列同为右对齐，别单独一列靠左
-      title: '季后赛', dataIndex: 'playoffResult', width: 92, align: 'right',
+      title: '季后赛', dataIndex: 'playoffResult', width: 92,
       render: (v) => (
         <Tag color={PLAYOFF_TAG[v] || 'default'} style={{ marginInlineEnd: 0 }}>
           {v === '总冠军' && <TrophyFilled style={{ marginRight: 4 }} />}
@@ -461,7 +461,7 @@ function TeamHistory({ teamCode }) {
     numCol('得分', 'pts'),
     numCol('失分', 'ptsAllowed'),
     {
-      title: '净胜', width: 66, align: 'right',
+      title: '净胜', width: 66,
       sorter: (a, b) => (a.pts - a.ptsAllowed) - (b.pts - b.ptsAllowed),
       render: (_, r) => {
         const d = Number(r.pts) - Number(r.ptsAllowed)

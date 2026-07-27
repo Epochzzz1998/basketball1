@@ -129,6 +129,14 @@ body {
   padding-inline: 12px;
 }
 
+/* 数据表内容一律居中（表头和单元格）。逐列的 align 已全部去掉，这里再加 !important
+   兜住两种情况：antd 把列的 align 渲染成单元格内联样式（内联样式只有 !important 压得住），
+   以及将来有人给某列补了 align 又忘了这条规则。 */
+.stat-compact .ant-table-thead > tr > th,
+.stat-compact .ant-table-tbody > tr > td {
+  text-align: center !important;
+}
+
 /* 数据表（.stat-compact）桌面端：antd 默认单元格左右各 16px 内边距太肥，
    列宽收紧后内容被挤换行——统一压到 6px（移动端媒体查询里另有更紧的 5px 版本） */
 .stat-compact .ant-table-thead > tr > th,

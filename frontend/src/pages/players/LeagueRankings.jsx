@@ -312,12 +312,12 @@ function TeamsTab({ seasonNum, stage }) {
     : filtered.map((r) => ({ ...r, winRate: r.wins + r.losses ? r.wins / (r.wins + r.losses) : 0 }))
 
   const numCol = (title, key, d = 1) => ({
-    title, dataIndex: key, width: 90, align: 'right',
+    title, dataIndex: key, width: 90,
     sorter: (a, b) => Number(a[key]) - Number(b[key]),
     render: (v) => fmtNum(v, d),
   })
   const netCol = {
-    title: '净胜分', width: 84, align: 'right',
+    title: '净胜分', width: 84,
     sorter: (a, b) => (a.pts - a.ptsAllowed) - (b.pts - b.ptsAllowed),
     render: (_, r) => {
       const d = Number(r.pts) - Number(r.ptsAllowed)
@@ -342,12 +342,12 @@ function TeamsTab({ seasonNum, stage }) {
   }
   const resultCol = {
     // 跟同排数据列一样右对齐：这一列夹在「胜率」和「场均得分」中间，只有它靠左很跳
-    title: po ? '成绩' : '季后赛', dataIndex: 'playoffResult', width: 110, align: 'right',
+    title: po ? '成绩' : '季后赛', dataIndex: 'playoffResult', width: 110,
     render: (v) => <Tag color={PLAYOFF_TAG[v] || 'default'} style={{ marginInlineEnd: 0 }}>{v || '-'}</Tag>,
   }
 
   const poRecordCol = {
-    title: '战绩', width: 80, align: 'right',
+    title: '战绩', width: 80,
     sorter: (a, b) => (playoffRecord(a.playoffResult, a.games)?.wins ?? 0) - (playoffRecord(b.playoffResult, b.games)?.wins ?? 0),
     render: (_, r) => {
       const rec = playoffRecord(r.playoffResult, r.games)
@@ -358,16 +358,16 @@ function TeamsTab({ seasonNum, stage }) {
   const columns = po
     ? [
         rankCol, teamCol, resultCol, poRecordCol,
-        { title: '出战', dataIndex: 'games', width: 70, align: 'right', sorter: (a, b) => a.games - b.games },
+        { title: '出战', dataIndex: 'games', width: 70, sorter: (a, b) => a.games - b.games },
         numCol('场均得分', 'pts'), numCol('场均失分', 'ptsAllowed'), netCol,
         numCol('篮板', 'reb'), numCol('助攻', 'ast'), numCol('抢断', 'stl'), numCol('盖帽', 'blk'), numCol('失误', 'tov'),
       ]
     : [
         rankCol, teamCol,
-        { title: '胜', dataIndex: 'wins', width: 60, align: 'right', sorter: (a, b) => a.wins - b.wins },
-        { title: '负', dataIndex: 'losses', width: 60, align: 'right', sorter: (a, b) => a.losses - b.losses },
+        { title: '胜', dataIndex: 'wins', width: 60, sorter: (a, b) => a.wins - b.wins },
+        { title: '负', dataIndex: 'losses', width: 60, sorter: (a, b) => a.losses - b.losses },
         {
-          title: '胜率', dataIndex: 'winRate', width: 80, align: 'right',
+          title: '胜率', dataIndex: 'winRate', width: 80,
           sorter: (a, b) => a.winRate - b.winRate,
           render: (v) => `${(v * 100).toFixed(1)}%`,
         },
