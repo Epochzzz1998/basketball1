@@ -56,6 +56,7 @@ export const ADV_RADAR_AXES = [
 ]
 
 export const GRID_STATS = [
+  { key: 'playerAppearance', label: '出场数', digits: 0 },
   { key: 'playingTime', label: '上场时间' },
   { key: 'playerAvgScore', label: '得分' },
   { key: 'playerAvgReb', label: '篮板' },
@@ -304,8 +305,6 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
           {/* 队标已经在身份头那枚大的上了，这里只留中文队名 */}
           {!isCareer && <Tag color="volcano"><TeamNames value={row.playerTeam} /></Tag>}
           {!isCareer && row.playerPosition && <Tag>{row.playerPosition}</Tag>}
-          <Tag>出场 {row.playerAppearance}{row.playerFrAppearance != null ? `（先发 ${row.playerFrAppearance}）` : ''}</Tag>
-          <Tag>场均 {fmtNum(row.playingTime)} 分钟</Tag>
           {chips.map((a) => (
             <Tag key={a.key} color={a.gold ? 'gold' : 'orange'} style={{ fontWeight: 600 }}>
               {a.icon} {a.label}{a.count ? ` ×${a.count}` : ''}
@@ -362,11 +361,13 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
           <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={isCareer ? '生涯未进过季后赛' : '该赛季未进季后赛'} />
         ) : (
           <>
-            <Space size={[6, 8]} wrap style={{ marginBottom: 14 }}>
-              {!isCareer && <Tag color="volcano"><TeamNames value={poRow.playerTeam} /></Tag>}
-              <Tag>出战 {poRow.playerAppearance} 场{poRow.playerFrAppearance != null ? `（先发 ${poRow.playerFrAppearance}）` : ''}</Tag>
-              <Tag>场均 {fmtNum(poRow.playingTime)} 分钟</Tag>
-            </Space>
+            {/* 出场/场均时间的 Tag 撤掉后这里只剩队名，生涯档下会整个空掉——空 Space
+                仍占 14px 间距，所以没内容就不渲染 */}
+            {!isCareer && (
+              <Space size={[6, 8]} wrap style={{ marginBottom: 14 }}>
+                <Tag color="volcano"><TeamNames value={poRow.playerTeam} /></Tag>
+              </Space>
+            )}
             {/* 季后赛数据卡（雷达同样在卡片下方，只和当季季后赛球员比） */}
             <div style={{ fontWeight: 700, marginBottom: 10, fontSize: 15 }}>季后赛</div>
             {statCard(poRow, poLeague, '季后赛第', '#d4380d', 'po')}

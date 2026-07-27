@@ -401,7 +401,7 @@ export const RANKING_STATS = [
   { field: 'playerFreethrowAccuracy', label: '罚球%', pct: true },
   { field: 'playingTime', label: '上场时间' },
   { field: 'playerAppearance', label: '出场', digits: 0 },
-  { field: 'playerPer', label: '效率值EFF', note: '得分+板+助+断+帽−打铁−失误' },
+  { field: 'playerPer', label: '效率值', note: '得分+板+助+断+帽−打铁−失误' },
   { field: 'playerAvgTurnover', label: '失误', note: '场均最多' },
   { field: 'playerAvgPf', label: '犯规', note: '场均最多' },
   // 正负值只有季后赛有（赛季级别的数据源没有，逐场累加目前只覆盖季后赛）
