@@ -7,10 +7,11 @@ import SeasonPicker from '../../components/SeasonPicker'
 import PillTabs from '../../components/PillTabs'
 import { playerApi } from '../../api/player'
 import { searchApi } from '../../api/search'
-import { CAREER_SEASON, fmtNum, fmtPct, seasonShort, PLAYOFF_TAG, statQualified, LATEST_SEASON, NBA_TEAM_NAMES, qualifiedFor, rankIn, unqualifiedReason } from './rankConfig'
+import { ADVANCED_STATS, ADV_EMPTY, CAREER_SEASON, fmtAdv, fmtNum, seasonShort, PLAYOFF_TAG, statQualified, LATEST_SEASON, NBA_TEAM_NAMES, qualifiedFor, rankIn, unqualifiedReason } from './rankConfig'
 import TeamLogo, { TeamChain } from '../../components/TeamLogo'
 import { CAREER_AWARDS } from './honorConfig'
-import { GRID_STATS, RADAR_AXES, percentileOf, val } from './SeasonProfile'
+import { GRID_STATS, RADAR_AXES, percentileOf } from './SeasonProfile'
+import StatViewSwitch from './StatViewSwitch'
 import useIsMobile from '../../hooks/useIsMobile'
 
 /**
@@ -34,6 +35,21 @@ const CAREER_STATS = [
   { key: 'playingTime', label: '场均时间' },
   ...GRID_STATS,
 ]
+
+// ADVANCED_STATS 用 field 命名，对位组件按 key 取值，转一次即可复用同一份定义
+const ADV_COMPARE_STATS = ADVANCED_STATS.map((s) => ({ ...s, key: s.field }))
+
+/**
+ * 取一个数据项的值，缺失返回 null 而不是 0。
+ * 生涯汇总行没有高阶指标、1997 前的季后赛没有正负值——写成 0 的话，"谁领先"
+ * 会把没有数据判成落后，条形图也会画出一条假的满格差距。
+ */
+const statVal = (r, k) => {
+  const v = r?.[k]
+  if (v == null || v === '') return null
+  const n = Number(v)
+  return Number.isNaN(n) ? null : n
+}
 
 /** 对战台内的选人位：搜索 / 按球队（赛季→球队→当季阵容）双模式 Modal */
 function PlayerPick({ value, onChange, side, photo }) {
@@ -265,8 +281,9 @@ function ScoreStrip({ rowA, rowB, stats }) {
   let wa = 0
   let wb = 0
   stats.forEach((s) => {
-    const av = val(rowA, s.key)
-    const bv = val(rowB, s.key)
+    // 两边都得有数才算一项（缺失不该被判成落后）
+    const av = statVal(rowA, s.key)
+    const bv = statVal(rowB, s.key)
     if (av == null || bv == null || av === bv) return
     if (s.asc ? av < bv : av > bv) wa += 1
     else wb += 1
@@ -302,17 +319,17 @@ function CompareRows({ rowA, rowB, stats, leagueA, leagueB, rankPrefix = '联盟
     <div>
       <style>{'.cmp-row { transition: background .15s; border-radius: 8px; } .cmp-row:hover { background: #fafafa; }'}</style>
       {stats.map((s) => {
-        const av = rowA ? val(rowA, s.key) : null
-        const bv = rowB ? val(rowB, s.key) : null
+        const av = statVal(rowA, s.key)
+        const bv = statVal(rowB, s.key)
         const digits = s.digits ?? 1
         const better = av == null || bv == null || av === bv ? 0
           : (s.asc ? av < bv : av > bv) ? 1 : -1 // 1=A 优
         const max = Math.max(Math.abs(av ?? 0), Math.abs(bv ?? 0)) || 1
         const wA = Math.max(4, (Math.abs(av ?? 0) / max) * 100)
         const wB = Math.max(4, (Math.abs(bv ?? 0) / max) * 100)
-        const fmtV = (v) => (v == null ? '-'
+        const fmtV = (v) => (v == null ? ADV_EMPTY
           : fmtOverride ? fmtOverride(v, s)
-          : s.pct ? fmtPct(v)
+          : s.pct || s.rate ? fmtAdv(v, s)
           : fmtNum(v, digits))
         return (
           <div key={s.key} className="cmp-row" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 8px' }}>
@@ -325,7 +342,7 @@ function CompareRows({ rowA, rowB, stats, leagueA, leagueB, rankPrefix = '联盟
               >
                 {fmtV(av)}
               </div>
-              {chip(rankIn(leagueA, s.key, av, s.asc), 'right', leagueA?.length && rowA && !qualifiedFor(leagueA, s.key, rowA) ? unqualifiedReason(s.key) : null)}
+              {av != null && chip(rankIn(leagueA, s.key, av, s.asc), 'right', leagueA?.length && rowA && !qualifiedFor(leagueA, s.key, rowA) ? unqualifiedReason(s.key) : null)}
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ textAlign: 'center', marginBottom: 5 }}>
@@ -367,7 +384,7 @@ function CompareRows({ rowA, rowB, stats, leagueA, leagueB, rankPrefix = '联盟
               >
                 {fmtV(bv)}
               </div>
-              {chip(rankIn(leagueB, s.key, bv, s.asc), 'left', leagueB?.length && rowB && !qualifiedFor(leagueB, s.key, rowB) ? unqualifiedReason(s.key) : null)}
+              {bv != null && chip(rankIn(leagueB, s.key, bv, s.asc), 'left', leagueB?.length && rowB && !qualifiedFor(leagueB, s.key, rowB) ? unqualifiedReason(s.key) : null)}
             </div>
           </div>
         )
@@ -446,6 +463,9 @@ export default function PlayerCompare() {
   const [a, setA] = useState(null)
   const [b, setB] = useState(null)
   const [tab, setTab] = useState('profile')
+  // 基础 16 项 + 高阶 21 项一起铺开要滚很久，跟数据表用同一套开关
+  const [view, setView] = useState('basic')
+  const statsOf = (base) => (view === 'adv' ? ADV_COMPARE_STATS : base)
   const [bundle, setBundle] = useState(null) // {careerA, careerB, poA, poB, honorsA, honorsB}
   // 两侧各自独立的赛季（CAREER_SEASON=生涯场均）；跨时代对比时各取各的年代
   const [seasonA, setSeasonA] = useState(null)
@@ -619,7 +639,8 @@ export default function PlayerCompare() {
                   extraA={<>{seasonTag(seasonA, 'volcano')}{rowA ? teamTagA(rowA) : missTag('', '未出战')}</>}
                   extraB={<>{rowB ? teamTagB(rowB) : missTag('', '未出战')}{seasonTag(seasonB, 'blue')}</>}
                 />
-                <ScoreStrip rowA={rowA} rowB={rowB} stats={GRID_STATS} />
+                <StatViewSwitch value={view} onChange={setView} />
+                <ScoreStrip rowA={rowA} rowB={rowB} stats={statsOf(GRID_STATS)} />
                 <Row gutter={[20, 20]}>
                   <Col xs={24} lg={10}>
                     {lgA.reg === null || lgB.reg === null
@@ -628,7 +649,7 @@ export default function PlayerCompare() {
                     <div style={{ textAlign: 'center', color: '#bbb', fontSize: 12 }}>常规赛 · 各自赛季的联盟百分位</div>
                   </Col>
                   <Col xs={24} lg={14}>
-                    <CompareRows rowA={rowA} rowB={rowB} stats={GRID_STATS} leagueA={lgA.reg} leagueB={lgB.reg} />
+                    <CompareRows rowA={rowA} rowB={rowB} stats={statsOf(GRID_STATS)} leagueA={lgA.reg} leagueB={lgB.reg} />
                   </Col>
                 </Row>
               </Card>
@@ -646,7 +667,8 @@ export default function PlayerCompare() {
                         ? <>{seasonB === CAREER_SEASON ? <Tag>生涯</Tag> : <Tag color={PLAYOFF_TAG[poRowB.playoffResult] || 'default'}>{poRowB.playoffResult}</Tag>}{seasonTag(seasonB, 'blue')}</>
                         : missTag(b.name, '未进季后赛')}
                     />
-                    <ScoreStrip rowA={poRowA} rowB={poRowB} stats={GRID_STATS} />
+                    <StatViewSwitch value={view} onChange={setView} />
+                    <ScoreStrip rowA={poRowA} rowB={poRowB} stats={statsOf(GRID_STATS)} />
                     <Row gutter={[20, 20]}>
                       <Col xs={24} lg={10}>
                         {lgA.po === null || lgB.po === null
@@ -655,7 +677,7 @@ export default function PlayerCompare() {
                         <div style={{ textAlign: 'center', color: '#bbb', fontSize: 12 }}>季后赛 · 各自赛季的季后赛球员百分位</div>
                       </Col>
                       <Col xs={24} lg={14}>
-                        <CompareRows rowA={poRowA} rowB={poRowB} stats={GRID_STATS} leagueA={lgA.po} leagueB={lgB.po} rankPrefix="季后赛第" />
+                        <CompareRows rowA={poRowA} rowB={poRowB} stats={statsOf(GRID_STATS)} leagueA={lgA.po} leagueB={lgB.po} rankPrefix="季后赛第" />
                       </Col>
                     </Row>
                   </>
@@ -684,8 +706,9 @@ export default function PlayerCompare() {
                 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="两人所选赛季都未出战" />
                 : (
                   <>
-                    <ScoreStrip rowA={rowA} rowB={rowB} stats={CAREER_STATS} />
-                    <CompareRows rowA={rowA} rowB={rowB} stats={CAREER_STATS} leagueA={lgA.reg} leagueB={lgB.reg} />
+                    <StatViewSwitch value={view} onChange={setView} />
+                    <ScoreStrip rowA={rowA} rowB={rowB} stats={statsOf(CAREER_STATS)} />
+                    <CompareRows rowA={rowA} rowB={rowB} stats={statsOf(CAREER_STATS)} leagueA={lgA.reg} leagueB={lgB.reg} />
                   </>
                 )}
             </Card>
@@ -715,8 +738,9 @@ export default function PlayerCompare() {
                           : <Tag color={PLAYOFF_TAG[poRowB.playoffResult] || 'default'}>{poRowB.playoffResult}</Tag>}{seasonTag(seasonB, 'blue')}</>
                       : missTag(b.name, seasonB === CAREER_SEASON ? '未进过季后赛' : '未进季后赛')}
                   />
-                  <ScoreStrip rowA={poRowA} rowB={poRowB} stats={CAREER_STATS} />
-                  <CompareRows rowA={poRowA} rowB={poRowB} stats={CAREER_STATS} leagueA={lgA.po} leagueB={lgB.po} rankPrefix="季后赛第" />
+                  <StatViewSwitch value={view} onChange={setView} />
+                  <ScoreStrip rowA={poRowA} rowB={poRowB} stats={statsOf(CAREER_STATS)} />
+                  <CompareRows rowA={poRowA} rowB={poRowB} stats={statsOf(CAREER_STATS)} leagueA={lgA.po} leagueB={lgB.po} rankPrefix="季后赛第" />
                 </>
               )}
             </Card>
