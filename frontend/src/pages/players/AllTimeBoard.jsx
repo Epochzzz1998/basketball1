@@ -63,18 +63,20 @@ export default function AllTimeBoard() {
         <Spin style={{ display: 'block', margin: '60px auto' }} />
       ) : rows.length ? (
         <Table
-          className="clean-table stat-compact"
           bordered
           /* 得分榜有 5015 行 × 5 列 = 两万多个单元格，全渲染进 DOM 手机上会卡死。
              antd 的虚拟滚动只画可视区那几十行；它要求每列都有固定宽度且 scroll 的
              x/y 都给出来，这两条本来就满足。 */
           virtual
+          className="clean-table stat-compact alltime-table"
           rowKey="brId"
           dataSource={rows}
           columns={cols}
           pagination={false}
           size="middle"
-          scroll={{ x: sumColWidth(cols), y: 560 }}
+          /* 手机上给足高度：内层滚动区越接近整屏，越像"页面本身"在滚，
+             也越少出现滑到头之后惯性接管页面的情况 */
+          scroll={{ x: sumColWidth(cols), y: isMobile ? '72vh' : 560 }}
         />
       ) : (
         <Empty description="暂无数据" style={{ padding: 40 }} />
