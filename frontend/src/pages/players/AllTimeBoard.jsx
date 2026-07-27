@@ -64,19 +64,20 @@ export default function AllTimeBoard() {
       ) : rows.length ? (
         <Table
           bordered
-          /* 得分榜有 5015 行 × 5 列 = 两万多个单元格，全渲染进 DOM 手机上会卡死。
-             antd 的虚拟滚动只画可视区那几十行；它要求每列都有固定宽度且 scroll 的
-             x/y 都给出来，这两条本来就满足。 */
-          virtual
-          className="clean-table stat-compact alltime-table"
+          className="clean-table stat-compact"
           rowKey="brId"
           dataSource={rows}
           columns={cols}
-          pagination={false}
           size="middle"
-          /* 手机上给足高度：内层滚动区越接近整屏，越像"页面本身"在滚，
-             也越少出现滑到头之后惯性接管页面的情况 */
-          scroll={{ x: sumColWidth(cols), y: isMobile ? '72vh' : 560 }}
+          /*
+            不给 scroll.y，也就不开虚拟滚动——两者是绑定的（antd 的 virtual 必须有固定高度）。
+            固定高度会在页面里再套一个纵向滚动区：快速滑动时内层中途到底，惯性交给页面继续滚，
+            观感就是整张表被带着走。单项排行的完整排行页没有 scroll.y，所以手感是对的，这里对齐它。
+            但那一页只有五百来行，这里是 5015 行，全塞进 DOM 会卡，所以改成分页：
+            页面自己滚（手感一致），DOM 里同时只有 100 行（不卡），全量仍然翻得到。
+          */
+          pagination={{ pageSize: 100, showSizeChanger: false, size: 'small', showLessItems: isMobile }}
+          scroll={{ x: sumColWidth(cols) }}
         />
       ) : (
         <Empty description="暂无数据" style={{ padding: 40 }} />

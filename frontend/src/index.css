@@ -130,15 +130,6 @@ body {
 }
 
 
-/* 历史总榜：表格自带一个纵向滚动区（虚拟滚动必须有固定高度），而它嵌在会滚动的页面里。
-   快速上下滑时，内层滚到头之后惯性会继续传给页面，表现就是"整张表跟着一起动"。
-   overscroll-behavior: contain 把这条传递切断——内层到头就停，页面不跟着走。
-   两个选择器分别对应虚拟滚动和普通渲染两种容器，antd 会按情况用其中一个。 */
-.alltime-table .ant-table-tbody-virtual-holder,
-.alltime-table .ant-table-body {
-  overscroll-behavior: contain;
-}
-
 /* 数据表内容一律居中（表头和单元格）。逐列的 align 已全部去掉，这里再加 !important
    兜住两种情况：antd 把列的 align 渲染成单元格内联样式（内联样式只有 !important 压得住），
    以及将来有人给某列补了 align 又忘了这条规则。 */
