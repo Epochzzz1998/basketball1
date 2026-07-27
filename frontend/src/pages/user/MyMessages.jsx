@@ -5,6 +5,7 @@ import { CheckOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { userInformationApi } from '../../api/userInformation'
+import { useAuth } from '../../auth/AuthContext'
 
 const fmt = (v) => (v ? dayjs(v).format('YYYY-MM-DD HH:mm') : '')
 // 原帖摘要是富文本 HTML 截断，剥掉标签只展示纯文本
@@ -83,6 +84,7 @@ const detailOf = (m) => {
  */
 export default function MyMessages() {
   const navigate = useNavigate()
+  const { dn } = useAuth() // 备注名：我给谁备注过，这里也要显示备注名
   const actionRef = useRef()
 
   const readAll = async () => {
@@ -117,7 +119,7 @@ export default function MyMessages() {
               <a onClick={() => navigate(linkOf(m))}>
                 {unread && <Badge status="processing" style={{ marginRight: 6 }} />}
                 <span style={{ fontWeight: unread ? 600 : 400 }}>
-                  {m.operatorName || '有人'} {actionTextOf(m)}
+                  {dn(m.operatorId, m.operatorName) || '有人'} {actionTextOf(m)}
                 </span>
               </a>
             )

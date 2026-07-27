@@ -559,7 +559,7 @@ export default function NewsDetail() {
                     <span
                       onClick={() => news.authorId && navigate(`/users/${news.authorId}`)}
                       style={{ fontWeight: 700, fontSize: 15, cursor: news.authorId ? 'pointer' : undefined }}
-                    >{news.author || '匿名'}</span>
+                    >{dn(news.authorId, news.author) || '匿名'}</span>
                     {news.authorSuperManager && <SuperAdminBadge />}
                     <UserTitles titles={news.authorTitles} size="sm" />
                   </div>

@@ -186,7 +186,7 @@ function HotRail({ rows, official }) {
  */
 export default function NewsList({ channel = 'forum', topic = null, onApplied }) {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, dn } = useAuth()
   const isMobile = useIsMobile()
   const isTopic = !!topic
   const official = !isTopic && channel === 'official'
@@ -216,7 +216,8 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
     if (rows === null) return null
     const k = kw.trim().toLowerCase()
     let hit = k
-      ? rows.filter((p) => `${p.title || ''}${p.author || ''}`.toLowerCase().includes(k))
+      // 作者既按真名也按备注名匹配：页面上显示的是备注名，搜不到会很困惑
+      ? rows.filter((p) => `${p.title || ''}${p.author || ''}${dn(p.authorId, '') || ''}`.toLowerCase().includes(k))
       : rows
     // 精华：只看加精帖；只看题主：前端按专题 owner 的 authorId 过滤（列表已全量在手）
     if (view === '精华') hit = hit.filter((p) => p.essence === '1')
@@ -226,7 +227,7 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
       : hit // 后端已按（置顶优先 + 发布时间倒序）排好
     // 置顶帖始终浮到最前（不论哪个视图）
     return [...sorted.filter((p) => p.top === '1'), ...sorted.filter((p) => p.top !== '1')]
-  }, [rows, kw, view, isTopic, topic])
+  }, [rows, kw, view, isTopic, topic, dn])
 
   const paged = filtered?.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
