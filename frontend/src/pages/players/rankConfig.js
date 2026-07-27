@@ -101,6 +101,22 @@ export const PCT_QUALIFY = {
 }
 
 /**
+ * 生涯档的资格线用官方生涯榜的口径，不是赛季口径。
+ * 赛季那套「球队场次 70%」套到生涯汇总行上会算成 1622 × 70% = 1136 场——
+ * 4832 名球员里只有 76 人过线，其余全被标成「场次不足」。
+ * NBA 官方生涯榜：场均类要求 400 场；命中率类要求 2000 记投篮 / 250 记三分 / 1200 记罚球。
+ */
+export const CAREER_QUALIFY_GAMES = 400
+export const CAREER_PCT_QUALIFY = {
+  playerAccuracy: { madeField: 'playerAvgFgm', min: 2000 },
+  playerThreeAccuracy: { madeField: 'playerAvgTpm', min: 250 },
+  playerFreethrowAccuracy: { madeField: 'playerAvgFtm', min: 1200 },
+}
+
+/** 这批行是不是生涯汇总（seasonNum=99）。资料卡选「生涯」时拿到的就是这种池子 */
+const isCareerPool = (rows) => (rows || []).some((r) => Number(r?.seasonNum) === CAREER_SEASON)
+
+/**
  * 榜单与名次共用同一个池子，全站只此一处规则——同一个「联盟第 N」在排行榜和资料卡上
  * 必须是同一个意思（曾经不是：字母哥投篮% 榜上第 6、资料卡第 40）。
  *
@@ -119,6 +135,13 @@ export const boardPool = (rows, field, season, po = false) => {
   // 套上去等于全员不合格——名次全没了，还会一律标成「场次不足」。
   // 联盟排行页早就绕开了（stage === 'po' 直接用原始列表），资料卡和对比页漏了。
   if (po) return all
+  // 生涯汇总池：走官方生涯榜门槛，赛季那套折算在这里没有意义
+  if (isCareerPool(all)) {
+    const rule = CAREER_PCT_QUALIFY[field]
+    return rule
+      ? all.filter((r) => Number(r[rule.madeField] ?? 0) * Number(r.playerAppearance ?? 0) >= rule.min)
+      : all.filter((r) => Number(r.playerAppearance ?? 0) >= CAREER_QUALIFY_GAMES)
+  }
   let out
   // 门槛按当季实际场次折算（见 qualifyGamesOf）：命中数门槛同理按场次比例缩放，
   // 48 场的赛季要求 300 记投篮是不可能完成的
