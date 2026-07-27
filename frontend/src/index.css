@@ -119,6 +119,7 @@ body {
    而宽表本来就要横滑，那两条边纯属浪费。工具条自己补回内边距，别贴死边。 */
 .stat-compact .ant-pro-card-body {
   padding-inline: 0 !important; /* antd 的运行时样式同权重且更晚加载 */
+  padding-block-end: 0 !important; /* 底边同样贴齐（表格是卡片里最后一个元素，下面没有分页） */
 }
 .stat-compact .ant-pro-table-list-toolbar {
   padding-inline: 12px;
