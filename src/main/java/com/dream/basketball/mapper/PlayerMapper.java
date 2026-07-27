@@ -63,5 +63,7 @@ public interface PlayerMapper extends BaseMapper<DreamPlayer> {
     List<Map<String, Object>> findVotedAwardHistory(@Param("award") String award);
 
     /** 历史荣誉·统计王逐季第一名。expr 必须来自 SortUtil.safeCrownExpr。 */
-    List<Map<String, Object>> findCrownHistory(@Param("expr") String expr);
+    List<Map<String, Object>> findCrownHistory(@Param("expr") String expr,
+                                              @Param("madeCol") String madeCol,
+                                              @Param("madeMin") Integer madeMin);
 }

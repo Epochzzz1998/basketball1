@@ -104,6 +104,13 @@ public class PlayerServiceImpl extends ServiceImpl<PlayerMapper, DreamPlayer> im
         return expr == null ? java.util.Collections.emptyList() : baseMapper.findAllTimeBoard(expr, limit);
     }
 
+    /** 命中率类统计王的命中数门槛（82 场赛季的官方值，查询里按当季场次比例缩放） */
+    private static final java.util.Map<String, String[]> PCT_CROWN_GATE = new java.util.HashMap<String, String[]>() {{
+        put("playerAccuracy", new String[]{"PLAYER_AVG_FGM", "300"});
+        put("playerThreeAccuracy", new String[]{"PLAYER_AVG_TPM", "82"});
+        put("playerFreethrowAccuracy", new String[]{"PLAYER_AVG_FTM", "125"});
+    }};
+
     /** 评选类奖项：MVP/DPOY 记在 player_stats 的名次列上，其余四项在 season_award 表 */
     private static final java.util.Set<String> VOTED_AWARDS =
             new java.util.HashSet<>(java.util.Arrays.asList("mvp", "dpoy", "fmvp", "roy", "smoy", "mip"));
@@ -115,7 +122,14 @@ public class PlayerServiceImpl extends ServiceImpl<PlayerMapper, DreamPlayer> im
         }
         String expr = SortUtil.safeCrownExpr(award);
         // 既不是评选类、也不在统计王白名单里 -> 空列表，不拿用户输入拼 SQL
-        return expr == null ? java.util.Collections.emptyList() : baseMapper.findCrownHistory(expr);
+        if (expr == null) {
+            return java.util.Collections.emptyList();
+        }
+        // 命中率类的门槛是命中数，不是场次：不设的话 3 投 3 中的人就是命中率王
+        String[] made = PCT_CROWN_GATE.get(award);
+        return made == null
+                ? baseMapper.findCrownHistory(expr, null, null)
+                : baseMapper.findCrownHistory(expr, made[0], Integer.valueOf(made[1]));
     }
 
     @Override

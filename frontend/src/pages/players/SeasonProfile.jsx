@@ -72,6 +72,8 @@ export const GRID_STATS = [
   { key: 'playerAccuracy', label: '投篮%', pct: true },
   { key: 'playerAvgTpm', label: '场均三分命中' },
   { key: 'playerThreeAccuracy', label: '三分%', pct: true },
+  { key: 'playerAvgFtm', label: '场均罚球命中' },
+  { key: 'playerFreethrowAccuracy', label: '罚球%', pct: true },
 ]
 
 /**

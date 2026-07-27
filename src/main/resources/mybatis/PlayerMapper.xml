@@ -341,15 +341,18 @@
                s.PLAYER_APPEARANCE as games, ${expr} as val
         from player_stats s
         left join dream_player p on p.PLAYER_ID = s.PLAYER_ID
-        join (select SEASON_NUM, ceil(max(PLAYER_APPEARANCE) * 0.7) line
+        join (select SEASON_NUM, ceil(max(PLAYER_APPEARANCE) * 0.7) line, max(PLAYER_APPEARANCE) tg
               from player_stats where SEASON_NUM &lt;&gt; 99 group by SEASON_NUM) q
           on q.SEASON_NUM = s.SEASON_NUM
         join (select s2.SEASON_NUM, max(${expr}) best
               from player_stats s2
-              join (select SEASON_NUM, ceil(max(PLAYER_APPEARANCE) * 0.7) line
+              join (select SEASON_NUM, ceil(max(PLAYER_APPEARANCE) * 0.7) line, max(PLAYER_APPEARANCE) tg
                     from player_stats where SEASON_NUM &lt;&gt; 99 group by SEASON_NUM) q2
                 on q2.SEASON_NUM = s2.SEASON_NUM
               where s2.SEASON_NUM &lt;&gt; 99 and s2.PLAYER_APPEARANCE &gt;= q2.line and ${expr} is not null
+              <if test="madeCol != null">
+                and s2.${madeCol} * s2.PLAYER_APPEARANCE &gt;= #{madeMin} * (q2.tg / 82.0)
+              </if>
               group by s2.SEASON_NUM) m
           on m.SEASON_NUM = s.SEASON_NUM and ${expr} = m.best
         <!-- 只有这一项在当季被**全联盟**统计时才算冠军。1973-74 联盟才正式统计盖帽/抢断，
@@ -361,6 +364,12 @@
               group by SEASON_NUM having sum(${expr} is not null) &gt;= 0.5 * count(*)) cov
           on cov.SEASON_NUM = s.SEASON_NUM
         where s.SEASON_NUM &lt;&gt; 99 and s.PLAYER_APPEARANCE &gt;= q.line
+        <!-- 命中率类还要过命中数门槛，跟排行榜同一套（82 场赛季 300 记投篮 / 82 记三分 /
+             125 记罚球，按当季场次比例缩放）。只卡场次的话，25-26 三分命中率王会是整季
+             只投进 3 个三分的杰克森·海耶斯（100%）。 -->
+        <if test="madeCol != null">
+          and s.${madeCol} * s.PLAYER_APPEARANCE &gt;= #{madeMin} * (q.tg / 82.0)
+        </if>
         order by s.SEASON_NUM desc
     </select>
 
