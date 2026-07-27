@@ -8,6 +8,7 @@ import { ADV_EMPTY, CAREER_SEASON, PLAYOFF_TAG, fmtNum, seasonYearLabel, statQua
 import { TeamNames } from '../../components/TeamLogo'
 import { CAREER_AWARDS } from './honorConfig'
 import { GlossaryIcon, GlossaryTip } from './statGlossary'
+import useIsMobile from '../../hooks/useIsMobile'
 
 /**
  * 赛季资料卡：选中某赛季 → 当季荣誉徽章 + 六维能力雷达（当季联盟百分位）
@@ -86,10 +87,14 @@ const Radar = ({ data, color = '#fa541c', fill = 'rgba(250,84,28,.22)' }) => (
 )
 
 function RankChip({ rank, prefix = '联盟第', to, unqualified, tied }) {
+  // 手机上一行三个格子，胶囊得再小一号，否则「并列季后赛第 12」放不下
+  const isMobile = useIsMobile()
+  const fs = isMobile ? 10 : 12
+  const pad = isMobile ? '1px 5px' : '1px 8px'
   // 不达标就明说，别给一个跟别人不可比的数字
   if (unqualified) {
     return (
-      <span style={{ fontSize: 12, fontWeight: 600, color: '#d46b08', background: '#fff7e6', padding: '1px 8px', borderRadius: 10 }}>
+      <span style={{ fontSize: fs, fontWeight: 600, color: '#d46b08', background: '#fff7e6', padding: pad, borderRadius: 10, whiteSpace: 'nowrap' }}>
         {unqualified}
       </span>
     )
@@ -99,9 +104,9 @@ function RankChip({ rank, prefix = '联盟第', to, unqualified, tied }) {
   const chip = (
     <span
       style={{
-        fontSize: 12, fontWeight: 600, color,
+        fontSize: fs, fontWeight: 600, color, whiteSpace: 'nowrap',
         background: rank <= 3 ? 'rgba(250,84,28,.08)' : '#f5f5f5',
-        padding: '1px 8px', borderRadius: 10, cursor: to ? 'pointer' : undefined,
+        padding: pad, borderRadius: 10, cursor: to ? 'pointer' : undefined,
       }}
     >
       {tied > 1 ? '并列' : ''}{prefix} {rank}
@@ -112,6 +117,7 @@ function RankChip({ rank, prefix = '联盟第', to, unqualified, tied }) {
 }
 
 export default function SeasonProfile({ playerId, honors, onTeamChange, onSeasonChange }) {
+  const isMobile = useIsMobile()
   const [career, setCareer] = useState(null)   // 本人常规赛逐季
   const [poRows, setPoRows] = useState(null)   // 本人季后赛逐季
   // 用户手选的赛季写进 URL（返回本页可恢复）；自动兜底（最近打过的赛季）不写
@@ -229,7 +235,7 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
     // 季后赛不套 58 场资格线（最多才 28 场），否则名次全没、全员「场次不足」
     const po = stage === 'po'
     return (
-    <Row gutter={[10, 10]}>
+    <Row gutter={isMobile ? [6, 6] : [10, 10]}>
       {stats.filter((s) => stage === 'po' || !s.poOnly).map((raw) => {
         const s = { ...raw, key: raw.key || raw.field }
         const mine = val(dataRow, s.key)
@@ -238,14 +244,15 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
         const cell = dataRow?.[s.key]
         const missing = cell == null || cell === '' || Number.isNaN(Number(cell))
         return (
-          <Col key={s.key} xs={12} sm={8}>
-            <div style={{ border: '1px solid #f0f0f0', borderRadius: 10, padding: '10px 12px', background: '#fff' }}>
-              <div style={{ color: '#888', fontSize: 12 }}>
+          <Col key={s.key} xs={8} sm={8}>
+            <div style={{ border: '1px solid #f0f0f0', borderRadius: 10, padding: isMobile ? '7px 6px' : '10px 12px', background: '#fff' }}>
+              <div style={{ color: '#888', fontSize: isMobile ? 11 : 12, whiteSpace: 'nowrap' }}>
                 {/* 高阶项的格子标题可悬停出释义；基础项 GlossaryTip 原样返回，不加下划线 */}
                 <GlossaryTip field={s.key}>{s.label}</GlossaryTip>
-                {s.note && <span style={{ marginLeft: 4, fontSize: 11, color: '#ccc' }}>{s.note}</span>}
+                {/* 备注（"最少排"「联盟平均 15"）在手机上放不下，去说明书里看 */}
+                {s.note && !isMobile && <span style={{ marginLeft: 4, fontSize: 11, color: '#ccc' }}>{s.note}</span>}
               </div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: missing ? '#ccc' : color, margin: '2px 0 4px', fontVariantNumeric: 'tabular-nums' }}>
+              <div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 800, color: missing ? '#ccc' : color, margin: '2px 0 4px', fontVariantNumeric: 'tabular-nums' }}>
                 {missing ? ADV_EMPTY : s.pct || s.rate ? fmtAdv(mine, s) : fmtNum(mine, s.digits ?? 1)}
               </div>
               {!missing && (

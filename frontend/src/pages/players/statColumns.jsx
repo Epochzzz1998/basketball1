@@ -48,8 +48,12 @@ export function buildFullStatColumns({ serverSort = true } = {}) {
   ]
 }
 
-/** 一段文字在给定字号下的估算宽度：中文算一个 em，拉丁/数字/斜杠算 0.62 em */
-const textWidth = (s, em) => Math.ceil([...s].reduce((w, c) => w + (/[一-鿿]/.test(c) ? em : em * 0.62), 0))
+/**
+ * 一段文字在给定字号下的估算宽度：中文一个 em，大写字母 0.75 em，其余（数字/小写/符号）
+ * 0.62 em。大写单独算是因为 W、M 这些明显更宽——'WS/48' 一度按 0.62 估成 48px 而折行。
+ */
+const textWidth = (s, em) =>
+  Math.ceil([...s].reduce((w, c) => w + em * (/[一-鿿]/.test(c) ? 1 : /[A-Z]/.test(c) ? 0.75 : 0.62), 0))
 
 /**
  * 表头文字需要的列宽。原来高阶列按 `label.length` 分档，但中文字宽差不多是拉丁字母的
@@ -60,10 +64,10 @@ export const headerWidth = (label, em, pad) => textWidth(label, em) + pad
 /**
  * 高阶列宽 = max(表头宽, 数值宽)。「使用率」只有 3 个字，但格子里要放 "100.0%"
  * 六个字符——瓶颈在数值不在表头，只按标签算百分比就会换行。
- * 下限 46 只在这儿加：逐场表那些 40px 的整数列不该被这个下限顶宽。
+ * 下限 48 只在这儿加：逐场表那些 40px 的整数列不该被这个下限顶宽。
  */
 export const advColWidth = (a, em, pad) =>
-  Math.max(46, headerWidth(a.label, em, pad), textWidth(a.pct || a.rate ? '100.0%' : '-12.3', em) + pad)
+  Math.max(48, headerWidth(a.label, em, pad), textWidth(a.pct || a.rate ? '100.0%' : '-12.3', em) + pad)
 
 /** 桌面端 14px 字号 + 左右各 6px 内边距（.stat-compact 的规则） */
 const advWidth = (a) => advColWidth(a, 14, 14)

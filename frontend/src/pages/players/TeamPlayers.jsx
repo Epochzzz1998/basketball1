@@ -345,7 +345,12 @@ function PlayoffHistory({ teamCode }) {
           <Tag color="gold"><TrophyFilled /> 总冠军 ×{champs}</Tag>
         </Space>
       }
-      styles={{ body: { padding: '4px 0 0' } }} /* 表格铺满卡片：左右与底部贴齐 */
+      styles={{
+        // 表格铺满卡片（左右+底部贴齐）；卡头的底边去掉——它和表格顶边只隔 4px，
+        // 并排两条横线很难看，让表格自己的顶边当分隔即可
+        body: { padding: 0 },
+        header: { borderBottom: 'none' },
+      }}
     >
       <Table className="clean-table stat-compact" bordered rowKey="seasonNum" dataSource={rows} columns={isMobile ? compactColumns(columns) : columns} pagination={false} size="middle" scroll={{ x: isMobile ? sumColWidth(compactColumns(columns)) : 'max-content' }} />
     </Card>
@@ -483,7 +488,12 @@ function TeamHistory({ teamCode }) {
           <Tag color="gold"><TrophyFilled /> 总冠军 ×{champs}</Tag>
         </Space>
       }
-      styles={{ body: { padding: '4px 0 0' } }} /* 表格铺满卡片：左右与底部贴齐 */
+      styles={{
+        // 表格铺满卡片（左右+底部贴齐）；卡头的底边去掉——它和表格顶边只隔 4px，
+        // 并排两条横线很难看，让表格自己的顶边当分隔即可
+        body: { padding: 0 },
+        header: { borderBottom: 'none' },
+      }}
     >
       <Table className="clean-table stat-compact" bordered rowKey="seasonNum" dataSource={rows} columns={isMobile ? compactColumns(columns) : columns} pagination={false} size="middle" scroll={{ x: isMobile ? sumColWidth(compactColumns(columns)) : 'max-content' }} />
     </Card>
