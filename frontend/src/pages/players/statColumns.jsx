@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { fmtNum as num, fmtPair, fmtPct, ADVANCED_STATS, fmtAdv } from './rankConfig'
 import { TeamNames } from '../../components/TeamLogo'
+import { withGlossary } from './statGlossary'
 
 /**
  * 球员全量数据列（总览/球队页/荣誉完整数据页共用）。
@@ -53,7 +54,7 @@ export function buildFullStatColumns({ serverSort = true } = {}) {
  * 前四列跟基础表保持一致，切换时视线不用重新找人。
  */
 export function buildAdvancedStatColumns({ po = false } = {}) {
-  return [
+  return withGlossary([
     {
       title: '球员', dataIndex: 'playerName', fixed: 'left', width: 96,
       render: (text, row) => (
@@ -70,7 +71,7 @@ export function buildAdvancedStatColumns({ po = false } = {}) {
       width: a.label.length >= 5 ? 86 : a.label.length >= 4 ? 74 : 62,
       render: (v) => fmtAdv(v, a),
     })),
-  ]
+  ])
 }
 
 export const FULL_COLUMNS_SCROLL_X = 2034

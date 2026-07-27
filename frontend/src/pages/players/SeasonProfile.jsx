@@ -7,6 +7,7 @@ import { playerApi } from '../../api/player'
 import { CAREER_SEASON, PLAYOFF_TAG, fmtNum, seasonYearLabel, fmtPct, statQualified, qualifiedFor, rankIn, unqualifiedReason, tiedCount, ADVANCED_STATS, fmtAdv } from './rankConfig'
 import { TeamNames } from '../../components/TeamLogo'
 import { CAREER_AWARDS } from './honorConfig'
+import { GlossaryIcon, GlossaryTip } from './statGlossary'
 
 /**
  * 赛季资料卡：选中某赛季 → 当季荣誉徽章 + 六维能力雷达（当季联盟百分位）
@@ -217,7 +218,8 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
           <Col key={s.key} xs={12} sm={8}>
             <div style={{ border: '1px solid #f0f0f0', borderRadius: 10, padding: '10px 12px', background: '#fff' }}>
               <div style={{ color: '#888', fontSize: 12 }}>
-                {s.label}
+                {/* 高阶项的格子标题可悬停出释义；基础项 GlossaryTip 原样返回，不加下划线 */}
+                <GlossaryTip field={s.key}>{s.label}</GlossaryTip>
                 {s.note && <span style={{ marginLeft: 4, fontSize: 11, color: '#ccc' }}>{s.note}</span>}
               </div>
               <div style={{ fontSize: 20, fontWeight: 800, color, margin: '2px 0 4px', fontVariantNumeric: 'tabular-nums' }}>
@@ -274,6 +276,7 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
         {/* 高阶数据单独一块：跟基础数据混在一起就是 30 多个格子，一屏塞不下 */}
         <div style={{ fontWeight: 700, margin: '20px 0 10px', fontSize: 15 }}>
           高阶数据
+          <GlossaryIcon />
           <span style={{ color: '#bbb', fontSize: 12, fontWeight: 400, marginLeft: 8 }}>
             PER 联盟平均 15；BPM / 效率均为每百回合口径
           </span>
@@ -313,7 +316,10 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
             {/* 季后赛数据卡（雷达同样在卡片下方，只和当季季后赛球员比） */}
             <div style={{ fontWeight: 700, marginBottom: 10, fontSize: 15 }}>季后赛</div>
             {statCard(poRow, poLeague, '季后赛第', '#d4380d', 'po')}
-            <div style={{ fontWeight: 700, margin: '20px 0 10px', fontSize: 15 }}>高阶数据</div>
+            <div style={{ fontWeight: 700, margin: '20px 0 10px', fontSize: 15 }}>
+              高阶数据
+              <GlossaryIcon />
+            </div>
             {statCard(poRow, poLeague, '季后赛第', '#d4380d', 'po', ADVANCED_STATS)}
             <div style={{ maxWidth: 440, margin: '20px auto 0' }}>
               {poLeague === null

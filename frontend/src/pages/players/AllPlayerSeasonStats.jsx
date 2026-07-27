@@ -7,6 +7,7 @@ import useIsMobile from '../../hooks/useIsMobile'
 import useUrlState from '../../hooks/useUrlState'
 import { LATEST_SEASON } from './rankConfig'
 import { TeamNames } from '../../components/TeamLogo'
+import { GlossaryButton } from './statGlossary'
 import { buildFullStatColumns, buildAdvancedStatColumns, HONOR_COLUMN_KEYS, compactColumns, sumColWidth } from './statColumns'
 
 /**
@@ -69,6 +70,8 @@ export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: s
             onChange={setView}
             options={[{ label: '基础数据', value: 'basic' }, { label: '高阶数据', value: 'adv' }]}
           />,
+          // 表头的虚下划线在手机上不好悬停，高阶视图额外给一个说明书入口
+          ...(adv ? [<GlossaryButton key="g" />] : []),
         ]),
         ...(team ? [] : [
         <Input.Search

@@ -7,6 +7,7 @@ import { ADVANCED_STATS, RANKING_STATS, fmtAdv, fmtNum, fmtPct, LATEST_SEASON, q
 import SeasonPicker from '../../components/SeasonPicker'
 import useIsMobile from '../../hooks/useIsMobile'
 import { buildFullStatColumns, buildAdvancedStatColumns, HONOR_COLUMN_KEYS, compactColumns, sumColWidth } from './statColumns'
+import { GlossaryButton } from './statGlossary'
 
 /**
  * 某数据项的完整排行（/rankings/:field）：按该项降序、不分页一滚到底，
@@ -74,6 +75,7 @@ export default function RankingDetail() {
         options={false}
         scroll={{ x: sumColWidth(baseColumns) }}
         toolBarRender={() => [
+          ...(isAdvanced ? [<GlossaryButton key="g" />] : []),
           <SeasonPicker key="season" value={seasonNum} onChange={setSeasonNum} />,
         ]}
         pagination={false} /* 不分页，一滚到底 */

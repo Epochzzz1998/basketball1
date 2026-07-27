@@ -8,6 +8,7 @@ import { teamApi } from '../../api/team'
 import { HONOR_GROUPS } from './honorConfig'
 import { ADVANCED_STATS, NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, RANKING_STATS, fmtAdv, fmtNum, fmtPct, fmtTeamChainZh, playoffRecord, LATEST_SEASON, honorEligible, qualifiedBoard } from './rankConfig'
 import { compactColumns, sumColWidth } from './statColumns'
+import { GlossaryButton, GlossaryTip } from './statGlossary'
 import SeasonPicker from '../../components/SeasonPicker'
 import { TeamCell } from '../../components/TeamLogo'
 import useIsMobile from '../../hooks/useIsMobile'
@@ -40,7 +41,7 @@ function StatRankCard({ stat, seasonNum, stage }) {
     <Card
       title={
         <>
-          {stat.label}榜
+          <GlossaryTip field={stat.field}>{stat.label}榜</GlossaryTip>
           {stat.note && <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 400, color: '#999' }}>{stat.note}</span>}
         </>
       }
@@ -83,12 +84,13 @@ function StatsTab({ seasonNum, stage }) {
     .filter((s) => stage === 'po' || !s.poOnly)
   return (
     <>
-      <div style={{ marginBottom: 14 }}>
+      <div style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 14 }}>
         <Segmented
           value={view}
           onChange={setView}
           options={[{ label: '基础数据', value: 'basic' }, { label: '高阶数据', value: 'adv' }]}
         />
+        {view === 'adv' && <GlossaryButton />}
       </div>
       <Row gutter={[16, 16]}>
         {list.map((s) => (

@@ -4,6 +4,7 @@ import { useParams, Link } from 'react-router-dom'
 import { Button, Card, Col, ConfigProvider, Empty, Row, Segmented, Space, Spin, Tag } from 'antd'
 import { BarChartOutlined, FireOutlined, IdcardOutlined, TrophyOutlined } from '@ant-design/icons'
 import { playerApi } from '../../api/player'
+import { GlossaryButton, withGlossary } from './statGlossary'
 import { CAREER_SEASON, NBA_TEAM_NAMES, PLAYOFF_TAG, fmtNum as num, fmtPair, seasonYearLabel, seasonShort, fmtPct } from './rankConfig'
 import { CAREER_AWARDS } from './honorConfig'
 import { compactColumns, sumColWidth } from './statColumns'
@@ -80,7 +81,7 @@ function HonorShelf({ honors }) {
 }
 
 /** 逐季表的高阶列：赛季/球队/出场打头，后面接共享的高阶指标定义 */
-const advSeasonColumns = (po) => [
+const advSeasonColumns = (po) => withGlossary([
   { title: '赛季', dataIndex: 'seasonNum', width: 64, fixed: 'left', render: (s) => (s === CAREER_SEASON ? '生涯' : seasonShort(s)) },
   { title: '球队', dataIndex: 'playerTeam', width: 78, render: (v) => <TeamNames value={v} /> },
   { title: '出场', dataIndex: 'playerAppearance', width: 48 },
@@ -92,7 +93,7 @@ const advSeasonColumns = (po) => [
     width: a.label.length >= 5 ? 86 : a.label.length >= 4 ? 74 : 62,
     render: (v) => fmtAdv(v, a),
   })),
-]
+])
 
 /* ============ Tab 1：生涯逐季数据 ============ */
 
@@ -136,6 +137,8 @@ function CareerTable({ playerId }) {
       toolBarRender={() => [
         <Segmented key="v" size="small" value={view} onChange={setView}
           options={[{ label: '基础数据', value: 'basic' }, { label: '高阶数据', value: 'adv' }]} />,
+        // 高阶列的释义在表头虚下划线上，手机不好悬停，这里再给一个明确入口
+        ...(view === 'adv' ? [<GlossaryButton key="g" />] : []),
       ]}
       rowKey="statsId"
       columns={cols}
@@ -213,6 +216,8 @@ function PlayoffTable({ playerId }) {
       toolBarRender={() => [
         <Segmented key="v" size="small" value={view} onChange={setView}
           options={[{ label: '基础数据', value: 'basic' }, { label: '高阶数据', value: 'adv' }]} />,
+        // 高阶列的释义在表头虚下划线上，手机不好悬停，这里再给一个明确入口
+        ...(view === 'adv' ? [<GlossaryButton key="g" />] : []),
       ]}
       rowKey="statsId"
       dataSource={rows}
