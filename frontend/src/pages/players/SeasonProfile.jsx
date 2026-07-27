@@ -8,6 +8,7 @@ import { ADV_EMPTY, CAREER_SEASON, PLAYOFF_TAG, fmtNum, seasonYearLabel, statQua
 import { TeamNames } from '../../components/TeamLogo'
 import { CAREER_AWARDS } from './honorConfig'
 import { GlossaryIcon, GlossaryTip } from './statGlossary'
+import CareerTotals from './CareerTotals'
 import useIsMobile from '../../hooks/useIsMobile'
 
 /**
@@ -316,8 +317,15 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
           )}
         </Space>
 
+        {/* 生涯档才有总数：逐季卡片展示的是场均，累计值只在"生涯"这一档有意义 */}
+        {isCareer && (
+          <div style={{ marginBottom: 20 }}>
+            <CareerTotals playerId={playerId} />
+          </div>
+        )}
+
         {/* 常规赛数据卡（六维雷达挪到卡片下方） */}
-        <div style={{ fontWeight: 700, marginBottom: 10, fontSize: 15 }}>常规赛</div>
+        <div style={{ fontWeight: 700, marginBottom: 10, fontSize: 15 }}>{isCareer ? '生涯场均' : '常规赛'}</div>
         {statCard(row, league, '联盟第', '#fa541c', 'rg')}
         {/* 高阶数据单独一块：跟基础数据混在一起就是 30 多个格子，一屏塞不下 */}
         <div style={{ fontWeight: 700, margin: '20px 0 10px', fontSize: 15 }}>

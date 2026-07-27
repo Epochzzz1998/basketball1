@@ -90,6 +90,13 @@ public class PlayerServiceImpl extends ServiceImpl<PlayerMapper, DreamPlayer> im
     }
 
     @Override
+    public Map<String, Object> findCareerTotals(String playerId) {
+        List<Map<String, Object>> rows = baseMapper.findCareerTotals(playerId);
+        // 名字对不上全历史表的球员（译名差异、边缘球员）没有这一行，返回 null 让前端整块不显示
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public void savePlayers(List<DreamPlayer> players) {
         if (players == null) {

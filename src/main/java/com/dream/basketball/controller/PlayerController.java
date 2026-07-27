@@ -220,6 +220,12 @@ public class PlayerController extends BaseUtils {
                 StringUtils.trimToEmpty(playerId), seasonNum, seasonType == null ? 3 : seasonType));
     }
 
+    /** 生涯总数 + 历史排名（公开）。排名池是 1947 年至今的全联盟，不是本库的 50 季。 */
+    @GetMapping("/careerTotals")
+    public Object careerTotals(String playerId) {
+        return new Result<>(0, "成功", playerService.findCareerTotals(StringUtils.trimToEmpty(playerId)));
+    }
+
     /** 该球员有逐场数据的赛季（公开），空数组表示这一块还没回补到他。 */
     @GetMapping("/playerGameLogSeasons")
     public Object playerGameLogSeasons(String playerId) {

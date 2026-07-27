@@ -230,6 +230,43 @@
         group by SEASON_NUM, SEASON_TYPE order by SEASON_NUM desc, SEASON_TYPE
     </select>
 
+
+    <!-- 生涯总数 + 历史排名。排名必须在**全表**上算：这张表覆盖 1947 年至今、含大量我们
+         库里没有的球员（张伯伦、拉塞尔……），只按 player_stats 的 50 季算出来的名次是错的。
+         窗口函数先给全表排好名，再挑出这一个人；表只有几千行，代价可以忽略。
+         rank() 而非 row_number()：同分并列同名次，跟体育口径一致。 -->
+    <select id="findCareerTotals" resultType="java.util.Map">
+        select * from (
+            select BR_ID as brId, PLAYER_ID as playerId, PLAYER_NAME as playerName,
+                   FIRST_YEAR as firstYear, LAST_YEAR as lastYear, SEASONS as seasons,
+                   G as g, rank() over (order by G desc) as gRank,
+                   GS as gs, rank() over (order by GS desc) as gsRank,
+                   MP as mp, rank() over (order by MP desc) as mpRank,
+                   FG as fg, rank() over (order by FG desc) as fgRank,
+                   FGA as fga, rank() over (order by FGA desc) as fgaRank,
+                   FG3 as fg3, rank() over (order by FG3 desc) as fg3Rank,
+                   FG3A as fg3a, rank() over (order by FG3A desc) as fg3aRank,
+                   FT as ft, rank() over (order by FT desc) as ftRank,
+                   FTA as fta, rank() over (order by FTA desc) as ftaRank,
+                   ORB as orb, rank() over (order by ORB desc) as orbRank,
+                   DRB as drb, rank() over (order by DRB desc) as drbRank,
+                   TRB as trb, rank() over (order by TRB desc) as trbRank,
+                   AST as ast, rank() over (order by AST desc) as astRank,
+                   STL as stl, rank() over (order by STL desc) as stlRank,
+                   BLK as blk, rank() over (order by BLK desc) as blkRank,
+                   TOV as tov, rank() over (order by TOV desc) as tovRank,
+                   PF as pf, rank() over (order by PF desc) as pfRank,
+                   PTS as pts, rank() over (order by PTS desc) as ptsRank,
+                   TPL_DBL as tplDbl, rank() over (order by TPL_DBL desc) as tplDblRank
+                   ,
+                   -- 打铁 = 出手 − 命中，跟着一起排名（参考站有这三项）
+                   (FGA - FG) as fgMiss, rank() over (order by (FGA - FG) desc) as fgMissRank,
+                   (FG3A - FG3) as fg3Miss, rank() over (order by (FG3A - FG3) desc) as fg3MissRank,
+                   (FTA - FT) as ftMiss, rank() over (order by (FTA - FT) desc) as ftMissRank
+            from nba_career_totals
+        ) t where t.playerId = #{playerId}
+    </select>
+
     <sql id="whereConditionPlayer">
         1=1
         <!-- fuzzy name search (player search box); #{} binding keeps it injection-safe.

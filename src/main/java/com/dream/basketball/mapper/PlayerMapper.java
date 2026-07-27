@@ -49,4 +49,7 @@ public interface PlayerMapper extends BaseMapper<DreamPlayer> {
 
     /** Seasons where this player has game-log rows: {seasonNum, seasonType, games}. */
     List<Map<String, Object>> findPlayerGameLogSeasons(@Param("playerId") String playerId);
+
+    /** 生涯总数 + 历史排名（nba_career_totals，1947 年至今全联盟）。没匹配上则返回空。 */
+    List<Map<String, Object>> findCareerTotals(@Param("playerId") String playerId);
 }

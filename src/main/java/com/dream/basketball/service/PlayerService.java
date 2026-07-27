@@ -41,6 +41,9 @@ public interface PlayerService extends IService<DreamPlayer> {
     /** Seasons where this player has game-log rows. */
     List<Map<String, Object>> findPlayerGameLogSeasons(String playerId);
 
+    /** 生涯总数 + 历史排名；该球员没匹配到全历史表时返回 null。 */
+    Map<String, Object> findCareerTotals(String playerId);
+
     public List<DreamPlayerDto> findAllPlayers(@RequestBody(required = false) DreamPlayerDto param);
 
     public List<PlayerStatsDto> findPlayersSeasonStats(@RequestBody(required = false) PlayerStatsDto param);
