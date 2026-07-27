@@ -51,6 +51,9 @@ public class SearchController {
     @Autowired
     private com.dream.basketball.mapper.ForumTopicMapper forumTopicMapper;
 
+    @Autowired
+    private com.dream.basketball.mapper.PlayerMapper playerMapper;
+
     private static final int GROUP_LIMIT = 6;
 
     @GetMapping("/global")
@@ -220,6 +223,20 @@ public class SearchController {
             users.add(m);
         }
         return new Result<>(0, "成功", users);
+    }
+
+    /**
+     * @-mention 候选·球员（公开）：NBA 专区发帖时 @ 球员用，按中/英文名模糊。
+     * 和 mentionUsers 分成两个接口而不是合一个：调用方只在 NBA 专区开这个面板，
+     * 混着回用户会让"@ 出来的到底是谁"变得不确定。
+     */
+    @GetMapping("/mentionPlayers")
+    public Result<List<Map<String, Object>>> mentionPlayers(String keyword) {
+        String kw = keyword == null ? "" : keyword.trim();
+        if (kw.length() > 50) {
+            return new Result<>(0, "成功", new ArrayList<>());
+        }
+        return new Result<>(0, "成功", playerMapper.searchMentionPlayers(kw, 8));
     }
 
     /** 当前登录用户的备注里，备注名命中 kw 的那些目标用户 id（未登录/空词返回空集）。 */

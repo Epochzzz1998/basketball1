@@ -15,6 +15,7 @@ import PollCard from '../../components/PollCard'
 import { SuperAdminBadge, TopicOwnerBadge, OpBadge } from '../../components/RoleBadges'
 import UserTitles from '../../components/UserTitles'
 import useIsMobile from '../../hooks/useIsMobile'
+import { MENTION_CSS, MENTION_SELECTOR, markPlayerMentions, mentionHref, readMentionInfo } from '../../utils/mention'
 
 /**
  * 资讯详情（公开，/news/:newsId，P5-2 文章页改版）。
@@ -138,6 +139,13 @@ export default function NewsDetail() {
   const [fav, setFav] = useState({ favorited: false, count: 0 }) // 收藏状态 + 收藏数
   const [authorStats, setAuthorStats] = useState(null) // 作者数据小结（发帖/精华/置顶/获赞）
   const [loading, setLoading] = useState(true)
+
+  // 正文是用户发帖的 HTML（不可信），先 DOMPurify 净化防存储型 XSS；
+  // 再走一趟 DOM 把 @ 球员标出来——kind 藏在 data-info 的 JSON 里，CSS 选择器读不到
+  const contentHtml = useMemo(
+    () => markPlayerMentions(DOMPurify.sanitize(news?.content || '')),
+    [news?.content],
+  )
 
   // 帖子点赞/点踩：登录才行；计数经 RabbitMQ 异步更新，这里按 delta 乐观更新
   const likePost = async (type) => {
@@ -423,22 +431,20 @@ export default function NewsDetail() {
                   </div>
                 )}
 
-                {/* 正文里的 @ 提及：wangeditor 存成 <span data-w-e-type="mention" data-info="{id}">，
-                    这里描成橙色，点一下按 data-info 里的 id 跳该用户主页（事件委托，一个监听搞定） */}
-                <style>{'.rich-content [data-w-e-type="mention"]{color:#1677ff;font-weight:600;cursor:pointer}'}</style>
-                {/* 正文是用户发帖的 HTML：发帖已对所有登录用户开放（不可信），渲染前必须用 DOMPurify 净化，防存储型 XSS */}
+                {/* 正文里的 @ 提及：wangeditor 存成 <span data-w-e-type="mention" data-info="{id}">。
+                    @ 人=蓝色跳主页，@ 球员=🏆金标跳资料卡（事件委托，一个监听搞定两种） */}
+                <style>{MENTION_CSS}</style>
+                {/* contentHtml = DOMPurify 净化 + 标出 @ 球员，见上方 useMemo */}
                 <div
                   className="rich-content"
                   style={{ fontSize: 15, lineHeight: 1.85, wordBreak: 'break-word', margin: '22px 0 8px' }}
                   onClick={(e) => {
-                    const span = e.target.closest?.('[data-w-e-type="mention"]')
+                    const span = e.target.closest?.(MENTION_SELECTOR)
                     if (!span) return
-                    try {
-                      const info = JSON.parse(decodeURIComponent(span.getAttribute('data-info') || ''))
-                      if (info?.id) navigate(`/users/${info.id}`)
-                    } catch { /* 坏 data-info 忽略 */ }
+                    const href = mentionHref(readMentionInfo(span))
+                    if (href) navigate(href)
                   }}
-                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(news.content || '') }}
+                  dangerouslySetInnerHTML={{ __html: contentHtml }}
                 />
 
                 {/* 标签：正文下方，# 号胶囊风格（带标签图标引导） */}

@@ -38,6 +38,7 @@ export default function NewsEdit() {
   const [content, setContent] = useState('')
   const [authorId, setAuthorId] = useState(undefined) // 保存时回传：新建=当前用户，编辑=原作者
   const [topicName, setTopicName] = useState('')
+  const [zoneTopicId, setZoneTopicId] = useState(topicId) // 本帖所属专题：新建取自路由，编辑取自帖子
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving] = useState(false)
   const [isDraft, setIsDraft] = useState(false)   // 打开的这篇本来就是草稿？决定按钮写「发布」还是「保存」
@@ -50,12 +51,12 @@ export default function NewsEdit() {
   const newsIdRef = useRef(routeId || crypto.randomUUID())
   const isMobile = useIsMobile()
 
-  // 新建到专题：拉专题名显示（让用户知道发到哪）
+  // 专题名：新建时显示"发到哪"，编辑时只为判断是不是 NBA 专区（决定能不能 @ 球员）。
+  // 编辑态的 topicId 要等帖子拉回来才知道，所以这里接的是 zoneTopicId 而非路由参数。
   useEffect(() => {
-    if (!isEdit && topicId) {
-      topicApi.get(topicId).then((t) => setTopicName(t?.name || '')).catch(() => {})
-    }
-  }, [isEdit, topicId])
+    if (!zoneTopicId) return
+    topicApi.get(zoneTopicId).then((t) => setTopicName(t?.name || '')).catch(() => {})
+  }, [zoneTopicId])
 
   // 新建：用户信息异步加载好后，把作者填成当前登录用户（字段只读）
   useEffect(() => {
@@ -76,6 +77,7 @@ export default function NewsEdit() {
           form.setFieldsValue({ title: n.title, author: n.author, tags: (n.tags || '').split(',').map((s) => s.trim()).filter(Boolean) })
           setAuthorId(n.authorId)
           setContent(n.content || '')
+          setZoneTopicId(n.topicId || undefined) // 编辑他人/自己的老帖时，专区靠帖子自己带
           setIsDraft(n.draft === '1') // 打开的是草稿：主按钮改成「发布」
         }
       })
@@ -85,6 +87,21 @@ export default function NewsEdit() {
 
   // 草稿是自己没发出去的东西，随手删掉的入口就该在编辑器里——它点进来只有这一条路，
   // 详情页那个删除按钮草稿根本走不到
+  // NBA 专区（专题名含 NBA，与首页热帖榜同一判定）才开 @ 球员
+  const isNbaZone = !official && topicName.includes('NBA')
+
+  // @ 候选：球员。sub 那行放英文名 + 生涯年份——同姓球员一堆，光中文名认不出是哪个库里
+  const searchPlayers = async (kw) => {
+    const list = await searchApi.mentionPlayers(kw)
+    return (list || []).map((p) => ({
+      id: p.playerId,
+      name: p.playerName || p.nameEn,
+      avatar: p.photo,
+      sub: [p.nameEn, p.firstYear ? `${p.firstYear}-${p.lastYear}` : ''].filter(Boolean).join(' · '),
+      info: { kind: 'player' }, // 写进 data-info，正文里据此描金标、点击进资料卡
+    }))
+  }
+
   const removeDraft = async () => {
     try {
       await newsApi.deletePost(newsIdRef.current)
@@ -271,11 +288,14 @@ export default function NewsEdit() {
             )}
           </div>
         )}
-        <Form.Item label="正文" required>
+        <Form.Item label="正文" required extra={isNbaZone ? '正文里打 @ 可以提到球员，发出后是金色球员名，点一下进他的资料卡' : undefined}>
           <RichTextEditor
             value={content}
             onChange={setContent}
             uploadImage={(file) => newsApi.uploadNewsImage(file, newsIdRef.current)}
+            /* @ 球员只在 NBA 专区开：别的专区打 @ 弹出一堆球员没有意义 */
+            mentionSearch={isNbaZone ? searchPlayers : undefined}
+            mentionHint={{ placeholder: '搜索球员（中/英文名）…', emptyText: '没有找到球员' }}
           />
         </Form.Item>
         <Space>

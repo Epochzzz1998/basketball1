@@ -5,4 +5,6 @@ export const searchApi = {
   globalSearch: (keyword) => http.get('/search/global', { params: { keyword } }),
   // @-mention 候选：按昵称/用户名模糊，回 [{userId, userNickname, avatar}]，供 @ 下拉用（比 global 轻）
   mentionUsers: (keyword) => http.get('/search/mentionUsers', { params: { keyword } }),
+  // @-mention 候选·球员：NBA 专区发帖 @ 球员用，回 [{playerId, playerName, nameEn, photo, firstYear, lastYear}]
+  mentionPlayers: (keyword) => http.get('/search/mentionPlayers', { params: { keyword } }),
 }

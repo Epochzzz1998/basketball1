@@ -74,6 +74,9 @@ public class NewsServiceImpl implements NewsService {
     com.dream.basketball.mapper.UserMapper userMapper;
 
     @Autowired
+    com.dream.basketball.mapper.PlayerMapper playerMapper;
+
+    @Autowired
     RabbitMqProducer rabbitMqProducer;
 
     @Autowired
@@ -209,6 +212,7 @@ public class NewsServiceImpl implements NewsService {
     /** Batch-fill authors' uploaded avatars (one IN query; rows without an avatar stay null). */
     private void fillAuthorAvatar(List<NewsDto> newsList) {
         java.util.Set<String> authorIds = new java.util.HashSet<>();
+        java.util.Set<String> playerIds = new java.util.HashSet<>();
         for (NewsDto n : newsList) {
             if (n == null) {
                 continue;
@@ -221,19 +225,34 @@ public class NewsServiceImpl implements NewsService {
             }
             // 正文里 @ 的人也批查，拿其当前昵称（用于把正文里的旧 @名 同步成新名）
             authorIds.addAll(com.dream.basketball.utils.MentionUtil.parseNewsMentionIds(n.getContent()));
+            // NBA 专区还能 @ 球员，同理批查当前名（球员汉化名改过之后老帖跟着更新）
+            playerIds.addAll(com.dream.basketball.utils.MentionUtil.parseNewsPlayerMentionIds(n.getContent()));
         }
-        if (authorIds.isEmpty()) {
+        if (authorIds.isEmpty() && playerIds.isEmpty()) {
             return;
         }
         java.util.Map<String, DreamUser> userMap = new java.util.HashMap<>();
-        for (DreamUser u : userMapper.selectList(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<DreamUser>()
-                .in("USER_ID", authorIds))) {
-            userMap.put(u.getUserId(), u);
+        if (!authorIds.isEmpty()) {
+            for (DreamUser u : userMapper.selectList(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<DreamUser>()
+                    .in("USER_ID", authorIds))) {
+                userMap.put(u.getUserId(), u);
+            }
         }
         java.util.Map<String, String> idToNick = new java.util.HashMap<>();
         for (DreamUser u : userMap.values()) {
             if (StringUtils.isNotBlank(u.getUserNickname())) {
                 idToNick.put(u.getUserId(), u.getUserNickname());
+            }
+        }
+        // 只有正文真的 @ 过球员才查这一趟（绝大多数帖子跳过）
+        java.util.Map<String, String> idToPlayerName = new java.util.HashMap<>();
+        if (!playerIds.isEmpty()) {
+            for (com.dream.basketball.entity.DreamPlayer p : playerMapper.selectList(
+                    new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<com.dream.basketball.entity.DreamPlayer>()
+                            .select("PLAYER_ID", "PLAYER_NAME").in("PLAYER_ID", playerIds))) {
+                if (p != null && StringUtils.isNotBlank(p.getPlayerName())) {
+                    idToPlayerName.put(p.getPlayerId(), p.getPlayerName());
+                }
             }
         }
         java.util.Map<String, String> nickToId = allNickToId(); // 循环外一次全量查（自动链接 @ 用）
@@ -243,6 +262,7 @@ public class NewsServiceImpl implements NewsService {
             }
             // 正文里的 @ 用当前昵称重写（改名后帖子正文里的 @ 也显示新名）
             n.setContent(com.dream.basketball.utils.MentionUtil.rewriteNewsMentionNames(n.getContent(), idToNick));
+            n.setContent(com.dream.basketball.utils.MentionUtil.rewritePlayerMentionNames(n.getContent(), idToPlayerName));
             // 纯文本 @（无联想输入的新帖）：读时按全量昵称自动链接成 mention span，前端既有高亮/跳主页直接生效
             n.setContent(com.dream.basketball.utils.MentionUtil.autoLinkNewsMentions(n.getContent(), nickToId));
             // 最后编辑者昵称（独立于作者：超管改他人帖时二者不同）

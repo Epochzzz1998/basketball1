@@ -57,8 +57,24 @@ public final class MentionUtil {
         return ids;
     }
 
-    /** Parse ids from a post body's HTML (wangeditor mention spans). */
+    /**
+     * NBA 专区的帖子还能 @ 球员，同样存成 mention span，靠 data-info 里的 {@code kind} 区分。
+     * 球员不是用户：这条 id 拿去查用户表查不到、发通知发给不存在的人，所以两类 id 必须分开取。
+     * 老帖没有 kind，一律按用户算（兼容）。
+     */
+    public static final String KIND_PLAYER = "player";
+
+    /** Parse ids from a post body's HTML (wangeditor mention spans). 只回用户，球员见 {@link #parseNewsPlayerMentionIds}。 */
     public static Set<String> parseNewsMentionIds(String html) {
+        return parseMentionIds(html, false);
+    }
+
+    /** 正文里 @ 到的球员 id（dream_player.PLAYER_ID）。 */
+    public static Set<String> parseNewsPlayerMentionIds(String html) {
+        return parseMentionIds(html, true);
+    }
+
+    private static Set<String> parseMentionIds(String html, boolean wantPlayer) {
         Set<String> ids = new LinkedHashSet<>();
         if (StringUtils.isBlank(html)) {
             return ids;
@@ -69,7 +85,8 @@ public final class MentionUtil {
                 String info = URLDecoder.decode(m.group(1), StandardCharsets.UTF_8.name());
                 JSONObject o = JSON.parseObject(info);
                 String id = o == null ? null : o.getString("id");
-                if (StringUtils.isNotBlank(id)) {
+                boolean isPlayer = o != null && KIND_PLAYER.equals(o.getString("kind"));
+                if (StringUtils.isNotBlank(id) && isPlayer == wantPlayer) {
                     ids.add(id);
                 }
             } catch (Exception ignore) {
@@ -114,6 +131,15 @@ public final class MentionUtil {
      * data-info 本身保持不动（只 id 有用）；解析不出或 id 不在 map 里的 span 原样保留。
      */
     public static String rewriteNewsMentionNames(String html, Map<String, String> idToName) {
+        return rewriteMentionNames(html, idToName, false);
+    }
+
+    /** 同上，但只改 @球员 的那些 span（球员汉化名有调整时，老帖跟着显示新名）。 */
+    public static String rewritePlayerMentionNames(String html, Map<String, String> idToName) {
+        return rewriteMentionNames(html, idToName, true);
+    }
+
+    private static String rewriteMentionNames(String html, Map<String, String> idToName, boolean wantPlayer) {
         if (StringUtils.isBlank(html) || idToName == null || idToName.isEmpty()) {
             return html;
         }
@@ -125,7 +151,8 @@ public final class MentionUtil {
                 String info = URLDecoder.decode(m.group(2), StandardCharsets.UTF_8.name());
                 JSONObject o = JSON.parseObject(info);
                 String id = o == null ? null : o.getString("id");
-                cur = id == null ? null : idToName.get(id);
+                boolean isPlayer = o != null && KIND_PLAYER.equals(o.getString("kind"));
+                cur = (id == null || isPlayer != wantPlayer) ? null : idToName.get(id);
             } catch (Exception ignore) {
                 // 解析失败就保留原文
             }

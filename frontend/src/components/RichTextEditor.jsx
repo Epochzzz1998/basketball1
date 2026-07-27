@@ -33,8 +33,12 @@ const avatarColor = (name) => {
   return `hsl(${h}, 52%, 52%)`
 }
 
-/** 光标处浮出的 @ 候选面板：自带搜索输入 + 键盘上下/回车选择，点选回调 onPick */
-function MentionPanel({ top, left, search, onPick, onClose }) {
+/**
+ * 光标处浮出的 @ 候选面板：自带搜索输入 + 键盘上下/回车选择，点选回调 onPick。
+ * 候选项 {id, name, avatar, sub?}——sub 是名字下面那行小字（球员用它放英文名和生涯年份，
+ * 「戴尔·库里 / 斯蒂芬·库里」这种同姓的人光看中文名分不出谁是谁）。
+ */
+function MentionPanel({ top, left, search, onPick, onClose, placeholder = '搜索用户…', emptyText = '无匹配用户' }) {
   const [kw, setKw] = useState('')
   const [opts, setOpts] = useState([])
   const [active, setActive] = useState(0)
@@ -78,7 +82,7 @@ function MentionPanel({ top, left, search, onPick, onClose }) {
         value={kw}
         onChange={(e) => setKw(e.target.value)}
         onKeyDown={onKeyDown}
-        placeholder="搜索用户…"
+        placeholder={placeholder}
         style={{ width: '100%', border: 'none', outline: 'none', padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13, boxSizing: 'border-box' }}
       />
       <div style={{ maxHeight: 220, overflowY: 'auto' }}>
@@ -97,11 +101,18 @@ function MentionPanel({ top, left, search, onPick, onClose }) {
                   {String(u.name || '?')[0].toUpperCase()}
                 </Avatar>
               )}
-              <span style={{ fontSize: 13 }}>{u.name}</span>
+              <span style={{ fontSize: 13, minWidth: 0 }}>
+                <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name}</span>
+                {u.sub && (
+                  <span style={{ display: 'block', fontSize: 11, color: '#aaa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {u.sub}
+                  </span>
+                )}
+              </span>
             </div>
           ))
         ) : (
-          <div style={{ padding: 14, color: '#bbb', fontSize: 13, textAlign: 'center' }}>无匹配用户</div>
+          <div style={{ padding: 14, color: '#bbb', fontSize: 13, textAlign: 'center' }}>{emptyText}</div>
         )}
       </div>
     </div>,
@@ -109,7 +120,9 @@ function MentionPanel({ top, left, search, onPick, onClose }) {
   )
 }
 
-export default function RichTextEditor({ value, onChange, uploadImage, mentionSearch, placeholder = '请输入正文…' }) {
+export default function RichTextEditor({
+  value, onChange, uploadImage, mentionSearch, mentionHint, placeholder = '请输入正文…',
+}) {
   const editorRef = useRef(null)
   const toolbarElRef = useRef(null)
   const editorElRef = useRef(null)
@@ -186,13 +199,19 @@ export default function RichTextEditor({ value, onChange, uploadImage, mentionSe
     return list || []
   }
 
-  // 选中一个人：删掉刚打的 `@`，插入 mention 节点（id 进 data-info），关面板，焦点回编辑器
-  const pickMention = (user) => {
+  // 选中一个人：删掉刚打的 `@`，插入 mention 节点（id 进 data-info），关面板，焦点回编辑器。
+  // 候选项自带的 info 一并写进 data-info——@ 球员靠里面的 kind:'player' 和 @ 人区分开。
+  const pickMention = (item) => {
     const editor = editorRef.current
     if (editor) {
       editor.restoreSelection()
       editor.deleteBackward('character')
-      editor.insertNode({ type: 'mention', value: user.name, info: { id: user.id }, children: [{ text: '' }] })
+      editor.insertNode({
+        type: 'mention',
+        value: item.name,
+        info: { id: item.id, ...(item.info || {}) },
+        children: [{ text: '' }],
+      })
       editor.move(1)
       editor.focus()
     }
@@ -210,6 +229,8 @@ export default function RichTextEditor({ value, onChange, uploadImage, mentionSe
           search={panelSearch}
           onPick={pickMention}
           onClose={() => setMentionPos(null)}
+          placeholder={mentionHint?.placeholder}
+          emptyText={mentionHint?.emptyText}
         />
       )}
     </div>

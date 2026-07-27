@@ -66,4 +66,7 @@ public interface PlayerMapper extends BaseMapper<DreamPlayer> {
     List<Map<String, Object>> findCrownHistory(@Param("expr") String expr,
                                               @Param("madeCol") String madeCol,
                                               @Param("madeMin") Integer madeMin);
+
+    /** 发帖 @球员 的候选：按中/英文名模糊，生涯总得分高的排前面。kw 为空时给一批名人垫底。 */
+    List<Map<String, Object>> searchMentionPlayers(@Param("kw") String kw, @Param("limit") Integer limit);
 }
