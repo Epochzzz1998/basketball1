@@ -51,7 +51,10 @@ export default function SeasonPicker({ value, onChange, includeCareer = true, co
   }
 
   const grid = (
-    <div style={{ width: 268 }}>
+    // 268px 是六个年代时定的；补完 1946 年起的老赛季后年代变成九个（40s-20s），
+    // 每格只剩 30px，标签直接被省略号截断。336 = 9 × 约 34px + 两侧内边距，
+    // 在 375px 宽的手机上也放得下（弹层还有 antd 自己的 12px 内边距）。
+    <div style={{ width: 336, maxWidth: '86vw' }}>
       {/* 芯片 hover 描边走一小段局部样式（inline 写不了 :hover） */}
       <style>{'.season-chip:hover{border-color:#fa541c;color:#fa541c}'}</style>
       <Segmented
@@ -60,7 +63,7 @@ export default function SeasonPicker({ value, onChange, includeCareer = true, co
         value={era}
         onChange={setEra}
         options={ERAS.map((e) => ({ label: eraLabel(e), value: e }))}
-        style={{ marginBottom: 8 }}
+        style={{ marginBottom: 8, maxWidth: '100%', overflowX: 'auto' }}
       />
       {/* 不设 minHeight：行数随年代变化，芯片保持紧凑不被拉伸 */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, alignContent: 'start' }}>
