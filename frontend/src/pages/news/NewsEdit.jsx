@@ -90,13 +90,13 @@ export default function NewsEdit() {
   // NBA 专区（专题名含 NBA，与首页热帖榜同一判定）才开 @ 面板
   const isNbaZone = !official && topicName.includes('NBA')
 
-  // @ 候选：用户和球员一起给。
+  // @ 候选：所有专区都联想用户，NBA 专区额外带上球员。
   // 只给球员是不行的——面板一弹出来焦点就进了它的搜索框，正文里再也打不出 @昵称，
   // 等于把「@ 人」这条老路堵死了。两个接口并行拉，用户在前、球员在后。
   const searchMentions = async (kw) => {
     const [users, players] = await Promise.all([
       searchApi.mentionUsers(kw).catch(() => []),
-      searchApi.mentionPlayers(kw).catch(() => []),
+      isNbaZone ? searchApi.mentionPlayers(kw).catch(() => []) : Promise.resolve([]),
     ])
     return [
       ...(users || []).map((u) => ({
@@ -105,7 +105,7 @@ export default function NewsEdit() {
         avatar: u.avatar,
         // 备注名只出现在小字里：正文里插的必须是真昵称，否则别人看到的是我私下起的外号
         sub: dn(u.userId, '') && dn(u.userId, '') !== u.userNickname ? `备注：${dn(u.userId, '')}` : '',
-        group: '用户',
+        group: isNbaZone ? '用户' : '', // 只有一组时不必出小标题
       })),
       // sub 那行放英文名 + 生涯年份——同姓球员一堆，光中文名认不出是哪个库里
       ...(players || []).map((p) => ({
@@ -305,14 +305,21 @@ export default function NewsEdit() {
             )}
           </div>
         )}
-        <Form.Item label="正文" required extra={isNbaZone ? '正文里打 @ 可以提到用户或球员；@ 球员发出后是金色球员名，点一下进他的资料卡' : undefined}>
+        <Form.Item
+          label="正文"
+          required
+          extra={isNbaZone
+            ? '正文里打 @ 可以提到用户或球员；@ 球员发出后是金色球员名，点一下进他的资料卡'
+            : '正文里打 @ 可以提到用户'}
+        >
           <RichTextEditor
             value={content}
             onChange={setContent}
             uploadImage={(file) => newsApi.uploadNewsImage(file, newsIdRef.current)}
-            /* @ 面板只在 NBA 专区开：别的专区照旧手打 @昵称，后端读帖时按全站昵称自动识别 */
-            mentionSearch={isNbaZone ? searchMentions : undefined}
-            mentionHint={{ placeholder: '搜索用户或球员…', emptyText: '没有找到用户或球员' }}
+            mentionSearch={searchMentions}
+            mentionHint={isNbaZone
+              ? { placeholder: '搜索用户或球员…', emptyText: '没有找到用户或球员' }
+              : { placeholder: '搜索用户…', emptyText: '无匹配用户' }}
           />
         </Form.Item>
         <Space>
