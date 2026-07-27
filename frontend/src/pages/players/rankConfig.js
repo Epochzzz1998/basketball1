@@ -129,8 +129,16 @@ const isCareerPool = (rows) => (rows || []).some((r) => Number(r?.seasonNum) ===
  * 不在池子里的人：榜单里不出现，资料卡/对比页也不给名次，改标「场次不足 / 出手不足」。
  * 放开池子试过一版，结果是打 1-3 场的人霸占抢断榜和「失误最少」榜，比藏人更糟。
  */
+/**
+ * 不设资格线的项。出场数本身就是资格线的度量——拿它给它自己设门槛是循环的：
+ * 打了 30 场的人会被标成"场次不足"，可"出场 30 场"这个数字本身完全有效，
+ * 而且这张榜的榜首按定义就是出场最多的人，根本不需要门槛。
+ */
+const NO_QUALIFY_FIELDS = new Set(['playerAppearance'])
+
 export const boardPool = (rows, field, season, po = false) => {
   const all = rows || []
+  if (NO_QUALIFY_FIELDS.has(field)) return all
   // 季后赛不设资格线：58 场、300 记投篮这些都是常规赛口径，季后赛最多打 28 场，
   // 套上去等于全员不合格——名次全没了，还会一律标成「场次不足」。
   // 联盟排行页早就绕开了（stage === 'po' 直接用原始列表），资料卡和对比页漏了。
