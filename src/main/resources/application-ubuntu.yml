@@ -56,6 +56,16 @@ spring:
 
 server:
   port: 8088
+  # Gzip responses before they enter the Cloudflare Tunnel. Measured: the season
+  # stats endpoint ships 2.89MB of uncompressed JSON, and the app→edge hop was
+  # carrying all of it — the edge compressed to ~390KB only on the way out to the
+  # browser, so the tunnel moved 7x more bytes than it had to. SQL for the same
+  # request is 17ms and the whole in-container round trip is 56ms, so the tunnel
+  # is where the second-plus of latency lives.
+  compression:
+    enabled: true
+    mime-types: application/json,application/javascript,text/javascript,text/css,text/html,text/plain,text/xml,image/svg+xml
+    min-response-size: 2KB
   servlet:
     session:
       cookie:

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Popover, Segmented } from 'antd'
 import { CaretDownOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons'
 import { CAREER_SEASON, LATEST_SEASON, SEASON_BASE, seasonShort, seasonYearLabel } from '../pages/players/rankConfig'
+import useIsMobile from '../hooks/useIsMobile'
 
 /**
  * 全站统一的赛季选择器（与顶栏搜索胶囊同一设计语言）：
@@ -18,6 +19,7 @@ const ERAS = [...new Set(Array.from({ length: MAX_SEASON }, (_, i) => eraOf(i + 
 const eraLabel = (e) => `${String(e).slice(-2)}s` // '80s'——「80年代」在分段条里放不下会截断
 
 export default function SeasonPicker({ value, onChange, includeCareer = true, compact = false }) {
+  const isMobile = useIsMobile()
   const [open, setOpen] = useState(false)
   const [hover, setHover] = useState(false)
   const [era, setEra] = useState(eraOf(value === CAREER_SEASON ? MAX_SEASON : value || MAX_SEASON))
@@ -101,7 +103,7 @@ export default function SeasonPicker({ value, onChange, includeCareer = true, co
       style={{
         display: 'inline-flex', alignItems: 'center', height: 32, background: '#fff',
         border: `1px solid ${hover || open ? '#fa541c' : '#e8e8e8'}`, borderRadius: 16,
-        transition: 'border-color .2s', overflow: 'hidden', verticalAlign: 'middle',
+        transition: 'border-color .2s', overflow: 'hidden', verticalAlign: 'middle', flexShrink: 0,
       }}
     >
       <div style={arrow(canPrev, 'l')} onClick={() => canPrev && step(-1)}><LeftOutlined /></div>
@@ -117,14 +119,19 @@ export default function SeasonPicker({ value, onChange, includeCareer = true, co
         <div
           style={{
             display: 'flex', alignItems: 'center', gap: compact ? 4 : 6, padding: compact ? '0 8px' : '0 12px',
-            cursor: 'pointer',
-            fontSize: compact ? 12 : 13, fontWeight: 600, color: '#333', minWidth: compact ? 0 : 122,
+            cursor: 'pointer', whiteSpace: 'nowrap',
+            fontSize: compact ? 12 : 13, fontWeight: 600, color: '#333',
+            minWidth: compact || isMobile ? 0 : 122,
             justifyContent: 'center',
             fontVariantNumeric: 'tabular-nums',
           }}
         >
-          {/* compact 用短标签（25-26）——全称两只并排在 390px 宽度里放不下 */}
-          {value === CAREER_SEASON ? '生涯' : compact ? seasonShort(value) : seasonYearLabel(value)}
+          {/* compact 用短标签（25-26）——全称两只并排在 390px 宽度里放不下。
+              手机上（完整排行的工具条里还挤着位置筛选）去掉「赛季」二字，年份留全 */}
+          {value === CAREER_SEASON ? '生涯'
+            : compact ? seasonShort(value)
+            : isMobile ? seasonYearLabel(value).replace(' 赛季', '')
+            : seasonYearLabel(value)}
           <CaretDownOutlined
             style={{ fontSize: 10, color: '#999', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}
           />
