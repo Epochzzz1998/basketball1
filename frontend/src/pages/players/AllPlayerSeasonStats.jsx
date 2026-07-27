@@ -9,7 +9,7 @@ import { LATEST_SEASON, filterByPosition } from './rankConfig'
 import { TeamNames } from '../../components/TeamLogo'
 import StatViewSwitch from './StatViewSwitch'
 import PositionFilter from './PositionFilter'
-import { buildFullStatColumns, buildAdvancedStatColumns, HONOR_COLUMN_KEYS, compactColumns, sumColWidth } from './statColumns'
+import { ADVANCED_TABLE_FIELDS, BASIC_TABLE_FIELDS, buildFullStatColumns, buildAdvancedStatColumns, HONOR_COLUMN_KEYS, compactColumns, sumColWidth } from './statColumns'
 
 /**
  * 球员数据榜（公开）。可独立使用（自带赛季选择），也可受控嵌入（传 seasonNum 则隐藏内部选择）。
@@ -98,7 +98,7 @@ export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: s
           return { data: rows, total: rows.length, success: true }
         }
         const api = po ? playerApi.listPlayoffSeasonStats : playerApi.listSeasonStats
-        const res = await api({ ...query, page: 1, limit: 2000 })
+        const res = await api({ ...query, page: 1, limit: 2000, fields: adv ? ADVANCED_TABLE_FIELDS : BASIC_TABLE_FIELDS })
         // 拦截器已把 Result 拆成 {total, records}；位置在前端筛（一次取全，无需再请求）
         const rows = filterByPosition(res.records || [], params.pos)
         return { data: rows, total: rows.length, success: true }

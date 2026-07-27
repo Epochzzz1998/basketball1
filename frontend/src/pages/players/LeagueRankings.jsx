@@ -7,7 +7,7 @@ import { playerApi } from '../../api/player'
 import { teamApi } from '../../api/team'
 import { HONOR_GROUPS } from './honorConfig'
 import { ADVANCED_STATS, NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, RANKING_STATS, fmtAdv, fmtNum, fmtPct, fmtTeamChainZh, playoffRecord, LATEST_SEASON, honorEligible, qualifiedBoard, filterByPosition } from './rankConfig'
-import { compactColumns, sumColWidth } from './statColumns'
+import { compactColumns, rankCardFields, sumColWidth } from './statColumns'
 import { GlossaryButton, GlossaryTip } from './statGlossary'
 import PositionFilter from './PositionFilter'
 import StatViewSwitch from './StatViewSwitch'
@@ -30,7 +30,7 @@ function StatRankCard({ stat, seasonNum, stage, pos }) {
     const api = stage === 'po' ? playerApi.listPlayoffSeasonStats : playerApi.listSeasonStats
     // 多取一段再按场次资格线过滤（58 场 + 补场规则），常规赛才有资格线；季后赛不设。
     // 筛位置时多取一些：前 200 名里某个位置未必凑得满 10 个（比如中锋的助攻榜）
-    api({ page: 1, limit: pos && pos !== 'all' ? 600 : 200, seasonNum, field: stat.field, order: stat.order || 'desc' })
+    api({ page: 1, limit: pos && pos !== 'all' ? 600 : 200, seasonNum, field: stat.field, order: stat.order || 'desc', fields: rankCardFields(stat.field) })
       .then((r) => {
         if (!alive) return
         const list = r.records || []

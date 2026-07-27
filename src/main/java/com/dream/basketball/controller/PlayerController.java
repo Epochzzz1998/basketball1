@@ -76,6 +76,8 @@ public class PlayerController extends BaseUtils {
     public Object getAllPlayersSeasonStatsList(PlayerStatsDto param, int page, int limit) {
         PageHelper.startPage(page, limit);
         param.setField(SortUtil.safeStatsOrderBy(param.getField(), param.getOrder()));
+        // 只发调用方真要渲染的列：排行卡读 6 列却拿走全部 64 列时，整季 2000 行是 2.89MB
+        param.setFields(SortUtil.safeStatsProjection(param.getFields()));
         if (param.getSeasonNum() == null) {
             param.setSeasonNum(1);
         }
@@ -183,6 +185,7 @@ public class PlayerController extends BaseUtils {
     public Object getAllPlayersPlayoffSeasonStatsList(PlayerStatsDto param, int page, int limit) {
         PageHelper.startPage(page, limit);
         param.setField(SortUtil.safeStatsOrderBy(param.getField(), param.getOrder()));
+        param.setFields(SortUtil.safeStatsProjection(param.getFields()));
         if (param.getSeasonNum() == null) {
             param.setSeasonNum(1);
         }

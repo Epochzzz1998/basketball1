@@ -98,6 +98,50 @@ export function buildAdvancedStatColumns({ po = false } = {}) {
   ])
 }
 
+
+/* ===== 接口列裁剪：告诉后端"我只渲染这些列" =====
+ * 字段表从列定义推导，不另手写一份——手写的那份迟早跟列定义脱节，而脱节的表现是
+ * 某一列静默变成 "-"（后端没返回），排查起来像数据出了问题。 */
+
+// 少数列除了自己的 dataIndex 还要读别的字段：成对列（命中/出手）、首发/出场
+const COLUMN_EXTRA_FIELDS = {
+  playerAvgFgm: ['playerAvgFga'],
+  playerAvgTpm: ['playerAvgTpa'],
+  playerAvgFtm: ['playerAvgFta'],
+  playerAppearance: ['playerFrAppearance'],
+}
+
+/** 一组列真正要读的字段（含成对列的伴随字段） */
+export const fieldsOfColumns = (cols) => [...new Set(
+  cols.flatMap((c) => [c.dataIndex, ...(COLUMN_EXTRA_FIELDS[c.dataIndex] || [])]).filter(Boolean),
+)]
+
+/**
+ * 不出现在表里、但前端逻辑要用的字段：位置（位置筛选）和出场（58 场资格线）。
+ * 高阶视图的列里两个都没有——漏掉的话资格线会把所有人判成不合格、位置筛选一个人都留不下，
+ * 而且是静默的（表格照常渲染，只是空了）。
+ */
+const LOGIC_FIELDS = ['playerPosition', 'playerAppearance']
+
+/** 数据表两种视图各自要的字段（榜单页、球队名单、完整排行共用） */
+export const BASIC_TABLE_FIELDS = [...new Set([...fieldsOfColumns(buildFullStatColumns()), ...LOGIC_FIELDS])].join(',')
+export const ADVANCED_TABLE_FIELDS = [...new Set([...fieldsOfColumns(buildAdvancedStatColumns({ po: true })), ...LOGIC_FIELDS])].join(',')
+
+/**
+ * 排行卡要的字段：身份 + 位置（筛选）+ 出场（资格线）+ 所排的那一项。
+ * 命中率项的资格线看命中数，所以要把对应的命中数列一起带上——漏了它资格线会
+ * 把所有人都判成出手不足。
+ */
+const PCT_MADE_FIELD = {
+  playerAccuracy: 'playerAvgFgm',
+  playerThreeAccuracy: 'playerAvgTpm',
+  playerFreethrowAccuracy: 'playerAvgFtm',
+}
+
+export const rankCardFields = (field) => [...new Set([
+  'playerTeam', 'playerPosition', 'playerAppearance', field, PCT_MADE_FIELD[field],
+].filter(Boolean))].join(',')
+
 export const FULL_COLUMNS_SCROLL_X = 2034
 
 /* ===== 移动端紧凑表格 =====

@@ -6,7 +6,7 @@ import { playerApi } from '../../api/player'
 import { ADVANCED_STATS, RANKING_STATS, fmtAdv, fmtNum, fmtPct, LATEST_SEASON, qualifiedBoard, filterByPosition } from './rankConfig'
 import SeasonPicker from '../../components/SeasonPicker'
 import useIsMobile from '../../hooks/useIsMobile'
-import { buildFullStatColumns, buildAdvancedStatColumns, HONOR_COLUMN_KEYS, compactColumns, sumColWidth } from './statColumns'
+import { ADVANCED_TABLE_FIELDS, BASIC_TABLE_FIELDS, buildFullStatColumns, buildAdvancedStatColumns, HONOR_COLUMN_KEYS, compactColumns, sumColWidth } from './statColumns'
 import { GlossaryButton } from './statGlossary'
 import PositionFilter from './PositionFilter'
 
@@ -101,6 +101,7 @@ export default function RankingDetail() {
             seasonNum: params.seasonNum,
             field: stat.field,
             order: stat.order || 'desc',
+            fields: isAdvanced ? ADVANCED_TABLE_FIELDS : BASIC_TABLE_FIELDS,
           })
           // 常规赛套 58 场资格线（含补场规则）；季后赛不设。位置筛在资格线之后
           const board = stage === 'po' ? (res.records || []) : qualifiedBoard(res.records || [], stat.field, seasonNum)

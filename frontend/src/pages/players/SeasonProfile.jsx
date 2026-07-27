@@ -73,6 +73,19 @@ export const GRID_STATS = [
   { key: 'playerThreeAccuracy', label: '三分%', pct: true },
 ]
 
+/**
+ * 资料卡/对比页向后端声明要哪些列。这里只用于**联盟池**（算名次和雷达百分位的那一批
+ * 2000 行），球员本人那一行走生涯接口、字段不裁。
+ * 从 GRID_STATS / ADVANCED_STATS / 两套雷达轴推导，再补上资格线要用的列。
+ */
+export const PROFILE_FIELDS = [...new Set([
+  ...GRID_STATS.map((s) => s.key),
+  ...ADVANCED_STATS.map((s) => s.field),
+  'playerAppearance',              // 58 场资格线
+  'playerPosition',
+  'playerAvgFga', 'playerAvgFta',  // 老赛季没有官方 TS% 时雷达的近似算法要用
+])].join(',')
+
 const MEDAL = ['#f5b301', '#9aa0a6', '#b87333']
 
 export function percentileOf(rows, getter, mine) {
@@ -162,7 +175,7 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
     //    会得出荒唐结果（21-22 的杜兰特 55 场、詹姆斯 56 场都没进池子，于是两人都被算成
     //    场均命中数联盟第 1，而实际上詹姆斯 11.4 高于杜兰特 10.5）；
     //  · 雷达百分位仍套 58 场线——那是分布基准，两场秀会把整条基线带偏。
-    playerApi.listSeasonStats({ page: 1, limit: 2000, seasonNum })
+    playerApi.listSeasonStats({ page: 1, limit: 2000, seasonNum, fields: PROFILE_FIELDS })
       .then((r) => {
         if (!alive) return
         const rows = r.records || []
@@ -170,7 +183,7 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
         setLeagueQual(rows.filter(statQualified))
       })
       .catch(() => { if (alive) { setLeague([]); setLeagueQual([]) } })
-    playerApi.listPlayoffSeasonStats({ page: 1, limit: 2000, seasonNum })
+    playerApi.listPlayoffSeasonStats({ page: 1, limit: 2000, seasonNum, fields: PROFILE_FIELDS })
       .then((r) => { if (alive) setPoLeague(r.records || []) })
       .catch(() => { if (alive) setPoLeague([]) })
     return () => { alive = false }

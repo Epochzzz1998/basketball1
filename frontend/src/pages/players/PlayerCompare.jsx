@@ -10,7 +10,7 @@ import { searchApi } from '../../api/search'
 import { ADVANCED_STATS, ADV_EMPTY, CAREER_SEASON, fmtAdv, fmtNum, seasonShort, PLAYOFF_TAG, statQualified, LATEST_SEASON, NBA_TEAM_NAMES, qualifiedFor, rankIn, unqualifiedReason } from './rankConfig'
 import TeamLogo, { TeamChain } from '../../components/TeamLogo'
 import { CAREER_AWARDS } from './honorConfig'
-import { ADV_RADAR_AXES, GRID_STATS, RADAR_AXES, percentileOf } from './SeasonProfile'
+import { ADV_RADAR_AXES, GRID_STATS, PROFILE_FIELDS, RADAR_AXES, percentileOf } from './SeasonProfile'
 import StatViewSwitch from './StatViewSwitch'
 import useIsMobile from '../../hooks/useIsMobile'
 
@@ -84,7 +84,8 @@ function PlayerPick({ value, onChange, side, photo }) {
     if (!open || mode !== 'team' || !team) return
     let alive = true
     setRoster(null)
-    playerApi.listSeasonStats({ page: 1, limit: 200, seasonNum: rosterSeason, playerTeam: team })
+    // 阵容列表只显示号码和名字（名字/号码/照片来自 join，不受裁剪影响）
+    playerApi.listSeasonStats({ page: 1, limit: 200, seasonNum: rosterSeason, playerTeam: team, fields: 'playerTeam' })
       .then((r) => { if (alive) setRoster(r.records || []) })
       .catch(() => { if (alive) setRoster([]) })
     return () => { alive = false }
@@ -516,7 +517,7 @@ export default function PlayerCompare() {
       if (!season) return
       let alive = true
       setPool({ reg: null, regQual: null, po: null })
-      playerApi.listSeasonStats({ page: 1, limit: 2000, seasonNum: season })
+      playerApi.listSeasonStats({ page: 1, limit: 2000, seasonNum: season, fields: PROFILE_FIELDS })
         .then((r) => {
           if (!alive) return
           // reg = 全体（排名用），regQual = 过 58 场线（雷达基准用）。见 SeasonProfile 里的说明
@@ -524,7 +525,7 @@ export default function PlayerCompare() {
           setPool((p) => ({ ...p, reg: rows, regQual: rows.filter(statQualified) }))
         })
         .catch(() => { if (alive) setPool((p) => ({ ...p, reg: [], regQual: [] })) })
-      playerApi.listPlayoffSeasonStats({ page: 1, limit: 2000, seasonNum: season })
+      playerApi.listPlayoffSeasonStats({ page: 1, limit: 2000, seasonNum: season, fields: PROFILE_FIELDS })
         .then((r) => { if (alive) setPool((p) => ({ ...p, po: r.records || [] })) })
         .catch(() => { if (alive) setPool((p) => ({ ...p, po: [] })) })
       return () => { alive = false }

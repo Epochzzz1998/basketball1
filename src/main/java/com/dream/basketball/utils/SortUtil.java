@@ -4,6 +4,7 @@ import org.apache.commons.lang3.StringUtils;
 
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
@@ -52,6 +53,26 @@ public final class SortUtil {
             "player_avg_ftm", "player_avg_fta",
             "player_accuracy", "player_three_accuracy", "player_freethrow_accuracy", "player_per"));
 
+
+    /**
+     * Selectable columns. A superset of the sortable set: attempts and honor text are
+     * rendered but never sorted on, so they are absent from the ORDER BY whitelist.
+     *
+     * Every name here must be a real column of BOTH player_stats and player_playoff_stats
+     * (verified identical, 56 columns each) — one whitelist serves both queries, and a
+     * name that exists in neither would splice an unresolvable column into the SELECT.
+     * playoffResult and oppTeam belong to other queries' joins, not to these tables, so
+     * they are deliberately absent.
+     */
+    private static final Set<String> ALLOWED_PROJECTION_COLUMNS = new HashSet<>(ALLOWED_STATS_COLUMNS);
+
+    static {
+        ALLOWED_PROJECTION_COLUMNS.addAll(Arrays.asList(
+                "stats_id", "player_id", "player_avg_fga", "player_avg_tpa",
+                "player_avg_ftm", "player_avg_fta",
+                "all_dba_team", "all_def_team"));
+    }
+
     private SortUtil() {
     }
 
@@ -66,6 +87,56 @@ public final class SortUtil {
     /** Same contract as {@link #safeStatsOrderBy}, against the per-round playoff table. */
     public static String safeRoundStatsOrderBy(String camelField, String order) {
         return build(camelField, order, ALLOWED_ROUND_COLUMNS);
+    }
+
+
+    /**
+     * Columns that must be in every projection regardless of what the caller asked for:
+     * the row key, the id every link is built from, and the season each row belongs to.
+     * Dropping any of them breaks rendering rather than saving bytes worth having.
+     */
+    private static final String[] PROJECTION_ALWAYS = {"stats_id", "player_id", "season_num"};
+
+    /**
+     * Build a whitelisted select list for player_stats / player_playoff_stats, or null to
+     * mean "no projection, select everything".
+     *
+     * Why this exists: the season endpoint returned all 64 columns for up to 2000 rows —
+     * 2.89MB of JSON — while a ranking board reads six of them. The caller names the
+     * camelCase fields it will actually render and gets only those.
+     *
+     * Unknown names are dropped rather than rejected: a caller asking for a column this
+     * table does not have should lose that column, not the whole response. If nothing
+     * survives, returns null so the query falls back to selecting everything — a
+     * mistyped parameter must never produce a silently empty row.
+     */
+    public static String safeStatsProjection(String camelCsv) {
+        if (StringUtils.isBlank(camelCsv)) {
+            return null;
+        }
+        Set<String> columns = new LinkedHashSet<>(Arrays.asList(PROJECTION_ALWAYS));
+        for (String raw : camelCsv.split(",")) {
+            String camel = StringUtils.trimToEmpty(raw);
+            if (camel.isEmpty()) {
+                continue;
+            }
+            String column = camel.replaceAll("[A-Z]", "_$0").toLowerCase();
+            if (ALLOWED_PROJECTION_COLUMNS.contains(column)) {
+                columns.add(column);
+            }
+        }
+        // Only the always-columns matched => the caller named nothing usable; select all.
+        if (columns.size() <= PROJECTION_ALWAYS.length) {
+            return null;
+        }
+        StringBuilder sb = new StringBuilder();
+        for (String c : columns) {
+            if (sb.length() > 0) {
+                sb.append(", ");
+            }
+            sb.append("s.").append(c);
+        }
+        return sb.toString();
     }
 
     private static String build(String camelField, String order, Set<String> allowed) {

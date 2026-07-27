@@ -11,7 +11,12 @@
 
     <!-- 查找球员赛季数据 -->
     <select id="findPlayersSeasonStats" parameterType="java.lang.String" resultType="com.dream.basketball.dto.PlayerStatsDto">
-        select t.PLAYER_NAME,t.PLAYER_NUMBER,t.PHOTO,s.* from dream_player t right join
+        select t.PLAYER_NAME,t.PLAYER_NUMBER,t.PHOTO,<choose>
+            <!-- param.fields 仅来自 SortUtil 白名单（"s.列, s.列"），故 ${} 拼接安全；
+                 为空则整行返回，保持旧行为 -->
+            <when test="param.fields != null and param.fields !=''">${param.fields}</when>
+            <otherwise>s.*</otherwise>
+        </choose> from dream_player t right join
             (select * from player_stats where SEASON_NUM = #{param.seasonNum} ) s  on t.PLAYER_ID = s.PLAYER_ID
         <where>
             <include refid="whereConditionPlayer"></include>
@@ -91,7 +96,12 @@
 
     <!-- 全体球员某赛季季后赛数据榜（与常规赛榜同构，查 player_playoff_stats） -->
     <select id="findPlayersPlayoffSeasonStats" parameterType="java.lang.String" resultType="com.dream.basketball.dto.PlayerStatsDto">
-        select t.PLAYER_NAME,t.PLAYER_NUMBER,s.* from dream_player t right join
+        select t.PLAYER_NAME,t.PLAYER_NUMBER,<choose>
+            <!-- param.fields 仅来自 SortUtil 白名单（"s.列, s.列"），故 ${} 拼接安全；
+                 为空则整行返回，保持旧行为 -->
+            <when test="param.fields != null and param.fields !=''">${param.fields}</when>
+            <otherwise>s.*</otherwise>
+        </choose> from dream_player t right join
             (select * from player_playoff_stats where SEASON_NUM = #{param.seasonNum} ) s  on t.PLAYER_ID = s.PLAYER_ID
         <where>
             <include refid="whereConditionPlayer"></include>
