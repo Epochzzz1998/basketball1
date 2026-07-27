@@ -24,6 +24,7 @@ import {
   TrophyOutlined,
   UsergroupAddOutlined,
   UserOutlined,
+  HistoryOutlined,
 } from '@ant-design/icons'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
@@ -119,7 +120,7 @@ export default function AppLayout() {
     if (!user || user.isSuperManager) return
     const p = location.pathname
     const blocked =
-      (user.featData === false && (p.startsWith('/players') || p.startsWith('/rankings') || p.startsWith('/compare') || p.startsWith('/league'))) ||
+      (user.featData === false && (p.startsWith('/players') || p.startsWith('/rankings') || p.startsWith('/history') || p.startsWith('/compare') || p.startsWith('/league'))) ||
       (user.featNews === false && p.startsWith('/official')) ||
       (user.featForum === false && p.startsWith('/news')) ||
       (user.featPm === false && p.startsWith('/messages')) ||
@@ -157,6 +158,8 @@ export default function AppLayout() {
                 { path: '/league', name: '联盟概览', icon: <HomeOutlined /> },
                 { path: '/players', name: '数据概览', icon: <TeamOutlined /> },
                 { path: '/rankings', name: '联盟排行', icon: <TrophyOutlined /> },
+                // 历史数据跟赛季无关（1946-47 至今的累计），所以不并进联盟排行
+                { path: '/history', name: '历史数据', icon: <HistoryOutlined /> },
                 { path: '/compare', name: '球员对比', icon: <SwapOutlined /> },
               ],
             }]
@@ -211,7 +214,7 @@ export default function AppLayout() {
 
   // 全局返回按钮：一级页面（侧栏导航直达的根路径）不显示，其余页面统一在内容区左上角。
   // 优先走站内历史（-1 即"上一级"）；直链进入无历史时，剥路径段回落到最近的已知上级。
-  const NAV_ROOTS = ['/', '/news', '/league', '/players', '/rankings', '/compare', '/official', '/messages', '/schedule', '/bbq/wage', '/bbq/ledger', '/bbq/burning', '/bbq/members', '/bbq/skewers', '/login', '/register', '/403', '/admin/players', '/admin/users']
+  const NAV_ROOTS = ['/', '/news', '/league', '/players', '/rankings', '/history', '/compare', '/official', '/messages', '/schedule', '/bbq/wage', '/bbq/ledger', '/bbq/burning', '/bbq/members', '/bbq/skewers', '/login', '/register', '/403', '/admin/players', '/admin/users']
   const showBack = !NAV_ROOTS.includes(location.pathname)
   const goBack = () => {
     if (window.history.state && window.history.state.idx > 0) {

@@ -13,6 +13,7 @@ import TeamPlayers from './pages/players/TeamPlayers'
 import LeagueRankings from './pages/players/LeagueRankings'
 import RankingDetail from './pages/players/RankingDetail'
 import AllTimeBoard from './pages/players/AllTimeBoard'
+import HistoryHome from './pages/players/HistoryHome'
 import HistoryPlayer from './pages/players/HistoryPlayer'
 import HonorDetail from './pages/players/HonorDetail'
 import PlayerCareer from './pages/players/PlayerCareer'
@@ -74,6 +75,7 @@ export default function App() {
         <Route path="players/:playerId" element={<PlayerCareer />} />
         <Route path="compare" element={<PlayerCompare />} />
         <Route path="rankings" element={<LeagueRankings />} />
+        <Route path="history" element={<HistoryHome />} />
         <Route path="rankings/honors/:group" element={<HonorDetail />} />
         {/* 同理：alltime 段必须在 :field 之前 */}
         <Route path="rankings/alltime/:field" element={<AllTimeBoard />} />
