@@ -1,5 +1,6 @@
 import { Segmented } from 'antd'
 import { GlossaryButton } from './statGlossary'
+import ControlGroup from './ControlGroup'
 
 /**
  * 「基础数据 / 高阶数据」开关，放在表格外面而不是 ProTable 的工具条里。
@@ -12,12 +13,14 @@ import { GlossaryButton } from './statGlossary'
 export default function StatViewSwitch({ value, onChange, style, children }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 12, ...style }}>
-      <Segmented
-        size="small"
-        value={value}
-        onChange={onChange}
-        options={[{ label: '基础数据', value: 'basic' }, { label: '高阶数据', value: 'adv' }]}
-      />
+      <ControlGroup label="数据">
+        <Segmented
+          size="small"
+          value={value}
+          onChange={onChange}
+          options={[{ label: '基础数据', value: 'basic' }, { label: '高阶数据', value: 'adv' }]}
+        />
+      </ControlGroup>
       {/* 同一行还能放位置筛选之类的控件（窄屏 flexWrap 自己折行） */}
       {children}
       {/* 高阶列的释义只在悬停时出现，手机没有悬停，这里是唯一的入口 */}

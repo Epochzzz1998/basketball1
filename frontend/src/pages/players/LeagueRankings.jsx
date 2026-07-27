@@ -10,6 +10,7 @@ import { ADVANCED_STATS, NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, RANKING_STA
 import { compactColumns, sumColWidth } from './statColumns'
 import { GlossaryButton, GlossaryTip } from './statGlossary'
 import PositionFilter from './PositionFilter'
+import StatViewSwitch from './StatViewSwitch'
 import SeasonPicker from '../../components/SeasonPicker'
 import { TeamCell } from '../../components/TeamLogo'
 import useIsMobile from '../../hooks/useIsMobile'
@@ -89,15 +90,9 @@ function StatsTab({ seasonNum, stage }) {
     .filter((s) => stage === 'po' || !s.poOnly)
   return (
     <>
-      <div style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <Segmented
-          value={view}
-          onChange={setView}
-          options={[{ label: '基础数据', value: 'basic' }, { label: '高阶数据', value: 'adv' }]}
-        />
+      <StatViewSwitch value={view} onChange={setView} style={{ marginBottom: 14 }}>
         <PositionFilter value={pos} onChange={setPos} />
-        {view === 'adv' && <GlossaryButton />}
-      </div>
+      </StatViewSwitch>
       <Row gutter={[16, 16]}>
         {list.map((s) => (
           <Col key={s.field} xs={24} sm={12} lg={8}>
