@@ -5,9 +5,10 @@ import { playerApi } from '../../api/player'
 import SeasonPicker from '../../components/SeasonPicker'
 import useIsMobile from '../../hooks/useIsMobile'
 import useUrlState from '../../hooks/useUrlState'
-import { LATEST_SEASON } from './rankConfig'
+import { LATEST_SEASON, filterByPosition } from './rankConfig'
 import { TeamNames } from '../../components/TeamLogo'
 import StatViewSwitch from './StatViewSwitch'
+import PositionFilter from './PositionFilter'
 import { buildFullStatColumns, buildAdvancedStatColumns, HONOR_COLUMN_KEYS, compactColumns, sumColWidth } from './statColumns'
 
 /**
@@ -30,6 +31,7 @@ export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: s
   const byRound = po && round != null
   // 基础表已有 20+ 列，高阶又是 20 个指标，并成一张表没法看——拆两组切换
   const [view, setView] = useState('basic')
+  const [pos, setPos] = useState('all')
   const adv = view === 'adv' && !byRound
 
   const base = (adv ? buildAdvancedStatColumns({ po }) : buildFullStatColumns())
@@ -54,14 +56,18 @@ export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: s
 
   return (
     <>
-    {showSwitch && <StatViewSwitch value={view} onChange={setView} />}
+    {showSwitch && (
+      <StatViewSwitch value={view} onChange={setView}>
+        {!team && <PositionFilter value={pos} onChange={setPos} />}
+      </StatViewSwitch>
+    )}
     <ProTable
       className="stat-compact"
       bordered
       headerTitle={team ? undefined : '球员赛季数据榜'}
       rowKey="statsId"
       columns={columns}
-      params={{ seasonNum, playerTeam: team, playerName, stage, round }} /* 任一变化都会自动重新请求 */
+      params={{ seasonNum, playerTeam: team, playerName, stage, round, pos }} /* 任一变化都会自动重新请求 */
       search={false}
       scroll={{ x: sumColWidth(columns) }}
       options={false}
@@ -88,13 +94,14 @@ export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: s
         }
         // 单轮次走独立接口，返回的是裸数组（不分页）
         if (byRound) {
-          const rows = await playerApi.playoffRoundStats({ ...query, round: params.round })
-          return { data: rows || [], total: rows?.length || 0, success: true }
+          const rows = filterByPosition(await playerApi.playoffRoundStats({ ...query, round: params.round }), params.pos)
+          return { data: rows, total: rows.length, success: true }
         }
         const api = po ? playerApi.listPlayoffSeasonStats : playerApi.listSeasonStats
         const res = await api({ ...query, page: 1, limit: 2000 })
-        // 拦截器已把 Result 拆成 {total, records}
-        return { data: res.records || [], total: res.total || 0, success: true }
+        // 拦截器已把 Result 拆成 {total, records}；位置在前端筛（一次取全，无需再请求）
+        const rows = filterByPosition(res.records || [], params.pos)
+        return { data: rows, total: rows.length, success: true }
       }}
     />
     </>

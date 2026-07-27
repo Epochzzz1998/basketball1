@@ -9,15 +9,17 @@ import { GlossaryButton } from './statGlossary'
  * 表格可以整体关掉工具条（toolBarRender={false}），跟逐季/逐场那个开关同一个位置、
  * 同一种视觉层级。
  */
-export default function StatViewSwitch({ value, onChange, style }) {
+export default function StatViewSwitch({ value, onChange, style, children }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12, ...style }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 12, ...style }}>
       <Segmented
         size="small"
         value={value}
         onChange={onChange}
         options={[{ label: '基础数据', value: 'basic' }, { label: '高阶数据', value: 'adv' }]}
       />
+      {/* 同一行还能放位置筛选之类的控件（窄屏 flexWrap 自己折行） */}
+      {children}
       {/* 高阶列的释义只在悬停时出现，手机没有悬停，这里是唯一的入口 */}
       {value === 'adv' && <GlossaryButton />}
     </div>

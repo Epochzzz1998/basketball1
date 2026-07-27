@@ -108,6 +108,28 @@ export const boardPool = (rows, field, season, po = false) => {
 export const qualifiedFor = (rows, field, row, po = false) =>
   po || (!!row?.playerId && boardPool(rows, field, undefined, po).some((r) => r.playerId === row.playerId))
 
+/**
+ * 位置分组筛选：全站排行共用这一份。
+ *
+ * 库里的位置值是混的——既有细分的 PG/SG/SF/PF，也有本来就粗粒度的 G/F/C，
+ * 另有少量 GF（摇摆人）和 NA。所以不做枚举映射，按「位置串里含不含这个字母」判断：
+ * PG/SG/G/GF 都算后卫，SF/PF/F/GF 都算前锋，C 算中锋。GF 前后卫都算得上，
+ * 这是筛选不是分桶，两边都出现反而合理；NA 哪一档都不进。
+ */
+export const POSITION_GROUPS = [
+  { value: 'all', label: '全部' },
+  { value: 'G', label: '后卫' },
+  { value: 'F', label: '前锋' },
+  { value: 'C', label: '中锋' },
+]
+
+export const inPositionGroup = (row, group) =>
+  !group || group === 'all' || String(row?.playerPosition || '').toUpperCase().includes(group)
+
+/** 按位置筛一批行（榜单先按资格线取池子，再筛位置——顺序反了会改变补场规则的基准） */
+export const filterByPosition = (rows, group) =>
+  !group || group === 'all' ? (rows || []) : (rows || []).filter((r) => inPositionGroup(r, group))
+
 /** 不达标的原因，决定标签文案 */
 export const unqualifiedReason = (field) => (PCT_QUALIFY[field] ? '出手不足' : '场次不足')
 

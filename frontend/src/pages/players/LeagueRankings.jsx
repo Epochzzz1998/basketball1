@@ -6,9 +6,10 @@ import { Link, useNavigate } from 'react-router-dom'
 import { playerApi } from '../../api/player'
 import { teamApi } from '../../api/team'
 import { HONOR_GROUPS } from './honorConfig'
-import { ADVANCED_STATS, NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, RANKING_STATS, fmtAdv, fmtNum, fmtPct, fmtTeamChainZh, playoffRecord, LATEST_SEASON, honorEligible, qualifiedBoard } from './rankConfig'
+import { ADVANCED_STATS, NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, RANKING_STATS, fmtAdv, fmtNum, fmtPct, fmtTeamChainZh, playoffRecord, LATEST_SEASON, honorEligible, qualifiedBoard, filterByPosition } from './rankConfig'
 import { compactColumns, sumColWidth } from './statColumns'
 import { GlossaryButton, GlossaryTip } from './statGlossary'
+import PositionFilter from './PositionFilter'
 import SeasonPicker from '../../components/SeasonPicker'
 import { TeamCell } from '../../components/TeamLogo'
 import useIsMobile from '../../hooks/useIsMobile'
@@ -18,7 +19,7 @@ const MEDAL = ['#f5b301', '#9aa0a6', '#b87333'] // 金 / 银 / 铜
 
 /* ============ Tab 1：单项排行 ============ */
 
-function StatRankCard({ stat, seasonNum, stage }) {
+function StatRankCard({ stat, seasonNum, stage, pos }) {
   const [rows, setRows] = useState(null)
   const navigate = useNavigate()
 
@@ -26,16 +27,19 @@ function StatRankCard({ stat, seasonNum, stage }) {
     let alive = true
     setRows(null)
     const api = stage === 'po' ? playerApi.listPlayoffSeasonStats : playerApi.listSeasonStats
-    // 多取一段再按场次资格线过滤（58 场 + 补场规则），常规赛才有资格线；季后赛不设
-    api({ page: 1, limit: 200, seasonNum, field: stat.field, order: stat.order || 'desc' })
+    // 多取一段再按场次资格线过滤（58 场 + 补场规则），常规赛才有资格线；季后赛不设。
+    // 筛位置时多取一些：前 200 名里某个位置未必凑得满 10 个（比如中锋的助攻榜）
+    api({ page: 1, limit: pos && pos !== 'all' ? 600 : 200, seasonNum, field: stat.field, order: stat.order || 'desc' })
       .then((r) => {
         if (!alive) return
         const list = r.records || []
-        setRows((stage === 'po' ? list : qualifiedBoard(list, stat.field, seasonNum)).slice(0, 10))
+        // 先按资格线取池子再筛位置：反过来会让补场规则的基准变成"该位置最好成绩"
+        const board = stage === 'po' ? list : qualifiedBoard(list, stat.field, seasonNum)
+        setRows(filterByPosition(board, pos).slice(0, 10))
       })
       .catch(() => { if (alive) setRows([]) })
     return () => { alive = false }
-  }, [stat.field, stat.order, seasonNum, stage])
+  }, [stat.field, stat.order, seasonNum, stage, pos])
 
   return (
     <Card
@@ -45,7 +49,7 @@ function StatRankCard({ stat, seasonNum, stage }) {
           {stat.note && <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 400, color: '#999' }}>{stat.note}</span>}
         </>
       }
-      extra={<a onClick={() => navigate(`/rankings/${stat.field}?seasonNum=${seasonNum}&stage=${stage}`)}>完整排行 →</a>}
+      extra={<a onClick={() => navigate(`/rankings/${stat.field}?seasonNum=${seasonNum}&stage=${stage}${pos && pos !== 'all' ? `&pos=${pos}` : ''}`)}>完整排行 →</a>}
       loading={rows === null}
       styles={{ body: { padding: '8px 20px' } }}
     >
@@ -80,22 +84,24 @@ function StatRankCard({ stat, seasonNum, stage }) {
 function StatsTab({ seasonNum, stage }) {
   // 基础 14 项 + 高阶 21 项混在一页要滚很久，拆成两组切换（与数据表口径一致）
   const [view, setView] = useState('basic')
+  const [pos, setPos] = useState('all')
   const list = (view === 'adv' ? ADVANCED_STATS : RANKING_STATS)
     .filter((s) => stage === 'po' || !s.poOnly)
   return (
     <>
-      <div style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 14 }}>
+      <div style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <Segmented
           value={view}
           onChange={setView}
           options={[{ label: '基础数据', value: 'basic' }, { label: '高阶数据', value: 'adv' }]}
         />
+        <PositionFilter value={pos} onChange={setPos} />
         {view === 'adv' && <GlossaryButton />}
       </div>
       <Row gutter={[16, 16]}>
         {list.map((s) => (
           <Col key={s.field} xs={24} sm={12} lg={8}>
-            <StatRankCard stat={s} seasonNum={seasonNum} stage={stage} />
+            <StatRankCard stat={s} seasonNum={seasonNum} stage={stage} pos={pos} />
           </Col>
         ))}
       </Row>

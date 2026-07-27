@@ -3,11 +3,12 @@ import { ProTable } from '@ant-design/pro-components'
 import { Button } from 'antd'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { playerApi } from '../../api/player'
-import { ADVANCED_STATS, RANKING_STATS, fmtAdv, fmtNum, fmtPct, LATEST_SEASON, qualifiedBoard } from './rankConfig'
+import { ADVANCED_STATS, RANKING_STATS, fmtAdv, fmtNum, fmtPct, LATEST_SEASON, qualifiedBoard, filterByPosition } from './rankConfig'
 import SeasonPicker from '../../components/SeasonPicker'
 import useIsMobile from '../../hooks/useIsMobile'
 import { buildFullStatColumns, buildAdvancedStatColumns, HONOR_COLUMN_KEYS, compactColumns, sumColWidth } from './statColumns'
 import { GlossaryButton } from './statGlossary'
+import PositionFilter from './PositionFilter'
 
 /**
  * 某数据项的完整排行（/rankings/:field）：按该项降序、不分页一滚到底，
@@ -23,6 +24,17 @@ export default function RankingDetail() {
     || { field, label: '数据', digits: 1 }
   const stage = searchParams.get('stage') === 'po' ? 'po' : 'reg' // 跟随联盟排行的赛段切换
   const [seasonNum, setSeasonNumRaw] = useState(Number(searchParams.get('seasonNum')) || LATEST_SEASON)
+  // 位置跟着 URL 走：从单项排行卡「完整排行 →」下钻时把筛选带过来
+  const [pos, setPosRaw] = useState(searchParams.get('pos') || 'all')
+  const setPos = (v) => {
+    setPosRaw(v)
+    setSearchParams((prev) => {
+      const q = new URLSearchParams(prev)
+      if (v && v !== 'all') q.set('pos', v)
+      else q.delete('pos')
+      return q
+    }, { replace: true })
+  }
   // 换赛季同步写回 URL（replace）：往下钻再返回时本页赛季不丢
   const setSeasonNum = (v) => {
     setSeasonNumRaw(v)
@@ -75,11 +87,12 @@ export default function RankingDetail() {
         options={false}
         scroll={{ x: sumColWidth(baseColumns) }}
         toolBarRender={() => [
+          <PositionFilter key="pos" value={pos} onChange={setPos} />,
           ...(isAdvanced ? [<GlossaryButton key="g" />] : []),
           <SeasonPicker key="season" value={seasonNum} onChange={setSeasonNum} />,
         ]}
         pagination={false} /* 不分页，一滚到底 */
-        params={{ seasonNum, stage }}
+        params={{ seasonNum, stage, pos }}
         request={async (params) => {
           const api = stage === 'po' ? playerApi.listPlayoffSeasonStats : playerApi.listSeasonStats
           const res = await api({
@@ -89,8 +102,9 @@ export default function RankingDetail() {
             field: stat.field,
             order: stat.order || 'desc',
           })
-          // 常规赛套 58 场资格线（含补场规则）；季后赛不设
-          const list = stage === 'po' ? (res.records || []) : qualifiedBoard(res.records || [], stat.field, seasonNum)
+          // 常规赛套 58 场资格线（含补场规则）；季后赛不设。位置筛在资格线之后
+          const board = stage === 'po' ? (res.records || []) : qualifiedBoard(res.records || [], stat.field, seasonNum)
+          const list = filterByPosition(board, params.pos)
           return { data: list, total: list.length, success: true }
         }}
       />
