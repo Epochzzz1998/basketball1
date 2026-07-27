@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Popover, Segmented } from 'antd'
+import { Popover } from 'antd'
 import { CaretDownOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons'
 import { CAREER_SEASON, EARLIEST_SEASON, LATEST_SEASON, SEASON_BASE, seasonShort, seasonYearLabel } from '../pages/players/rankConfig'
 import useIsMobile from '../hooks/useIsMobile'
@@ -51,20 +51,33 @@ export default function SeasonPicker({ value, onChange, includeCareer = true, co
   }
 
   const grid = (
-    // 268px 是六个年代时定的；补完 1946 年起的老赛季后年代变成九个（40s-20s），
-    // 每格只剩 30px，标签直接被省略号截断。336 = 9 × 约 34px + 两侧内边距，
-    // 在 375px 宽的手机上也放得下（弹层还有 antd 自己的 12px 内边距）。
-    <div style={{ width: 336, maxWidth: '86vw' }}>
+    <div style={{ width: 268 }}>
       {/* 芯片 hover 描边走一小段局部样式（inline 写不了 :hover） */}
       <style>{'.season-chip:hover{border-color:#fa541c;color:#fa541c}'}</style>
-      <Segmented
-        block
-        size="small"
-        value={era}
-        onChange={setEra}
-        options={ERAS.map((e) => ({ label: eraLabel(e), value: e }))}
-        style={{ marginBottom: 8, maxWidth: '100%', overflowX: 'auto' }}
-      />
+      {/*
+        年代切换原来用 Segmented block：六个年代时刚好，补完 1946 年起的老赛季后变成九个
+        （40s-20s），一行平分下来每格 30px，标签被省略号截断。加宽弹层治标不治本——真按
+        九格算要 330px 以上，手机上又得被 vw 压回去。改成可换行的小胶囊：放不下就换行，
+        以后年代再多也不会挤，样式还跟下面的赛季芯片统一。
+      */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+        {ERAS.map((e) => {
+          const on = e === era
+          return (
+            <div
+              key={e}
+              className="season-chip"
+              onClick={() => setEra(e)}
+              style={{
+                ...chipBase, padding: '3px 10px', fontSize: 12,
+                ...(on ? { background: '#fa541c', borderColor: '#fa541c', color: '#fff', fontWeight: 700 } : { color: '#666' }),
+              }}
+            >
+              {eraLabel(e)}
+            </div>
+          )
+        })}
+      </div>
       {/* 不设 minHeight：行数随年代变化，芯片保持紧凑不被拉伸 */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, alignContent: 'start' }}>
         {Array.from({ length: MAX_SEASON - MIN_SEASON + 1 }, (_, i) => MIN_SEASON + i)
