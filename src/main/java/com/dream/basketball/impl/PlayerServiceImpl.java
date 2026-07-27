@@ -104,6 +104,20 @@ public class PlayerServiceImpl extends ServiceImpl<PlayerMapper, DreamPlayer> im
         return expr == null ? java.util.Collections.emptyList() : baseMapper.findAllTimeBoard(expr, limit);
     }
 
+    /** 评选类奖项：MVP/DPOY 记在 player_stats 的名次列上，其余四项在 season_award 表 */
+    private static final java.util.Set<String> VOTED_AWARDS =
+            new java.util.HashSet<>(java.util.Arrays.asList("mvp", "dpoy", "fmvp", "roy", "smoy", "mip"));
+
+    @Override
+    public List<Map<String, Object>> findAwardHistory(String award) {
+        if (VOTED_AWARDS.contains(award)) {
+            return baseMapper.findVotedAwardHistory(award);
+        }
+        String expr = SortUtil.safeCrownExpr(award);
+        // 既不是评选类、也不在统计王白名单里 -> 空列表，不拿用户输入拼 SQL
+        return expr == null ? java.util.Collections.emptyList() : baseMapper.findCrownHistory(expr);
+    }
+
     @Override
     public Map<String, Object> findCareerTotalsByBrId(String brId) {
         List<Map<String, Object>> rows = baseMapper.findCareerTotalsByBrId(brId);

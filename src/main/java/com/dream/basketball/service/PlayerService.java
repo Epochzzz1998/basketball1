@@ -50,6 +50,9 @@ public interface PlayerService extends IService<DreamPlayer> {
     /** 按 B-R id 取生涯总数（最小档案）。 */
     Map<String, Object> findCareerTotalsByBrId(String brId);
 
+    /** 历史荣誉逐季获奖者；award 既可以是评选类的键，也可以是统计王的驼峰列名。 */
+    List<Map<String, Object>> findAwardHistory(String award);
+
     public List<DreamPlayerDto> findAllPlayers(@RequestBody(required = false) DreamPlayerDto param);
 
     public List<PlayerStatsDto> findPlayersSeasonStats(@RequestBody(required = false) PlayerStatsDto param);

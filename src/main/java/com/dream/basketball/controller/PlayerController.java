@@ -232,6 +232,12 @@ public class PlayerController extends BaseUtils {
         return new Result<>(0, "成功", playerService.findAllTimeBoard(StringUtils.trimToEmpty(field), limit));
     }
 
+    /** 历史荣誉（公开）：某个奖项/统计王的逐季获奖者，1946-47 至今。 */
+    @GetMapping("/awardHistory")
+    public Object awardHistory(String award) {
+        return new Result<>(0, "成功", playerService.findAwardHistory(StringUtils.trimToEmpty(award)));
+    }
+
     /** 历史球员最小档案（公开）：本库没有资料卡的人，按 B-R id 只给生涯总数。 */
     @GetMapping("/historyPlayer")
     public Object historyPlayer(String brId) {

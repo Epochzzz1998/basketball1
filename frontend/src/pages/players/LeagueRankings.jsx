@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Badge, Card, Col, Empty, Row, Segmented, Select, Space, Table, Tag } from 'antd'
-import { CrownOutlined, HistoryOutlined, OrderedListOutlined, TeamOutlined } from '@ant-design/icons'
+import { CrownOutlined, HistoryOutlined, OrderedListOutlined, TeamOutlined, TrophyOutlined } from '@ant-design/icons'
 import PillTabs from '../../components/PillTabs'
 import { Link, useNavigate } from 'react-router-dom'
 import { playerApi } from '../../api/player'
@@ -10,6 +10,7 @@ import { ADVANCED_STATS, NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, RANKING_STA
 import { compactColumns, rankCardFields, sumColWidth } from './statColumns'
 import { GlossaryButton, GlossaryTip } from './statGlossary'
 import PositionFilter from './PositionFilter'
+import AwardHistory from './AwardHistory'
 import StatViewSwitch from './StatViewSwitch'
 import SeasonPicker from '../../components/SeasonPicker'
 import { TeamCell } from '../../components/TeamLogo'
@@ -517,12 +518,15 @@ export default function LeagueRankings() {
           { value: 'teams', icon: <TeamOutlined />, label: '球队排行' },
           // 历史总榜跟赛季无关（生涯累计），赛季/赛段选择对它不起作用
           { value: 'alltime', icon: <HistoryOutlined />, label: '历史总榜' },
+          // 历史荣誉同样跟赛季无关，紧挨着历史总榜放
+          { value: 'awards', icon: <TrophyOutlined />, label: '历史荣誉' },
         ]}
       />
       {tab === 'stats' && <StatsTab seasonNum={seasonNum} stage={stage} />}
       {tab === 'honors' && stage !== 'po' && <HonorsTab seasonNum={seasonNum} />}
       {tab === 'teams' && <TeamsTab seasonNum={seasonNum} stage={stage} />}
       {tab === 'alltime' && <AllTimeTab />}
+      {tab === 'awards' && <AwardHistory />}
     </>
   )
 }

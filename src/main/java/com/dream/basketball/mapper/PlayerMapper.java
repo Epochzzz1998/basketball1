@@ -58,4 +58,10 @@ public interface PlayerMapper extends BaseMapper<DreamPlayer> {
 
     /** 按 B-R id 取生涯总数：给库里没有的历史球员做最小档案用。 */
     List<Map<String, Object>> findCareerTotalsByBrId(@Param("brId") String brId);
+
+    /** 历史荣誉·评选类（mvp/dpoy/fmvp/roy/smoy/mip）逐季获奖者。 */
+    List<Map<String, Object>> findVotedAwardHistory(@Param("award") String award);
+
+    /** 历史荣誉·统计王逐季第一名。expr 必须来自 SortUtil.safeCrownExpr。 */
+    List<Map<String, Object>> findCrownHistory(@Param("expr") String expr);
 }

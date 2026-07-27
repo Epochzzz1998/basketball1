@@ -159,6 +159,27 @@ public final class SortUtil {
         return TOTALS_COLUMNS.get(StringUtils.trimToEmpty(camelField));
     }
 
+
+    /**
+     * 历史统计王可选的项：驼峰名 -> player_stats 的列。与生涯总数榜分开——那边是累计值，
+     * 这边是场均值，两张表两套列名。
+     */
+    private static final java.util.Map<String, String> CROWN_COLUMNS = new java.util.HashMap<String, String>() {{
+        // 不带表别名：这个表达式要在两个作用域里用（外层的 s、子查询里的 s2），
+        // 写死 s. 会让子查询报 Unknown column。列名只存在于 player_stats，不会有歧义。
+        put("playerAvgScore", "PLAYER_AVG_SCORE"); put("playerAvgReb", "PLAYER_AVG_REB");
+        put("playerAvgAss", "PLAYER_AVG_ASS"); put("playerAvgSteal", "PLAYER_AVG_STEAL");
+        put("playerAvgBlock", "PLAYER_AVG_BLOCK"); put("playerAvgTpm", "PLAYER_AVG_TPM");
+        put("playerAvgFgm", "PLAYER_AVG_FGM"); put("playingTime", "PLAYING_TIME");
+        put("playerAccuracy", "PLAYER_ACCURACY"); put("playerThreeAccuracy", "PLAYER_THREE_ACCURACY");
+        put("playerFreethrowAccuracy", "PLAYER_FREETHROW_ACCURACY");
+    }};
+
+    /** 统计王的排序表达式；不认识的项返回 null，调用方据此拒绝。 */
+    public static String safeCrownExpr(String camelField) {
+        return CROWN_COLUMNS.get(StringUtils.trimToEmpty(camelField));
+    }
+
     private static String build(String camelField, String order, Set<String> allowed) {
         if (StringUtils.isBlank(camelField)) {
             return null;

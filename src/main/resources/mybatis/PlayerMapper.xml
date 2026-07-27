@@ -302,6 +302,68 @@
         ) t where t.brId = #{brId}
     </select>
 
+
+    <!-- 历史荣誉：评选类（MVP/DPOY 在 player_stats 的名次列上；FMVP/最佳新秀/第六人/进步奖
+         在 season_award 表）。老赛季没抓到的年份自然没有行，前端留空即可。 -->
+    <select id="findVotedAwardHistory" resultType="java.util.Map">
+        <choose>
+            <when test="award == 'mvp' or award == 'dpoy'">
+                select s.SEASON_NUM as seasonNum, s.PLAYER_ID as playerId,
+                       coalesce(p.PLAYER_NAME, p.NAME_EN) as playerName, s.PLAYER_TEAM as playerTeam,
+                       s.PLAYER_APPEARANCE as games, s.PLAYER_AVG_SCORE as pts,
+                       s.PLAYER_AVG_REB as reb, s.PLAYER_AVG_ASS as ast
+                from player_stats s left join dream_player p on p.PLAYER_ID = s.PLAYER_ID
+                where s.SEASON_NUM &lt;&gt; 99
+                  and <choose><when test="award == 'mvp'">s.MVP_RANK = 1</when><otherwise>s.DPOY_RANK = 1</otherwise></choose>
+                order by s.SEASON_NUM desc
+            </when>
+            <otherwise>
+                select a.SEASON_NUM as seasonNum, a.PLAYER_ID as playerId,
+                       coalesce(p.PLAYER_NAME, p.NAME_EN) as playerName, s.PLAYER_TEAM as playerTeam,
+                       s.PLAYER_APPEARANCE as games, s.PLAYER_AVG_SCORE as pts,
+                       s.PLAYER_AVG_REB as reb, s.PLAYER_AVG_ASS as ast
+                from season_award a
+                left join dream_player p on p.PLAYER_ID = a.PLAYER_ID
+                left join player_stats s on s.PLAYER_ID = a.PLAYER_ID and s.SEASON_NUM = a.SEASON_NUM
+                where a.AWARD = #{award} and a.PLAYER_ID is not null
+                order by a.SEASON_NUM desc
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 历史荣誉：统计王（得分王/篮板王…）。没有官方记录也能算——就是当季**过资格线的人里**该项
+         第一名。资格线 = 该季球队场次的 70%，用当季最多出场数近似；写死 58 场会让 48 场的
+         1947-48 和 50 场的 1998-99 一个人都合格不了。
+         expr 只可能来自 SortUtil 的白名单，故 ${} 拼接安全。并列全部保留。 -->
+    <select id="findCrownHistory" resultType="java.util.Map">
+        select s.SEASON_NUM as seasonNum, s.PLAYER_ID as playerId,
+               coalesce(p.PLAYER_NAME, p.NAME_EN) as playerName, s.PLAYER_TEAM as playerTeam,
+               s.PLAYER_APPEARANCE as games, ${expr} as val
+        from player_stats s
+        left join dream_player p on p.PLAYER_ID = s.PLAYER_ID
+        join (select SEASON_NUM, ceil(max(PLAYER_APPEARANCE) * 0.7) line
+              from player_stats where SEASON_NUM &lt;&gt; 99 group by SEASON_NUM) q
+          on q.SEASON_NUM = s.SEASON_NUM
+        join (select s2.SEASON_NUM, max(${expr}) best
+              from player_stats s2
+              join (select SEASON_NUM, ceil(max(PLAYER_APPEARANCE) * 0.7) line
+                    from player_stats where SEASON_NUM &lt;&gt; 99 group by SEASON_NUM) q2
+                on q2.SEASON_NUM = s2.SEASON_NUM
+              where s2.SEASON_NUM &lt;&gt; 99 and s2.PLAYER_APPEARANCE &gt;= q2.line and ${expr} is not null
+              group by s2.SEASON_NUM) m
+          on m.SEASON_NUM = s.SEASON_NUM and ${expr} = m.best
+        <!-- 只有这一项在当季被**全联盟**统计时才算冠军。1973-74 联盟才正式统计盖帽/抢断，
+             但个别球队此前自己记过，B-R 把这些残缺记录也发布了——1970-71 全联盟 217 行里
+             只有 12 行有盖帽，而且全是开拓者。照常算出来的"盖帽王"其实是"那 12 个开拓者里
+             最高的"。用覆盖率卡掉：不到半数球员有这项数据就当那年没统计。
+             三分（1979-80 起）、失误/前场篮板（1973-74 起）同理，一条规则全覆盖。 -->
+        join (select SEASON_NUM from player_stats where SEASON_NUM &lt;&gt; 99
+              group by SEASON_NUM having sum(${expr} is not null) &gt;= 0.5 * count(*)) cov
+          on cov.SEASON_NUM = s.SEASON_NUM
+        where s.SEASON_NUM &lt;&gt; 99 and s.PLAYER_APPEARANCE &gt;= q.line
+        order by s.SEASON_NUM desc
+    </select>
+
     <sql id="whereConditionPlayer">
         1=1
         <!-- fuzzy name search (player search box); #{} binding keeps it injection-safe.
