@@ -69,11 +69,15 @@ export const GRID_STATS = [
   { key: 'playerAvgPf', label: '犯规', asc: true, note: '最少排' },
   { key: 'playerPer', label: '效率值' },
   { key: 'playerAvgPn', label: '正负值', poOnly: true },
+  // 三种投篮各占一行：命中 / 出手 / 命中率（格子是一行三个，正好对齐着读）
   { key: 'playerAvgFgm', label: '场均投篮命中' },
+  { key: 'playerAvgFga', label: '场均投篮出手' },
   { key: 'playerAccuracy', label: '投篮%', pct: true },
   { key: 'playerAvgTpm', label: '场均三分命中' },
+  { key: 'playerAvgTpa', label: '场均三分出手' },
   { key: 'playerThreeAccuracy', label: '三分%', pct: true },
   { key: 'playerAvgFtm', label: '场均罚球命中' },
+  { key: 'playerAvgFta', label: '场均罚球出手' },
   { key: 'playerFreethrowAccuracy', label: '罚球%', pct: true },
 ]
 

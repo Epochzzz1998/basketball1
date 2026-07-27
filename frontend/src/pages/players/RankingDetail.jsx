@@ -3,7 +3,7 @@ import { ProTable } from '@ant-design/pro-components'
 import { Button } from 'antd'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { playerApi } from '../../api/player'
-import { ADVANCED_STATS, RANKING_STATS, fmtAdv, fmtNum, fmtPct, LATEST_SEASON, qualifiedBoard, filterByPosition } from './rankConfig'
+import { ADVANCED_STATS, DRILL_ONLY_STATS, RANKING_STATS, fmtAdv, fmtNum, fmtPct, LATEST_SEASON, qualifiedBoard, filterByPosition } from './rankConfig'
 import SeasonPicker from '../../components/SeasonPicker'
 import useIsMobile from '../../hooks/useIsMobile'
 import { ADVANCED_TABLE_FIELDS, BASIC_TABLE_FIELDS, buildFullStatColumns, buildAdvancedStatColumns, HONOR_COLUMN_KEYS, compactColumns, sumColWidth } from './statColumns'
@@ -19,7 +19,7 @@ export default function RankingDetail() {
   const navigate = useNavigate()
   // 高阶项也能深链进来（排行卡的「完整排行」按钮），两组一起找
   const isAdvanced = ADVANCED_STATS.some((s) => s.field === field)
-  const stat = [...RANKING_STATS, ...ADVANCED_STATS].find((s) => s.field === field)
+  const stat = [...RANKING_STATS, ...ADVANCED_STATS, ...DRILL_ONLY_STATS].find((s) => s.field === field)
     || { field, label: '数据', digits: 1 }
   const stage = searchParams.get('stage') === 'po' ? 'po' : 'reg' // 跟随联盟排行的赛段切换
   const [seasonNum, setSeasonNumRaw] = useState(Number(searchParams.get('seasonNum')) || LATEST_SEASON)

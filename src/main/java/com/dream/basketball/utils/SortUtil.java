@@ -27,6 +27,8 @@ public final class SortUtil {
             "player_appearance", "player_fr_appearance", "player_sr_appearance", "playing_time",
             "player_avg_score", "player_avg_reb", "player_avg_off_reb", "player_avg_def_reb", "player_avg_ass",
             "player_avg_fgm", "player_avg_tpm",
+            // 出手数：资料卡有对应格子，点名次会深链到完整排行，所以要能排序
+            "player_avg_fga", "player_avg_tpa", "player_avg_ftm", "player_avg_fta",
             "player_accuracy", "player_three_accuracy", "player_freethrow_accuracy",
             "player_avg_block", "player_avg_steal", "player_avg_turnover", "player_avg_pf",
             "player_per", "player_pie", "player_ws",

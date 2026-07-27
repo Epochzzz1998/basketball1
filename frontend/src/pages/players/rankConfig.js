@@ -378,6 +378,17 @@ export const ADVANCED_STATS = [
   { field: 'playerTovPct', label: '失误率', rate: true, order: 'asc', asc: true, note: '越低越好' },
 ]
 
+/**
+ * 只用于深链、不在单项排行页出卡片的项。资料卡的名次胶囊会跳到 /rankings/:field，
+ * 那一页要拿 label 做标题；这三项加进 RANKING_STATS 会凭空多出三张排行卡，
+ * 所以单列一份。
+ */
+export const DRILL_ONLY_STATS = [
+  { field: 'playerAvgFga', label: '场均投篮出手' },
+  { field: 'playerAvgTpa', label: '场均三分出手' },
+  { field: 'playerAvgFta', label: '场均罚球出手' },
+]
+
 /** 高阶数据缺失时的占位。生涯汇总行没有高阶指标（B-R 只按赛季发布，不发生涯合计），
  *  1976-77 也没有效率值。空着比写 0 诚实——0 会被当成"真的是 0"。 */
 export const ADV_EMPTY = '/'
