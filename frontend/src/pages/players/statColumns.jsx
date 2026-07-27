@@ -22,7 +22,7 @@ export function buildFullStatColumns({ serverSort = true } = {}) {
     },
     { title: '球队', dataIndex: 'playerTeam', width: 78, render: (v) => <TeamNames value={v} /> },
     { title: '位置', dataIndex: 'playerPosition', width: 46 },
-    { title: '首发/出场', dataIndex: 'playerAppearance', width: 80, ...srt, render: (_, r) => `${r.playerFrAppearance ?? 0}/${r.playerAppearance ?? 0}` },
+    { title: '首发/出场', dataIndex: 'playerAppearance', width: 94, ...srt, render: (_, r) => `${r.playerFrAppearance ?? 0}/${r.playerAppearance ?? 0}` },
     { title: '时间', dataIndex: 'playingTime', width: 48, ...srt, render: (v) => num(v) },
     { title: '得分', dataIndex: 'playerAvgScore', width: 48, ...srt, render: (v) => num(v) },
     { title: '篮板', dataIndex: 'playerAvgReb', width: 48, ...srt, render: (v) => num(v) },
@@ -148,11 +148,12 @@ export const FULL_COLUMNS_SCROLL_X = 2034
  * 手机上全量表横向太长、频繁横滑：紧凑列宽（12px 字号下正好不挤）配合
  * index.css 里 .stat-compact 的字号/内边距媒体查询，一屏约多看 40% 的列。 */
 const COMPACT_W = {
-  // 首发/出场 74：生涯行最长 "1620/1622" 12px 下不换行；篮板/前板/后板各自独立成列后只放一个数；
+  // 首发/出场 80：生涯行最长 "1620/1622"（9 个字符）12px 下要 77px——原来写 74 是估窄了；
+  //   桌面端同理，14px 下要 91px，列宽给到 94；篮板/前板/后板各自独立成列后只放一个数；
   // 投篮/三分/罚球 74：最长 "11.5/23.2" 一行（62 会折行）；
   // 球队 66：中文队名最长四字（凯尔特人），12px 下 48px 加内边距，52 会折行；
   // 三个百分比列 56：满命中率 "100.0%" 六字符，50 会把它挤到第二行
-  playerName: 86, playerTeam: 66, oppTeam: 66, playerPosition: 36, playerAppearance: 74, playingTime: 42,
+  playerName: 86, playerTeam: 66, oppTeam: 66, playerPosition: 36, playerAppearance: 80, playingTime: 42,
   playerAvgScore: 42, playerAvgReb: 42, playerAvgOffReb: 42, playerAvgDefReb: 42, playerAvgAss: 42, playerAvgFgm: 74, playerAccuracy: 56,
   playerAvgTpm: 74, playerThreeAccuracy: 56, playerAvgFtm: 74, playerFreethrowAccuracy: 56,
   playerAvgBlock: 42, playerAvgSteal: 42, playerAvgTurnover: 42, playerAvgPf: 42, playerPer: 46,
