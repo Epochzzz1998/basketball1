@@ -15,6 +15,7 @@ import com.dream.basketball.mapper.DreamNewsMapper;
 import com.dream.basketball.mapper.ForumTopicMapper;
 import com.dream.basketball.mapper.ForumTopicMemberMapper;
 import com.dream.basketball.mapper.UserMapper;
+import com.dream.basketball.utils.Constants;
 import com.dream.basketball.utils.SecUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +41,8 @@ public class TopicController {
     private ForumTopicMapper topicMapper;
     @Autowired
     private com.dream.basketball.mapper.TopicSubscriptionMapper subscriptionMapper;
+    @Autowired
+    private com.dream.basketball.mapper.TopicPinMapper pinMapper;
     @Autowired
     private com.dream.basketball.mapper.TopicSeenMapper seenMapper;
     @Autowired
@@ -101,6 +104,11 @@ public class TopicController {
             view.put("newCount", newCount);
             out.add(view);
         }
+        Map<String, Date> pins = myPins(me);
+        for (Map<String, Object> v : out) {
+            v.put("pinned", pins.containsKey(String.valueOf(v.get("topicId"))));
+        }
+        sortPinnedFirst(out, pins);
         return new Result<>(0, "成功", out);
     }
 
@@ -135,6 +143,37 @@ public class TopicController {
                 .ne("USER_ID", myId).gt("COMMENT_DATE", seen)
                 .and(w -> w.isNull("DELETED").or().ne("DELETED", "1")));
         return (posts == null ? 0 : posts) + (comments == null ? 0 : comments);
+    }
+
+    /**
+     * 当前用户置顶了哪些专题：topicId -> 置顶时间。置顶是**按人**的，不是全局的，
+     * 所以同一个专题在别人那里不会被顶上去。未登录返回空表。
+     */
+    private Map<String, Date> myPins(DreamUser me) {
+        Map<String, Date> out = new HashMap<>();
+        if (me == null) {
+            return out;
+        }
+        for (com.dream.basketball.entity.TopicPin p : pinMapper.selectList(
+                new QueryWrapper<com.dream.basketball.entity.TopicPin>().eq("USER_ID", me.getUserId()))) {
+            out.put(p.getTopicId(), p.getPinTime());
+        }
+        return out;
+    }
+
+    /** 置顶优先、同为置顶的按置顶时间倒序（刚顶的在最上），其余保持传入顺序。 */
+    private void sortPinnedFirst(List<Map<String, Object>> rows, Map<String, Date> pins) {
+        if (pins.isEmpty()) {
+            return;
+        }
+        rows.sort((a, b) -> {
+            Date pa = pins.get(String.valueOf(a.get("topicId")));
+            Date pb = pins.get(String.valueOf(b.get("topicId")));
+            if (pa != null && pb != null) {
+                return pb.compareTo(pa);
+            }
+            return pa != null ? -1 : (pb != null ? 1 : 0);
+        });
     }
 
     /** 一条专题 + 权限位 + owner 名 + 帖数，供列表/详情复用。 */
@@ -223,14 +262,19 @@ public class TopicController {
                 return new Result<>(1, "请指定一个有效的专题 owner", null);
             }
         } else {
-            // 普通用户：owner 只能是自己；受"允许创建话题"开关与 5 个上限约束（现读 DB，超管一改即生效）
+            // 普通用户：owner 只能是自己；受"允许创建话题"开关与个人配额约束
+            // （两者都现读 DB，超管一改立刻生效，不用等对方重新登录）
             DreamUser fresh = userMapper.selectById(me.getUserId());
             if (fresh == null || "0".equals(fresh.getCanCreateTopic())) {
                 return new Result<>(1, "管理员已限制你创建专题", null);
             }
+            int quota = fresh.getTopicLimit() == null ? Constants.DEFAULT_TOPIC_LIMIT : fresh.getTopicLimit();
+            if (quota <= 0) {
+                return new Result<>(1, "管理员已把你的专题配额设为 0", null);
+            }
             Integer owned = topicMapper.selectCount(new QueryWrapper<ForumTopic>().eq("OWNER_ID", me.getUserId()));
-            if (owned != null && owned >= 5) {
-                return new Result<>(1, "每人最多创建 5 个专题", null);
+            if (owned != null && owned >= quota) {
+                return new Result<>(1, "你最多可创建 " + quota + " 个专题", null);
             }
             ownerId = me.getUserId();
         }
@@ -499,7 +543,36 @@ public class TopicController {
             m.put("newCount", seen == null ? 0 : newActivityCount(t.getTopicId(), seen, me.getUserId()));
             out.add(m);
         }
+        // 侧栏跟专题列表用同一套置顶顺序，两处看到的先后一致
+        Map<String, Date> pins = myPins(me);
+        for (Map<String, Object> m : out) {
+            m.put("pinned", pins.containsKey(String.valueOf(m.get("topicId"))));
+        }
+        sortPinnedFirst(out, pins);
         return new Result<>(0, "成功", out);
+    }
+
+    /** 置顶/取消置顶一个专题（按人存，只影响自己看到的顺序）。 */
+    @RequiresRole(Role.USER)
+    @PostMapping("/pin")
+    public Object pin(String topicId, String pinned, HttpServletRequest request) {
+        DreamUser me = SecUtil.getLoginUserToSession(request);
+        ForumTopic t = perms.getTopic(topicId);
+        if (t == null) {
+            return new Result<>(1, "专题不存在", null);
+        }
+        QueryWrapper<com.dream.basketball.entity.TopicPin> qw =
+                new QueryWrapper<com.dream.basketball.entity.TopicPin>()
+                        .eq("USER_ID", me.getUserId()).eq("TOPIC_ID", t.getTopicId());
+        pinMapper.delete(qw);
+        if (ON.equals(pinned)) {
+            com.dream.basketball.entity.TopicPin row = new com.dream.basketball.entity.TopicPin();
+            row.setUserId(me.getUserId());
+            row.setTopicId(t.getTopicId());
+            row.setPinTime(new Date());
+            pinMapper.insert(row);
+        }
+        return new Result<>(0, ON.equals(pinned) ? "已置顶" : "已取消置顶", null);
     }
 
     /** 进入专题页时打卡"已看到此刻"：红点归零、之后的新发帖/评论重新累计。 */

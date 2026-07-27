@@ -577,8 +577,8 @@ export default function UserProfile() {
                 maxCount={1}
                 showUploadList={false}
                 beforeUpload={(file) => {
-                  if (file.size > 5 * 1024 * 1024) {
-                    message.error('图片不能超过 5MB')
+                  if (file.size > 10 * 1024 * 1024) {
+                    message.error('图片不能超过 10MB')
                     return Upload.LIST_IGNORE
                   }
                   if (avatarPreview) URL.revokeObjectURL(avatarPreview)
@@ -589,7 +589,7 @@ export default function UserProfile() {
               >
                 <Button icon={<CameraOutlined />}>选择新头像</Button>
               </Upload>
-              <span style={{ color: '#999', fontSize: 12 }}>jpg/png/webp ≤ 5MB，点"保存"后生效</span>
+              <span style={{ color: '#999', fontSize: 12 }}>jpg/png/webp ≤ 10MB，点"保存"后生效</span>
             </Space>
           </Form.Item>
           <Form.Item

@@ -62,32 +62,63 @@ export const PCT_QUALIFY = {
   playerFreethrowAccuracy: { madeField: 'playerAvgFtm', min: 125 },
 }
 
-/** 常规赛榜单参赛池：命中率项按命中数门槛；场均项达标者全收，未达标者仅当
- * "缺的场次全按 0 补满 58 场后场均仍是联盟第一"才保留（NBA 数据王补场规则）。
- * 传入 season 时另将 OFFICIAL_STAT_LEADERS 里官方认定的数据王无条件放行。 */
-export const qualifiedBoard = (rows, field, season) => {
+/**
+ * 榜单与名次共用同一个池子，全站只此一处规则——同一个「联盟第 N」在排行榜和资料卡上
+ * 必须是同一个意思（曾经不是：字母哥投篮% 榜上第 6、资料卡第 40）。
+ *
+ * 两类门槛：
+ *  · 命中率项（投篮%/三分%/罚球%）看**命中数**（300/82/125）——不设的话 3 投 3 中的人
+ *    以 100% 霸榜；
+ *  · 场均项看**场次 58 场**（球队场次 70%），外加 NBA 的补场规则：缺的场次全按 0 补满
+ *    58 场后场均仍是联盟第一的，照样算数据王。
+ *
+ * 不在池子里的人：榜单里不出现，资料卡/对比页也不给名次，改标「场次不足 / 出手不足」。
+ * 放开池子试过一版，结果是打 1-3 场的人霸占抢断榜和「失误最少」榜，比藏人更糟。
+ */
+export const boardPool = (rows, field, season) => {
+  const all = rows || []
   let out
   const pctRule = PCT_QUALIFY[field]
   if (pctRule) {
-    out = rows.filter((r) => Number(r[pctRule.madeField] ?? 0) * Number(r.playerAppearance ?? 0) >= pctRule.min)
+    out = all.filter((r) => Number(r[pctRule.madeField] ?? 0) * Number(r.playerAppearance ?? 0) >= pctRule.min)
   } else {
-    const ok = rows.filter(statQualified)
+    const ok = all.filter(statQualified)
     if (!AVG_CROWN_FIELDS.has(field)) {
       out = ok
     } else {
       const bestOk = ok.length ? Math.max(...ok.map((r) => Number(r[field] ?? 0))) : 0
-      const padded = rows.filter((r) => !statQualified(r)
+      const padded = all.filter((r) => !statQualified(r)
         && (Number(r[field] ?? 0) * Number(r.playerAppearance ?? 0)) / STAT_QUALIFY_GAMES >= bestOk)
-      out = rows.filter((r) => statQualified(r) || padded.includes(r))
+      out = all.filter((r) => statQualified(r) || padded.includes(r))
     }
   }
   const forcedId = season != null ? OFFICIAL_STAT_LEADERS[season]?.[field] : undefined
   if (forcedId && !out.some((r) => r.playerId === forcedId)) {
-    const row = rows.find((r) => r.playerId === forcedId)
-    if (row) out = [...out, row].sort((a, b) => Number(b[field] ?? 0) - Number(a[field] ?? 0))
+    const row = all.find((r) => r.playerId === forcedId)
+    if (row) out = [...out, row]
   }
   return out
 }
+
+/** 这名球员在该项上有没有名次；没有就该显示「场次不足/出手不足」而不是一个数字 */
+export const qualifiedFor = (rows, field, row) =>
+  !!row?.playerId && boardPool(rows, field).some((r) => r.playerId === row.playerId)
+
+/** 不达标的原因，决定标签文案 */
+export const unqualifiedReason = (field) => (PCT_QUALIFY[field] ? '出手不足' : '场次不足')
+
+/** 名次 = 池子里比他强的人数 + 1；asc 项（失误/犯规）越少越前 */
+export const rankIn = (rows, field, value, asc) => {
+  const pool = boardPool(rows, field)
+  if (value == null || !pool.length) {
+    return null
+  }
+  return 1 + pool.filter((r) => (asc ? Number(r[field] ?? 0) < value : Number(r[field] ?? 0) > value)).length
+}
+
+/** 榜单行：池子内按该项排序 */
+export const qualifiedBoard = (rows, field, season) =>
+  [...boardPool(rows, field, season)].sort((a, b) => Number(b[field] ?? 0) - Number(a[field] ?? 0))
 
 // 命中/出手 成对显示，如 "10.2/19.5"（投篮、三分、罚球通用）
 export const fmtPair = (made, att, d = 1) =>

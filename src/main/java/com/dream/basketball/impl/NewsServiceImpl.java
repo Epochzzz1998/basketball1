@@ -191,6 +191,7 @@ public class NewsServiceImpl implements NewsService {
                     newsDto.setViewerCount(dreamNews.getViewerCount());
                     newsDto.setLocked(dreamNews.getLocked());
                     newsDto.setHidden(dreamNews.getHidden());
+                    newsDto.setDraft(dreamNews.getDraft());
                     newsDto.setLastEditTime(dreamNews.getLastEditTime());
                     newsDto.setLastEditorId(dreamNews.getLastEditorId());
                 }

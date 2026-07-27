@@ -49,8 +49,10 @@ spring:
 
   servlet:
     multipart:
-      max-file-size: 5MB
-      max-request-size: 10MB
+      # keep ABOVE FileUtils caps (10MB image / 30MB attachment) — Spring rejects
+      # oversize requests before any of our validation runs
+      max-file-size: 30MB
+      max-request-size: 40MB
 
 server:
   port: 8088

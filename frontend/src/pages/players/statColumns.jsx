@@ -35,6 +35,7 @@ export function buildFullStatColumns({ serverSort = true } = {}) {
     { title: '盖帽', dataIndex: 'playerAvgBlock', width: 48, ...srt, render: (v) => num(v) },
     { title: '抢断', dataIndex: 'playerAvgSteal', width: 48, ...srt, render: (v) => num(v) },
     { title: '失误', dataIndex: 'playerAvgTurnover', width: 48, ...srt, render: (v) => num(v) },
+    { title: '犯规', dataIndex: 'playerAvgPf', width: 48, ...srt, render: (v) => num(v) },
     { title: '效率值', dataIndex: 'playerPer', width: 58, ...srt, render: (v) => num(v) },
     { title: 'MVP', dataIndex: 'mvpRank', width: 50, ...srt },
     { title: 'DPOY', dataIndex: 'dpoyRank', width: 56, ...srt },
@@ -43,7 +44,7 @@ export function buildFullStatColumns({ serverSort = true } = {}) {
   ]
 }
 
-export const FULL_COLUMNS_SCROLL_X = 2004
+export const FULL_COLUMNS_SCROLL_X = 2052
 
 /* ===== 移动端紧凑表格 =====
  * 手机上全量表横向太长、频繁横滑：紧凑列宽（12px 字号下正好不挤）配合
@@ -55,7 +56,7 @@ const COMPACT_W = {
   playerName: 86, playerTeam: 66, oppTeam: 66, playerPosition: 36, playerAppearance: 74, playingTime: 42,
   playerAvgScore: 42, playerAvgReb: 94, playerAvgAss: 42, playerAvgFgm: 74, playerAccuracy: 50,
   playerAvgTpm: 74, playerThreeAccuracy: 50, playerAvgFtm: 74, playerFreethrowAccuracy: 50,
-  playerAvgBlock: 42, playerAvgSteal: 42, playerAvgTurnover: 42, playerPer: 46,
+  playerAvgBlock: 42, playerAvgSteal: 42, playerAvgTurnover: 42, playerAvgPf: 42, playerPer: 46,
   mvpRank: 42, dpoyRank: 46, allDbaTeam: 58, allDefTeam: 58, seasonNum: 52, playoffResult: 76,
   // 逐场数据表（单场 box score）：都是整数，比场均窄；结果列要放下「胜 105-95」
   gameDate: 60, round: 60, win: 78, starter: 40, pts: 40, reb: 76, ast: 40,

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button, Card, Col, Empty, Popconfirm, Row, Spin, Tag, message } from 'antd'
 import {
-  DeleteOutlined, EditOutlined, EyeInvisibleOutlined, LockOutlined, PlusOutlined, RightOutlined, TeamOutlined, UnlockOutlined,
+  DeleteOutlined, EditOutlined, EyeInvisibleOutlined, LockOutlined, PlusOutlined, PushpinFilled, PushpinOutlined,
+  RightOutlined, TeamOutlined, UnlockOutlined,
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { topicApi } from '../../api/topic'
@@ -22,7 +23,7 @@ const clamp = (n) => ({ display: '-webkit-box', WebkitLineClamp: n, WebkitBoxOri
 
 export default function TopicsList() {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, dn } = useAuth() // dn：题主名走我自己的备注
   const isMobile = useIsMobile()
   const [topics, setTopics] = useState(null)
   const [createOpen, setCreateOpen] = useState(false)
@@ -43,6 +44,17 @@ export default function TopicsList() {
 
   const del = async (t) => {
     try { await topicApi.remove(t.topicId); message.success('已删除'); load() } catch { /* 已提示 */ }
+  }
+
+  // 置顶是每人各自的：只改自己看到的顺序，别人那里不动。
+  // 侧栏的订阅区读同一份顺序，所以顶完顺手通知它刷新。
+  const togglePin = async (t) => {
+    try {
+      await topicApi.pin(t.topicId, !t.pinned)
+      message.success(t.pinned ? '已取消置顶' : '已置顶')
+      load()
+      window.dispatchEvent(new Event('subs-changed'))
+    } catch { /* 已提示 */ }
   }
 
   const ring = (size, pos) => ({ position: 'absolute', width: size, height: size, borderRadius: '50%', border: '2px solid rgba(255,255,255,.16)', ...pos })
@@ -108,13 +120,17 @@ export default function TopicsList() {
                           : <Tag icon={<UnlockOutlined />} color="green" style={{ marginInlineEnd: 0 }}>公开</Tag>}
                         {t.locked && <Tag color="red" style={{ marginInlineEnd: 0 }}>无浏览权</Tag>}
                         {t.listed === false && <Tag icon={<EyeInvisibleOutlined />} color="orange" style={{ marginInlineEnd: 0 }}>未公开</Tag>}
+                        {t.pinned && <Tag icon={<PushpinFilled />} color="volcano" style={{ marginInlineEnd: 0 }}>置顶</Tag>}
                       </div>
                     </div>
-                    {/* admin/owner 的编辑、admin 的删除 */}
-                    {t.canManage && (
+                    {/* 置顶（人人可用，各管各的）+ admin/owner 的编辑、admin 的删除 */}
+                    {(user || t.canManage) && (
                       <span onClick={(e) => e.stopPropagation()} style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
-                        <EditOutlined style={{ color: '#999', cursor: 'pointer' }} onClick={() => setEditTopic(t)} />
-                        {user?.isSuperManager && (
+                        {user && (t.pinned
+                          ? <PushpinFilled title="取消置顶" style={{ color: BRAND, cursor: 'pointer' }} onClick={() => togglePin(t)} />
+                          : <PushpinOutlined title="置顶" style={{ color: '#bbb', cursor: 'pointer' }} onClick={() => togglePin(t)} />)}
+                        {t.canManage && <EditOutlined style={{ color: '#999', cursor: 'pointer' }} onClick={() => setEditTopic(t)} />}
+                        {t.canManage && user?.isSuperManager && (
                           <Popconfirm title="删除该专题？" description="专题下有帖子时无法删除" onConfirm={() => del(t)} okText="删除" cancelText="取消">
                             <DeleteOutlined style={{ color: '#bbb', cursor: 'pointer' }} />
                           </Popconfirm>
@@ -129,7 +145,7 @@ export default function TopicsList() {
 
                   <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', fontSize: 12, color: '#999', minHeight: 32 }}>
                     <TeamOutlined style={{ marginRight: 5 }} />
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.ownerName || '未知'}</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dn(t.ownerId, t.ownerName) || '未知'}</span>
                     <span style={{ margin: '0 8px', color: '#ddd' }}>·</span>
                     <span>{t.postCount ?? 0} 帖</span>
                     <span style={{ flex: 1 }} />

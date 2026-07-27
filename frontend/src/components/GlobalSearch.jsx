@@ -45,7 +45,7 @@ function matchTeams(kw) {
 }
 
 /** 打平成 [{group}, {item}...] 的列表，方便键盘上下移动。canData=false 时不出球队组（数据分析模块对该用户未开放） */
-function flatten(d, kw, canData) {
+function flatten(d, kw, canData, dn) {
   const out = []
   const push = (group, items) => {
     if (!items?.length) return
@@ -109,7 +109,7 @@ function flatten(d, kw, canData) {
     node: (
       <span>
         <UserOutlined style={{ marginRight: 8, color: '#999' }} />
-        {u.userNickname || u.userName}
+        {dn(u.userId, u.userNickname || u.userName)}
         <span style={{ color: '#bbb', fontSize: 12, marginLeft: 8 }}>@{u.userName}</span>
       </span>
     ),
@@ -120,7 +120,7 @@ function flatten(d, kw, canData) {
 export default function GlobalSearch() {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
-  const { user } = useAuth()
+  const { user, dn } = useAuth()
   // 数据分析(NBA 模块)是否对本人开放：未开放则前端不出球队组（球员组由后端一并过滤）
   const canData = !user || user.isSuperManager || user.featData !== false
   const [open, setOpen] = useState(false)
@@ -134,7 +134,7 @@ export default function GlobalSearch() {
   const wrapRef = useRef(null)
   const inputRef = useRef(null)
 
-  const rows = useMemo(() => flatten(data, kw, canData), [data, kw, canData])
+  const rows = useMemo(() => flatten(data, kw, canData, dn), [data, kw, canData, dn])
   const itemIdx = useMemo(() => rows.map((r, i) => (r.kind === 'item' ? i : -1)).filter((i) => i >= 0), [rows])
 
   // 顶栏触发胶囊外层：剥掉 ProLayout 动作项的 hover 类（灰底保险丝，双保险）
@@ -255,6 +255,9 @@ export default function GlobalSearch() {
         width={580}
         style={{ top: 90 }}
         destroyOnClose
+        // Input 上的 autoFocus 会被 Modal 的入场动画抢掉焦点（antd 动画结束才把焦点交还给内容），
+        // 所以等弹窗真正打开后再主动聚焦一次——按 / 或点搜索图标就能直接打字
+        afterOpenChange={(opened) => { if (opened) inputRef.current?.focus({ cursor: 'end' }) }}
         styles={{ content: { padding: 0, overflow: 'hidden', borderRadius: 14 } }}
       >
         <Input

@@ -60,6 +60,7 @@ const hotOf = (p) => (p.goodNum ?? 0) * 2 + (p.commentNum ?? 0) * 3
 
 /** 单条帖子卡：头像 + 标题/摘要/元信息 + 首图缩略图 */
 function PostCard({ post, topicOwnerIds }) {
+  const { dn } = useAuth() // 备注名：我给谁备注过，全站看到的就是备注名
   const isMobile = useIsMobile()
   const navigate = useNavigate()
   const cover = coverOf(post.content)
@@ -70,7 +71,8 @@ function PostCard({ post, topicOwnerIds }) {
     : undefined
   return (
     <Link
-      to={`/news/${post.newsId}`}
+      // 草稿点进去直接是编辑器：继续写、或者在那儿点「发布」
+      to={post.draft === '1' ? `/news/edit/${post.newsId}` : `/news/${post.newsId}`}
       className="post-card"
       style={{
         display: 'flex', gap: 14, alignItems: 'flex-start', color: 'inherit',
@@ -90,7 +92,7 @@ function PostCard({ post, topicOwnerIds }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         {/* 作者行：头像旁对齐——名字 + 身份标识（超管/题主）+ 头衔 + 时间 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#999', flexWrap: 'wrap' }}>
-          <span onClick={toProfile} style={{ color: '#333', fontWeight: 600, fontSize: 13, cursor: toProfile ? 'pointer' : undefined }}>{post.author || '匿名'}</span>
+          <span onClick={toProfile} style={{ color: '#333', fontWeight: 600, fontSize: 13, cursor: toProfile ? 'pointer' : undefined }}>{dn(post.authorId, post.author) || '匿名'}</span>
           {post.authorSuperManager && <SuperAdminBadge />}
           {topicOwnerIds?.includes(post.authorId) && <TopicOwnerBadge />}
           <UserTitles titles={post.authorTitles} size="sm" />
@@ -102,6 +104,8 @@ function PostCard({ post, topicOwnerIds }) {
           {post.essence === '1' && <Tag color="volcano" style={{ marginInlineEnd: 6, verticalAlign: 'middle' }}>精华</Tag>}
           {post.locked === '1' && <Tag icon={<LockOutlined />} style={{ marginInlineEnd: 6, verticalAlign: 'middle' }}>锁定</Tag>}
           {post.hidden === '1' && <Tag icon={<EyeInvisibleOutlined />} color="purple" style={{ marginInlineEnd: 6, verticalAlign: 'middle' }}>已隐藏</Tag>}
+          {/* 草稿只会出现在作者自己的列表里（后端过滤），所以这里不用再判断身份 */}
+          {post.draft === '1' && <Tag icon={<EditOutlined />} color="gold" style={{ marginInlineEnd: 6, verticalAlign: 'middle' }}>草稿</Tag>}
           {post.title || '(无标题)'}
         </div>
         {excerpt && (

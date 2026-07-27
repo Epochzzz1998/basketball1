@@ -117,7 +117,12 @@ public class NewsController extends BaseUtils {
                 .filter(r -> hidden.isEmpty() || r.getTopicId() == null || !hidden.contains(r.getTopicId()))
                 .filter(r -> r.getTopicId() == null || !excludePrivate.contains(r.getTopicId()))
                 .filter(r -> showHidden || !"1".equals(r.getHidden()))
+                // 草稿只对作者本人可见——管理员也看不到别人没发出来的东西
+                .filter(r -> !"1".equals(r.getDraft())
+                        || (me != null && StringUtils.equals(r.getAuthorId(), me.getUserId())))
                 .collect(java.util.stream.Collectors.toList());
+        // 作者自己的草稿排在最前，免得几天前存的被新帖压下去找不到
+        rows.sort(java.util.Comparator.comparingInt(r -> "1".equals(((NewsDto) r).getDraft()) ? 0 : 1));
         // 收藏数批量回填（一把 GROUP BY），列表卡与点赞/评论数并排展示
         if (!rows.isEmpty()) {
             List<String> nids = new java.util.ArrayList<>();
@@ -177,6 +182,11 @@ public class NewsController extends BaseUtils {
         // 隐藏帖：只有管理者（题主/admin，官方→manager+）能看，普通用户一律当作不存在
         if (news != null && "1".equals(news.getHidden()) && !canManagePost(viewer, news)) {
             return new Result<>(1, "该帖不存在或已被隐藏", null);
+        }
+        // 草稿：作者自己以外谁都看不到（管理员也不行——没发出来的东西不该被人读到）
+        if (news != null && "1".equals(draftFlagOf(news.getNewsId()))
+                && (viewer == null || !StringUtils.equals(news.getAuthorId(), viewer.getUserId()))) {
+            return new Result<>(1, "该帖不存在", null);
         }
         // 浏览计数（通过所有可见性校验后才计）：PV 每次 +1；UV 靠 news_viewer 去重，登录用户首次浏览才 +1
         if (news != null && StringUtils.isNotBlank(news.getNewsId())) {
@@ -369,6 +379,12 @@ public class NewsController extends BaseUtils {
      * 防止越权改写他人帖子（IDOR）。
      */
     @RequiresRole(Role.USER)
+    /** 帖子的草稿标记直接读 MySQL：ES 里那份是写入时的快照，改过发布状态后可能还没刷新。 */
+    private String draftFlagOf(String newsId) {
+        com.dream.basketball.entity.DreamNews n = StringUtils.isBlank(newsId) ? null : dreamNewsService.getById(newsId);
+        return n == null ? null : n.getDraft();
+    }
+
     @PostMapping("/save")
     public Object save(News news, HttpServletRequest request) {
         DreamUser me = SecUtil.getLoginUserToSession(request);
@@ -383,7 +399,11 @@ public class NewsController extends BaseUtils {
             }
             news.setAuthor(existing.getAuthor());
             news.setAuthorId(existing.getAuthorId());
-            news.setPublishDate(existing.getPublishDate());
+            // 发布时间：编辑普通帖沿用原时间；但草稿转正式发布要**改成此刻**，
+            // 否则一篇存了三天的草稿发出来还挂着三天前的时间，直接沉到列表底下
+            boolean publishingDraft = "1".equals(draftFlagOf(existing.getNewsId()))
+                    && !"1".equals(news.getDraft());
+            news.setPublishDate(publishingDraft ? new java.util.Date() : existing.getPublishDate());
             news.setNewsChannel(existing.getNewsChannel());
             news.setTopicId(existing.getTopicId());
         } else {
@@ -414,8 +434,14 @@ public class NewsController extends BaseUtils {
                 }
             }
         }
+        // 草稿：存下来但不算发布。'1' 存草稿，其余一律视为正式发布（发布会把旧草稿标记清掉）
+        final boolean asDraft = "1".equals(news.getDraft());
+        news.setDraft(asDraft ? "1" : "0");
         newsService.save(news);
         dreamNewsService.saveSyncEs(news);
+        dreamNewsService.update(null, new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<com.dream.basketball.entity.DreamNews>()
+                .eq("NEWS_ID", news.getNewsId())
+                .set("DRAFT", asDraft ? "1" : "0"));
         // 编辑留痕：记下最后编辑的时间与编辑者（超管可改他人帖，需可追溯）。新发帖不算编辑。
         if (isExisting) {
             dreamNewsService.update(null, new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<com.dream.basketball.entity.DreamNews>()
@@ -425,6 +451,9 @@ public class NewsController extends BaseUtils {
         }
         // @-mention 通知：只给"这次新增"的被 @ 者发（编辑时老正文里已有的 @ 不重复打扰），排除作者本人。
         // 无联想输入下正文 @ 是纯文本：先 autoLink 成 mention span 再统一解析（老帖的联想 span 也一并覆盖）
+        if (asDraft) {
+            return new Result<>(0, "草稿已保存", news.getNewsId());
+        }
         java.util.Map<String, String> nickToId = new HashMap<>();
         for (DreamUser nu : userMapper.selectList(new QueryWrapper<DreamUser>().select("USER_ID", "USER_NICKNAME"))) {
             if (nu != null && StringUtils.isNotBlank(nu.getUserNickname())) {

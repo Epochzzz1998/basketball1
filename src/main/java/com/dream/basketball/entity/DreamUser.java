@@ -60,9 +60,13 @@ public class DreamUser extends Model<DreamUser> implements Serializable {
     @TableField("CAN_POST")
     private String canPost;
 
-    /** may create forum topics (max 5 per user): null/'1'=allowed (default), '0'=denied by super admin */
+    /** may create forum topics: null/'1'=allowed (default), '0'=denied by super admin */
     @TableField("CAN_CREATE_TOPIC")
     private String canCreateTopic;
+
+    /** how many topics this user may own; null = Constants.DEFAULT_TOPIC_LIMIT, 0 = none */
+    @TableField("TOPIC_LIMIT")
+    private Integer topicLimit;
 
     /** 功能模块可用性（按用户，super-admin 控制）：'0'=不可用（导航里整块隐藏该模块）/ null|'1'=可用 */
     @TableField("FEAT_DATA")
@@ -162,6 +166,14 @@ public class DreamUser extends Model<DreamUser> implements Serializable {
 
     public void setCanCreateTopic(String canCreateTopic) {
         this.canCreateTopic = canCreateTopic;
+    }
+
+    public Integer getTopicLimit() {
+        return topicLimit;
+    }
+
+    public void setTopicLimit(Integer topicLimit) {
+        this.topicLimit = topicLimit;
     }
 
     public String getFeatData() {

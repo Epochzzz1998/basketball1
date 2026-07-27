@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Image, Popconfirm, Rate, Upload, message } from 'antd'
 import { CloseCircleFilled, DeleteOutlined, LoadingOutlined, PictureOutlined, StarFilled } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
@@ -14,6 +14,42 @@ const PICKER_SIZE = 64
 
 export function RatingImagePicker({ value, onChange, upload }) {
   const [uploading, setUploading] = useState(false)
+
+  const put = useCallback(async (file) => {
+    setUploading(true)
+    try {
+      const url = await upload(file)
+      if (url) onChange(url)
+      return url
+    } catch (e) {
+      message.error('图片上传失败')
+      throw e
+    } finally {
+      setUploading(false)
+    }
+  }, [upload, onChange])
+
+  /**
+   * 剪贴板里的图直接进配图框。监听挂在 document 上（不然要先点中这个小框才收得到
+   * 粘贴事件，而点它会立刻弹出文件选择框，根本没机会粘贴）；焦点在正文编辑器或任何
+   * 输入框里时不抢——那种粘贴是冲着编辑器去的。
+   */
+  useEffect(() => {
+    if (value) return undefined
+    const onPaste = (e) => {
+      const t = e.target
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA)$/.test(t.tagName || ''))) return
+      const item = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith('image/'))
+      if (!item) return
+      const file = item.getAsFile()
+      if (!file) return
+      e.preventDefault()
+      put(file).catch(() => {})
+    }
+    document.addEventListener('paste', onPaste)
+    return () => document.removeEventListener('paste', onPaste)
+  }, [value, put])
+
   if (value) {
     return (
       <span style={{ position: 'relative', display: 'inline-block' }}>
@@ -34,16 +70,10 @@ export function RatingImagePicker({ value, onChange, upload }) {
       accept="image/*"
       showUploadList={false}
       customRequest={async ({ file, onSuccess, onError }) => {
-        setUploading(true)
         try {
-          const url = await upload(file)
-          if (url) onChange(url)
-          onSuccess?.(url)
+          onSuccess?.(await put(file))
         } catch (e) {
-          message.error('图片上传失败')
           onError?.(e)
-        } finally {
-          setUploading(false)
         }
       }}
     >
@@ -59,6 +89,7 @@ export function RatingImagePicker({ value, onChange, upload }) {
       >
         {uploading ? <LoadingOutlined style={{ fontSize: 18 }} /> : <PictureOutlined style={{ fontSize: 18 }} />}
         <span style={{ fontSize: 11, marginTop: 3 }}>{uploading ? '上传中' : '配图'}</span>
+        {!uploading && <span style={{ fontSize: 10, marginTop: 1, color: '#e8a33d' }}>点选或粘贴</span>}
       </div>
     </Upload>
   )

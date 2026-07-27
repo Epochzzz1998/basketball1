@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Avatar, Button, Card, Divider, Input, Popover, Spin, Switch, Tag, message } from 'antd'
+import { Avatar, Button, Card, Divider, Input, InputNumber, Popover, Spin, Switch, Tag, message } from 'antd'
 import { ArrowLeftOutlined, CrownFilled } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { userApi } from '../../api/user'
@@ -42,16 +42,20 @@ function Swatches({ value, onPick }) {
 
 export default function UserManageDetail() {
   const { userId } = useParams()
-  const { user: me } = useAuth()
+  const { user: me, dn } = useAuth()
   const [data, setData] = useState(null)
   const [titles, setTitles] = useState([]) // [{t,c}]
   const [newT, setNewT] = useState('')
   const [newC, setNewC] = useState('blue')
+  const [savedTopicLimit, setSavedTopicLimit] = useState(null) // 已落库的配额，用来判断失焦时值有没有真变
 
   const load = () => userApi.adminDetail(userId).then(setData).catch(() => setData(null))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load() }, [userId])
   useEffect(() => { setTitles(parseTitles(data?.titles)) }, [data?.titles])
+  // 只在换用户时重置基准值；跟随 topicLimit 会把用户正在输入的中间值当成"已保存"
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { setSavedTopicLimit(data?.topicLimit ?? null) }, [data?.userId])
 
   if (data === null) return <Spin style={{ display: 'block', margin: '80px auto' }} size="large" />
 
@@ -87,6 +91,22 @@ export default function UserManageDetail() {
   const removeTitle = (i) => commitTitles(titles.filter((_, idx) => idx !== i))
   const recolor = (i, c) => commitTitles(titles.map((x, idx) => (idx === i ? { ...x, c } : x)))
 
+  /**
+   * 专题配额：输入时只改本地，失焦/回车才提交，所以不会每敲一个数字就存一次。
+   * 留空提交空串 = 后端清成 NULL = 跟随系统默认。
+   */
+  const commitTopicLimit = async () => {
+    const next = data.topicLimit ?? null
+    if (next === savedTopicLimit) return
+    try {
+      await userApi.setUserPerms({ userId, topicLimit: next === null ? '' : String(next) })
+      setSavedTopicLimit(next)
+      message.success('已保存')
+    } catch {
+      load()
+    }
+  }
+
   const permRow = (label, field, desc) => (
     <div style={{ display: 'flex', alignItems: 'center', padding: '9px 0' }}>
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -107,11 +127,12 @@ export default function UserManageDetail() {
             : <Avatar size={64} style={{ background: avatarColor(data.userNickname), fontWeight: 800, fontSize: 26 }}>{String(data.userNickname || '?')[0].toUpperCase()}</Avatar>}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 20, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              {data.userNickname}
+              {dn(data.userId, data.userNickname)}
               {data.isSuperManager && <Tag color="red"><CrownFilled /> 超管</Tag>}
               {data.userId === me?.userId && <Tag>我</Tag>}
             </div>
             <div style={{ color: '#999', fontSize: 13, marginTop: 6 }}>
+              {dn(data.userId, data.userNickname) !== data.userNickname && `原昵称 ${data.userNickname} · `}
               登录名 {data.loginName || '—'} · 注册 {fmt(data.registTime)} · 最近登录 {fmt(data.lastLoginTime)}
             </div>
           </div>
@@ -156,7 +177,27 @@ export default function UserManageDetail() {
         {permRow('浏览论坛 / 新闻', 'canBrowse')}
         {permRow('发言（评论）', 'canComment')}
         {permRow('发帖', 'canPost')}
-        {permRow('创建专题', 'canCreateTopic', '默认允许，每人最多 5 个；创建后本人自动成为题主')}
+        {permRow('创建专题', 'canCreateTopic', '默认允许；创建后本人自动成为题主')}
+        <div style={{ display: 'flex', alignItems: 'center', padding: '9px 0' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <span style={{ fontWeight: 600 }}>专题数量上限</span>
+            <span style={{ color: '#999', fontSize: 12, marginLeft: 8 }}>
+              留空跟随系统默认（{data.topicLimitDefault ?? 5} 个）；已建 {data.topicOwned ?? 0} 个
+            </span>
+          </div>
+          <InputNumber
+            min={0}
+            max={99}
+            precision={0}
+            value={data.topicLimit ?? null}
+            placeholder={`默认 ${data.topicLimitDefault ?? 5}`}
+            disabled={locked}
+            style={{ width: 110 }}
+            onChange={(v) => setData((d) => ({ ...d, topicLimit: v }))}
+            onBlur={commitTopicLimit}
+            onPressEnter={commitTopicLimit}
+          />
+        </div>
       </Card>
 
       {/* 功能模块 */}

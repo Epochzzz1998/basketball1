@@ -18,6 +18,7 @@ import {
   HomeOutlined,
   LogoutOutlined,
   NotificationOutlined,
+  PushpinFilled,
   ReadOutlined,
   TeamOutlined,
   TrophyOutlined,
@@ -272,7 +273,10 @@ export default function AppLayout() {
                           fontWeight: active ? 600 : 400,
                         }}
                       >
-                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#fa8c16', flexShrink: 0 }} />
+                        {/* 置顶的换成图钉，顺序由后端按各人的置顶时间排好，这里只是让人看懂为什么它在最上面 */}
+                        {t.pinned
+                          ? <PushpinFilled style={{ fontSize: 11, color: '#fa541c', flexShrink: 0 }} />
+                          : <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#fa8c16', flexShrink: 0 }} />}
                         <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</span>
                         {t.newCount > 0 && <Badge count={t.newCount} size="small" style={{ flexShrink: 0 }} />}
                       </div>

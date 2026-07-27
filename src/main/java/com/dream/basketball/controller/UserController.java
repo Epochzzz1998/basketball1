@@ -40,6 +40,8 @@ public class UserController extends BaseUtils {
     private UserService userService;
     @Autowired
     private com.dream.basketball.mapper.BbqStaffMapper bbqStaffMapper;
+    @Autowired
+    private com.dream.basketball.mapper.ForumTopicMapper topicMapper;
 
     /**
      * 登录：先校验单次验证码（P2-2），再核对账号/密码（BCrypt，旧 MD5 透明升级，P2-3）。
@@ -220,7 +222,8 @@ public class UserController extends BaseUtils {
     @RequiresRole(Role.SUPER_MANAGER)
     @PostMapping("/setUserPerms")
     public Object setUserPerms(String userId, String enabled, String canBrowse, String canComment, String canPost,
-                              String canCreateTopic, String featData, String featNews, String featForum, String featPm, String featSchedule,
+                              String canCreateTopic, String topicLimit,
+                              String featData, String featNews, String featForum, String featPm, String featSchedule,
                               HttpServletRequest request) {
         DreamUser target = StringUtils.isBlank(userId) ? null : userService.getById(userId);
         if (target == null) {
@@ -247,6 +250,19 @@ public class UserController extends BaseUtils {
         }
         if (canCreateTopic != null) {
             uw.set("CAN_CREATE_TOPIC", "1".equals(canCreateTopic) ? "1" : "0");
+        }
+        // 专题配额：参数缺省=不动；传空串=清回系统默认（存 NULL）；传数字=按人设定，夹在 0-99
+        if (topicLimit != null) {
+            if (StringUtils.isBlank(topicLimit)) {
+                uw.set("TOPIC_LIMIT", null);
+            } else {
+                try {
+                    int n = Integer.parseInt(topicLimit.trim());
+                    uw.set("TOPIC_LIMIT", Math.max(0, Math.min(99, n)));
+                } catch (NumberFormatException ignore) {
+                    return handlerResultJson(false, "专题上限必须是数字");
+                }
+            }
         }
         if (featData != null) {
             uw.set("FEAT_DATA", "1".equals(featData) ? "1" : "0");
@@ -290,6 +306,12 @@ public class UserController extends BaseUtils {
         m.put("canComment", !"0".equals(u.getCanComment()));
         m.put("canPost", !"0".equals(u.getCanPost()));
         m.put("canCreateTopic", !"0".equals(u.getCanCreateTopic()));
+        // 专题配额：topicLimit 为 null 表示跟随系统默认，前端据此显示占位而不是硬写一个数
+        m.put("topicLimit", u.getTopicLimit());
+        m.put("topicLimitDefault", Constants.DEFAULT_TOPIC_LIMIT);
+        m.put("topicOwned", topicMapper.selectCount(
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<com.dream.basketball.entity.ForumTopic>()
+                        .eq("OWNER_ID", u.getUserId())));
         m.put("featData", !"0".equals(u.getFeatData()));
         m.put("featNews", !"0".equals(u.getFeatNews()));
         m.put("featForum", !"0".equals(u.getFeatForum()));

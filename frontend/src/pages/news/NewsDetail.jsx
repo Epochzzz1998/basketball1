@@ -35,19 +35,28 @@ const avatarColor = (name) => {
   return `hsl(${h}, 52%, 52%)`
 }
 
-/** 右栏：同频道热门 Top5（排除当前帖） */
-function MorePosts({ channel, exceptId }) {
+/**
+ * 右栏热门 Top5（排除当前帖）。
+ * 帖子属于某个专题时**只在该专题内取热帖**——不带 topicId 的查询是跨专题聚合，
+ * 在 fit5032 的帖子里会推出一堆 NBA 帖，读者根本没在看那个板块。
+ */
+function MorePosts({ channel, exceptId, topicId, topicName }) {
   const [rows, setRows] = useState(null)
   const official = channel === 'official'
 
   useEffect(() => {
     let alive = true
     setRows(null)
-    newsApi.listNews({ page: 1, limit: 9999, newsChannel: official ? 'official' : 'forum' })
+    newsApi.listNews({
+      page: 1,
+      limit: 9999,
+      newsChannel: official ? 'official' : 'forum',
+      ...(topicId ? { topicId } : {}),
+    })
       .then((r) => { if (alive) setRows(r.records || []) })
       .catch(() => { if (alive) setRows([]) })
     return () => { alive = false }
-  }, [channel, official])
+  }, [channel, official, topicId])
 
   const hot = useMemo(
     () =>
@@ -59,10 +68,27 @@ function MorePosts({ channel, exceptId }) {
     [rows, exceptId],
   )
 
+  // 一条都推不出来时整张卡不渲染：小专题里除了当前帖常常就没别的帖了，
+  // 留一张写着"暂无内容"的空卡片只是占地方
+  if (rows !== null && !hot.length) return null
+
   return (
     <Card
-      title={<span><FireOutlined style={{ color: '#f5222d', marginRight: 6 }} />{official ? '更多新闻' : '热门帖子'}</span>}
-      extra={<Link to={official ? '/official' : '/news'} style={{ fontSize: 13, color: '#888' }}>更多 <RightOutlined style={{ fontSize: 10 }} /></Link>}
+      title={(
+        <span>
+          <FireOutlined style={{ color: '#f5222d', marginRight: 6 }} />
+          {official ? '更多新闻' : '热门帖子'}
+          {topicName && <span style={{ color: '#999', fontSize: 12, fontWeight: 400, marginLeft: 6 }}>· {topicName}</span>}
+        </span>
+      )}
+      extra={(
+        <Link
+          to={official ? '/official' : (topicId ? `/news/topic/${topicId}` : '/news')}
+          style={{ fontSize: 13, color: '#888' }}
+        >
+          更多 <RightOutlined style={{ fontSize: 10 }} />
+        </Link>
+      )}
       loading={rows === null}
       style={{ borderRadius: 14 }}
       styles={{ body: { padding: '6px 18px 10px' } }}
@@ -101,7 +127,7 @@ export default function NewsDetail() {
   // 从"我的消息"深链进来时带 userInformationId，请求详情即顺便标记该消息已读
   const userInformationId = searchParams.get('userInformationId') || undefined
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, dn } = useAuth() // dn：我给谁备注过，全站显示的就是备注名
   const isMobile = useIsMobile()
   const [news, setNews] = useState(null)
   const [canManage, setCanManage] = useState(false) // 能否置顶/加精（owner/manager+）
@@ -358,8 +384,8 @@ export default function NewsDetail() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       {news.authorId
-                        ? <a onClick={() => navigate(`/users/${news.authorId}`)} style={{ fontWeight: 700, fontSize: 15, color: '#222' }}>{news.author}</a>
-                        : <span style={{ fontWeight: 700, fontSize: 15 }}>{news.author || '匿名'}</span>}
+                        ? <a onClick={() => navigate(`/users/${news.authorId}`)} style={{ fontWeight: 700, fontSize: 15, color: '#222' }}>{dn(news.authorId, news.author)}</a>
+                        : <span style={{ fontWeight: 700, fontSize: 15 }}>{dn(news.authorId, news.author) || '匿名'}</span>}
                       <OpBadge />
                       {news.authorSuperManager && <SuperAdminBadge />}
                       {topicOwnerIds?.includes(news.authorId) && <TopicOwnerBadge />}
@@ -488,7 +514,7 @@ export default function NewsDetail() {
                 <CommentSection
                   newsId={newsId}
                   authorId={news.authorId}
-                  authorName={news.author}
+                  authorName={dn(news.authorId, news.author)}
                   topicOwnerIds={topicOwnerIds}
                   locked={news.locked === '1'}
                   ratingByComment={ratingByComment}
@@ -558,7 +584,14 @@ export default function NewsDetail() {
               )}
             </Card>
           )}
-          {news && <MorePosts channel={news.newsChannel} exceptId={newsId} />}
+          {news && (
+            <MorePosts
+              channel={news.newsChannel}
+              exceptId={newsId}
+              topicId={news.topicId || null}
+              topicName={topic?.name || null}
+            />
+          )}
         </div>
       </Col>
     </Row>

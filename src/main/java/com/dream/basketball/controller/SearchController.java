@@ -43,6 +43,9 @@ public class SearchController {
     private com.dream.basketball.config.TopicPermissionService topicPerms;
 
     @Autowired
+    private com.dream.basketball.mapper.UserRemarkMapper remarkMapper;
+
+    @Autowired
     private com.dream.basketball.mapper.DreamNewsMapper dreamNewsMapper;
 
     @Autowired
@@ -139,10 +142,29 @@ public class SearchController {
         }
         data.put("topics", topics);
 
-        // 用户：用户名/昵称模糊（只回显示字段，后续再做用户主页）
+        // 用户：用户名/昵称模糊，外加**我给别人起的备注名**——备注在前端替换显示，
+        // 搜索却只认真名的话，屏幕上写着「阿明」却搜不到，等于备注只做了一半
+        java.util.Set<String> remarkHitIds = remarkTargetIds(request, kw);
         List<Map<String, Object>> users = new ArrayList<>();
+        java.util.Set<String> seenUserIds = new java.util.HashSet<>();
         for (DreamUser u : userMapper.selectList(new QueryWrapper<DreamUser>()
-                .like("USER_NAME", kw).or().like("USER_NICKNAME", kw).last("limit " + GROUP_LIMIT))) {
+                .and(w -> w.like("USER_NAME", kw).or().like("USER_NICKNAME", kw))
+                .last("limit " + GROUP_LIMIT))) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("userId", u.getUserId());
+            m.put("userName", u.getUserName());
+            m.put("userNickname", u.getUserNickname());
+            users.add(m);
+            seenUserIds.add(u.getUserId());
+        }
+        for (String hitId : remarkHitIds) {
+            if (seenUserIds.contains(hitId) || users.size() >= GROUP_LIMIT) {
+                continue;
+            }
+            DreamUser u = userMapper.selectById(hitId);
+            if (u == null) {
+                continue;
+            }
             Map<String, Object> m = new HashMap<>();
             m.put("userId", u.getUserId());
             m.put("userName", u.getUserName());
@@ -159,7 +181,8 @@ public class SearchController {
      * 比 /global 轻——只查用户表，不跑球员/ES 查询，适合边打字边搜。
      */
     @GetMapping("/mentionUsers")
-    public Result<List<Map<String, Object>>> mentionUsers(String keyword) {
+    public Result<List<Map<String, Object>>> mentionUsers(String keyword,
+                                                          javax.servlet.http.HttpServletRequest request) {
         List<Map<String, Object>> users = new ArrayList<>();
         String kw = keyword == null ? "" : keyword.trim();
         if (kw.length() > 50) {
@@ -171,7 +194,25 @@ public class SearchController {
         }
         // 关键词为空时给一批用户垫底（刚打 @ 还没输入时有东西可选）
         qw.last("limit 8");
+        java.util.Set<String> seen = new java.util.HashSet<>();
         for (DreamUser u : userMapper.selectList(qw)) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("userId", u.getUserId());
+            m.put("userNickname", u.getUserNickname());
+            m.put("avatar", u.getAvatar());
+            users.add(m);
+            seen.add(u.getUserId());
+        }
+        // 还要认**我给别人起的备注名**：加成员、@ 联想这些地方屏幕上显示的就是备注名，
+        // 只匹配真名的话，看得见却搜不出来
+        for (String targetId : remarkTargetIds(request, kw)) {
+            if (seen.contains(targetId) || users.size() >= 8) {
+                continue;
+            }
+            DreamUser u = userMapper.selectById(targetId);
+            if (u == null) {
+                continue;
+            }
             Map<String, Object> m = new HashMap<>();
             m.put("userId", u.getUserId());
             m.put("userNickname", u.getUserNickname());
@@ -179,6 +220,21 @@ public class SearchController {
             users.add(m);
         }
         return new Result<>(0, "成功", users);
+    }
+
+    /** 当前登录用户的备注里，备注名命中 kw 的那些目标用户 id（未登录/空词返回空集）。 */
+    private java.util.Set<String> remarkTargetIds(javax.servlet.http.HttpServletRequest request, String kw) {
+        java.util.Set<String> out = new java.util.HashSet<>();
+        DreamUser viewer = com.dream.basketball.utils.SecUtil.getLoginUserToSession(request);
+        if (viewer == null || StringUtils.isBlank(kw)) {
+            return out;
+        }
+        for (com.dream.basketball.entity.UserRemark r : remarkMapper.selectList(
+                new QueryWrapper<com.dream.basketball.entity.UserRemark>()
+                        .eq("OWNER_ID", viewer.getUserId()).like("REMARK", kw))) {
+            out.add(r.getTargetId());
+        }
+        return out;
     }
 
     /** 只保留面板需要的字段，避免整篇正文进响应 */

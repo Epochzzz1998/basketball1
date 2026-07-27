@@ -7,7 +7,7 @@ import SeasonPicker from '../../components/SeasonPicker'
 import PillTabs from '../../components/PillTabs'
 import { playerApi } from '../../api/player'
 import { searchApi } from '../../api/search'
-import { CAREER_SEASON, fmtNum, seasonYearLabel, seasonShort, PLAYOFF_TAG, statQualified, LATEST_SEASON, NBA_TEAM_NAMES } from './rankConfig'
+import { CAREER_SEASON, fmtNum, fmtPct, seasonShort, PLAYOFF_TAG, statQualified, LATEST_SEASON, NBA_TEAM_NAMES, qualifiedFor, rankIn, unqualifiedReason } from './rankConfig'
 import TeamLogo, { TeamChain } from '../../components/TeamLogo'
 import { CAREER_AWARDS } from './honorConfig'
 import { GRID_STATS, RADAR_AXES, percentileOf, val } from './SeasonProfile'
@@ -290,12 +290,10 @@ function ScoreStrip({ rowA, rowB, stats }) {
 /** 对位行：A 数值(+排名) | 双向渐变条形+项目名药丸 | B 数值(+排名)。
  * 两侧排名各对各的联盟池（leagueA/leagueB），跨时代对比时各自成立。 */
 function CompareRows({ rowA, rowB, stats, leagueA, leagueB, rankPrefix = '联盟第', fmtOverride }) {
-  const rankIn = (rows, v, s) =>
-    rows?.length && v != null
-      ? 1 + rows.filter((r) => (s.asc ? val(r, s.key) < v : val(r, s.key) > v)).length
-      : null
-  const chip = (rank, align) =>
-    rank && (
+  const chip = (rank, align, unqualified) =>
+    unqualified ? (
+      <div style={{ fontSize: 11, fontWeight: 600, color: '#d46b08', textAlign: align, marginTop: 1 }}>{unqualified}</div>
+    ) : rank && (
       <div style={{ fontSize: 11, fontWeight: 600, color: rank <= 3 ? MEDAL[rank - 1] : '#bbb', textAlign: align, marginTop: 1 }}>
         {rankPrefix}{rank}
       </div>
@@ -312,7 +310,10 @@ function CompareRows({ rowA, rowB, stats, leagueA, leagueB, rankPrefix = '联盟
         const max = Math.max(Math.abs(av ?? 0), Math.abs(bv ?? 0)) || 1
         const wA = Math.max(4, (Math.abs(av ?? 0) / max) * 100)
         const wB = Math.max(4, (Math.abs(bv ?? 0) / max) * 100)
-        const fmtV = (v) => (v == null ? '-' : (fmtOverride ? fmtOverride(v, s) : fmtNum(v, digits)))
+        const fmtV = (v) => (v == null ? '-'
+          : fmtOverride ? fmtOverride(v, s)
+          : s.pct ? fmtPct(v)
+          : fmtNum(v, digits))
         return (
           <div key={s.key} className="cmp-row" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 8px' }}>
             <div style={{ width: 82, textAlign: 'right' }}>
@@ -324,7 +325,7 @@ function CompareRows({ rowA, rowB, stats, leagueA, leagueB, rankPrefix = '联盟
               >
                 {fmtV(av)}
               </div>
-              {chip(rankIn(leagueA, av, s), 'right')}
+              {chip(rankIn(leagueA, s.key, av, s.asc), 'right', leagueA?.length && rowA && !qualifiedFor(leagueA, s.key, rowA) ? unqualifiedReason(s.key) : null)}
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ textAlign: 'center', marginBottom: 5 }}>
@@ -366,7 +367,7 @@ function CompareRows({ rowA, rowB, stats, leagueA, leagueB, rankPrefix = '联盟
               >
                 {fmtV(bv)}
               </div>
-              {chip(rankIn(leagueB, bv, s), 'left')}
+              {chip(rankIn(leagueB, s.key, bv, s.asc), 'left', leagueB?.length && rowB && !qualifiedFor(leagueB, s.key, rowB) ? unqualifiedReason(s.key) : null)}
             </div>
           </div>
         )
@@ -494,10 +495,15 @@ export default function PlayerCompare() {
     useEffect(() => {
       if (!season) return
       let alive = true
-      setPool({ reg: null, po: null })
+      setPool({ reg: null, regQual: null, po: null })
       playerApi.listSeasonStats({ page: 1, limit: 2000, seasonNum: season })
-        .then((r) => { if (alive) setPool((p) => ({ ...p, reg: (r.records || []).filter(statQualified) })) })
-        .catch(() => { if (alive) setPool((p) => ({ ...p, reg: [] })) })
+        .then((r) => {
+          if (!alive) return
+          // reg = 全体（排名用），regQual = 过 58 场线（雷达基准用）。见 SeasonProfile 里的说明
+          const rows = r.records || []
+          setPool((p) => ({ ...p, reg: rows, regQual: rows.filter(statQualified) }))
+        })
+        .catch(() => { if (alive) setPool((p) => ({ ...p, reg: [], regQual: [] })) })
       playerApi.listPlayoffSeasonStats({ page: 1, limit: 2000, seasonNum: season })
         .then((r) => { if (alive) setPool((p) => ({ ...p, po: r.records || [] })) })
         .catch(() => { if (alive) setPool((p) => ({ ...p, po: [] })) })
@@ -618,7 +624,7 @@ export default function PlayerCompare() {
                   <Col xs={24} lg={10}>
                     {lgA.reg === null || lgB.reg === null
                       ? <Spin style={{ display: 'block', margin: '90px auto' }} />
-                      : <RadarChart series={radarSeries(rowA, rowB, lgA.reg, lgB.reg)} />}
+                      : <RadarChart series={radarSeries(rowA, rowB, lgA.regQual, lgB.regQual)} />}
                     <div style={{ textAlign: 'center', color: '#bbb', fontSize: 12 }}>常规赛 · 各自赛季的联盟百分位</div>
                   </Col>
                   <Col xs={24} lg={14}>

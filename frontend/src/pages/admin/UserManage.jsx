@@ -22,7 +22,7 @@ const avatarColor = (name) => {
 }
 
 export default function UserManage() {
-  const { user } = useAuth()
+  const { user, dn } = useAuth()
   const navigate = useNavigate()
   const actionRef = useRef()
 
@@ -49,7 +49,7 @@ export default function UserManage() {
           {r.avatar
             ? <Avatar size={28} src={r.avatar} />
             : <Avatar size={28} style={{ background: avatarColor(r.userNickname), fontWeight: 700 }}>{String(r.userNickname || '?')[0].toUpperCase()}</Avatar>}
-          <span style={{ fontWeight: 600 }}>{r.userNickname}</span>
+          <span style={{ fontWeight: 600 }}>{dn(r.userId, r.userNickname)}</span>
           {r.isSuperManager && <Tag color="red">超管</Tag>}
           {r.userId === user?.userId && <Tag>我</Tag>}
           <UserTitles titles={r.titles} size="sm" />

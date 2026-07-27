@@ -1,6 +1,9 @@
 package com.dream.basketball.utils;
 
 public class Constants {
+    /** 用户没有单独设置配额时，能创建的专题数上限（dream_user.TOPIC_LIMIT 为 null 时生效） */
+    public static final int DEFAULT_TOPIC_LIMIT = 5;
+
     // 用户状态
     public static final Integer DISABLE = 0; // 禁用
 

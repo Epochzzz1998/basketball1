@@ -221,6 +221,7 @@ function HonorsCard({ awards, poTeams }) {
 
 /** 论坛热帖榜：点赞×2 + 评论×3 计热度；卡片在右列里拉伸填满剩余高度 */
 function HotList({ posts }) {
+  const { dn } = useAuth() // 热帖作者名走我的备注
   return (
     <Card
       title={<span><FireOutlined style={{ color: '#f5222d', marginRight: 6 }} />热帖榜</span>}
@@ -256,7 +257,7 @@ function HotList({ posts }) {
                   </Tag>
                 )}
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
-                  {p.author} · 👍 {p.goodNum ?? 0} · 💬 {p.commentNum ?? 0}
+                  {dn(p.authorId, p.author)} · 👍 {p.goodNum ?? 0} · 💬 {p.commentNum ?? 0}
                 </span>
               </div>
             </div>

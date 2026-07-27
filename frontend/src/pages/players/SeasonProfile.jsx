@@ -4,7 +4,7 @@ import { Card, Col, Empty, Row, Space, Spin, Tag } from 'antd'
 import SeasonPicker from '../../components/SeasonPicker'
 import RadarChart from '../../components/RadarChart'
 import { playerApi } from '../../api/player'
-import { CAREER_SEASON, PLAYOFF_TAG, fmtNum, seasonYearLabel, fmtPct, statQualified } from './rankConfig'
+import { CAREER_SEASON, PLAYOFF_TAG, fmtNum, seasonYearLabel, fmtPct, statQualified, qualifiedFor, rankIn, unqualifiedReason } from './rankConfig'
 import { TeamNames } from '../../components/TeamLogo'
 import { CAREER_AWARDS } from './honorConfig'
 
@@ -32,6 +32,7 @@ export const RADAR_AXES = [
 ]
 
 export const GRID_STATS = [
+  { key: 'playingTime', label: '上场时间' },
   { key: 'playerAvgScore', label: '得分' },
   { key: 'playerAvgReb', label: '篮板' },
   { key: 'playerAvgAss', label: '助攻' },
@@ -39,7 +40,6 @@ export const GRID_STATS = [
   { key: 'playerAvgBlock', label: '盖帽' },
   { key: 'playerAvgTurnover', label: '失误', asc: true, note: '最少排' },
   { key: 'playerAvgPf', label: '犯规', asc: true, note: '最少排' },
-  { key: 'playingTime', label: '上场时间' },
   { key: 'playerPer', label: '效率值' },
   { key: 'playerAvgFgm', label: '场均投篮命中' },
   { key: 'playerAccuracy', label: '投篮%', pct: true },
@@ -60,7 +60,15 @@ const Radar = ({ data, color = '#fa541c', fill = 'rgba(250,84,28,.22)' }) => (
   <RadarChart series={[{ color, fill, data }]} />
 )
 
-function RankChip({ rank, prefix = '联盟第', to }) {
+function RankChip({ rank, prefix = '联盟第', to, unqualified }) {
+  // 不达标就明说，别给一个跟别人不可比的数字
+  if (unqualified) {
+    return (
+      <span style={{ fontSize: 12, fontWeight: 600, color: '#d46b08', background: '#fff7e6', padding: '1px 8px', borderRadius: 10 }}>
+        {unqualified}
+      </span>
+    )
+  }
   if (!rank) return null
   const color = rank <= 3 ? MEDAL[rank - 1] : '#999'
   const chip = (
@@ -78,13 +86,14 @@ function RankChip({ rank, prefix = '联盟第', to }) {
   return to ? <Link to={to}>{chip}</Link> : chip
 }
 
-export default function SeasonProfile({ playerId, honors, onTeamChange }) {
+export default function SeasonProfile({ playerId, honors, onTeamChange, onSeasonChange }) {
   const [career, setCareer] = useState(null)   // 本人常规赛逐季
   const [poRows, setPoRows] = useState(null)   // 本人季后赛逐季
   // 用户手选的赛季写进 URL（返回本页可恢复）；自动兜底（最近打过的赛季）不写
   const [searchParams, setSearchParams] = useSearchParams()
   const [seasonNum, setSeasonNum] = useState(Number(searchParams.get('seasonNum')) || null)
-  const [league, setLeague] = useState(null)   // 当季全联盟（常规）
+  const [league, setLeague] = useState(null)       // 当季全联盟（常规）：算「联盟第 N」用，不设门槛
+  const [leagueQual, setLeagueQual] = useState(null) // 同一批但过了 58 场线：只给雷达当基准分布
   const [poLeague, setPoLeague] = useState(null)
 
   useEffect(() => {
@@ -115,11 +124,21 @@ export default function SeasonProfile({ playerId, honors, onTeamChange }) {
     if (!seasonNum) return
     let alive = true
     setLeague(null)
+    setLeagueQual(null)
     setPoLeague(null)
-    // 联盟池（算"联盟第 N"和雷达百分位）套 58 场资格线——两场秀不该抬高或压低全联盟基准
+    // 两个池子分开用：
+    //  · 「联盟第 N」按**当季所有出场过的人**排——只跟够 58 场的人比的话，自己没够线时
+    //    会得出荒唐结果（21-22 的杜兰特 55 场、詹姆斯 56 场都没进池子，于是两人都被算成
+    //    场均命中数联盟第 1，而实际上詹姆斯 11.4 高于杜兰特 10.5）；
+    //  · 雷达百分位仍套 58 场线——那是分布基准，两场秀会把整条基线带偏。
     playerApi.listSeasonStats({ page: 1, limit: 2000, seasonNum })
-      .then((r) => { if (alive) setLeague((r.records || []).filter(statQualified)) })
-      .catch(() => { if (alive) setLeague([]) })
+      .then((r) => {
+        if (!alive) return
+        const rows = r.records || []
+        setLeague(rows)
+        setLeagueQual(rows.filter(statQualified))
+      })
+      .catch(() => { if (alive) { setLeague([]); setLeagueQual([]) } })
     playerApi.listPlayoffSeasonStats({ page: 1, limit: 2000, seasonNum })
       .then((r) => { if (alive) setPoLeague(r.records || []) })
       .catch(() => { if (alive) setPoLeague([]) })
@@ -133,6 +152,11 @@ export default function SeasonProfile({ playerId, honors, onTeamChange }) {
   useEffect(() => {
     onTeamChange?.(row?.playerTeam || null)
   }, [row, onTeamChange])
+
+  // 身份头那枚大队标要能跳到「同一个赛季」的球队页，所以赛季号也回报给上层
+  useEffect(() => {
+    onSeasonChange?.(seasonNum)
+  }, [seasonNum, onSeasonChange])
 
   // 当季荣誉徽章（与荣誉柜同源）
   const chips = useMemo(() => {
@@ -175,8 +199,6 @@ export default function SeasonProfile({ playerId, honors, onTeamChange }) {
     )
   }
 
-  const rankIn = (rows, s, mine) =>
-    rows?.length ? 1 + rows.filter((r) => (s.asc ? val(r, s.key) < mine : val(r, s.key) > mine)).length : null
 
   const statCard = (dataRow, leagueRows, prefix, color, stage) => (
     <Row gutter={[10, 10]}>
@@ -193,7 +215,8 @@ export default function SeasonProfile({ playerId, honors, onTeamChange }) {
                 {s.pct ? fmtPct(mine) : fmtNum(mine, s.digits ?? 1)}
               </div>
               <RankChip
-                rank={rankIn(leagueRows, s, mine)}
+                rank={rankIn(leagueRows, s.key, mine, s.asc)}
+                unqualified={leagueRows?.length && !qualifiedFor(leagueRows, s.key, dataRow) ? unqualifiedReason(s.key) : null}
                 prefix={prefix}
                 to={`/rankings/${s.key}?seasonNum=${seasonNum}&stage=${stage}`}
               />
@@ -241,7 +264,7 @@ export default function SeasonProfile({ playerId, honors, onTeamChange }) {
         <div style={{ maxWidth: 440, margin: '20px auto 0' }}>
           {league === null
             ? <Spin style={{ display: 'block', margin: '60px auto' }} />
-            : <Radar data={radarOf(row, league)} />}
+            : <Radar data={radarOf(row, leagueQual)} />}
           <div style={{ textAlign: 'center', color: '#bbb', fontSize: 12, marginTop: 2 }}>
             六维 = {isCareer ? '生涯场均' : '当季'}联盟百分位（0-100；防守 = 抢断+盖帽，真实命中 = TS%）
           </div>

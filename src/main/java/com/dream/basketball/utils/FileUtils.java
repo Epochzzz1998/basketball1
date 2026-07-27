@@ -32,8 +32,8 @@ public class FileUtils {
     // html/svg/js/jsp/exe/sh etc. (stored-XSS / executable) — same defensive stance as images.
     private static final Set<String> ALLOWED_DOC_EXTENSIONS = new HashSet<>(Arrays.asList(
             "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "csv", "md", "zip", "rar", "7z"));
-    private static final long MAX_FILE_SIZE = 5L * 1024 * 1024; // 5MB (images)
-    private static final long MAX_ATTACHMENT_SIZE = 20L * 1024 * 1024; // 20MB (comment files)
+    private static final long MAX_FILE_SIZE = 10L * 1024 * 1024; // 10MB (images)
+    private static final long MAX_ATTACHMENT_SIZE = 30L * 1024 * 1024; // 30MB (comment files)
 
     /** URL prefix that ImgConfigurer maps to the upload dir (e.g. /picImg/). */
     private static String picPath;

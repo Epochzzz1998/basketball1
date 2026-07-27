@@ -96,6 +96,10 @@ public class DreamNews extends Model<DreamNews> implements Serializable {
     @TableField("HIDDEN")
     private String hidden;
 
+    /** 草稿 '1'/'0' — 存了但没发布，只有作者自己能看到并继续编辑 */
+    @TableField("DRAFT")
+    private String draft;
+
     /** 最后编辑时间（null=从未编辑过）+ 编辑者 id（超管可改他人帖，需留痕） */
     @TableField("LAST_EDIT_TIME")
     private java.util.Date lastEditTime;

@@ -103,6 +103,7 @@ function CareerTable({ playerId }) {
     { title: '盖帽', dataIndex: 'playerAvgBlock', width: 48, render: (v) => num(v) },
     { title: '抢断', dataIndex: 'playerAvgSteal', width: 48, render: (v) => num(v) },
     { title: '失误', dataIndex: 'playerAvgTurnover', width: 48, render: (v) => num(v) },
+    { title: '犯规', dataIndex: 'playerAvgPf', width: 48, render: (v) => num(v) },
     { title: '效率值', dataIndex: 'playerPer', width: 58, render: (v) => num(v) },
     { title: 'MVP', dataIndex: 'mvpRank', width: 50 },
     { title: 'DPOY', dataIndex: 'dpoyRank', width: 56 },
@@ -179,6 +180,7 @@ function PlayoffTable({ playerId }) {
     { title: '盖帽', dataIndex: 'playerAvgBlock', width: 48, render: (v) => num(v) },
     { title: '抢断', dataIndex: 'playerAvgSteal', width: 48, render: (v) => num(v) },
     { title: '失误', dataIndex: 'playerAvgTurnover', width: 48, render: (v) => num(v) },
+    { title: '犯规', dataIndex: 'playerAvgPf', width: 48, render: (v) => num(v) },
     { title: '效率值', dataIndex: 'playerPer', width: 58, render: (v) => num(v) },
   ]
 
@@ -251,6 +253,7 @@ export default function PlayerCareer() {
   // 资料卡选中赛季所属球队（由 SeasonProfile 回报）：身份头右侧那枚大队标就认它。
   // 交易赛季取最后一站＝赛季结束时所在的队；生涯档没有单一球队，不出队标。
   const [seasonTeam, setSeasonTeam] = useState(null)
+  const [seasonNum, setSeasonNum] = useState(null) // 资料卡选中的赛季：队标跳转要带着它，落到同一个赛季的球队页
   const teamCode = String(seasonTeam || '').split('->').pop().trim().toUpperCase()
   const showTeamLogo = !!NBA_TEAM_NAMES[teamCode]
   // 一次查清这名球员哪些赛季有逐场数据，常规赛/季后赛两个页签共用这一份结果
@@ -317,7 +320,14 @@ export default function PlayerCareer() {
           </div>
         </Space>
         {showTeamLogo && (
-          <TeamLogo code={teamCode} size={isMobile ? 60 : 76} style={{ flexShrink: 0 }} />
+          // 点队标进这支球队的页面，并停在资料卡当前选中的那个赛季（生涯档没有单一赛季，不带参数）
+          <Link
+            to={`/players/team/${teamCode}${seasonNum && seasonNum !== CAREER_SEASON ? `?seasonNum=${seasonNum}` : ''}`}
+            title={`查看 ${NBA_TEAM_NAMES[teamCode]}`}
+            style={{ flexShrink: 0, lineHeight: 0 }}
+          >
+            <TeamLogo code={teamCode} size={isMobile ? 60 : 76} />
+          </Link>
         )}
         </div>
       </Card>
@@ -352,7 +362,7 @@ export default function PlayerCareer() {
           }))}
         />
       </ConfigProvider>
-      {tab === 'profile' && <SeasonProfile playerId={playerId} honors={honors} onTeamChange={setSeasonTeam} />}
+      {tab === 'profile' && <SeasonProfile playerId={playerId} honors={honors} onTeamChange={setSeasonTeam} onSeasonChange={setSeasonNum} />}
       {tab === 'career' && (
         <StagePane playerId={playerId} seasonType={SEASON_TYPE.REG} seasons={gameLogSeasons?.[SEASON_TYPE.REG]}>
           <CareerTable playerId={playerId} />

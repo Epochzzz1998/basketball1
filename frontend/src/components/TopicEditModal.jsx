@@ -19,7 +19,7 @@ const avatarColor = (name) => {
 
 export default function TopicEditModal({ open, onClose, onSaved, topic }) {
   const isEdit = !!topic
-  const { user } = useAuth()
+  const { user, dn } = useAuth() // 题主候选也显示备注名，跟搜索口径一致
   const isSuper = !!user?.isSuperManager // 超管建专题可代指定 owner；普通用户创建后自己即题主
   const [form] = Form.useForm()
   const [visibility, setVisibility] = useState('public')
@@ -50,7 +50,7 @@ export default function TopicEditModal({ open, onClose, onSaved, topic }) {
     timer.current = setTimeout(async () => {
       try {
         const list = await searchApi.mentionUsers(kw)
-        setOpts((list || []).map((u) => ({ value: u.userId, label: u.userNickname, avatar: u.avatar })))
+        setOpts((list || []).map((u) => ({ value: u.userId, label: dn(u.userId, u.userNickname), avatar: u.avatar })))
       } catch { setOpts([]) }
     }, 250)
   }

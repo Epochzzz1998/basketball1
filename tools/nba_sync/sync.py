@@ -549,11 +549,15 @@ def main():
             team_reg.setdefault(code, {}).setdefault('pts', st['ppg'])
     po_results = fetch_playoff_results(args.season, team_ids, set(team_po.keys()))
     awards = fetch_awards(args.season)
-    # NBA-only filter: keep players on a current NBA roster OR with a real body of NBA work
-    # (>=15 games). Drops G-League call-ups / 10-day passersby the league list sweeps in.
+    # Keep anyone who actually played an NBA game that season. The old rule also required
+    # 15 games unless the player is on a CURRENT roster, which quietly deleted the
+    # injury-shortened seasons of everyone already retired: Yao's 5-game 2010-11 finale,
+    # Grant Hill's 4- and 14-game ankle years, Walton's two 14-game seasons, Rose's
+    # 10-game 2013-14. A season a player really played is season data, not noise; the
+    # 15-game line belongs in the leaderboard qualification rules (which have it), not
+    # in what gets stored. Zero-game rows are still dropped — there is nothing to show.
     def is_nba(r):
-        gp = r['stats'].get('gamesPlayed') or 0
-        return r['espnId'] in ident or gp >= 15
+        return (r['stats'].get('gamesPlayed') or 0) >= 1
     dropped = [r['name'] for r in reg if not is_nba(r)]
     reg = [r for r in reg if is_nba(r)]
     # playoff rows keep everyone who survived the REGULAR-season cut: playoff gp is 4-28,
@@ -561,7 +565,7 @@ def main():
     reg_ids = {r['espnId'] for r in reg}
     po = [r for r in po if r['espnId'] in reg_ids or r['espnId'] in ident]
     if dropped:
-        print(f'  filtered out {len(dropped)} fringe non-roster players (e.g. {", ".join(dropped[:5])})')
+        print(f'  skipped {len(dropped)} zero-game rows (e.g. {", ".join(dropped[:5])})')
     print(f'  players: reg {len(reg)}, playoffs {len(po)}; teams {len(standings)}, po-teams {len(po_opp)}')
     if len(reg) < 100 or len(standings) < 20:  # 1987 had 23 teams; expansion reached 30 in 2004
         sys.exit('ABORT: source data looks incomplete — nothing was written')

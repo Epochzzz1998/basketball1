@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Avatar, Button, Checkbox, Empty, Modal, Popconfirm, Select, Spin, message } from 'antd'
 import { CloseCircleFilled, CrownFilled, DeleteOutlined } from '@ant-design/icons'
 import { topicApi } from '../api/topic'
@@ -20,8 +21,16 @@ const bool = (b) => (b ? '1' : '0')
 
 export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
   const isMobile = useIsMobile()
-  const { user } = useAuth()
+  const { user, dn } = useAuth()
+  const navigate = useNavigate()
   const isSuper = !!user?.isSuperManager
+  // 头像/名字点进个人主页。弹窗必须先关：留着它会盖在新页面上，返回时更乱
+  const goUser = (userId) => {
+    if (!userId) return
+    onClose?.()
+    navigate(`/users/${userId}`)
+  }
+  const clickable = { cursor: 'pointer' }
   const [rows, setRows] = useState(null)
   const [reqs, setReqs] = useState([])
   const [reqFlags, setReqFlags] = useState({}) // { requestId: {comment, post} } 审批时勾选给哪些权限
@@ -71,7 +80,7 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
     ownerTimer.current = setTimeout(async () => {
       try {
         const list = await searchApi.mentionUsers(kw)
-        setOwnerOpts((list || []).map((u) => ({ value: u.userId, label: u.userNickname, avatar: u.avatar })))
+        setOwnerOpts((list || []).map((u) => ({ value: u.userId, label: dn(u.userId, u.userNickname), avatar: u.avatar })))
       } catch { setOwnerOpts([]) }
     }, 250)
   }
@@ -101,7 +110,7 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
     subTimer.current = setTimeout(async () => {
       try {
         const list = await searchApi.mentionUsers(kw)
-        setSubOpts((list || []).map((u) => ({ value: u.userId, label: u.userNickname, avatar: u.avatar })))
+        setSubOpts((list || []).map((u) => ({ value: u.userId, label: dn(u.userId, u.userNickname), avatar: u.avatar })))
       } catch { setSubOpts([]) }
     }, 250)
   }
@@ -128,7 +137,7 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
     timer.current = setTimeout(async () => {
       try {
         const list = await searchApi.mentionUsers(kw)
-        setOpts((list || []).map((u) => ({ value: u.userId, label: u.userNickname, avatar: u.avatar })))
+        setOpts((list || []).map((u) => ({ value: u.userId, label: dn(u.userId, u.userNickname), avatar: u.avatar })))
       } catch { setOpts([]) }
     }, 250)
   }
@@ -167,8 +176,10 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
             {owners.slice(0, 1).map((o) => (
               <span key={o.userId} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid #d9f7be', borderRadius: 16, padding: '2px 10px 2px 2px' }}>
-                {o.avatar ? <Avatar size={22} src={o.avatar} /> : <Avatar size={22} style={{ background: avatarColor(o.userNickname), fontSize: 11 }}>{String(o.userNickname || '?')[0].toUpperCase()}</Avatar>}
-                <span style={{ fontSize: 13 }}>{o.userNickname}</span>
+                <span onClick={() => goUser(o.userId)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, ...clickable }}>
+                  {o.avatar ? <Avatar size={22} src={o.avatar} /> : <Avatar size={22} style={{ background: avatarColor(o.userNickname), fontSize: 11 }}>{String(o.userNickname || '?')[0].toUpperCase()}</Avatar>}
+                  <span style={{ fontSize: 13 }}>{dn(o.userId, o.userNickname)}</span>
+                </span>
               </span>
             ))}
           </div>
@@ -204,8 +215,10 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
             {subOwners.length ? subOwners.map((o) => (
               <span key={o.userId} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid #bae0ff', borderRadius: 16, padding: '2px 8px 2px 2px' }}>
-                {o.avatar ? <Avatar size={22} src={o.avatar} /> : <Avatar size={22} style={{ background: avatarColor(o.userNickname), fontSize: 11 }}>{String(o.userNickname || '?')[0].toUpperCase()}</Avatar>}
-                <span style={{ fontSize: 13 }}>{o.userNickname}</span>
+                <span onClick={() => goUser(o.userId)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, ...clickable }}>
+                  {o.avatar ? <Avatar size={22} src={o.avatar} /> : <Avatar size={22} style={{ background: avatarColor(o.userNickname), fontSize: 11 }}>{String(o.userNickname || '?')[0].toUpperCase()}</Avatar>}
+                  <span style={{ fontSize: 13 }}>{dn(o.userId, o.userNickname)}</span>
+                </span>
                 <CloseCircleFilled onClick={() => removeSubOwner(o.userId)} style={{ color: '#ccc', cursor: 'pointer', fontSize: 15 }} />
               </span>
             )) : <span style={{ fontSize: 12, color: '#69b1ff' }}>还没有小题主</span>}
@@ -243,9 +256,11 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
             const f = reqFlags[r.requestId] || { comment: true, post: false }
             return (
               <div key={r.requestId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid #fff3d6', flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
-                {r.avatar ? <Avatar size={30} src={r.avatar} /> : <Avatar size={30} style={{ background: avatarColor(r.userNickname), fontWeight: 700 }}>{String(r.userNickname || '?')[0].toUpperCase()}</Avatar>}
+                <span onClick={() => goUser(r.userId)} style={clickable}>
+                  {r.avatar ? <Avatar size={30} src={r.avatar} /> : <Avatar size={30} style={{ background: avatarColor(r.userNickname), fontWeight: 700 }}>{String(r.userNickname || '?')[0].toUpperCase()}</Avatar>}
+                </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>{r.userNickname}</div>
+                  <div onClick={() => goUser(r.userId)} style={{ fontWeight: 600, fontSize: 13, ...clickable }}>{dn(r.userId, r.userNickname)}</div>
                   {r.message && <div style={{ fontSize: 12, color: '#999', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.message}</div>}
                 </div>
                 {/* 勾选给哪些权限（浏览默认给） */}
@@ -296,9 +311,9 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
         ) : rows.length ? (
           rows.map((row) => (
             <div key={row.userId} style={{ display: 'flex', alignItems: 'center', padding: '10px 4px', borderBottom: '1px solid #fafafa' }}>
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+              <div onClick={() => goUser(row.userId)} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, ...clickable }}>
                 {row.avatar ? <Avatar size={30} src={row.avatar} /> : <Avatar size={30} style={{ background: avatarColor(row.userNickname), fontWeight: 700 }}>{String(row.userNickname || '?')[0].toUpperCase()}</Avatar>}
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.userNickname}</span>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dn(row.userId, row.userNickname)}</span>
               </div>
               <span style={{ width: isMobile ? 44 : 56, textAlign: 'center' }}>
                 <Checkbox checked={row.canView} onChange={(e) => setFlags(row, { ...row, canView: e.target.checked })} />

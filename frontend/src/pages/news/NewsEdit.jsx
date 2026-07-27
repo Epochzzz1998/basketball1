@@ -40,6 +40,8 @@ export default function NewsEdit() {
   const [topicName, setTopicName] = useState('')
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving] = useState(false)
+  const [isDraft, setIsDraft] = useState(false)   // 打开的这篇本来就是草稿？决定按钮写「发布」还是「保存」
+  const draftRef = useRef(false)                  // 本次提交是存草稿还是正式发布
   const [ratingOpen, setRatingOpen] = useState(false) // 开分填写卡展开态（默认只显示按钮）
   const [ratingImg, setRatingImg] = useState('') // 打分对象配图 URL（可选）
   const [pollOpen, setPollOpen] = useState(false) // 发起投票填写卡展开态
@@ -74,6 +76,7 @@ export default function NewsEdit() {
           form.setFieldsValue({ title: n.title, author: n.author, tags: (n.tags || '').split(',').map((s) => s.trim()).filter(Boolean) })
           setAuthorId(n.authorId)
           setContent(n.content || '')
+          setIsDraft(n.draft === '1') // 打开的是草稿：主按钮改成「发布」
         }
       })
       .finally(() => { if (alive) setLoading(false) })
@@ -92,7 +95,15 @@ export default function NewsEdit() {
         newsChannel: official ? 'official' : 'forum',
         topicId: official ? undefined : topicId, // 新建论坛帖带专题；编辑时后端保留原专题
         content,
+        draft: draftRef.current ? '1' : '0',
       })
+      // 存草稿就到此为止：打分/投票是发布动作，草稿阶段不该挂上去，也不该通知任何人。
+      // 存完**留在编辑器里**——跳走的话主按钮上那个「发布」就再也见不到了。
+      if (draftRef.current) {
+        message.success('草稿已保存，点击发布发出')
+        setIsDraft(true)
+        return
+      }
       // 发帖时开启打分（可选，仅新帖）：帖子存好后把打分项挂上；失败不阻断发帖
       const ratingSubject = ratingOpen ? (values.ratingSubject || '').trim() : ''
       if (!isEdit && ratingSubject) {
@@ -108,7 +119,7 @@ export default function NewsEdit() {
           await pollApi.create({ newsId: newsIdRef.current, subject: pollSub, options: JSON.stringify(pollOpts) })
         } catch { message.warning('帖子已发出，但投票发起失败，可在评论区重新发起') }
       }
-      message.success('已保存')
+      message.success(isDraft ? '已发布' : '已保存')
       navigate(-1)
     } finally {
       setSaving(false)
@@ -120,6 +131,11 @@ export default function NewsEdit() {
       title={isEdit ? '编辑帖子' : official ? '发布官方新闻' : topicName ? `发帖到「${topicName}」` : '发帖'}
       loading={loading}
     >
+      {isDraft && (
+        <div style={{ marginBottom: 16, padding: '10px 14px', borderRadius: 10, background: '#fffbe6', border: '1px solid #ffe58f', fontSize: 13, color: '#ad6800' }}>
+          这是草稿，只有你自己看得到。点下方「发布」才会公开出去。
+        </div>
+      )}
       <Form form={form} layout="vertical" onFinish={onFinish}>
         <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入标题' }]}>
           <Input placeholder="请输入标题" maxLength={100} showCount />
@@ -253,7 +269,21 @@ export default function NewsEdit() {
           />
         </Form.Item>
         <Space>
-          <Button type="primary" htmlType="submit" loading={saving}>保存</Button>
+          <Button
+            type="primary"
+            htmlType="submit"
+            loading={saving}
+            onClick={() => { draftRef.current = false }}
+          >
+            {isDraft ? '发布' : '保存'}
+          </Button>
+          {/* 草稿：不校验必填也不通知任何人，随手存下来就走 */}
+          <Button
+            loading={saving}
+            onClick={() => { draftRef.current = true; form.submit() }}
+          >
+            存草稿
+          </Button>
           <Button onClick={() => navigate(-1)}>取消</Button>
         </Space>
       </Form>

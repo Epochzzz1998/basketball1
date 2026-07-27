@@ -74,6 +74,9 @@ public class News {
     @org.springframework.data.annotation.Transient
     private String hidden;
 
+    /** 草稿 '1'/'0' — 只有作者自己看得到，发布后置 0（列表/搜索/热榜一律排除草稿） */
+    private String draft;
+
     /** 最后编辑：时间 + 编辑者 id/昵称。存 dream_news（昵称读时解析），不进 ES。 */
     @org.springframework.data.annotation.Transient
     private java.util.Date lastEditTime;
