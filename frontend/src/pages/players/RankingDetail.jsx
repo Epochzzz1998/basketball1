@@ -92,7 +92,9 @@ export default function RankingDetail() {
           <SeasonPicker key="season" value={seasonNum} onChange={setSeasonNum} />,
         ]}
         pagination={false} /* 不分页，一滚到底 */
-        params={{ seasonNum, stage, pos }}
+        /* field 也进 params：字段集按它选（基础/高阶两套列），直接在两个 /rankings/:field
+           之间跳转时组件不重挂，params 不变就不会重取，会拿旧字段渲染新列 */
+        params={{ seasonNum, stage, pos, field }}
         request={async (params) => {
           const api = stage === 'po' ? playerApi.listPlayoffSeasonStats : playerApi.listSeasonStats
           const res = await api({

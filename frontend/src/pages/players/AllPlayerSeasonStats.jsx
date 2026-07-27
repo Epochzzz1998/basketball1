@@ -67,7 +67,9 @@ export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: s
       headerTitle={team ? undefined : '球员赛季数据榜'}
       rowKey="statsId"
       columns={columns}
-      params={{ seasonNum, playerTeam: team, playerName, stage, round, pos }} /* 任一变化都会自动重新请求 */
+      /* adv 必须在 params 里：列裁剪之后两种视图取的是不同的列，切视图不重新请求的话
+         列换了、数据还是上一次那批（高阶列全成 "/"）。ProTable 只认 params 的变化。 */
+      params={{ seasonNum, playerTeam: team, playerName, stage, round, pos, adv }}
       search={false}
       scroll={{ x: sumColWidth(columns) }}
       options={false}
@@ -98,7 +100,7 @@ export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: s
           return { data: rows, total: rows.length, success: true }
         }
         const api = po ? playerApi.listPlayoffSeasonStats : playerApi.listSeasonStats
-        const res = await api({ ...query, page: 1, limit: 2000, fields: adv ? ADVANCED_TABLE_FIELDS : BASIC_TABLE_FIELDS })
+        const res = await api({ ...query, page: 1, limit: 2000, fields: params.adv ? ADVANCED_TABLE_FIELDS : BASIC_TABLE_FIELDS })
         // 拦截器已把 Result 拆成 {total, records}；位置在前端筛（一次取全，无需再请求）
         const rows = filterByPosition(res.records || [], params.pos)
         return { data: rows, total: rows.length, success: true }
