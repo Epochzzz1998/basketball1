@@ -39,6 +39,15 @@ NAME2CODE = {
     # 1976-1986 era franchises
     'Buffalo Braves': 'LAC', 'San Diego Clippers': 'LAC', 'New Orleans Jazz': 'UTA',
     'Kansas City Kings': 'SAC', 'New York Nets': 'BKN',
+    # 1947-1975：只列出「有现代血脉」的队，其余（芝加哥雄鹿、华盛顿国会、圣路易斯轰炸机…）
+    # 是已消失的球队，没有任何现役球队继承它们的历史，所以刻意不映射——落到 None 直接丢弃，
+    # 总比硬塞给一支无关的现役球队强。
+    'Syracuse Nationals': 'PHI', 'Philadelphia Warriors': 'GSW', 'San Francisco Warriors': 'GSW',
+    'Minneapolis Lakers': 'LAL', 'Rochester Royals': 'SAC', 'Cincinnati Royals': 'SAC',
+    'Kansas City-Omaha Kings': 'SAC', 'Fort Wayne Pistons': 'DET',
+    'Tri-Cities Blackhawks': 'ATL', 'Milwaukee Hawks': 'ATL', 'St. Louis Hawks': 'ATL',
+    'Baltimore Bullets': 'WAS', 'Chicago Zephyrs': 'WAS', 'Chicago Packers': 'WAS',
+    'Capital Bullets': 'WAS', 'San Diego Rockets': 'HOU', 'Seattle SuperSonics': 'OKC',
 }
 ROUND_LABEL = [
     ('Finals', None),  # handled specially (winner champion / loser finals)
@@ -57,16 +66,20 @@ def old_charlotte(code, year):
 
 def fetch_series(year):
     """[(round_name, winner_code, loser_code)] from the B-R playoff page"""
-    req = urllib.request.Request(f'https://www.basketball-reference.com/playoffs/NBA_{year}.html',
+    lg = 'BAA' if year <= 1949 else 'NBA'   # 1947-1949 联盟叫 BAA，URL 同样是 BAA_
+    req = urllib.request.Request(f'https://www.basketball-reference.com/playoffs/{lg}_{year}.html',
                                  headers=sync.UA)
     page = urllib.request.urlopen(req, timeout=30).read().decode('utf-8', 'replace')
     # series rows appear as: <span><strong>Western Conference First Round</strong></span> ...
     #   <a href="/teams/LAL/2000.html">Los Angeles Lakers</a> over
     #   <a href="/teams/SAC/2000.html">Sacramento Kings</a>
     out = []
+    # 必须锁定「系列赛表格」那一种形状：<strong>标签</strong></span></td><td>赢家 over 输家。
+    # 页面上还有一份导航列表，标签是缩写（"East Conf Finals"）且不带 over；早先的正则用
+    # .*? 会从导航标签一路跨到表格第一行，把总决赛错配成分区决赛的标签。
     pat = re.compile(
-        r'<strong>\s*([A-Za-z /]*?(?:Finals|First Round|Semifinals))\s*</strong>.*?'
-        r'<a[^>]*>([^<]+)</a>\s*over\s*<a[^>]*>([^<]+)</a>', re.S)
+        r'<strong>\s*([A-Za-z /]*?(?:Finals|First Round|Semifinals))\s*</strong>\s*</span>\s*</td>\s*'
+        r'<td>\s*<a[^>]*>([^<]+)</a>\s*over\s*<a[^>]*>([^<]+)</a>', re.S)
     for m in pat.finditer(page):
         rnd, winner, loser = m.group(1).strip(), m.group(2).strip(), m.group(3).strip()
         w, l = NAME2CODE.get(winner), NAME2CODE.get(loser)
@@ -75,26 +88,45 @@ def fetch_series(year):
     return out
 
 
+def expected_series(year):
+    """这一季至少该解析出几组系列赛。赛制历年多变，所以老年代只设一个下限，
+    真正的正确性检查是「必须找得到总决赛」——那一条比数量更能发现解析失败。"""
+    if year >= 1984:
+        return 15      # 16 队
+    if year >= 1977:
+        return 11      # 12 队，前两号种子轮空首轮
+    if year >= 1975:
+        return 9       # 10 队
+    if year >= 1967:
+        return 5       # 分区半决赛/决赛 + 总决赛，队数逐年变
+    return 3           # 1947-1966：最少三组
+
+
 def rounds_map(year):
     """teamCode -> PLAYOFF_RESULT for that season, from B-R series list"""
     series = fetch_series(year)
-    # 1977-1983: 12-team bracket (top-2 seeds bye the first round) = 11 series total;
-    # 16-team era = 15 series
-    expected = 11 if year <= 1983 else 15
+    expected = expected_series(year)
     if len(series) < expected:
         raise RuntimeError(f'{year}: only {len(series)} series parsed (expected {expected})')
     res = {}
+    champ = False
     for rnd, w, l in series:
-        # the championship series is labeled "Finals" or "NBA Finals" depending on era
-        if 'Finals' in rnd and 'Conference' not in rnd and 'Semifinals' not in rnd:
+        # 总决赛那一组的标签就是 "Finals"/"NBA Finals"，没有东西部前缀。
+        # 1976 年前分区叫 Division 不叫 Conference，"Eastern Division Finals" 若按
+        # 「含 Finals 且不含 Conference」判定会被当成总冠军——所以改成看有没有前缀。
+        head = rnd.replace('NBA', '').strip()
+        if head == 'Finals':
             res[w] = '总冠军'
             res[l] = '总决赛'
-        elif 'Conference Finals' in rnd:
+            champ = True
+        elif 'Conference Finals' in rnd or 'Division Finals' in rnd:
             res.setdefault(l, '分区决赛')
         elif 'Semifinals' in rnd:
             res.setdefault(l, '半决赛')
         elif 'First Round' in rnd:
             res.setdefault(l, '首轮')
+    if not champ:
+        raise RuntimeError(f'{year}: parsed {len(series)} series but found no championship series')
     return res
 
 

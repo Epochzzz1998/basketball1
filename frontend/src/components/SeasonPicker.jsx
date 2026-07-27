@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Popover, Segmented } from 'antd'
 import { CaretDownOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons'
-import { CAREER_SEASON, LATEST_SEASON, SEASON_BASE, seasonShort, seasonYearLabel } from '../pages/players/rankConfig'
+import { CAREER_SEASON, EARLIEST_SEASON, LATEST_SEASON, SEASON_BASE, seasonShort, seasonYearLabel } from '../pages/players/rankConfig'
 import useIsMobile from '../hooks/useIsMobile'
 
 /**
@@ -13,9 +13,11 @@ import useIsMobile from '../hooks/useIsMobile'
  */
 
 const MAX_SEASON = LATEST_SEASON
-// 赛季 → 起始年所在年代（SEASON_BASE+n：第 1 季=1976 → 70 年代）
+const MIN_SEASON = EARLIEST_SEASON   // -29 = 1946-47，见 rankConfig 的说明
+// 赛季 → 起始年所在年代（SEASON_BASE+n：第 1 季=1976 → 70 年代；第 -29 季=1946 → 40 年代）
 const eraOf = (n) => Math.floor((SEASON_BASE + n) / 10) * 10
-const ERAS = [...new Set(Array.from({ length: MAX_SEASON }, (_, i) => eraOf(i + 1)))]
+const ERAS = [...new Set(Array.from({ length: MAX_SEASON - MIN_SEASON + 1 },
+  (_, i) => eraOf(MIN_SEASON + i)))]
 const eraLabel = (e) => `${String(e).slice(-2)}s` // '80s'——「80年代」在分段条里放不下会截断
 
 export default function SeasonPicker({ value, onChange, includeCareer = true, compact = false }) {
@@ -29,10 +31,10 @@ export default function SeasonPicker({ value, onChange, includeCareer = true, co
     if (open) setEra(eraOf(value === CAREER_SEASON ? MAX_SEASON : value || MAX_SEASON))
   }, [open, value])
   const isCareer = value === CAREER_SEASON
-  const canPrev = !isCareer && value > 1
+  const canPrev = !isCareer && value > MIN_SEASON
   const canNext = !isCareer && value < MAX_SEASON
 
-  const step = (d) => onChange(Math.min(MAX_SEASON, Math.max(1, value + d)))
+  const step = (d) => onChange(Math.min(MAX_SEASON, Math.max(MIN_SEASON, value + d)))
 
   // compact：给窄屏并排两只用（对比页移动端）——箭头/字号/内边距整体收紧
   const arrow = (enabled, side) => ({
@@ -62,7 +64,7 @@ export default function SeasonPicker({ value, onChange, includeCareer = true, co
       />
       {/* 不设 minHeight：行数随年代变化，芯片保持紧凑不被拉伸 */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, alignContent: 'start' }}>
-        {Array.from({ length: MAX_SEASON }, (_, i) => i + 1)
+        {Array.from({ length: MAX_SEASON - MIN_SEASON + 1 }, (_, i) => MIN_SEASON + i)
           .filter((n) => eraOf(n) === era)
           .map((n) => {
             const sel = n === value

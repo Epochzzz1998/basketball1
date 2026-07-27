@@ -7,7 +7,7 @@ import SeasonPicker from '../../components/SeasonPicker'
 import PillTabs from '../../components/PillTabs'
 import { playerApi } from '../../api/player'
 import { searchApi } from '../../api/search'
-import { ADVANCED_STATS, ADV_EMPTY, CAREER_SEASON, fmtAdv, fmtNum, seasonShort, PLAYOFF_TAG, statQualified, LATEST_SEASON, NBA_TEAM_NAMES, qualifiedFor, rankIn, unqualifiedReason } from './rankConfig'
+import { ADVANCED_STATS, ADV_EMPTY, CAREER_SEASON, fmtAdv, fmtNum, seasonShort, PLAYOFF_TAG, statQualifiedIn, LATEST_SEASON, NBA_TEAM_NAMES, qualifiedFor, rankIn, unqualifiedReason } from './rankConfig'
 import TeamLogo, { TeamChain } from '../../components/TeamLogo'
 import { CAREER_AWARDS } from './honorConfig'
 import { ADV_RADAR_AXES, GRID_STATS, PROFILE_FIELDS, RADAR_AXES, percentileOf } from './SeasonProfile'
@@ -522,7 +522,7 @@ export default function PlayerCompare() {
           if (!alive) return
           // reg = 全体（排名用），regQual = 过 58 场线（雷达基准用）。见 SeasonProfile 里的说明
           const rows = r.records || []
-          setPool((p) => ({ ...p, reg: rows, regQual: rows.filter(statQualified) }))
+          setPool((p) => ({ ...p, reg: rows, regQual: rows.filter(statQualifiedIn(rows)) }))
         })
         .catch(() => { if (alive) setPool((p) => ({ ...p, reg: [], regQual: [] })) })
       playerApi.listPlayoffSeasonStats({ page: 1, limit: 2000, seasonNum: season, fields: PROFILE_FIELDS })

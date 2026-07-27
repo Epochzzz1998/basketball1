@@ -18,9 +18,18 @@ export const seasonShort = (n) =>
 // 最新赛季（第 50 季 = 2025-2026；同步工具每天维护这一季，ESPN 年份 − 1976 = 赛季号）
 export const LATEST_SEASON = 50
 
+/**
+ * 最早的赛季：1946-47（BAA 元年，官方算作 NBA 历史的起点）。
+ * 锚点没动过——公式仍是 (1975+n)-(1976+n)，所以 1976-77 依旧是第 1 季、2025-26 依旧是第 50 季，
+ * 1976 年之前自然落到 0 和负数（1975-76 = 0，1946-47 = -29）。这样回补 30 个老赛季
+ * 不用改动已有的 13 万行，也不用重建 STATS_ID。负数只是内部键，界面上永远显示年份。
+ */
+export const EARLIEST_SEASON = -29
+
 export const seasonOptions = [
-  // 最近 50 年、最新在前；老赛季未回补前显示空态
-  ...Array.from({ length: LATEST_SEASON }, (_, i) => ({ value: LATEST_SEASON - i, label: seasonYearLabel(LATEST_SEASON - i) })),
+  // 全部 80 个赛季，最新在前
+  ...Array.from({ length: LATEST_SEASON - EARLIEST_SEASON + 1 },
+    (_, i) => ({ value: LATEST_SEASON - i, label: seasonYearLabel(LATEST_SEASON - i) })),
   { value: CAREER_SEASON, label: '生涯场均' },
 ]
 
@@ -34,10 +43,39 @@ export const fmtPct = (v, d = 1) => (v == null ? '-' : `${(Number(v) * 100).toFi
  * 数据王/场均榜：出场 ≥ 球队场次 70%（82 场赛季 = 58 场）；
  * 荣誉评选（MVP/DPOY/最佳阵容/防阵/MIP）：≥65 场（以出场数近似"20 分钟有效出场"）；
  * 特例名单：官方批准参评的伤病豁免球员（2025-26：东契奇/坎宁安/文班亚马）。 */
-export const STAT_QUALIFY_GAMES = 58
+export const STAT_QUALIFY_GAMES = 58   // 82 场赛季下的取值，仅作没有赛季上下文时的兜底
 export const HONOR_QUALIFY_GAMES = 65
 export const HONOR_EXEMPT_PLAYERS = new Set(['nba-3945274', 'nba-4432166', 'nba-5104157'])
+
+/**
+ * 这一季的球队场次，用当季最多出场数近似（被交易的人可能略多于球队场次，够用了）。
+ * 拿不到行时退回 82。
+ */
+export const seasonGames = (rows) => {
+  const max = Math.max(0, ...(rows || []).map((r) => Number(r?.playerAppearance ?? 0)))
+  return max || 82
+}
+
+/**
+ * 资格线 = 球队场次的 70%。规则本来就是这么定义的，58 只是 82 场赛季下的取值——
+ * 写死 58 会让场次不同的赛季全部失真：
+ *   · 1947-48 只打 48 场，58 场是 121%，**一个人都合格不了**
+ *   · 1998-99 停摆季 50 场，实测合格人数为 0，那一季的排行榜一直是空的
+ *   · 50 年代普遍 66-72 场，58 场相当于 81%-88%，只剩个位数的人
+ * 按当季实际场次折算后分别是 34 / 35 / 47-51 场。
+ * 取上整不是四舍五入：82 × 0.7 = 57.4，官方线是 58（向上取整），四舍五入会得到 57，
+ * 等于把现有每一张榜单都悄悄挪一位。
+ */
+export const qualifyGamesOf = (rows) => Math.ceil(seasonGames(rows) * 0.7)
+
+/** 无赛季上下文时的旧签名（82 场口径）；有 rows 就用 statQualifiedIn */
 export const statQualified = (r) => Number(r?.playerAppearance ?? 0) >= STAT_QUALIFY_GAMES
+
+/** 给定当季全部行，返回该季的「够不够场次」判定 */
+export const statQualifiedIn = (rows) => {
+  const line = qualifyGamesOf(rows)
+  return (r) => Number(r?.playerAppearance ?? 0) >= line
+}
 // 荣誉榜"以官方为准"：行上已带官方评选结果（MVP/DPOY 名次、入选阵容）的直接放行——
 // 这些值本身来自官方公布（同步/手工录入），场次线只兜底没有官方结论的行
 export const honorEligible = (r) =>
@@ -82,18 +120,25 @@ export const boardPool = (rows, field, season, po = false) => {
   // 联盟排行页早就绕开了（stage === 'po' 直接用原始列表），资料卡和对比页漏了。
   if (po) return all
   let out
+  // 门槛按当季实际场次折算（见 qualifyGamesOf）：命中数门槛同理按场次比例缩放，
+  // 48 场的赛季要求 300 记投篮是不可能完成的
+  const games = seasonGames(all)
+  const qualifies = statQualifiedIn(all)
+  const scale = games / 82
   const pctRule = PCT_QUALIFY[field]
   if (pctRule) {
-    out = all.filter((r) => Number(r[pctRule.madeField] ?? 0) * Number(r.playerAppearance ?? 0) >= pctRule.min)
+    const min = pctRule.min * scale
+    out = all.filter((r) => Number(r[pctRule.madeField] ?? 0) * Number(r.playerAppearance ?? 0) >= min)
   } else {
-    const ok = all.filter(statQualified)
+    const ok = all.filter(qualifies)
     if (!AVG_CROWN_FIELDS.has(field)) {
       out = ok
     } else {
+      const line = qualifyGamesOf(all)
       const bestOk = ok.length ? Math.max(...ok.map((r) => Number(r[field] ?? 0))) : 0
-      const padded = all.filter((r) => !statQualified(r)
-        && (Number(r[field] ?? 0) * Number(r.playerAppearance ?? 0)) / STAT_QUALIFY_GAMES >= bestOk)
-      out = all.filter((r) => statQualified(r) || padded.includes(r))
+      const padded = all.filter((r) => !qualifies(r)
+        && (Number(r[field] ?? 0) * Number(r.playerAppearance ?? 0)) / line >= bestOk)
+      out = all.filter((r) => qualifies(r) || padded.includes(r))
     }
   }
   const forcedId = season != null ? OFFICIAL_STAT_LEADERS[season]?.[field] : undefined
@@ -202,7 +247,22 @@ export const fmtReb = (total, off, def) =>
 export const fmtTeamChain = (v, sep = '\u2192\u200b') => String(v || '').split('->').join(sep)
 
 // \u961f\u7801 \u2192 \u4e2d\u6587\u961f\u540d\uff08\u6570\u636e\u8868\u4e00\u5f8b\u663e\u793a\u4e2d\u6587\uff1b\u751f\u6daf\u6c47\u603b\u884c\u7684\u5360\u4f4d\u7b26 '/' \u4e0e\u8ba4\u4e0d\u51fa\u7684\u961f\u7801\u539f\u6837\u8f93\u51fa\uff09
-export const teamZh = (code) => NBA_TEAM_NAMES[String(code ?? '').trim().toUpperCase()] || String(code ?? '')
+/**
+ * 已消失的历史球队（1947-1955 为主）。这些队没有任何现役球队继承其历史，所以不能并进
+ * NBA_TEAM_NAMES——那份是"现役 30 队"，球队卡片墙直接遍历它，混进来会多出 15 张死卡片。
+ * 这里只供显示用（teamZh），点进去没有球队页是符合事实的：这些队真的不存在了。
+ */
+export const DEFUNCT_TEAM_NAMES = {
+  BLB: '巴尔的摩子弹', WSC: '华盛顿国会', CHS: '芝加哥雄鹿', INO: '印城奥林匹亚',
+  STB: '圣路易斯轰炸机', PRO: '普罗维登斯压路机', PIT: '匹兹堡铁人', DTF: '底特律猎鹰',
+  SHE: '谢博伊根红皮', CLR: '克利夫兰反抗者', WAT: '滑铁卢老鹰', INJ: '印城喷气机',
+  DNN: '丹佛掘金(1949)', TRH: '多伦多哈士奇', AND: '安德森包装工',
+}
+
+export const teamZh = (code) => {
+  const c = String(code ?? '').trim().toUpperCase()
+  return NBA_TEAM_NAMES[c] || DEFUNCT_TEAM_NAMES[c] || String(code ?? '')
+}
 
 // \u4ea4\u6613\u94fe\u7684\u4e2d\u6587\u7248\uff1a'CHI->BOS' \u2192 '\u516c\u725b\u2192\u51ef\u5c14\u7279\u4eba'\uff08\u7bad\u5934\u540e\u540c\u6837\u57ab\u96f6\u5bbd\u7a7a\u683c\uff0c\u7a84\u5217\u53ea\u5728\u961f\u540d\u8fb9\u754c\u65ad\u884c\uff09
 export const fmtTeamChainZh = (v, sep = '\u2192\u200b') =>

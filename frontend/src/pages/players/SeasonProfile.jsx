@@ -4,7 +4,7 @@ import { Card, Col, Empty, Row, Space, Spin, Tag } from 'antd'
 import SeasonPicker from '../../components/SeasonPicker'
 import RadarChart from '../../components/RadarChart'
 import { playerApi } from '../../api/player'
-import { ADV_EMPTY, CAREER_SEASON, PLAYOFF_TAG, fmtNum, seasonYearLabel, statQualified, qualifiedFor, rankIn, unqualifiedReason, tiedCount, ADVANCED_STATS, fmtAdv } from './rankConfig'
+import { ADV_EMPTY, CAREER_SEASON, PLAYOFF_TAG, fmtNum, seasonYearLabel, statQualifiedIn, qualifiedFor, rankIn, unqualifiedReason, tiedCount, ADVANCED_STATS, fmtAdv } from './rankConfig'
 import { TeamNames } from '../../components/TeamLogo'
 import { CAREER_AWARDS } from './honorConfig'
 import { GlossaryIcon, GlossaryTip } from './statGlossary'
@@ -181,7 +181,7 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
         if (!alive) return
         const rows = r.records || []
         setLeague(rows)
-        setLeagueQual(rows.filter(statQualified))
+        setLeagueQual(rows.filter(statQualifiedIn(rows)))
       })
       .catch(() => { if (alive) { setLeague([]); setLeagueQual([]) } })
     playerApi.listPlayoffSeasonStats({ page: 1, limit: 2000, seasonNum, fields: PROFILE_FIELDS })

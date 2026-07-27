@@ -31,7 +31,10 @@ CACHE = Path(__file__).parent / 'br_ids_cache.json'
 BR2CODE = {'CHH': 'CHA', 'WSB': 'WAS', 'VAN': 'MEM', 'SEA': 'OKC', 'NJN': 'BKN', 'PHO': 'PHX',
            'NOH': 'NOP', 'NOK': 'NOP', 'BRK': 'BKN', 'CHO': 'CHA',
            # 1976-1986 era franchises (mapped to their modern lines)
-           'BUF': 'LAC', 'SDC': 'LAC', 'NOJ': 'UTA', 'KCK': 'SAC', 'NYN': 'BKN'}
+           'BUF': 'LAC', 'SDC': 'LAC', 'NOJ': 'UTA', 'KCK': 'SAC', 'NYN': 'BKN',
+           # 1947-1975：有现代血脉的历史球队。彻底消失的（芝加哥雄鹿 CHS、华盛顿国会 WSC、
+           # 圣路易斯轰炸机 STB…）刻意不映射——没有任何现役球队继承它们，硬塞给谁都是错的
+           'PHW': 'GSW', 'SFW': 'GSW', 'MNL': 'LAL', 'SYR': 'PHI', 'ROC': 'SAC', 'CIN': 'SAC', 'KCO': 'SAC', 'TRI': 'ATL', 'MLH': 'ATL', 'STL': 'ATL', 'FTW': 'DET', 'CHP': 'WAS', 'CHZ': 'WAS', 'BAL': 'WAS', 'CAP': 'WAS', 'SDR': 'HOU'}
 
 
 def norm(s):
@@ -41,19 +44,23 @@ def norm(s):
     return re.sub(r'\s+', ' ', s).strip()
 
 
+def league_of(year):
+    """1947-1949 联盟叫 BAA，B-R 的 URL 也用 BAA_；官方把 BAA 记录算进 NBA 历史，所以要抓。"""
+    return 'BAA' if year <= 1949 else 'NBA'
+
+
 def fetch_br_standings(year):
     """teamCode -> {wins, losses, ppg, oppg, reb, ast, stl, blk, tov} from the B-R season
     page. ESPN standings come back EMPTY before the mid-80s; B-R has W/L plus full team
     per-game splits in one page (secondary tables are hidden inside HTML comments)."""
-    req = urllib.request.Request(f'https://www.basketball-reference.com/leagues/NBA_{year}.html',
-                                 headers=sync.UA)
+    req = urllib.request.Request(
+        f'https://www.basketball-reference.com/leagues/{league_of(year)}_{year}.html', headers=sync.UA)
     page = urllib.request.urlopen(req, timeout=30).read().decode('utf-8', 'replace')
     page = page.replace('<!--', '').replace('-->', '')
     out = {}
-    for tid in ('divs_standings_E', 'divs_standings_W'):
-        m = re.search(rf'<table[^>]*id="{tid}".*?</table>', page, re.S)
-        if not m:
-            continue
+    # 表 id 随年代变：分区制时期是 divs_standings_E / _W，1970 年前是单表
+    # divs_standings_（后缀为空）。不写死 id，扫所有 divs_standings 开头的表。
+    for m in re.finditer(r'<table[^>]*id="divs_standings[^"]*".*?</table>', page, re.S):
         for br, w, l in re.findall(
                 rf'/teams/([A-Z]{{3}})/{year}\.html[^>]*>[^<]+</a>.*?'
                 rf'data-stat="wins"[^>]*>(\d+)<.*?data-stat="losses"[^>]*>(\d+)<',
@@ -135,7 +142,7 @@ def parse_br_pergame(url):
             'ft': fv('ft_per_g'), 'fta': fv('fta_per_g'), 'ftp': fv('ft_pct'),
             'orb': fv('orb_per_g'), 'drb': fv('drb_per_g'), 'trb': fv('trb_per_g'),
             'ast': fv('ast_per_g'), 'stl': fv('stl_per_g'), 'blk': fv('blk_per_g'),
-            'tov': fv('tov_per_g'), 'pts': fv('pts_per_g'),
+            'tov': fv('tov_per_g'), 'pf': fv('pf_per_g'), 'pts': fv('pts_per_g'),
         }
         if row['gp'] is None:
             continue
@@ -200,7 +207,7 @@ def load_db_names():
     return {k: next(iter(v)) for k, v in seen.items() if len(v) == 1}
 
 
-def resolve_ids(players, year, db_names, cache):
+def resolve_ids(players, year, db_names, cache, search_espn=True):
     """slug -> site player id (nba-<espnId> preferred, nba-br<slug> fallback).
     Safety rails against same-name merges: names duplicated within the season skip
     name matching entirely, and any pid may be claimed by only ONE slug per season."""
@@ -216,7 +223,7 @@ def resolve_ids(players, year, db_names, cache):
             ambiguous = name_counts[norm(p['name'])] > 1
             if not ambiguous:
                 pid = db_names.get(norm(p['name'])) or db_names.get(strip_suffix(norm(p['name'])))
-            if not pid and not ambiguous:
+            if not pid and not ambiguous and search_espn:
                 hits = search_espn_ids(p['name'])
                 searched += 1
                 nba_ids = [aid for _, aid in hits]
@@ -251,7 +258,9 @@ def stat_row(table, season_num, suffix, pid, p, team):
         f"'{sync.esc(team)}'", f"'{sync.esc(p['pos'] or '')}'", str(gp),
         sync.num(p['mp'], 1), sync.num(p['pts']), sync.num(p['trb']),
         sync.num(p['ast']), sync.num(p['stl']), sync.num(p['blk']),
-        sync.num(p['tov']), sync.num(p['fg']), sync.num(p['fga']),
+        # 犯规：STAT_COLS 在补犯规那一批加了 PLAYER_AVG_PF，这个脚本当时漏改，
+        # 从那以后一直是 29 列配 28 个值（久未运行才没暴露）
+        sync.num(p['tov']), sync.num(p['pf']), sync.num(p['fg']), sync.num(p['fga']),
         pct(p['fgp']), sync.num(p['tp']), sync.num(p['tpa']),
         pct(p['tpp']), sync.num(p['ft']), sync.num(p['fta']),
         pct(p['ftp']), sync.num(eff, 1),
@@ -272,32 +281,48 @@ def main():
     print(f'== B-R backfill: {year - 1}-{str(year)[2:]} -> site season {season_num} ==')
 
     print('[1/5] B-R per-game tables')
-    reg = parse_br_pergame(f'https://www.basketball-reference.com/leagues/NBA_{year}_per_game.html')
+    lg = league_of(year)
+    reg = parse_br_pergame(f'https://www.basketball-reference.com/leagues/{lg}_{year}_per_game.html')
     time.sleep(3.5)
-    po = parse_br_pergame(f'https://www.basketball-reference.com/playoffs/NBA_{year}_per_game.html')
+    po = parse_br_pergame(f'https://www.basketball-reference.com/playoffs/{lg}_{year}_per_game.html')
     time.sleep(3.5)
-    reg = {k: v for k, v in reg.items() if (v['gp'] or 0) >= 15}  # the site's NBA-only line
+    # 只要打过 1 场就留：15 场那条线会误杀赛季报销的明星（与 sync.py 同一口径）
+    reg = {k: v for k, v in reg.items() if (v['gp'] or 0) >= 1}
     po = {k: v for k, v in po.items() if k in reg}
-    print(f'  regular {len(reg)} (gp>=15), playoffs {len(po)}')
-    if len(reg) < 200:
-        sys.exit('ABORT: B-R parse looks broken')
+    print(f'  regular {len(reg)}, playoffs {len(po)}')
+    # 解析失败的下限按年代给：老联盟本来就只有一百来号人，1949-50 才 11 支队
+    floor = 200 if year >= 1977 else 60 if year >= 1955 else 40
+    if len(reg) < floor:
+        sys.exit(f'ABORT: B-R parse looks broken ({len(reg)} < {floor})')
 
     print('[2/5] identity resolution (DB names -> ESPN search -> br-local)')
     cache = json.loads(CACHE.read_text()) if CACHE.exists() else {}
-    ids = resolve_ids(reg, year, load_db_names(), cache)
+    # 1970 年前直接走「库内名字 -> br-local」，不发 ESPN 搜索：那边没有这些球员，
+    # 每季 160 次请求换不来一个 id，却要多花三四分钟
+    ids = resolve_ids(reg, year, load_db_names(), cache, search_espn=year >= 1970)
     CACHE.write_text(json.dumps(cache))
 
     print('[3/5] teams / standings / playoff rounds / awards (ESPN)')
     teams = sync.get(f'{sync.BASE_SITE}/teams')['sports'][0]['leagues'][0]['teams']
     team_ids = {sync.code_of(t['team']['abbreviation']): t['team']['id'] for t in teams}
     id_to_code = {str(v): k for k, v in team_ids.items()}
-    standings = sync.fetch_standings(year, id_to_code)
+    try:
+        standings = sync.fetch_standings(year, id_to_code)
+    except Exception as e:
+        print(f'  ESPN 排名接口这一年不可用（{type(e).__name__}），转 B-R')
+        standings = {}
     # old years: ESPN returns W/L but no points at all (or nothing) — B-R page has the lot
     if not standings or all(st.get('ppg') is None for st in standings.values()):
         print('  ESPN standings unusable this year -> B-R season page (W/L + team per-game)')
         standings = fetch_br_standings(year)
-    # ESPN playoff schedules are incomplete this far back — rounds come from B-R series lists
-    po_results = po_rounds_br.rounds_map(year)
+    # ESPN playoff schedules are incomplete this far back — rounds come from B-R series lists。
+    # 1976 年前赛制年年变、球队大量已消失，解析不出来不该让整季入库失败：记一笔继续走，
+    # 球员数据才是这一趟的主体。
+    try:
+        po_results = po_rounds_br.rounds_map(year)
+    except Exception as e:
+        print(f'  ！季后赛轮次解析失败，本季不写 PLAYOFF_RESULT：{e}')
+        po_results = {}
     time.sleep(3.5)
     awards = sync.fetch_awards(year)
 

@@ -43,7 +43,10 @@ from br_backfill import norm, strip_suffix
 
 BASE = 'https://www.basketball-reference.com'
 SEASON_BASE = 1976
-FIRST_YEAR = 1977          # BPM reaches 1977; ORtg/DRtg simply come back blank that year
+# B-R 的 advanced 页最早到 1952（PER / TS% / WS 系列都有）。1977 这个下限当初是照着
+# ORtg/DRtg 设的，结果把更早年份能拿到的 PER 和 WS 一起挡在门外。逐列判空本来就有，
+# 拿不到的列（BPM/VORP/USG% 要失误数，1974 前没有）自然留 NULL。
+FIRST_YEAR = 1952
 DELAY = 3.5
 
 # advanced 页一次请求就能拿到的全部进阶指标 → 库内列名。
