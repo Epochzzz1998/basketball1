@@ -14,7 +14,7 @@ export const playerApi = {
   // 单个球员生涯逐季数据
   listPlayerCareer: (params) => http.get('/player/getPlayerSeasonStatsList', { params }),
   careerTotals: (playerId) => http.get('/player/careerTotals', { params: { playerId } }),
-  allTimeBoard: (field) => http.get('/player/allTimeBoard', { params: { field } }),
+  allTimeBoard: (field, limit) => http.get('/player/allTimeBoard', { params: { field, limit } }),
   historyPlayer: (brId) => http.get('/player/historyPlayer', { params: { brId } }),
   // 单个球员季后赛逐季数据（含生涯汇总行 + 当季球队季后赛成绩）
   listPlayerPlayoffs: (playerId) => http.get('/player/getPlayerPlayoffStatsList', { params: { playerId } }),

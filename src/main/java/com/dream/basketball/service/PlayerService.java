@@ -45,7 +45,7 @@ public interface PlayerService extends IService<DreamPlayer> {
     Map<String, Object> findCareerTotals(String playerId);
 
     /** 单项生涯总数历史总榜；field 不在白名单内返回空列表。 */
-    List<Map<String, Object>> findAllTimeBoard(String field);
+    List<Map<String, Object>> findAllTimeBoard(String field, Integer limit);
 
     /** 按 B-R id 取生涯总数（最小档案）。 */
     Map<String, Object> findCareerTotalsByBrId(String brId);

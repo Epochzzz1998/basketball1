@@ -420,8 +420,9 @@ function AllTimeCard({ stat }) {
   useEffect(() => {
     let alive = true
     setRows(null)
-    playerApi.allTimeBoard(stat.key)
-      .then((r) => { if (alive) setRows((r || []).slice(0, 10)) })
+    // 只要前 10 行：不限量的话 21 张卡各拉 5015 行，未压缩合计 16MB 全都穿隧道
+    playerApi.allTimeBoard(stat.key, 10)
+      .then((r) => { if (alive) setRows(r || []) })
       .catch(() => { if (alive) setRows([]) })
     return () => { alive = false }
   }, [stat.key])

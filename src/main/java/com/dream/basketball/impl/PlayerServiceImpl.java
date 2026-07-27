@@ -98,10 +98,10 @@ public class PlayerServiceImpl extends ServiceImpl<PlayerMapper, DreamPlayer> im
     }
 
     @Override
-    public List<Map<String, Object>> findAllTimeBoard(String field) {
+    public List<Map<String, Object>> findAllTimeBoard(String field, Integer limit) {
         String expr = SortUtil.safeTotalsExpr(field);
         // 白名单外的项直接返回空，不要拿用户输入去拼 SQL
-        return expr == null ? java.util.Collections.emptyList() : baseMapper.findAllTimeBoard(expr);
+        return expr == null ? java.util.Collections.emptyList() : baseMapper.findAllTimeBoard(expr, limit);
     }
 
     @Override

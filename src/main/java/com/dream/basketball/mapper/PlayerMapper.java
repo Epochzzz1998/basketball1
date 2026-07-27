@@ -54,7 +54,7 @@ public interface PlayerMapper extends BaseMapper<DreamPlayer> {
     List<Map<String, Object>> findCareerTotals(@Param("playerId") String playerId);
 
     /** 生涯总数单项历史总榜（全联盟 1947-）。expr 必须来自 SortUtil.safeTotalsExpr。 */
-    List<Map<String, Object>> findAllTimeBoard(@Param("expr") String expr);
+    List<Map<String, Object>> findAllTimeBoard(@Param("expr") String expr, @Param("limit") Integer limit);
 
     /** 按 B-R id 取生涯总数：给库里没有的历史球员做最小档案用。 */
     List<Map<String, Object>> findCareerTotalsByBrId(@Param("brId") String brId);

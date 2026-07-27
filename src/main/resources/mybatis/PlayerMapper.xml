@@ -290,6 +290,9 @@
         left join dream_player p on p.PLAYER_ID = c.PLAYER_ID
         where ${expr} &gt; 0
         order by ${expr} desc
+        <!-- 名次是窗口函数在全表上算的，截断发生在排序之后，所以取前 N 不影响名次正确性。
+             排行卡只显示前 10 行却拉走全部 5015 行：21 张卡就是 16MB 穿隧道 -->
+        <if test="limit != null and limit > 0">limit #{limit}</if>
     </select>
 
     <!-- 最小档案：库里没有的历史球员（张伯伦那一代）按 B-R id 取生涯总数 -->

@@ -228,8 +228,8 @@ public class PlayerController extends BaseUtils {
 
     /** 某项生涯总数的历史总榜（公开）：1947 年至今全联盟，含本库没有的老球员。 */
     @GetMapping("/allTimeBoard")
-    public Object allTimeBoard(String field) {
-        return new Result<>(0, "成功", playerService.findAllTimeBoard(StringUtils.trimToEmpty(field)));
+    public Object allTimeBoard(String field, Integer limit) {
+        return new Result<>(0, "成功", playerService.findAllTimeBoard(StringUtils.trimToEmpty(field), limit));
     }
 
     /** 历史球员最小档案（公开）：本库没有资料卡的人，按 B-R id 只给生涯总数。 */
