@@ -33,7 +33,7 @@ export default function NewsEdit() {
   // 论坛发帖必须带 ?topicId=xxx（从专题内点"发帖"进来）；编辑时后端保留原专题
   const topicId = searchParams.get('topicId') || undefined
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, dn } = useAuth() // dn：我给谁起过备注名（@ 面板的小字里提示，插进正文的仍是真昵称）
   const [form] = Form.useForm()
   const [content, setContent] = useState('')
   const [authorId, setAuthorId] = useState(undefined) // 保存时回传：新建=当前用户，编辑=原作者
@@ -87,19 +87,36 @@ export default function NewsEdit() {
 
   // 草稿是自己没发出去的东西，随手删掉的入口就该在编辑器里——它点进来只有这一条路，
   // 详情页那个删除按钮草稿根本走不到
-  // NBA 专区（专题名含 NBA，与首页热帖榜同一判定）才开 @ 球员
+  // NBA 专区（专题名含 NBA，与首页热帖榜同一判定）才开 @ 面板
   const isNbaZone = !official && topicName.includes('NBA')
 
-  // @ 候选：球员。sub 那行放英文名 + 生涯年份——同姓球员一堆，光中文名认不出是哪个库里
-  const searchPlayers = async (kw) => {
-    const list = await searchApi.mentionPlayers(kw)
-    return (list || []).map((p) => ({
-      id: p.playerId,
-      name: p.playerName || p.nameEn,
-      avatar: p.photo,
-      sub: [p.nameEn, p.firstYear ? `${p.firstYear}-${p.lastYear}` : ''].filter(Boolean).join(' · '),
-      info: { kind: 'player' }, // 写进 data-info，正文里据此描金标、点击进资料卡
-    }))
+  // @ 候选：用户和球员一起给。
+  // 只给球员是不行的——面板一弹出来焦点就进了它的搜索框，正文里再也打不出 @昵称，
+  // 等于把「@ 人」这条老路堵死了。两个接口并行拉，用户在前、球员在后。
+  const searchMentions = async (kw) => {
+    const [users, players] = await Promise.all([
+      searchApi.mentionUsers(kw).catch(() => []),
+      searchApi.mentionPlayers(kw).catch(() => []),
+    ])
+    return [
+      ...(users || []).map((u) => ({
+        id: u.userId,
+        name: u.userNickname,
+        avatar: u.avatar,
+        // 备注名只出现在小字里：正文里插的必须是真昵称，否则别人看到的是我私下起的外号
+        sub: dn(u.userId, '') && dn(u.userId, '') !== u.userNickname ? `备注：${dn(u.userId, '')}` : '',
+        group: '用户',
+      })),
+      // sub 那行放英文名 + 生涯年份——同姓球员一堆，光中文名认不出是哪个库里
+      ...(players || []).map((p) => ({
+        id: p.playerId,
+        name: p.playerName || p.nameEn,
+        avatar: p.photo,
+        sub: [p.nameEn, p.firstYear ? `${p.firstYear}-${p.lastYear}` : ''].filter(Boolean).join(' · '),
+        group: '球员',
+        info: { kind: 'player' }, // 写进 data-info，正文里据此描金标、点击进资料卡
+      })),
+    ]
   }
 
   const removeDraft = async () => {
@@ -288,14 +305,14 @@ export default function NewsEdit() {
             )}
           </div>
         )}
-        <Form.Item label="正文" required extra={isNbaZone ? '正文里打 @ 可以提到球员，发出后是金色球员名，点一下进他的资料卡' : undefined}>
+        <Form.Item label="正文" required extra={isNbaZone ? '正文里打 @ 可以提到用户或球员；@ 球员发出后是金色球员名，点一下进他的资料卡' : undefined}>
           <RichTextEditor
             value={content}
             onChange={setContent}
             uploadImage={(file) => newsApi.uploadNewsImage(file, newsIdRef.current)}
-            /* @ 球员只在 NBA 专区开：别的专区打 @ 弹出一堆球员没有意义 */
-            mentionSearch={isNbaZone ? searchPlayers : undefined}
-            mentionHint={{ placeholder: '搜索球员（中/英文名）…', emptyText: '没有找到球员' }}
+            /* @ 面板只在 NBA 专区开：别的专区照旧手打 @昵称，后端读帖时按全站昵称自动识别 */
+            mentionSearch={isNbaZone ? searchMentions : undefined}
+            mentionHint={{ placeholder: '搜索用户或球员…', emptyText: '没有找到用户或球员' }}
           />
         </Form.Item>
         <Space>

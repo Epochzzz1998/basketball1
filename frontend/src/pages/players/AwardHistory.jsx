@@ -92,6 +92,15 @@ export default function AwardHistory() {
           { title: '篮板', dataIndex: 'reb', width: 56, render: (v) => fmtNum(v) },
           { title: '助攻', dataIndex: 'ast', width: 56, render: (v) => fmtNum(v) },
         ]),
+    // 最佳防守球员多给三列：光看得分篮板助攻，看不出这个人凭什么拿防守奖。
+    // 防守效率是 DRtg（对手每 100 回合得分），越低越好，所以标题里点一下方向
+    ...(award === 'dpoy'
+      ? [
+          { title: '盖帽', dataIndex: 'blk', width: 56, render: (v) => fmtNum(v) },
+          { title: '抢断', dataIndex: 'stl', width: 56, render: (v) => fmtNum(v) },
+          { title: '防守效率', dataIndex: 'defEff', width: 84, render: (v) => (v == null ? '-' : fmtNum(v, 0)) },
+        ]
+      : []),
   ]
   const cols = isMobile ? compactColumns(columns) : columns
 
@@ -113,6 +122,8 @@ export default function AwardHistory() {
         {isCrown
           ? '统计王按当季**过资格线的人里该项第一名**计算（资格线 = 球队场次的 70%），所以 1946-47 至今每一季都有；并列全部保留。'
           : `官方评选结果，${stat.since}。更早的年份、以及当年还没设立这个奖的年份都不会出现在下面。`}
+        {award === 'fmvp' && '数据是**总决赛那一轮**的场均，不是常规赛也不是整个季后赛。分轮次数据只到 1976-77，更早的 8 届只有获奖记录，数据留空。'}
+        {award === 'dpoy' && '防守效率是 DRtg（他在场时对手每 100 回合得分），越低越好。'}
       </div>
 
       {rows === null ? <Spin style={{ display: 'block', margin: '60px auto' }} /> : (

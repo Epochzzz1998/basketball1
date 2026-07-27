@@ -88,8 +88,12 @@ function MentionPanel({ top, left, search, onPick, onClose, placeholder = '搜�
       <div style={{ maxHeight: 220, overflowY: 'auto' }}>
         {opts.length ? (
           opts.map((u, i) => (
+            <div key={u.id}>
+            {/* 分组小标题：一份候选里既有用户又有球员时，靠它区分「@ 的是个人还是球员」 */}
+            {u.group && u.group !== opts[i - 1]?.group && (
+              <div style={{ padding: '6px 12px 2px', fontSize: 11, color: '#bbb', fontWeight: 600 }}>{u.group}</div>
+            )}
             <div
-              key={u.id}
               onMouseDown={(e) => { e.preventDefault(); onPick(u) }}
               onMouseEnter={() => setActive(i)}
               style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', cursor: 'pointer', background: i === active ? 'rgba(250,84,28,.08)' : 'transparent' }}
@@ -109,6 +113,7 @@ function MentionPanel({ top, left, search, onPick, onClose, placeholder = '搜�
                   </span>
                 )}
               </span>
+            </div>
             </div>
           ))
         ) : (
