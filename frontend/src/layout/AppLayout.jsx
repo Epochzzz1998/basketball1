@@ -234,6 +234,11 @@ export default function AppLayout() {
       title="Dream Everything"
       logo={false}
       siderWidth={216}
+      /* 移动端菜单是 antd Drawer，ProLayout 默认给它 getContainer={false}（就地渲染），
+         于是抽屉和遮罩都是 position:absolute、高 100vh——遮罩只盖住打开那一刻的可视区，
+         页面往下滚就滚出了遮罩，下半屏是亮的。挂到 body 上就变成 fixed 定位，
+         遮罩恒等于视口，顺带拿到 antd 的滚动锁定。 */
+      getContainer={() => document.body}
       location={{ pathname: location.pathname }}
       route={route}
       collapsed={collapsed}
