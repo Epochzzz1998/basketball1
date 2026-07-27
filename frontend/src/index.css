@@ -106,6 +106,14 @@ body {
   }
 }
 
+/* 移动端菜单（Drawer）兜底白底：主题里已经把 Layout.siderBg 改成白色，这条防的是
+   Drawer 自己那层容器——它的底色来自 ProLayout 的 token，取不到时会露出后面的遮罩。 */
+.ant-pro-drawer-sider .ant-drawer-body,
+.ant-pro-drawer-sider .ant-pro-sider,
+.ant-pro-drawer-sider .ant-layout-sider {
+  background: #fff !important;
+}
+
 /* 订阅的专题折叠区要紧跟菜单项：去掉 ProLayout 给侧栏菜单的 min-height:100%
    （否则菜单撑满整栏，menuContentRender 追加的内容被顶到可视区之下，"看不见但在 DOM 里"） */
 .ant-pro-sider ul.ant-pro-sider-menu {
