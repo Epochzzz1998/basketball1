@@ -63,13 +63,17 @@ body {
     display: none;
   }
 
-  /* ProTable 顶部工具条（标题 + 搜索 + 赛季选择）在窄屏换行，别互相挤 */
+  /* ProTable 顶部工具条（标题 + 搜索 + 赛季选择）在窄屏换行，别互相挤。
+     换行后右侧那组要靠左：容器是 space-between，工具组掉到第二行仍贴着右边，
+     跟上一行的标题错开一大截；占满整行 + 左对齐才能和标题对齐。 */
   .ant-pro-table-list-toolbar-container {
     flex-wrap: wrap;
     row-gap: 8px;
   }
   .ant-pro-table-list-toolbar-right {
     flex-wrap: wrap;
+    width: 100%;
+    justify-content: flex-start;
   }
 
   /* 表格单元格内边距略收，缓解宽表横向溢出压力（宽表本就横向滚动） */

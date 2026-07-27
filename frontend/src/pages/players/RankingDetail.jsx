@@ -7,7 +7,6 @@ import { ADVANCED_STATS, RANKING_STATS, fmtAdv, fmtNum, fmtPct, LATEST_SEASON, q
 import SeasonPicker from '../../components/SeasonPicker'
 import useIsMobile from '../../hooks/useIsMobile'
 import { ADVANCED_TABLE_FIELDS, BASIC_TABLE_FIELDS, buildFullStatColumns, buildAdvancedStatColumns, HONOR_COLUMN_KEYS, compactColumns, sumColWidth } from './statColumns'
-import { GlossaryButton } from './statGlossary'
 import PositionFilter from './PositionFilter'
 
 /**
@@ -86,9 +85,10 @@ export default function RankingDetail() {
         search={false}
         options={false}
         scroll={{ x: sumColWidth(baseColumns) }}
+        /* 不放「指标说明」：这条工具条已经有位置筛选和赛季选择，窄屏再加一项会把
+           赛季选择器挤出屏幕。释义在表头悬停上，入口在上一层的单项排行页 */
         toolBarRender={() => [
           <PositionFilter key="pos" value={pos} onChange={setPos} />,
-          ...(isAdvanced ? [<GlossaryButton key="g" />] : []),
           <SeasonPicker key="season" value={seasonNum} onChange={setSeasonNum} />,
         ]}
         pagination={false} /* 不分页，一滚到底 */
