@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Badge, Card, Col, Empty, Row, Segmented, Select, Space, Table, Tag } from 'antd'
-import { CrownOutlined, OrderedListOutlined, TeamOutlined } from '@ant-design/icons'
+import { CrownOutlined, HistoryOutlined, OrderedListOutlined, TeamOutlined } from '@ant-design/icons'
 import PillTabs from '../../components/PillTabs'
 import { Link, useNavigate } from 'react-router-dom'
 import { playerApi } from '../../api/player'
 import { teamApi } from '../../api/team'
 import { HONOR_GROUPS } from './honorConfig'
-import { ADVANCED_STATS, NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, RANKING_STATS, fmtAdv, fmtNum, fmtPct, fmtTeamChainZh, playoffRecord, LATEST_SEASON, honorEligible, qualifiedBoard, filterByPosition } from './rankConfig'
+import { ADVANCED_STATS, NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, RANKING_STATS, fmtAdv, fmtNum, fmtPct, fmtTeamChainZh, playoffRecord, LATEST_SEASON, honorEligible, qualifiedBoard, filterByPosition, CAREER_TOTAL_STATS, fmtTotal } from './rankConfig'
 import { compactColumns, rankCardFields, sumColWidth } from './statColumns'
 import { GlossaryButton, GlossaryTip } from './statGlossary'
 import PositionFilter from './PositionFilter'
@@ -410,7 +410,76 @@ function TeamsTab({ seasonNum, stage }) {
   )
 }
 
+
+/* ============ Tab 4：历史总榜（生涯总数，1947 年至今） ============ */
+
+function AllTimeCard({ stat }) {
+  const [rows, setRows] = useState(null)
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    let alive = true
+    setRows(null)
+    playerApi.allTimeBoard(stat.key)
+      .then((r) => { if (alive) setRows((r || []).slice(0, 10)) })
+      .catch(() => { if (alive) setRows([]) })
+    return () => { alive = false }
+  }, [stat.key])
+
+  return (
+    <Card
+      title={`${stat.label}榜`}
+      extra={<a onClick={() => navigate(`/rankings/alltime/${stat.key}`)}>完整总榜 →</a>}
+      loading={rows === null}
+      styles={{ body: { padding: '8px 20px' } }}
+    >
+      {rows?.length ? rows.map((r, i) => (
+        <div
+          key={r.brId}
+          style={{
+            display: 'flex', alignItems: 'center', padding: '8px 0',
+            borderBottom: i === rows.length - 1 ? 'none' : '1px solid #f5f5f5',
+          }}
+        >
+          <span style={{ width: 28, fontWeight: 700, fontStyle: 'italic', fontSize: i < 3 ? 16 : 14, color: i < 3 ? MEDAL[i] : '#bbb' }}>
+            {r.rk}
+          </span>
+          {/* 本库有资料卡的进资料卡（生涯档），没有的进最小档案 */}
+          <Link
+            to={r.playerId ? `/players/${r.playerId}?seasonNum=99` : `/players/history/${r.brId}`}
+            style={{ flex: 1, fontWeight: i < 3 ? 600 : 400 }}
+          >
+            {r.playerName}
+          </Link>
+          <span style={{ color: '#999', fontSize: 12, marginRight: 14 }}>{r.lastYear}</span>
+          <span style={{ fontWeight: 700, color: '#fa541c', fontVariantNumeric: 'tabular-nums' }}>{fmtTotal(r.val)}</span>
+        </div>
+      )) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无数据" />}
+    </Card>
+  )
+}
+
+function AllTimeTab() {
+  return (
+    <>
+      <div style={{ marginBottom: 14, color: '#888', fontSize: 13 }}>
+        生涯累计总数，池子是 <b>1947 年至今的全联盟</b>——含大量本站没有逐季数据的老球员，
+        他们的名字点进去是只有生涯总数的简档。抢断 / 盖帽 / 失误 / 前场篮板自 1973-74 起统计，
+        三分自 1979-80 起，更早的球员这几项没有记录。
+      </div>
+      <Row gutter={[16, 16]}>
+        {CAREER_TOTAL_STATS.map((s) => (
+          <Col key={s.key} xs={24} sm={12} lg={8}>
+            <AllTimeCard stat={s} />
+          </Col>
+        ))}
+      </Row>
+    </>
+  )
+}
+
 /* ============ 页面 ============ */
+
 
 /** 联盟排行：单项排行 / 赛季荣誉 / 球队排行 三个 Tab，共用赛季选择 + 常规赛/季后赛切换 */
 export default function LeagueRankings() {
@@ -445,11 +514,14 @@ export default function LeagueRankings() {
           // 荣誉是全季评选（FMVP 已含），季后赛模式下不显示该 Tab
           ...(stage === 'po' ? [] : [{ value: 'honors', icon: <CrownOutlined />, label: '赛季荣誉' }]),
           { value: 'teams', icon: <TeamOutlined />, label: '球队排行' },
+          // 历史总榜跟赛季无关（生涯累计），赛季/赛段选择对它不起作用
+          { value: 'alltime', icon: <HistoryOutlined />, label: '历史总榜' },
         ]}
       />
       {tab === 'stats' && <StatsTab seasonNum={seasonNum} stage={stage} />}
       {tab === 'honors' && stage !== 'po' && <HonorsTab seasonNum={seasonNum} />}
       {tab === 'teams' && <TeamsTab seasonNum={seasonNum} stage={stage} />}
+      {tab === 'alltime' && <AllTimeTab />}
     </>
   )
 }

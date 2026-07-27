@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Col, Empty, Row, Spin } from 'antd'
 import { playerApi } from '../../api/player'
+import { CAREER_TOTAL_STATS, fmtTotal } from './rankConfig'
 import { RankChip } from './SeasonProfile'
 import useIsMobile from '../../hooks/useIsMobile'
 
@@ -17,33 +18,6 @@ import useIsMobile from '../../hooks/useIsMobile'
  *    老球员这几项恒为 0，给个"历史第 4000"没有意义（官方榜同样不列）；
  *  · 接口整体返回 null：这名球员没匹配上全历史表，整块不显示。
  */
-
-// 顺序参考主流数据站：先体量，再基础数据，最后投篮细项
-const TOTAL_STATS = [
-  { key: 'g', label: '出场数' },
-  { key: 'mp', label: '时间' },
-  { key: 'pts', label: '得分' },
-  { key: 'trb', label: '篮板' },
-  { key: 'orb', label: '前场篮板' },
-  { key: 'drb', label: '后场篮板' },
-  { key: 'ast', label: '助攻' },
-  { key: 'tov', label: '失误' },
-  { key: 'stl', label: '抢断' },
-  { key: 'blk', label: '盖帽' },
-  { key: 'pf', label: '犯规' },
-  { key: 'fga', label: '出手' },
-  { key: 'fg', label: '进球' },
-  { key: 'fgMiss', label: '打铁' },
-  { key: 'fg3a', label: '三分出手' },
-  { key: 'fg3', label: '三分命中' },
-  { key: 'fg3Miss', label: '三分打铁' },
-  { key: 'fta', label: '罚球次数' },
-  { key: 'ft', label: '罚球命中' },
-  { key: 'ftMiss', label: '罚球打铁' },
-  { key: 'tplDbl', label: '三双' },
-]
-
-const fmtInt = (v) => (v == null ? '-' : Number(v).toLocaleString('en-US'))
 
 export default function CareerTotals({ playerId }) {
   const isMobile = useIsMobile()
@@ -67,7 +41,7 @@ export default function CareerTotals({ playerId }) {
         {row.firstYear}-{row.lastYear} · {row.seasons} 个赛季 · 名次为 NBA 历史排名（1947 年至今）
       </div>
       <Row gutter={isMobile ? [6, 6] : [10, 10]}>
-        {TOTAL_STATS.map((s) => {
+        {CAREER_TOTAL_STATS.map((s) => {
           const v = row[s.key]
           const rank = row[`${s.key}Rank`]
           // 值为 0 不给名次：那多半是"当年还没统计这项"，不是真的排在几千名
@@ -80,9 +54,9 @@ export default function CareerTotals({ playerId }) {
                   fontSize: isMobile ? 16 : 20, fontWeight: 800, color: '#fa541c',
                   margin: '2px 0 4px', fontVariantNumeric: 'tabular-nums',
                 }}>
-                  {fmtInt(v)}
+                  {fmtTotal(v)}
                 </div>
-                {showRank && <RankChip rank={rank} prefix="历史第" />}
+                {showRank && <RankChip rank={rank} prefix="历史第" to={`/rankings/alltime/${s.key}`} />}
               </div>
             </Col>
           )

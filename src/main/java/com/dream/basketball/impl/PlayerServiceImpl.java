@@ -9,6 +9,7 @@ import com.dream.basketball.entity.PlayerStats;
 import com.dream.basketball.mapper.PlayerMapper;
 import com.dream.basketball.mapper.PlayerStatsMapper;
 import com.dream.basketball.service.PlayerService;
+import com.dream.basketball.utils.SortUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -93,6 +94,19 @@ public class PlayerServiceImpl extends ServiceImpl<PlayerMapper, DreamPlayer> im
     public Map<String, Object> findCareerTotals(String playerId) {
         List<Map<String, Object>> rows = baseMapper.findCareerTotals(playerId);
         // 名字对不上全历史表的球员（译名差异、边缘球员）没有这一行，返回 null 让前端整块不显示
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    @Override
+    public List<Map<String, Object>> findAllTimeBoard(String field) {
+        String expr = SortUtil.safeTotalsExpr(field);
+        // 白名单外的项直接返回空，不要拿用户输入去拼 SQL
+        return expr == null ? java.util.Collections.emptyList() : baseMapper.findAllTimeBoard(expr);
+    }
+
+    @Override
+    public Map<String, Object> findCareerTotalsByBrId(String brId) {
+        List<Map<String, Object>> rows = baseMapper.findCareerTotalsByBrId(brId);
         return rows.isEmpty() ? null : rows.get(0);
     }
 

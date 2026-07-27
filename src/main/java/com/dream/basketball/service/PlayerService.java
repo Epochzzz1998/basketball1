@@ -44,6 +44,12 @@ public interface PlayerService extends IService<DreamPlayer> {
     /** 生涯总数 + 历史排名；该球员没匹配到全历史表时返回 null。 */
     Map<String, Object> findCareerTotals(String playerId);
 
+    /** 单项生涯总数历史总榜；field 不在白名单内返回空列表。 */
+    List<Map<String, Object>> findAllTimeBoard(String field);
+
+    /** 按 B-R id 取生涯总数（最小档案）。 */
+    Map<String, Object> findCareerTotalsByBrId(String brId);
+
     public List<DreamPlayerDto> findAllPlayers(@RequestBody(required = false) DreamPlayerDto param);
 
     public List<PlayerStatsDto> findPlayersSeasonStats(@RequestBody(required = false) PlayerStatsDto param);

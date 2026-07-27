@@ -226,6 +226,18 @@ public class PlayerController extends BaseUtils {
         return new Result<>(0, "成功", playerService.findCareerTotals(StringUtils.trimToEmpty(playerId)));
     }
 
+    /** 某项生涯总数的历史总榜（公开）：1947 年至今全联盟，含本库没有的老球员。 */
+    @GetMapping("/allTimeBoard")
+    public Object allTimeBoard(String field) {
+        return new Result<>(0, "成功", playerService.findAllTimeBoard(StringUtils.trimToEmpty(field)));
+    }
+
+    /** 历史球员最小档案（公开）：本库没有资料卡的人，按 B-R id 只给生涯总数。 */
+    @GetMapping("/historyPlayer")
+    public Object historyPlayer(String brId) {
+        return new Result<>(0, "成功", playerService.findCareerTotalsByBrId(StringUtils.trimToEmpty(brId)));
+    }
+
     /** 该球员有逐场数据的赛季（公开），空数组表示这一块还没回补到他。 */
     @GetMapping("/playerGameLogSeasons")
     public Object playerGameLogSeasons(String playerId) {

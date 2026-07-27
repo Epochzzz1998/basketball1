@@ -235,8 +235,7 @@
          库里没有的球员（张伯伦、拉塞尔……），只按 player_stats 的 50 季算出来的名次是错的。
          窗口函数先给全表排好名，再挑出这一个人；表只有几千行，代价可以忽略。
          rank() 而非 row_number()：同分并列同名次，跟体育口径一致。 -->
-    <select id="findCareerTotals" resultType="java.util.Map">
-        select * from (
+    <sql id="careerTotalsSelect">
             select BR_ID as brId, PLAYER_ID as playerId, PLAYER_NAME as playerName,
                    FIRST_YEAR as firstYear, LAST_YEAR as lastYear, SEASONS as seasons,
                    G as g, rank() over (order by G desc) as gRank,
@@ -264,7 +263,33 @@
                    (FG3A - FG3) as fg3Miss, rank() over (order by (FG3A - FG3) desc) as fg3MissRank,
                    (FTA - FT) as ftMiss, rank() over (order by (FTA - FT) desc) as ftMissRank
             from nba_career_totals
+    </sql>
+
+    <select id="findCareerTotals" resultType="java.util.Map">
+        select * from (
+            <include refid="careerTotalsSelect"/>
         ) t where t.playerId = #{playerId}
+    </select>
+
+
+    <!-- 生涯总数单项历史总榜。expr 只可能来自 SortUtil.safeTotalsExpr 的白名单（含打铁那类
+         算式），故 ${} 拼接安全。值为 0 的一律不入榜：抢断/盖帽/失误/前场篮板 1973-74 才
+         统计、三分 1979-80 才有，老球员那几项恒为 0，让他们并列几千名毫无意义。 -->
+    <select id="findAllTimeBoard" resultType="java.util.Map">
+        select BR_ID as brId, PLAYER_ID as playerId, PLAYER_NAME as playerName,
+               FIRST_YEAR as firstYear, LAST_YEAR as lastYear, SEASONS as seasons,
+               ${expr} as val,
+               rank() over (order by ${expr} desc) as rk
+        from nba_career_totals
+        where ${expr} &gt; 0
+        order by ${expr} desc
+    </select>
+
+    <!-- 最小档案：库里没有的历史球员（张伯伦那一代）按 B-R id 取生涯总数 -->
+    <select id="findCareerTotalsByBrId" resultType="java.util.Map">
+        select * from (
+            <include refid="careerTotalsSelect"/>
+        ) t where t.brId = #{brId}
     </select>
 
     <sql id="whereConditionPlayer">

@@ -14,6 +14,8 @@ export const playerApi = {
   // 单个球员生涯逐季数据
   listPlayerCareer: (params) => http.get('/player/getPlayerSeasonStatsList', { params }),
   careerTotals: (playerId) => http.get('/player/careerTotals', { params: { playerId } }),
+  allTimeBoard: (field) => http.get('/player/allTimeBoard', { params: { field } }),
+  historyPlayer: (brId) => http.get('/player/historyPlayer', { params: { brId } }),
   // 单个球员季后赛逐季数据（含生涯汇总行 + 当季球队季后赛成绩）
   listPlayerPlayoffs: (playerId) => http.get('/player/getPlayerPlayoffStatsList', { params: { playerId } }),
   // 联盟现有球队代码（来自 player_stats 去重，转会 "A->B" 已拆分）

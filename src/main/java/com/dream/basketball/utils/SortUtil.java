@@ -139,6 +139,26 @@ public final class SortUtil {
         return sb.toString();
     }
 
+
+    /**
+     * 生涯总数榜可排的项：驼峰名 -> SQL 表达式。打铁三项是算式而非真列，所以这里存的是
+     * 表达式而不是列名，白名单本身就限定了能拼进 SQL 的内容。
+     */
+    private static final java.util.Map<String, String> TOTALS_COLUMNS = new java.util.HashMap<String, String>() {{
+        put("g", "G"); put("gs", "GS"); put("mp", "MP");
+        put("fg", "FG"); put("fga", "FGA"); put("fg3", "FG3"); put("fg3a", "FG3A");
+        put("ft", "FT"); put("fta", "FTA");
+        put("orb", "ORB"); put("drb", "DRB"); put("trb", "TRB");
+        put("ast", "AST"); put("stl", "STL"); put("blk", "BLK"); put("tov", "TOV");
+        put("pf", "PF"); put("pts", "PTS"); put("tplDbl", "TPL_DBL");
+        put("fgMiss", "(FGA - FG)"); put("fg3Miss", "(FG3A - FG3)"); put("ftMiss", "(FTA - FT)");
+    }};
+
+    /** 生涯总数榜的排序表达式；不认识的项返回 null，调用方据此拒绝请求。 */
+    public static String safeTotalsExpr(String camelField) {
+        return TOTALS_COLUMNS.get(StringUtils.trimToEmpty(camelField));
+    }
+
     private static String build(String camelField, String order, Set<String> allowed) {
         if (StringUtils.isBlank(camelField)) {
             return null;

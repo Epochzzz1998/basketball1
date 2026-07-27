@@ -130,6 +130,39 @@ export const inPositionGroup = (row, group) =>
 export const filterByPosition = (rows, group) =>
   !group || group === 'all' ? (rows || []) : (rows || []).filter((r) => inPositionGroup(r, group))
 
+
+/**
+ * 生涯总数的项：资料卡的生涯总数块、历史总榜、历史球员最小档案共用这一份。
+ * 顺序参考主流数据站：先体量，再基础数据，最后投篮细项。
+ * 打铁三项在后端是算式（出手 − 命中），不是真列。
+ */
+export const CAREER_TOTAL_STATS = [
+  { key: 'g', label: '出场数' },
+  { key: 'mp', label: '时间' },
+  { key: 'pts', label: '得分' },
+  { key: 'trb', label: '篮板' },
+  { key: 'orb', label: '前场篮板' },
+  { key: 'drb', label: '后场篮板' },
+  { key: 'ast', label: '助攻' },
+  { key: 'tov', label: '失误' },
+  { key: 'stl', label: '抢断' },
+  { key: 'blk', label: '盖帽' },
+  { key: 'pf', label: '犯规' },
+  { key: 'fga', label: '出手' },
+  { key: 'fg', label: '进球' },
+  { key: 'fgMiss', label: '打铁' },
+  { key: 'fg3a', label: '三分出手' },
+  { key: 'fg3', label: '三分命中' },
+  { key: 'fg3Miss', label: '三分打铁' },
+  { key: 'fta', label: '罚球次数' },
+  { key: 'ft', label: '罚球命中' },
+  { key: 'ftMiss', label: '罚球打铁' },
+  { key: 'tplDbl', label: '三双' },
+]
+
+/** 整数带千分位（生涯总数动辄五位数，不分节读不出来） */
+export const fmtTotal = (v) => (v == null ? '-' : Number(v).toLocaleString('en-US'))
+
 /** 不达标的原因，决定标签文案 */
 export const unqualifiedReason = (field) => (PCT_QUALIFY[field] ? '出手不足' : '场次不足')
 

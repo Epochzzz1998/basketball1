@@ -12,6 +12,8 @@ import PlayersHome from './pages/players/PlayersHome'
 import TeamPlayers from './pages/players/TeamPlayers'
 import LeagueRankings from './pages/players/LeagueRankings'
 import RankingDetail from './pages/players/RankingDetail'
+import AllTimeBoard from './pages/players/AllTimeBoard'
+import HistoryPlayer from './pages/players/HistoryPlayer'
 import HonorDetail from './pages/players/HonorDetail'
 import PlayerCareer from './pages/players/PlayerCareer'
 import PlayerCompare from './pages/players/PlayerCompare'
@@ -67,10 +69,14 @@ export default function App() {
         {/* 公开浏览 */}
         <Route path="players" element={<PlayersHome />} />
         <Route path="players/team/:teamCode" element={<TeamPlayers />} />
+        {/* 历史球员最小档案要排在 :playerId 前面，否则 "history" 会被当成 playerId 吃掉 */}
+        <Route path="players/history/:brId" element={<HistoryPlayer />} />
         <Route path="players/:playerId" element={<PlayerCareer />} />
         <Route path="compare" element={<PlayerCompare />} />
         <Route path="rankings" element={<LeagueRankings />} />
         <Route path="rankings/honors/:group" element={<HonorDetail />} />
+        {/* 同理：alltime 段必须在 :field 之前 */}
+        <Route path="rankings/alltime/:field" element={<AllTimeBoard />} />
         <Route path="rankings/:field" element={<RankingDetail />} />
         <Route path="official" element={<NewsList channel="official" />} />
         {/* 百家说：现在是专题列表；点进单个专题看帖流 */}
