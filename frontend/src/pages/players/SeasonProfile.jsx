@@ -100,7 +100,7 @@ const Radar = ({ data, color = '#fa541c', fill = 'rgba(250,84,28,.22)' }) => (
   <RadarChart series={[{ color, fill, data }]} />
 )
 
-function RankChip({ rank, prefix = '联盟第', to, unqualified, tied }) {
+export function RankChip({ rank, prefix = '联盟第', to, unqualified, tied }) {
   // 手机上一行三个格子，胶囊得再小一号，否则「并列季后赛第 12」放不下
   const isMobile = useIsMobile()
   const fs = isMobile ? 10 : 12
@@ -317,25 +317,23 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
           )}
         </Space>
 
-        {/* 生涯档才有总数：逐季卡片展示的是场均，累计值只在"生涯"这一档有意义 */}
-        {isCareer && (
-          <div style={{ marginBottom: 20 }}>
-            <CareerTotals playerId={playerId} />
-          </div>
-        )}
-
         {/* 常规赛数据卡（六维雷达挪到卡片下方） */}
         <div style={{ fontWeight: 700, marginBottom: 10, fontSize: 15 }}>{isCareer ? '生涯场均' : '常规赛'}</div>
         {statCard(row, league, '联盟第', '#fa541c', 'rg')}
-        {/* 高阶数据单独一块：跟基础数据混在一起就是 30 多个格子，一屏塞不下 */}
-        <div style={{ fontWeight: 700, margin: '20px 0 10px', fontSize: 15 }}>
-          高阶数据
-          <GlossaryIcon />
-          <span style={{ color: '#bbb', fontSize: 12, fontWeight: 400, marginLeft: 8 }}>
-            PER 联盟平均 15；BPM / 效率均为每百回合口径
-          </span>
-        </div>
-        {statCard(row, league, '联盟第', '#fa541c', 'rg', ADVANCED_STATS)}
+        {/* 高阶数据单独一块：跟基础数据混在一起就是 30 多个格子，一屏塞不下。
+            生涯档整块不出——B-R 只按赛季发布高阶指标，没有生涯合计，21 个格子会全是 "/" */}
+        {!isCareer && (
+          <>
+            <div style={{ fontWeight: 700, margin: '20px 0 10px', fontSize: 15 }}>
+              高阶数据
+              <GlossaryIcon />
+              <span style={{ color: '#bbb', fontSize: 12, fontWeight: 400, marginLeft: 8 }}>
+                PER 联盟平均 15；BPM / 效率均为每百回合口径
+              </span>
+            </div>
+            {statCard(row, league, '联盟第', '#fa541c', 'rg', ADVANCED_STATS)}
+          </>
+        )}
         <div style={{ maxWidth: 440, margin: '20px auto 0' }}>
           {league === null
             ? <Spin style={{ display: 'block', margin: '60px auto' }} />
@@ -370,11 +368,15 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
             {/* 季后赛数据卡（雷达同样在卡片下方，只和当季季后赛球员比） */}
             <div style={{ fontWeight: 700, marginBottom: 10, fontSize: 15 }}>季后赛</div>
             {statCard(poRow, poLeague, '季后赛第', '#d4380d', 'po')}
-            <div style={{ fontWeight: 700, margin: '20px 0 10px', fontSize: 15 }}>
-              高阶数据
-              <GlossaryIcon />
-            </div>
-            {statCard(poRow, poLeague, '季后赛第', '#d4380d', 'po', ADVANCED_STATS)}
+            {!isCareer && (
+              <>
+                <div style={{ fontWeight: 700, margin: '20px 0 10px', fontSize: 15 }}>
+                  高阶数据
+                  <GlossaryIcon />
+                </div>
+                {statCard(poRow, poLeague, '季后赛第', '#d4380d', 'po', ADVANCED_STATS)}
+              </>
+            )}
             <div style={{ maxWidth: 440, margin: '20px auto 0' }}>
               {poLeague === null
                 ? <Spin style={{ display: 'block', margin: '60px auto' }} />
@@ -386,6 +388,14 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
           </>
         )}
       </Card>
+
+      {/* 生涯总数放最后：上面两张卡是场均，这一块是累计值，量级和读法都不同，
+          混在场均中间会让人误读。只有"生涯"这一档才有意义 */}
+      {isCareer && (
+        <Card title="生涯总数" style={{ marginTop: 16 }} styles={{ body: { padding: '18px 20px' } }}>
+          <CareerTotals playerId={playerId} />
+        </Card>
+      )}
     </>
   )
 }

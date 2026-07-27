@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Empty, Spin } from 'antd'
+import { Col, Empty, Row, Spin } from 'antd'
 import { playerApi } from '../../api/player'
+import { RankChip } from './SeasonProfile'
 import useIsMobile from '../../hooks/useIsMobile'
 
 /**
- * 生涯总数 + 历史排名。
+ * 生涯总数 + 历史排名。格子样式与资料卡的数据格完全一致（同样一行三个），
+ * 只是数值是累计值、名次是历史排名。
  *
  * 数据来自 nba_career_totals：那张表覆盖 1947 年至今的**全联盟**，不是本库的 50 季。
  * 这是必须的——只按 1976 年起的数据排名，张伯伦、拉塞尔、韦斯特根本不在池子里，
@@ -41,7 +43,6 @@ const TOTAL_STATS = [
   { key: 'tplDbl', label: '三双' },
 ]
 
-const MEDAL = ['#f5b301', '#9aa0a6', '#b87333']
 const fmtInt = (v) => (v == null ? '-' : Number(v).toLocaleString('en-US'))
 
 export default function CareerTotals({ playerId }) {
@@ -62,55 +63,31 @@ export default function CareerTotals({ playerId }) {
 
   return (
     <>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10 }}>
-        <span style={{ fontWeight: 700, fontSize: 15 }}>生涯总数</span>
-        <span style={{ color: '#bbb', fontSize: 12 }}>
-          {row.firstYear}-{row.lastYear} · {row.seasons} 个赛季 · 名次为 NBA 历史排名
-        </span>
+      <div style={{ color: '#bbb', fontSize: 12, marginBottom: 10 }}>
+        {row.firstYear}-{row.lastYear} · {row.seasons} 个赛季 · 名次为 NBA 历史排名（1947 年至今）
       </div>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: `repeat(${isMobile ? 3 : 4}, 1fr)`,
-          gap: isMobile ? 6 : 10,
-        }}
-      >
+      <Row gutter={isMobile ? [6, 6] : [10, 10]}>
         {TOTAL_STATS.map((s) => {
           const v = row[s.key]
           const rank = row[`${s.key}Rank`]
           // 值为 0 不给名次：那多半是"当年还没统计这项"，不是真的排在几千名
           const showRank = rank != null && Number(v) > 0
           return (
-            <div
-              key={s.key}
-              style={{
-                border: '1px solid #f0f0f0', borderRadius: 10, background: '#fff',
-                padding: isMobile ? '8px 6px' : '10px 12px', textAlign: 'center',
-              }}
-            >
-              <div style={{
-                fontSize: isMobile ? 17 : 21, fontWeight: 800, color: '#333',
-                fontVariantNumeric: 'tabular-nums', lineHeight: 1.25,
-              }}>
-                {fmtInt(v)}
-              </div>
-              <div style={{ color: '#888', fontSize: isMobile ? 11 : 12, marginTop: 1 }}>{s.label}</div>
-              {showRank && (
-                <div style={{ marginTop: 5 }}>
-                  <span style={{
-                    fontSize: isMobile ? 10 : 12, fontWeight: 600,
-                    color: rank <= 3 ? MEDAL[rank - 1] : '#999',
-                    background: rank <= 3 ? 'rgba(250,84,28,.08)' : '#f5f5f5',
-                    padding: '1px 6px', borderRadius: 10, whiteSpace: 'nowrap',
-                  }}>
-                    历史第 {rank}
-                  </span>
+            <Col key={s.key} xs={8} sm={8}>
+              <div style={{ border: '1px solid #f0f0f0', borderRadius: 10, padding: isMobile ? '7px 6px' : '10px 12px', background: '#fff' }}>
+                <div style={{ color: '#888', fontSize: isMobile ? 11 : 12, whiteSpace: 'nowrap' }}>{s.label}</div>
+                <div style={{
+                  fontSize: isMobile ? 16 : 20, fontWeight: 800, color: '#fa541c',
+                  margin: '2px 0 4px', fontVariantNumeric: 'tabular-nums',
+                }}>
+                  {fmtInt(v)}
                 </div>
-              )}
-            </div>
+                {showRank && <RankChip rank={rank} prefix="历史第" />}
+              </div>
+            </Col>
           )
         })}
-      </div>
+      </Row>
     </>
   )
 }
