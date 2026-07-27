@@ -7,7 +7,7 @@ import { playerApi } from '../../api/player'
 import { GlossaryButton, withGlossary } from './statGlossary'
 import { CAREER_SEASON, NBA_TEAM_NAMES, PLAYOFF_TAG, fmtNum as num, fmtPair, seasonYearLabel, seasonShort, fmtPct } from './rankConfig'
 import { CAREER_AWARDS } from './honorConfig'
-import { compactColumns, headerWidth, sumColWidth } from './statColumns'
+import { advColWidth, compactColumns, sumColWidth } from './statColumns'
 import { ADVANCED_STATS, fmtAdv } from './rankConfig'
 import TeamLogo, { TeamNames } from '../../components/TeamLogo'
 import SeasonProfile from './SeasonProfile'
@@ -90,7 +90,7 @@ const advSeasonColumns = (po) => withGlossary([
   ...ADVANCED_STATS.map((a) => ({
     title: a.label,
     dataIndex: a.field,
-    width: headerWidth(a.label, 14, 14),
+    width: advColWidth(a, 14, 14),
     render: (v) => fmtAdv(v, a),
   })),
 ])
@@ -121,7 +121,7 @@ function CareerTable({ playerId }) {
     { title: '抢断', dataIndex: 'playerAvgSteal', width: 48, render: (v) => num(v) },
     { title: '失误', dataIndex: 'playerAvgTurnover', width: 48, render: (v) => num(v) },
     { title: '犯规', dataIndex: 'playerAvgPf', width: 48, render: (v) => num(v) },
-    { title: '效率值EFF', dataIndex: 'playerPer', width: 78, render: (v) => num(v) },
+    { title: '效率值', dataIndex: 'playerPer', width: 78, render: (v) => num(v) },
     { title: 'MVP', dataIndex: 'mvpRank', width: 50 },
     { title: 'DPOY', dataIndex: 'dpoyRank', width: 56 },
     { title: '最佳阵容', dataIndex: 'allDbaTeam', width: 72 },
@@ -204,7 +204,7 @@ function PlayoffTable({ playerId }) {
     { title: '抢断', dataIndex: 'playerAvgSteal', width: 48, render: (v) => num(v) },
     { title: '失误', dataIndex: 'playerAvgTurnover', width: 48, render: (v) => num(v) },
     { title: '犯规', dataIndex: 'playerAvgPf', width: 48, render: (v) => num(v) },
-    { title: '效率值EFF', dataIndex: 'playerPer', width: 78, render: (v) => num(v) },
+    { title: '效率值', dataIndex: 'playerPer', width: 78, render: (v) => num(v) },
   ]
 
   const columns = view === 'adv' ? advSeasonColumns(true) : basicColumns

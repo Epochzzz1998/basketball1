@@ -340,8 +340,9 @@ function TeamsTab({ seasonNum, stage }) {
     ),
   }
   const resultCol = {
-    title: po ? '成绩' : '季后赛', dataIndex: 'playoffResult', width: 110,
-    render: (v) => <Tag color={PLAYOFF_TAG[v] || 'default'}>{v || '-'}</Tag>,
+    // 跟同排数据列一样右对齐：这一列夹在「胜率」和「场均得分」中间，只有它靠左很跳
+    title: po ? '成绩' : '季后赛', dataIndex: 'playoffResult', width: 110, align: 'right',
+    render: (v) => <Tag color={PLAYOFF_TAG[v] || 'default'} style={{ marginInlineEnd: 0 }}>{v || '-'}</Tag>,
   }
 
   const poRecordCol = {

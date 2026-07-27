@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Col, Modal, Row, Tooltip } from 'antd'
-import { InfoCircleOutlined, QuestionCircleOutlined } from '@ant-design/icons'
+import { QuestionCircleOutlined } from '@ant-design/icons'
 import useIsMobile from '../../hooks/useIsMobile'
 
 /**
@@ -203,8 +203,9 @@ export function StatGlossaryModal({ open, onClose }) {
         </div>
       ))}
       <div style={{ marginTop: 20, fontSize: 12, color: '#bbb', lineHeight: 1.8 }}>
-        参考刻度是常见水准的大致位置，不是硬门槛。老赛季有些指标算不出来（1976-77
-        没有全联盟的失误和前场篮板统计，进攻/防守效率那年就是空的），表里显示「-」。
+        参考刻度是常见水准的大致位置，不是硬门槛。没有数据的格子显示「/」：生涯汇总没有
+        高阶指标（B-R 只按赛季发布，不发生涯合计）；1976-77 没有全联盟的失误和前场篮板
+        统计，进攻/防守效率那年也算不出来。
       </div>
     </Modal>
   )
@@ -241,9 +242,8 @@ export function GlossaryButton() {
 /**
  * 单条释义的悬停卡片。不是高阶项就原样返回，调用方不用自己判断。
  *
- * 平时不加任何常驻装饰（试过虚下划线，21 列一起挂上去很脏），鼠标移上去才淡入
- * 一个小 ⓘ。图标在 CSS 里绝对定位、脱离文档流，所以不占列宽——高阶表头本来就是
- * 按字形算到刚好的宽度，多一个字形就会折行。手机没有悬停，走工具条的「指标说明」。
+ * 表头不加任何视觉标记（虚下划线、悬停浮出的 ⓘ 都试过，都嫌脏），只保留悬停出解释
+ * 这一件事。发现入口靠工具条上的「指标说明」——手机也只能走那儿。
  */
 export function GlossaryTip({ field, children }) {
   const it = BY_FIELD[field]
@@ -267,10 +267,7 @@ export function GlossaryTip({ field, children }) {
         </div>
       }
     >
-      <span className="stat-tip">
-        {children}
-        <InfoCircleOutlined className="stat-tip-icon" />
-      </span>
+      <span className="stat-tip">{children}</span>
     </Tooltip>
   )
 }

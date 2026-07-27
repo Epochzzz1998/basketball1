@@ -297,9 +297,9 @@ function PlayoffHistory({ teamCode }) {
       render: (v) => seasonShort(v),
     },
     {
-      title: '成绩', dataIndex: 'playoffResult', width: 96,
+      title: '成绩', dataIndex: 'playoffResult', width: 96, align: 'right',
       render: (v) => (
-        <Tag color={PLAYOFF_TAG[v] || 'default'}>
+        <Tag color={PLAYOFF_TAG[v] || 'default'} style={{ marginInlineEnd: 0 }}>
           {v === '总冠军' && <TrophyFilled style={{ marginRight: 4 }} />}
           {v}
         </Tag>
@@ -444,9 +444,10 @@ function TeamHistory({ teamCode }) {
       },
     },
     {
-      title: '季后赛', dataIndex: 'playoffResult', width: 92,
+      // 与相邻的数据列同为右对齐，别单独一列靠左
+      title: '季后赛', dataIndex: 'playoffResult', width: 92, align: 'right',
       render: (v) => (
-        <Tag color={PLAYOFF_TAG[v] || 'default'}>
+        <Tag color={PLAYOFF_TAG[v] || 'default'} style={{ marginInlineEnd: 0 }}>
           {v === '总冠军' && <TrophyFilled style={{ marginRight: 4 }} />}
           {v || '-'}
         </Tag>

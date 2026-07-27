@@ -40,7 +40,7 @@ export function buildFullStatColumns({ serverSort = true } = {}) {
     { title: '抢断', dataIndex: 'playerAvgSteal', width: 48, ...srt, render: (v) => num(v) },
     { title: '失误', dataIndex: 'playerAvgTurnover', width: 48, ...srt, render: (v) => num(v) },
     { title: '犯规', dataIndex: 'playerAvgPf', width: 48, ...srt, render: (v) => num(v) },
-    { title: '效率值EFF', dataIndex: 'playerPer', width: 78, ...srt, render: (v) => num(v) },
+    { title: '效率值', dataIndex: 'playerPer', width: 78, ...srt, render: (v) => num(v) },
     { title: 'MVP', dataIndex: 'mvpRank', width: 50, ...srt },
     { title: 'DPOY', dataIndex: 'dpoyRank', width: 56, ...srt },
     { title: '最佳阵容', dataIndex: 'allDbaTeam', width: 72 },
@@ -48,17 +48,25 @@ export function buildFullStatColumns({ serverSort = true } = {}) {
   ]
 }
 
+/** 一段文字在给定字号下的估算宽度：中文算一个 em，拉丁/数字/斜杠算 0.62 em */
+const textWidth = (s, em) => Math.ceil([...s].reduce((w, c) => w + (/[一-鿿]/.test(c) ? em : em * 0.62), 0))
+
 /**
- * 高阶列的表头宽度。原来按 `label.length` 分档，但中文字宽差不多是拉丁字母的一倍，
- * 「进攻胜利贡献」（6 字）和「WS/48」（5 字）按字数算是同一档，结果前者必定折行。
- * 改成按字形估：中文算一个 em，拉丁/数字/斜杠算 0.62 em，再加两侧内边距。
- * 下限 46 是给数值留的（"-2.3"、"0.123" 这类比表头还宽）。
+ * 表头文字需要的列宽。原来高阶列按 `label.length` 分档，但中文字宽差不多是拉丁字母的
+ * 一倍，「进攻胜利贡献」（6 字）和「WS/48」（5 字）按字数算落在同一档，结果前者必折行。
  */
-export const headerWidth = (label, em, pad) =>
-  Math.max(46, Math.ceil([...label].reduce((w, c) => w + (/[一-鿿]/.test(c) ? em : em * 0.62), 0)) + pad)
+export const headerWidth = (label, em, pad) => textWidth(label, em) + pad
+
+/**
+ * 高阶列宽 = max(表头宽, 数值宽)。「使用率」只有 3 个字，但格子里要放 "100.0%"
+ * 六个字符——瓶颈在数值不在表头，只按标签算百分比就会换行。
+ * 下限 46 只在这儿加：逐场表那些 40px 的整数列不该被这个下限顶宽。
+ */
+export const advColWidth = (a, em, pad) =>
+  Math.max(46, headerWidth(a.label, em, pad), textWidth(a.pct || a.rate ? '100.0%' : '-12.3', em) + pad)
 
 /** 桌面端 14px 字号 + 左右各 6px 内边距（.stat-compact 的规则） */
-const advWidth = (label) => headerWidth(label, 14, 14)
+const advWidth = (a) => advColWidth(a, 14, 14)
 
 /**
  * 高阶数据列。基础表已经 20+ 列，再把 20 个高阶指标并进去就没法看了，
@@ -80,7 +88,7 @@ export function buildAdvancedStatColumns({ po = false } = {}) {
     ...ADVANCED_STATS.map((a) => ({
       title: a.label,
       dataIndex: a.field,
-      width: advWidth(a.label),
+      width: advWidth(a),
       render: (v) => fmtAdv(v, a),
     })),
   ])
@@ -105,23 +113,20 @@ const COMPACT_W = {
   gameDate: 60, round: 60, win: 78, starter: 40, pts: 40, reb: 40, offReb: 40, defReb: 40, ast: 40,
   fgm: 56, tpm: 56, ftm: 56, stl: 40, blk: 40, tov: 40, pf: 40, plusMinus: 46,
   playerAvgPn: 50,
-  // 高阶列按标签实际字形算（12px 字号、左右各 5px 内边距），别再统一乘 0.72——
+  // 高阶列按标签和数值实际字形算（12px 字号、左右各 5px 内边距），别再统一乘 0.72——
   // 那样「进攻胜利贡献」只剩 62px，六个汉字铁定折行
-  ...Object.fromEntries(ADVANCED_STATS.map((a) => [a.field, headerWidth(a.label, 12, 10)])),
+  ...Object.fromEntries(ADVANCED_STATS.map((a) => [a.field, advColWidth(a, 12, 10)])),
 }
-
-// 移动端表头省字：桌面写「效率值EFF」是为了跟真实 PER 区分开，手机上那三个字母
-// 只是把列撑宽，去掉不影响理解（要查区别有「指标说明」）
-const COMPACT_TITLE = { playerPer: '效率值' }
 
 /** 列表 → 紧凑列表：命中紧凑表的用表值，其余按 0.72 收缩（下限 40）；
  * 同时去掉表头排序（窄列里排序箭头和标题文字重叠，移动端排序一律砍掉） */
 export const compactColumns = (cols) =>
-  cols.map(({ sorter, sortOrder, defaultSortOrder, ...c }) => ({
-    ...c,
-    title: COMPACT_TITLE[c.dataIndex] ?? c.title,
-    width: COMPACT_W[c.dataIndex] ?? Math.max(40, Math.round((c.width || 60) * 0.72)),
-  }))
+  cols.map(({ sorter, sortOrder, defaultSortOrder, ...c }) => {
+    const w = COMPACT_W[c.dataIndex] ?? Math.max(40, Math.round((c.width || 60) * 0.72))
+    // 表头文字比给定宽度还长就以文字为准。pts/reb/ast 这些 dataIndex 被逐场表（标题
+    // 「得分」）和球队排行（标题「场均得分」）共用，按前者调窄会把后者压折行
+    return { ...c, width: typeof c.title === 'string' ? Math.max(w, headerWidth(c.title, 12, 10)) : w }
+  })
 
 /** 横向滚动宽度 = 列宽求和（列随紧凑与否变化，滚动宽度跟着算） */
 export const sumColWidth = (cols) => cols.reduce((s, c) => s + (c.width || 0), 0)

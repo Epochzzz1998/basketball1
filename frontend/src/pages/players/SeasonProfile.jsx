@@ -4,7 +4,7 @@ import { Card, Col, Empty, Row, Space, Spin, Tag } from 'antd'
 import SeasonPicker from '../../components/SeasonPicker'
 import RadarChart from '../../components/RadarChart'
 import { playerApi } from '../../api/player'
-import { CAREER_SEASON, PLAYOFF_TAG, fmtNum, seasonYearLabel, fmtPct, statQualified, qualifiedFor, rankIn, unqualifiedReason, tiedCount, ADVANCED_STATS, fmtAdv } from './rankConfig'
+import { ADV_EMPTY, CAREER_SEASON, PLAYOFF_TAG, fmtNum, seasonYearLabel, fmtPct, statQualified, qualifiedFor, rankIn, unqualifiedReason, tiedCount, ADVANCED_STATS, fmtAdv } from './rankConfig'
 import { TeamNames } from '../../components/TeamLogo'
 import { CAREER_AWARDS } from './honorConfig'
 import { GlossaryIcon, GlossaryTip } from './statGlossary'
@@ -48,7 +48,7 @@ export const GRID_STATS = [
   { key: 'playerAvgBlock', label: '盖帽' },
   { key: 'playerAvgTurnover', label: '失误', asc: true, note: '最少排' },
   { key: 'playerAvgPf', label: '犯规', asc: true, note: '最少排' },
-  { key: 'playerPer', label: '效率值EFF' },
+  { key: 'playerPer', label: '效率值' },
   { key: 'playerAvgPn', label: '正负值', poOnly: true },
   { key: 'playerAvgFgm', label: '场均投篮命中' },
   { key: 'playerAccuracy', label: '投篮%', pct: true },
@@ -214,6 +214,10 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
       {stats.filter((s) => stage === 'po' || !s.poOnly).map((raw) => {
         const s = { ...raw, key: raw.key || raw.field }
         const mine = val(dataRow, s.key)
+        // 生涯档没有高阶数据（B-R 只按赛季发布），1976-77 也没有效率值。
+        // 这种情况要显示占位符——写成 0.0 会被当成"真的是 0"，排名也不能给
+        const cell = dataRow?.[s.key]
+        const missing = cell == null || cell === '' || Number.isNaN(Number(cell))
         return (
           <Col key={s.key} xs={12} sm={8}>
             <div style={{ border: '1px solid #f0f0f0', borderRadius: 10, padding: '10px 12px', background: '#fff' }}>
@@ -222,16 +226,18 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
                 <GlossaryTip field={s.key}>{s.label}</GlossaryTip>
                 {s.note && <span style={{ marginLeft: 4, fontSize: 11, color: '#ccc' }}>{s.note}</span>}
               </div>
-              <div style={{ fontSize: 20, fontWeight: 800, color, margin: '2px 0 4px', fontVariantNumeric: 'tabular-nums' }}>
-                {s.pct || s.rate ? fmtAdv(mine, s) : fmtNum(mine, s.digits ?? 1)}
+              <div style={{ fontSize: 20, fontWeight: 800, color: missing ? '#ccc' : color, margin: '2px 0 4px', fontVariantNumeric: 'tabular-nums' }}>
+                {missing ? ADV_EMPTY : s.pct || s.rate ? fmtAdv(mine, s) : fmtNum(mine, s.digits ?? 1)}
               </div>
-              <RankChip
-                rank={rankIn(leagueRows, s.key, mine, s.asc)}
-                unqualified={leagueRows?.length && !qualifiedFor(leagueRows, s.key, dataRow) ? unqualifiedReason(s.key) : null}
-                tied={tiedCount(leagueRows, s.key, mine)}
-                prefix={prefix}
-                to={`/rankings/${s.key}?seasonNum=${seasonNum}&stage=${stage}`}
-              />
+              {!missing && (
+                <RankChip
+                  rank={rankIn(leagueRows, s.key, mine, s.asc)}
+                  unqualified={leagueRows?.length && !qualifiedFor(leagueRows, s.key, dataRow) ? unqualifiedReason(s.key) : null}
+                  tied={tiedCount(leagueRows, s.key, mine)}
+                  prefix={prefix}
+                  to={`/rankings/${s.key}?seasonNum=${seasonNum}&stage=${stage}`}
+                />
+              )}
             </div>
           </Col>
         )

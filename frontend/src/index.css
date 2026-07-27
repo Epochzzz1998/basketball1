@@ -108,25 +108,20 @@ body {
   min-height: 0 !important;
 }
 
-/* 高阶指标的释义提示（表头 / 资料卡格子标题）：平时完全干净，鼠标移上去才淡入一个小 ⓘ。
-   图标绝对定位脱离文档流——高阶表头的宽度是按字形算到刚好的，多占一个字形就会折行。
-   手机没有悬停，改走工具条的「指标说明」入口。 */
+/* 高阶指标的释义提示（表头 / 资料卡格子标题）：不加任何视觉标记，只有光标形状变化。
+   虚下划线和悬停浮出的 ⓘ 都试过，21 列一起挂上去都太脏。
+   发现入口靠工具条的「指标说明」——手机没有悬停，也只能走那儿。 */
 .stat-tip {
-  position: relative;
   cursor: help;
 }
-.stat-tip .stat-tip-icon {
-  position: absolute;
-  left: calc(100% + 2px);
-  top: 0.15em;
-  font-size: 0.8em;
-  color: #bfbfbf;
-  opacity: 0;
-  transition: opacity 0.15s;
-  pointer-events: none; /* 图标本身不接鼠标，避免在自己身上反复触发进出 */
+
+/* 数据表铺满卡片：ProTable 的卡片体自带左右内边距，宽表两侧各空一条白边，
+   而宽表本来就要横滑，那两条边纯属浪费。工具条自己补回内边距，别贴死边。 */
+.stat-compact .ant-pro-card-body {
+  padding-inline: 0 !important; /* antd 的运行时样式同权重且更晚加载 */
 }
-.stat-tip:hover .stat-tip-icon {
-  opacity: 1;
+.stat-compact .ant-pro-table-list-toolbar {
+  padding-inline: 12px;
 }
 
 /* 数据表（.stat-compact）桌面端：antd 默认单元格左右各 16px 内边距太肥，

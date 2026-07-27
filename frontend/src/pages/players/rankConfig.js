@@ -228,9 +228,17 @@ export const ADVANCED_STATS = [
   { field: 'playerTovPct', label: '失误率', rate: true, order: 'asc', asc: true, note: '越低越好' },
 ]
 
-/** 高阶值的显示：小数百分比 → 45.3%；0-100 比率 → 19.6%；其余按位数 */
-export const fmtAdv = (v, s) =>
-  v == null ? '-' : s.pct ? fmtPct(v) : s.rate ? `${Number(v).toFixed(1)}%` : fmtNum(v, s.digits ?? 1)
+/** 高阶数据缺失时的占位。生涯汇总行没有高阶指标（B-R 只按赛季发布，不发生涯合计），
+ *  1976-77 也没有效率值。空着比写 0 诚实——0 会被当成"真的是 0"。 */
+export const ADV_EMPTY = '/'
+
+/** 高阶值的显示：小数百分比 → 45.3%；0-100 比率 → 19.6%；其余按位数。
+ *  null / 空串 / 非数都归到占位符，别让 NaN 漏到界面上 */
+export const fmtAdv = (v, s) => {
+  const n = v == null || v === '' ? NaN : Number(v)
+  if (Number.isNaN(n)) return ADV_EMPTY
+  return s.pct ? fmtPct(n) : s.rate ? `${n.toFixed(1)}%` : fmtNum(n, s.digits ?? 1)
+}
 
 /**
  * 联盟单项排行榜配置：每项一张卡。field=驼峰列名（须在 P3-1 排序白名单内），
