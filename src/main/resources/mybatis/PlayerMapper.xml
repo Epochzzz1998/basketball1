@@ -209,7 +209,8 @@
                PLUS_MINUS as plusMinus
         from player_game_stats
         where PLAYER_ID = #{playerId} and SEASON_NUM = #{seasonNum} and SEASON_TYPE = #{seasonType}
-        order by GAME_DATE
+        <!-- 最近一场在最上面，最早的比赛沉到表底 -->
+        order by GAME_DATE desc
     </select>
 
     <!-- 该球员有哪些赛季/类型的逐场数据（前端据此决定是否显示「逐场」入口） -->

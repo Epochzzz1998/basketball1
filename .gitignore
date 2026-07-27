@@ -55,3 +55,6 @@ tools/nba_sync/po_round_stats.sql
 tools/nba_sync/game_logs_*.sql
 # scraped B-R series pages; re-creatable with --scrape (45 min), the DB holds the result
 tools/nba_sync/po_rounds_cache/
+tools/nba_sync/po_game_logs_br.sql
+# scraped B-R box scores; re-creatable with --scrape, the DB holds the result
+tools/nba_sync/po_games_cache/

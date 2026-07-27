@@ -15,6 +15,7 @@ function buildColumns(seasonType, isMobile) {
     ...(seasonType === SEASON_TYPE.PO
       ? [{ title: '轮次', dataIndex: 'round', width: 72, render: (v) => ROUND_LABEL[Number(v)] || '-' }]
       : []),
+    { title: '球队', dataIndex: 'playerTeam', width: 78, render: (v) => <TeamNames value={v} /> },
     {
       title: '对手', dataIndex: 'oppTeam', width: 78,
       render: (v, r) => (

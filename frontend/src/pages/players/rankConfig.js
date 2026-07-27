@@ -178,4 +178,5 @@ export const RANKING_STATS = [
   { field: 'playerAppearance', label: '出场', digits: 0 },
   { field: 'playerPer', label: '效率值', note: '得分+板+助+断+帽−打铁−失误' },
   { field: 'playerAvgTurnover', label: '失误', note: '场均最多' },
+  { field: 'playerAvgPf', label: '犯规', note: '场均最多' },
 ]

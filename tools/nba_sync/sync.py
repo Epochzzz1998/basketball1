@@ -418,7 +418,7 @@ def fetch_playoff_opp_ppg(season, id_to_code):
 
 STAT_COLS = ('STATS_ID, PLAYER_ID, SEASON, SEASON_NUM, PLAYER_TEAM, PLAYER_POSITION, PLAYER_APPEARANCE, '
              'PLAYING_TIME, PLAYER_AVG_SCORE, PLAYER_AVG_REB, PLAYER_AVG_ASS, PLAYER_AVG_STEAL, PLAYER_AVG_BLOCK, '
-             'PLAYER_AVG_TURNOVER, PLAYER_AVG_FGM, PLAYER_AVG_FGA, PLAYER_ACCURACY, PLAYER_AVG_TPM, PLAYER_AVG_TPA, '
+             'PLAYER_AVG_TURNOVER, PLAYER_AVG_PF, PLAYER_AVG_FGM, PLAYER_AVG_FGA, PLAYER_ACCURACY, PLAYER_AVG_TPM, PLAYER_AVG_TPA, '
              'PLAYER_THREE_ACCURACY, PLAYER_AVG_FTM, PLAYER_AVG_FTA, PLAYER_FREETHROW_ACCURACY, PLAYER_PER, '
              'PLAYER_FR_APPEARANCE, PLAYER_SR_APPEARANCE, PLAYER_AVG_OFF_REB, PLAYER_AVG_DEF_REB')
 
@@ -449,7 +449,8 @@ def stat_row_sql(table, season_num, suffix, r, ident, detail, season_teams):
         f"'{esc(team)}'", f"'{esc(pos)}'", str(int(gp)),
         num(s.get('avgMinutes'), 1), num(s.get('avgPoints')), num(s.get('avgRebounds')),
         num(s.get('avgAssists')), num(s.get('avgSteals')), num(s.get('avgBlocks')),
-        num(s.get('avgTurnovers')), num(s.get('avgFieldGoalsMade')), num(s.get('avgFieldGoalsAttempted')),
+        num(s.get('avgTurnovers')), num(s.get('avgFouls')),
+        num(s.get('avgFieldGoalsMade')), num(s.get('avgFieldGoalsAttempted')),
         pct('fieldGoalPct'), num(s.get('avgThreePointFieldGoalsMade')), num(s.get('avgThreePointFieldGoalsAttempted')),
         pct('threePointFieldGoalPct'), num(s.get('avgFreeThrowsMade')), num(s.get('avgFreeThrowsAttempted')),
         pct('freeThrowPct'), num(eff, 1),
@@ -470,7 +471,7 @@ def career_sql(table):
         f"SELECT CONCAT(PLAYER_ID,'-career'), PLAYER_ID, 99, 99, '/', "
         f"SUBSTRING_INDEX(GROUP_CONCAT(PLAYER_POSITION ORDER BY SEASON_NUM DESC),',',1), SUM(PLAYER_APPEARANCE), "
         f"{w('PLAYING_TIME')}, {w('PLAYER_AVG_SCORE')}, {w('PLAYER_AVG_REB')}, {w('PLAYER_AVG_ASS')}, "
-        f"{w('PLAYER_AVG_STEAL')}, {w('PLAYER_AVG_BLOCK')}, {w('PLAYER_AVG_TURNOVER')}, "
+        f"{w('PLAYER_AVG_STEAL')}, {w('PLAYER_AVG_BLOCK')}, {w('PLAYER_AVG_TURNOVER')}, {w('PLAYER_AVG_PF')}, "
         f"{w('PLAYER_AVG_FGM')}, {w('PLAYER_AVG_FGA')}, {ratio('PLAYER_AVG_FGM', 'PLAYER_AVG_FGA')}, "
         f"{w('PLAYER_AVG_TPM')}, {w('PLAYER_AVG_TPA')}, {ratio('PLAYER_AVG_TPM', 'PLAYER_AVG_TPA')}, "
         f"{w('PLAYER_AVG_FTM')}, {w('PLAYER_AVG_FTA')}, {ratio('PLAYER_AVG_FTM', 'PLAYER_AVG_FTA')}, "

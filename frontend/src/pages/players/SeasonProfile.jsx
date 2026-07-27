@@ -38,6 +38,8 @@ export const GRID_STATS = [
   { key: 'playerAvgSteal', label: '抢断' },
   { key: 'playerAvgBlock', label: '盖帽' },
   { key: 'playerAvgTurnover', label: '失误', asc: true, note: '最少排' },
+  { key: 'playerAvgPf', label: '犯规', asc: true, note: '最少排' },
+  { key: 'playingTime', label: '上场时间' },
   { key: 'playerPer', label: '效率值' },
   { key: 'playerAvgFgm', label: '场均投篮命中' },
   { key: 'playerAccuracy', label: '投篮%', pct: true },

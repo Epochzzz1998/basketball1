@@ -208,6 +208,7 @@ def resolve(row, season_num, code, roster, global_names, slug_ids):
 COLS = ('STATS_ID, PLAYER_ID, SEASON_NUM, ROUND, PLAYER_TEAM, OPP_TEAM, PLAYER_APPEARANCE, '
         'PLAYER_FR_APPEARANCE, PLAYING_TIME, PLAYER_AVG_SCORE, PLAYER_AVG_REB, PLAYER_AVG_OFF_REB, '
         'PLAYER_AVG_DEF_REB, PLAYER_AVG_ASS, PLAYER_AVG_STEAL, PLAYER_AVG_BLOCK, PLAYER_AVG_TURNOVER, '
+        'PLAYER_AVG_PF, '
         'PLAYER_AVG_FGM, PLAYER_AVG_FGA, PLAYER_ACCURACY, PLAYER_AVG_TPM, PLAYER_AVG_TPA, '
         'PLAYER_THREE_ACCURACY, PLAYER_AVG_FTM, PLAYER_AVG_FTA, PLAYER_FREETHROW_ACCURACY, PLAYER_PER')
 
@@ -227,7 +228,7 @@ def row_sql(pid, season_num, rnd, code, opp, r):
             f"'{sync.esc(code)}'", f"'{sync.esc(opp)}'", str(g),
             str(gs) if gs else 'NULL',
             per(r['mp']), per(r['pts']), per(r['trb']), per(r['orb']), per(r['drb']),
-            per(r['ast']), per(r['stl']), per(r['blk']), per(r['tov']),
+            per(r['ast']), per(r['stl']), per(r['blk']), per(r['tov']), per(r['pf']),
             per(r['fg']), per(r['fga']), pct(r['fg'], r['fga']),
             per(r['fg3']), per(r['fg3a']), pct(r['fg3'], r['fg3a']),
             per(r['ft']), per(r['fta']), pct(r['ft'], r['fta']), sync.num(eff, 1)]

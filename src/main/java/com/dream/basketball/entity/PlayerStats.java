@@ -96,6 +96,10 @@ public class PlayerStats extends Model<PlayerStats> implements Serializable {
     @TableField("PLAYER_AVG_TURNOVER")
     private BigDecimal playerAvgTurnover;
 
+    /** 场均犯规。历史行由 fouls_backfill.py 回补，之后由 sync.py 每次同步写入。 */
+    @TableField("PLAYER_AVG_PF")
+    private BigDecimal playerAvgPf;
+
     @TableField("PLAYER_PER")
     private BigDecimal playerPer;
 
@@ -291,6 +295,14 @@ public class PlayerStats extends Model<PlayerStats> implements Serializable {
 
     public void setPlayerAvgTurnover(BigDecimal playerAvgTurnover) {
         this.playerAvgTurnover = playerAvgTurnover;
+    }
+
+    public BigDecimal getPlayerAvgPf() {
+        return playerAvgPf;
+    }
+
+    public void setPlayerAvgPf(BigDecimal playerAvgPf) {
+        this.playerAvgPf = playerAvgPf;
     }
 
     public BigDecimal getPlayerPer() {

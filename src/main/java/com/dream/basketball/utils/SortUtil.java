@@ -27,7 +27,7 @@ public final class SortUtil {
             "player_avg_score", "player_avg_reb", "player_avg_ass",
             "player_avg_fgm", "player_avg_tpm",
             "player_accuracy", "player_three_accuracy", "player_freethrow_accuracy",
-            "player_avg_block", "player_avg_steal", "player_avg_turnover",
+            "player_avg_block", "player_avg_steal", "player_avg_turnover", "player_avg_pf",
             "player_per", "player_pie", "player_ws",
             "player_off_eff", "player_def_eff", "player_net_eff", "player_avg_pn",
             "mvp_rank", "dpoy_rank"));
@@ -41,7 +41,7 @@ public final class SortUtil {
             "season_num", "round", "player_team", "opp_team",
             "player_appearance", "player_fr_appearance", "playing_time",
             "player_avg_score", "player_avg_reb", "player_avg_off_reb", "player_avg_def_reb",
-            "player_avg_ass", "player_avg_steal", "player_avg_block", "player_avg_turnover",
+            "player_avg_ass", "player_avg_steal", "player_avg_block", "player_avg_turnover", "player_avg_pf",
             "player_avg_fgm", "player_avg_fga", "player_avg_tpm", "player_avg_tpa",
             "player_avg_ftm", "player_avg_fta",
             "player_accuracy", "player_three_accuracy", "player_freethrow_accuracy", "player_per"));
