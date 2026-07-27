@@ -34,16 +34,16 @@ function buildColumns(seasonType, isMobile) {
     { title: '首发', dataIndex: 'starter', width: 48, render: (v) => (Number(v) ? '✓' : '-') },
     { title: '时间', dataIndex: 'playingTime', width: 48 },
     { title: '得分', dataIndex: 'pts', width: 48, render: (v) => <b style={{ color: '#fa541c' }}>{v}</b> },
-    // 单场是整数，不套场均那套一位小数（"4(1/3)" 不是 "4.0(1.0/3.0)"）
-    { title: '篮板', dataIndex: 'reb', width: 86, render: (_, r) => (
-      <span style={{ whiteSpace: 'nowrap' }}>{r.reb}({r.offReb}/{r.defReb})</span>
-    ) },
+    { title: '篮板', dataIndex: 'reb', width: 48 },
     { title: '助攻', dataIndex: 'ast', width: 48 },
     { title: '投篮', dataIndex: 'fgm', width: 88, render: (_, r) => `${r.fgm}/${r.fga}` },
     { title: '三分', dataIndex: 'tpm', width: 88, render: (_, r) => `${r.tpm}/${r.tpa}` },
     { title: '罚球', dataIndex: 'ftm', width: 88, render: (_, r) => `${r.ftm}/${r.fta}` },
-    { title: '抢断', dataIndex: 'stl', width: 48 },
+    // 前后场篮板独立成列，与场均表口径一致；紧挨盖帽之前，两张表顺序对齐
+    { title: '前板', dataIndex: 'offReb', width: 48 },
+    { title: '后板', dataIndex: 'defReb', width: 48 },
     { title: '盖帽', dataIndex: 'blk', width: 48 },
+    { title: '抢断', dataIndex: 'stl', width: 48 },
     { title: '失误', dataIndex: 'tov', width: 48 },
     { title: '犯规', dataIndex: 'pf', width: 48 },
     {

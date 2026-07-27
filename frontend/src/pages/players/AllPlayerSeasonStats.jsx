@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { ProTable } from '@ant-design/pro-components'
-import { Input } from 'antd'
+import { Input, Segmented } from 'antd'
 import { playerApi } from '../../api/player'
 import SeasonPicker from '../../components/SeasonPicker'
 import useIsMobile from '../../hooks/useIsMobile'
 import useUrlState from '../../hooks/useUrlState'
 import { LATEST_SEASON } from './rankConfig'
 import { TeamNames } from '../../components/TeamLogo'
-import { buildFullStatColumns, HONOR_COLUMN_KEYS, compactColumns, sumColWidth } from './statColumns'
+import { buildFullStatColumns, buildAdvancedStatColumns, HONOR_COLUMN_KEYS, compactColumns, sumColWidth } from './statColumns'
 
 /**
  * 球员数据榜（公开）。可独立使用（自带赛季选择），也可受控嵌入（传 seasonNum 则隐藏内部选择）。
@@ -27,8 +27,11 @@ export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: s
   const seasonNum = controlled ? seasonProp : seasonState
   const po = stage === 'po'
   const byRound = po && round != null
+  // 基础表已有 20+ 列，高阶又是 20 个指标，并成一张表没法看——拆两组切换
+  const [view, setView] = useState('basic')
+  const adv = view === 'adv' && !byRound
 
-  const base = buildFullStatColumns()
+  const base = (adv ? buildAdvancedStatColumns({ po }) : buildFullStatColumns())
     .filter((c) => !po || !HONOR_COLUMN_KEYS.includes(c.dataIndex))
     // 单轮次数据来自 B-R 系列赛表：没有位置列，球队恒为本队、换成更有用的对手
     .filter((c) => !byRound || c.dataIndex !== 'playerPosition')
@@ -56,7 +59,18 @@ export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: s
       search={false}
       scroll={{ x: sumColWidth(columns) }}
       options={false}
-      toolBarRender={team ? false : () => [
+      toolBarRender={() => [
+        // 轮次视图的数据来自 B-R 系列赛页，没有高阶指标，那种情况下不给切换
+        ...(byRound ? [] : [
+          <Segmented
+            key="view"
+            size="small"
+            value={view}
+            onChange={setView}
+            options={[{ label: '基础数据', value: 'basic' }, { label: '高阶数据', value: 'adv' }]}
+          />,
+        ]),
+        ...(team ? [] : [
         <Input.Search
           key="search"
           allowClear
@@ -69,6 +83,7 @@ export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: s
           : [
               <SeasonPicker key="season" value={seasonNum} onChange={setSeasonState} />,
             ]),
+        ]),
       ]}
       pagination={false} /* 不分页，一滚到底 */
       request={async (params, sort) => {

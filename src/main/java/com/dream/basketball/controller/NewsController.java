@@ -270,7 +270,11 @@ public class NewsController extends BaseUtils {
         if (news == null || StringUtils.isBlank(news.getNewsId())) {
             return handlerResultJson(false, "帖子不存在");
         }
-        if (!canManagePost(me, news)) {
+        // 草稿从没发出去过，作者本人必须能删自己的——删已发布的帖是治理动作（题主/管理员），
+        // 但把一份没人见过的草稿也锁在治理权限后面，等于作者自己清不掉自己的东西
+        boolean ownDraft = "1".equals(draftFlagOf(news.getNewsId()))
+                && StringUtils.equals(news.getAuthorId(), me.getUserId());
+        if (!ownDraft && !canManagePost(me, news)) {
             return handlerResultJson(false, "无权删除该帖");
         }
         newsService.deleteNewsListByIds(newsId, News.class);

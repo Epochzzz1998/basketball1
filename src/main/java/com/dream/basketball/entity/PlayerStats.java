@@ -100,6 +100,78 @@ public class PlayerStats extends Model<PlayerStats> implements Serializable {
     @TableField("PLAYER_AVG_PF")
     private BigDecimal playerAvgPf;
 
+
+
+    /* ===== B-R 高阶指标（efficiency_backfill.py 回补；实体是手写访问器，加字段必须同时加 getter/setter） ===== */
+
+    /** Hollinger PER（PLAYER_PER 存的是自算的经典 EFF，两者不同） */
+    @TableField("PLAYER_PER_REAL")
+    private BigDecimal playerPerReal;
+
+    /** 真实命中率，0-1 小数 */
+    @TableField("PLAYER_TS_PCT")
+    private BigDecimal playerTsPct;
+
+    /** 使用率，0-100 */
+    @TableField("PLAYER_USG_PCT")
+    private BigDecimal playerUsgPct;
+
+    /** 前场篮板率 */
+    @TableField("PLAYER_ORB_PCT")
+    private BigDecimal playerOrbPct;
+
+    /** 后场篮板率 */
+    @TableField("PLAYER_DRB_PCT")
+    private BigDecimal playerDrbPct;
+
+    /** 篮板率 */
+    @TableField("PLAYER_TRB_PCT")
+    private BigDecimal playerTrbPct;
+
+    /** 助攻率 */
+    @TableField("PLAYER_AST_PCT")
+    private BigDecimal playerAstPct;
+
+    /** 抢断率 */
+    @TableField("PLAYER_STL_PCT")
+    private BigDecimal playerStlPct;
+
+    /** 盖帽率 */
+    @TableField("PLAYER_BLK_PCT")
+    private BigDecimal playerBlkPct;
+
+    /** 失误率 */
+    @TableField("PLAYER_TOV_PCT")
+    private BigDecimal playerTovPct;
+
+    /** 进攻胜利贡献 */
+    @TableField("PLAYER_OWS")
+    private BigDecimal playerOws;
+
+    /** 防守胜利贡献 */
+    @TableField("PLAYER_DWS")
+    private BigDecimal playerDws;
+
+    /** 每 48 分钟胜利贡献 */
+    @TableField("PLAYER_WS48")
+    private BigDecimal playerWs48;
+
+    /** Box Plus/Minus */
+    @TableField("PLAYER_BPM")
+    private BigDecimal playerBpm;
+
+    /** 进攻 BPM */
+    @TableField("PLAYER_OBPM")
+    private BigDecimal playerObpm;
+
+    /** 防守 BPM */
+    @TableField("PLAYER_DBPM")
+    private BigDecimal playerDbpm;
+
+    /** 相对替补级球员的价值 */
+    @TableField("PLAYER_VORP")
+    private BigDecimal playerVorp;
+
     @TableField("PLAYER_PER")
     private BigDecimal playerPer;
 
@@ -487,5 +559,141 @@ public class PlayerStats extends Model<PlayerStats> implements Serializable {
 
     public void setPlayerAvgDefReb(BigDecimal playerAvgDefReb) {
         this.playerAvgDefReb = playerAvgDefReb;
+    }
+
+    public BigDecimal getPlayerPerReal() {
+        return playerPerReal;
+    }
+
+    public void setPlayerPerReal(BigDecimal playerPerReal) {
+        this.playerPerReal = playerPerReal;
+    }
+
+    public BigDecimal getPlayerTsPct() {
+        return playerTsPct;
+    }
+
+    public void setPlayerTsPct(BigDecimal playerTsPct) {
+        this.playerTsPct = playerTsPct;
+    }
+
+    public BigDecimal getPlayerUsgPct() {
+        return playerUsgPct;
+    }
+
+    public void setPlayerUsgPct(BigDecimal playerUsgPct) {
+        this.playerUsgPct = playerUsgPct;
+    }
+
+    public BigDecimal getPlayerOrbPct() {
+        return playerOrbPct;
+    }
+
+    public void setPlayerOrbPct(BigDecimal playerOrbPct) {
+        this.playerOrbPct = playerOrbPct;
+    }
+
+    public BigDecimal getPlayerDrbPct() {
+        return playerDrbPct;
+    }
+
+    public void setPlayerDrbPct(BigDecimal playerDrbPct) {
+        this.playerDrbPct = playerDrbPct;
+    }
+
+    public BigDecimal getPlayerTrbPct() {
+        return playerTrbPct;
+    }
+
+    public void setPlayerTrbPct(BigDecimal playerTrbPct) {
+        this.playerTrbPct = playerTrbPct;
+    }
+
+    public BigDecimal getPlayerAstPct() {
+        return playerAstPct;
+    }
+
+    public void setPlayerAstPct(BigDecimal playerAstPct) {
+        this.playerAstPct = playerAstPct;
+    }
+
+    public BigDecimal getPlayerStlPct() {
+        return playerStlPct;
+    }
+
+    public void setPlayerStlPct(BigDecimal playerStlPct) {
+        this.playerStlPct = playerStlPct;
+    }
+
+    public BigDecimal getPlayerBlkPct() {
+        return playerBlkPct;
+    }
+
+    public void setPlayerBlkPct(BigDecimal playerBlkPct) {
+        this.playerBlkPct = playerBlkPct;
+    }
+
+    public BigDecimal getPlayerTovPct() {
+        return playerTovPct;
+    }
+
+    public void setPlayerTovPct(BigDecimal playerTovPct) {
+        this.playerTovPct = playerTovPct;
+    }
+
+    public BigDecimal getPlayerOws() {
+        return playerOws;
+    }
+
+    public void setPlayerOws(BigDecimal playerOws) {
+        this.playerOws = playerOws;
+    }
+
+    public BigDecimal getPlayerDws() {
+        return playerDws;
+    }
+
+    public void setPlayerDws(BigDecimal playerDws) {
+        this.playerDws = playerDws;
+    }
+
+    public BigDecimal getPlayerWs48() {
+        return playerWs48;
+    }
+
+    public void setPlayerWs48(BigDecimal playerWs48) {
+        this.playerWs48 = playerWs48;
+    }
+
+    public BigDecimal getPlayerBpm() {
+        return playerBpm;
+    }
+
+    public void setPlayerBpm(BigDecimal playerBpm) {
+        this.playerBpm = playerBpm;
+    }
+
+    public BigDecimal getPlayerObpm() {
+        return playerObpm;
+    }
+
+    public void setPlayerObpm(BigDecimal playerObpm) {
+        this.playerObpm = playerObpm;
+    }
+
+    public BigDecimal getPlayerDbpm() {
+        return playerDbpm;
+    }
+
+    public void setPlayerDbpm(BigDecimal playerDbpm) {
+        this.playerDbpm = playerDbpm;
+    }
+
+    public BigDecimal getPlayerVorp() {
+        return playerVorp;
+    }
+
+    public void setPlayerVorp(BigDecimal playerVorp) {
+        this.playerVorp = playerVorp;
     }
 }

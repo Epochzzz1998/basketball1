@@ -24,12 +24,17 @@ public final class SortUtil {
     private static final Set<String> ALLOWED_STATS_COLUMNS = new HashSet<>(Arrays.asList(
             "season", "season_num", "player_team", "player_position",
             "player_appearance", "player_fr_appearance", "player_sr_appearance", "playing_time",
-            "player_avg_score", "player_avg_reb", "player_avg_ass",
+            "player_avg_score", "player_avg_reb", "player_avg_off_reb", "player_avg_def_reb", "player_avg_ass",
             "player_avg_fgm", "player_avg_tpm",
             "player_accuracy", "player_three_accuracy", "player_freethrow_accuracy",
             "player_avg_block", "player_avg_steal", "player_avg_turnover", "player_avg_pf",
             "player_per", "player_pie", "player_ws",
             "player_off_eff", "player_def_eff", "player_net_eff", "player_avg_pn",
+            "player_bpm", "player_obpm", "player_dbpm",
+            "player_per_real", "player_ts_pct", "player_usg_pct", "player_vorp",
+            "player_ows", "player_dws", "player_ws48",
+            "player_orb_pct", "player_drb_pct", "player_trb_pct",
+            "player_ast_pct", "player_stl_pct", "player_blk_pct", "player_tov_pct",
             "mvp_rank", "dpoy_rank"));
 
     /**
@@ -42,6 +47,7 @@ public final class SortUtil {
             "player_appearance", "player_fr_appearance", "playing_time",
             "player_avg_score", "player_avg_reb", "player_avg_off_reb", "player_avg_def_reb",
             "player_avg_ass", "player_avg_steal", "player_avg_block", "player_avg_turnover", "player_avg_pf",
+            "player_avg_pn",
             "player_avg_fgm", "player_avg_fga", "player_avg_tpm", "player_avg_tpa",
             "player_avg_ftm", "player_avg_fta",
             "player_accuracy", "player_three_accuracy", "player_freethrow_accuracy", "player_per"));

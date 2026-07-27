@@ -116,6 +116,15 @@ export const rankIn = (rows, field, value, asc) => {
   return 1 + pool.filter((r) => (asc ? Number(r[field] ?? 0) < value : Number(r[field] ?? 0) > value)).length
 }
 
+/** 池子里跟他同值的人数（>1 就是并列）。ORtg/DRtg 这类整数指标同分极多，
+ *  只写「联盟第 3」会让人以为是独一份。 */
+export const tiedCount = (rows, field, value) => {
+  if (value == null) {
+    return 0
+  }
+  return boardPool(rows, field).filter((r) => Number(r[field] ?? 0) === Number(value)).length
+}
+
 /** 榜单行：池子内按该项排序 */
 export const qualifiedBoard = (rows, field, season) =>
   [...boardPool(rows, field, season)].sort((a, b) => Number(b[field] ?? 0) - Number(a[field] ?? 0))
@@ -191,12 +200,47 @@ export const NBA_TEAM_NAMES = {
 }
 
 /**
+ * 高阶数据的统一定义，排行榜、资料卡、数据表共用这一份。
+ * pct=按百分比渲染（库里存 0-1 小数）；rate=已经是 0-100 的比率，后面直接加 %；
+ * asc=越小越好（失误率、防守效率）。
+ */
+export const ADVANCED_STATS = [
+  { field: 'playerPerReal', label: 'PER', note: '联盟平均 15' },
+  { field: 'playerTsPct', label: '真实命中率', pct: true },
+  { field: 'playerUsgPct', label: '使用率', rate: true },
+  { field: 'playerOffEff', label: '进攻效率', digits: 0, note: '每百回合得分' },
+  { field: 'playerDefEff', label: '防守效率', digits: 0, order: 'asc', asc: true, note: '越低越好' },
+  { field: 'playerNetEff', label: '净效率', digits: 0 },
+  { field: 'playerBpm', label: 'BPM', note: '每百回合高于联盟平均' },
+  { field: 'playerObpm', label: '进攻BPM' },
+  { field: 'playerDbpm', label: '防守BPM' },
+  { field: 'playerVorp', label: 'VORP', note: '相对替补级球员的价值' },
+  { field: 'playerWs', label: '胜利贡献' },
+  { field: 'playerOws', label: '进攻胜利贡献' },
+  { field: 'playerDws', label: '防守胜利贡献' },
+  { field: 'playerWs48', label: 'WS/48', digits: 3 },
+  { field: 'playerOrbPct', label: '前板率', rate: true },
+  { field: 'playerDrbPct', label: '后板率', rate: true },
+  { field: 'playerTrbPct', label: '篮板率', rate: true },
+  { field: 'playerAstPct', label: '助攻率', rate: true },
+  { field: 'playerStlPct', label: '抢断率', rate: true },
+  { field: 'playerBlkPct', label: '盖帽率', rate: true },
+  { field: 'playerTovPct', label: '失误率', rate: true, order: 'asc', asc: true, note: '越低越好' },
+]
+
+/** 高阶值的显示：小数百分比 → 45.3%；0-100 比率 → 19.6%；其余按位数 */
+export const fmtAdv = (v, s) =>
+  v == null ? '-' : s.pct ? fmtPct(v) : s.rate ? `${Number(v).toFixed(1)}%` : fmtNum(v, s.digits ?? 1)
+
+/**
  * 联盟单项排行榜配置：每项一张卡。field=驼峰列名（须在 P3-1 排序白名单内），
  * digits=小数位（默认 1），order 默认 desc（防守效率越低越好用 asc），note 显示在卡片标题旁。
  */
 export const RANKING_STATS = [
   { field: 'playerAvgScore', label: '得分' },
   { field: 'playerAvgReb', label: '篮板' },
+  { field: 'playerAvgOffReb', label: '前场篮板' },
+  { field: 'playerAvgDefReb', label: '后场篮板' },
   { field: 'playerAvgAss', label: '助攻' },
   { field: 'playerAvgSteal', label: '抢断' },
   { field: 'playerAvgBlock', label: '盖帽' },
@@ -207,7 +251,9 @@ export const RANKING_STATS = [
   { field: 'playerFreethrowAccuracy', label: '罚球%', pct: true },
   { field: 'playingTime', label: '上场时间' },
   { field: 'playerAppearance', label: '出场', digits: 0 },
-  { field: 'playerPer', label: '效率值', note: '得分+板+助+断+帽−打铁−失误' },
+  { field: 'playerPer', label: '效率值EFF', note: '得分+板+助+断+帽−打铁−失误' },
   { field: 'playerAvgTurnover', label: '失误', note: '场均最多' },
   { field: 'playerAvgPf', label: '犯规', note: '场均最多' },
+  // 正负值只有季后赛有（赛季级别的数据源没有，逐场累加目前只覆盖季后赛）
+  { field: 'playerAvgPn', label: '正负值', poOnly: true, note: '仅季后赛' },
 ]

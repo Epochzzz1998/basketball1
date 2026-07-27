@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Button, Card, Form, Input, Select, Space, message } from 'antd'
+import { Button, Card, Form, Input, Popconfirm, Select, Space, message } from 'antd'
 import { BarChartOutlined, StarFilled } from '@ant-design/icons'
 import RichTextEditor from '../../components/RichTextEditor'
 import { RatingImagePicker } from '../../components/RatingCard'
@@ -82,6 +82,16 @@ export default function NewsEdit() {
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
   }, [routeId, isEdit, form])
+
+  // 草稿是自己没发出去的东西，随手删掉的入口就该在编辑器里——它点进来只有这一条路，
+  // 详情页那个删除按钮草稿根本走不到
+  const removeDraft = async () => {
+    try {
+      await newsApi.deletePost(newsIdRef.current)
+      message.success('草稿已删除')
+      navigate(-1)
+    } catch { /* 已提示 */ }
+  }
 
   const onFinish = async (values) => {
     setSaving(true)
@@ -285,6 +295,17 @@ export default function NewsEdit() {
             存草稿
           </Button>
           <Button onClick={() => navigate(-1)}>取消</Button>
+          {isDraft && (
+            <Popconfirm
+              title="删除这份草稿？"
+              description="草稿没有发布过，删了不可恢复"
+              okText="删除"
+              okButtonProps={{ danger: true }}
+              onConfirm={removeDraft}
+            >
+              <Button danger>删除草稿</Button>
+            </Popconfirm>
+          )}
         </Space>
       </Form>
     </Card>

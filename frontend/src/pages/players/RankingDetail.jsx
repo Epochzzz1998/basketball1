@@ -3,10 +3,10 @@ import { ProTable } from '@ant-design/pro-components'
 import { Button } from 'antd'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { playerApi } from '../../api/player'
-import { RANKING_STATS, fmtNum, fmtPct, LATEST_SEASON, qualifiedBoard } from './rankConfig'
+import { ADVANCED_STATS, RANKING_STATS, fmtAdv, fmtNum, fmtPct, LATEST_SEASON, qualifiedBoard } from './rankConfig'
 import SeasonPicker from '../../components/SeasonPicker'
 import useIsMobile from '../../hooks/useIsMobile'
-import { buildFullStatColumns, HONOR_COLUMN_KEYS, compactColumns, sumColWidth } from './statColumns'
+import { buildFullStatColumns, buildAdvancedStatColumns, HONOR_COLUMN_KEYS, compactColumns, sumColWidth } from './statColumns'
 
 /**
  * 某数据项的完整排行（/rankings/:field）：按该项降序、不分页一滚到底，
@@ -16,7 +16,10 @@ export default function RankingDetail() {
   const { field } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
-  const stat = RANKING_STATS.find((s) => s.field === field) || { field, label: '数据', digits: 1 }
+  // 高阶项也能深链进来（排行卡的「完整排行」按钮），两组一起找
+  const isAdvanced = ADVANCED_STATS.some((s) => s.field === field)
+  const stat = [...RANKING_STATS, ...ADVANCED_STATS].find((s) => s.field === field)
+    || { field, label: '数据', digits: 1 }
   const stage = searchParams.get('stage') === 'po' ? 'po' : 'reg' // 跟随联盟排行的赛段切换
   const [seasonNum, setSeasonNumRaw] = useState(Number(searchParams.get('seasonNum')) || LATEST_SEASON)
   // 换赛季同步写回 URL（replace）：往下钻再返回时本页赛季不丢
@@ -39,8 +42,11 @@ export default function RankingDetail() {
     // 全量数据列；排行所依据的那一列高亮（表序即该列排序，故关闭表头排序避免破坏名次）；
     // 季后赛模式去掉荣誉四列（MVP/DPOY/阵容为常规赛评选）。
     // 高亮是"套"在原渲染外面而不是替换——成对列（如 命中/出手）才能保住原格式
+    // 高阶项要配高阶列，否则点「PER榜」进来整张表里根本没有 PER 这一列
     ...(isMobile ? compactColumns : (c) => c)(
-      buildFullStatColumns({ serverSort: false })
+      (isAdvanced
+        ? buildAdvancedStatColumns({ po: stage === 'po' })
+        : buildFullStatColumns({ serverSort: false }))
         .filter((c) => stage !== 'po' || !HONOR_COLUMN_KEYS.includes(c.dataIndex)),
     ).map((c) =>
       c.dataIndex === stat.field
@@ -48,7 +54,7 @@ export default function RankingDetail() {
             ...c,
             render: (v, row, idx) => (
               <span style={{ fontWeight: 700, color: '#fa541c' }}>
-                {c.render ? c.render(v, row, idx) : stat.pct ? fmtPct(v) : fmtNum(v, stat.digits)}
+                {c.render ? c.render(v, row, idx) : stat.pct || stat.rate ? fmtAdv(v, stat) : fmtNum(v, stat.digits)}
               </span>
             ),
           }

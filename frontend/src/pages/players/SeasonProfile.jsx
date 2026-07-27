@@ -4,7 +4,7 @@ import { Card, Col, Empty, Row, Space, Spin, Tag } from 'antd'
 import SeasonPicker from '../../components/SeasonPicker'
 import RadarChart from '../../components/RadarChart'
 import { playerApi } from '../../api/player'
-import { CAREER_SEASON, PLAYOFF_TAG, fmtNum, seasonYearLabel, fmtPct, statQualified, qualifiedFor, rankIn, unqualifiedReason } from './rankConfig'
+import { CAREER_SEASON, PLAYOFF_TAG, fmtNum, seasonYearLabel, fmtPct, statQualified, qualifiedFor, rankIn, unqualifiedReason, tiedCount, ADVANCED_STATS, fmtAdv } from './rankConfig'
 import { TeamNames } from '../../components/TeamLogo'
 import { CAREER_AWARDS } from './honorConfig'
 
@@ -16,7 +16,12 @@ import { CAREER_AWARDS } from './honorConfig'
 
 export const val = (r, k) => Number(r?.[k] ?? 0)
 // 真实命中率近似：pts / (2 * (FGA + 0.44 * FTA))
+// 真实命中率优先用 B-R 的官方 TS%；老赛季没有时回退到 pts/(2*(FGA+0.44*FTA)) 近似
 const tsOf = (r) => {
+  const official = r?.playerTsPct
+  if (official != null) {
+    return Number(official)
+  }
   const denom = val(r, 'playerAvgFga') + 0.44 * val(r, 'playerAvgFta')
   return denom > 0 ? val(r, 'playerAvgScore') / (2 * denom) : 0
 }
@@ -35,12 +40,15 @@ export const GRID_STATS = [
   { key: 'playingTime', label: '上场时间' },
   { key: 'playerAvgScore', label: '得分' },
   { key: 'playerAvgReb', label: '篮板' },
+  { key: 'playerAvgOffReb', label: '前场篮板' },
+  { key: 'playerAvgDefReb', label: '后场篮板' },
   { key: 'playerAvgAss', label: '助攻' },
   { key: 'playerAvgSteal', label: '抢断' },
   { key: 'playerAvgBlock', label: '盖帽' },
   { key: 'playerAvgTurnover', label: '失误', asc: true, note: '最少排' },
   { key: 'playerAvgPf', label: '犯规', asc: true, note: '最少排' },
-  { key: 'playerPer', label: '效率值' },
+  { key: 'playerPer', label: '效率值EFF' },
+  { key: 'playerAvgPn', label: '正负值', poOnly: true },
   { key: 'playerAvgFgm', label: '场均投篮命中' },
   { key: 'playerAccuracy', label: '投篮%', pct: true },
   { key: 'playerAvgTpm', label: '场均三分命中' },
@@ -60,7 +68,7 @@ const Radar = ({ data, color = '#fa541c', fill = 'rgba(250,84,28,.22)' }) => (
   <RadarChart series={[{ color, fill, data }]} />
 )
 
-function RankChip({ rank, prefix = '联盟第', to, unqualified }) {
+function RankChip({ rank, prefix = '联盟第', to, unqualified, tied }) {
   // 不达标就明说，别给一个跟别人不可比的数字
   if (unqualified) {
     return (
@@ -79,7 +87,7 @@ function RankChip({ rank, prefix = '联盟第', to, unqualified }) {
         padding: '1px 8px', borderRadius: 10, cursor: to ? 'pointer' : undefined,
       }}
     >
-      {prefix} {rank}
+      {tied > 1 ? '并列' : ''}{prefix} {rank}
     </span>
   )
   // 点名次胶囊 → 当季该单项的完整联盟排名
@@ -200,9 +208,10 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
   }
 
 
-  const statCard = (dataRow, leagueRows, prefix, color, stage) => (
+  const statCard = (dataRow, leagueRows, prefix, color, stage, stats = GRID_STATS) => (
     <Row gutter={[10, 10]}>
-      {GRID_STATS.map((s) => {
+      {stats.filter((s) => stage === 'po' || !s.poOnly).map((raw) => {
+        const s = { ...raw, key: raw.key || raw.field }
         const mine = val(dataRow, s.key)
         return (
           <Col key={s.key} xs={12} sm={8}>
@@ -212,11 +221,12 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
                 {s.note && <span style={{ marginLeft: 4, fontSize: 11, color: '#ccc' }}>{s.note}</span>}
               </div>
               <div style={{ fontSize: 20, fontWeight: 800, color, margin: '2px 0 4px', fontVariantNumeric: 'tabular-nums' }}>
-                {s.pct ? fmtPct(mine) : fmtNum(mine, s.digits ?? 1)}
+                {s.pct || s.rate ? fmtAdv(mine, s) : fmtNum(mine, s.digits ?? 1)}
               </div>
               <RankChip
                 rank={rankIn(leagueRows, s.key, mine, s.asc)}
                 unqualified={leagueRows?.length && !qualifiedFor(leagueRows, s.key, dataRow) ? unqualifiedReason(s.key) : null}
+                tied={tiedCount(leagueRows, s.key, mine)}
                 prefix={prefix}
                 to={`/rankings/${s.key}?seasonNum=${seasonNum}&stage=${stage}`}
               />
@@ -261,6 +271,14 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
         {/* 常规赛数据卡（六维雷达挪到卡片下方） */}
         <div style={{ fontWeight: 700, marginBottom: 10, fontSize: 15 }}>常规赛</div>
         {statCard(row, league, '联盟第', '#fa541c', 'rg')}
+        {/* 高阶数据单独一块：跟基础数据混在一起就是 30 多个格子，一屏塞不下 */}
+        <div style={{ fontWeight: 700, margin: '20px 0 10px', fontSize: 15 }}>
+          高阶数据
+          <span style={{ color: '#bbb', fontSize: 12, fontWeight: 400, marginLeft: 8 }}>
+            PER 联盟平均 15；BPM / 效率均为每百回合口径
+          </span>
+        </div>
+        {statCard(row, league, '联盟第', '#fa541c', 'rg', ADVANCED_STATS)}
         <div style={{ maxWidth: 440, margin: '20px auto 0' }}>
           {league === null
             ? <Spin style={{ display: 'block', margin: '60px auto' }} />
@@ -295,6 +313,8 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
             {/* 季后赛数据卡（雷达同样在卡片下方，只和当季季后赛球员比） */}
             <div style={{ fontWeight: 700, marginBottom: 10, fontSize: 15 }}>季后赛</div>
             {statCard(poRow, poLeague, '季后赛第', '#d4380d', 'po')}
+            <div style={{ fontWeight: 700, margin: '20px 0 10px', fontSize: 15 }}>高阶数据</div>
+            {statCard(poRow, poLeague, '季后赛第', '#d4380d', 'po', ADVANCED_STATS)}
             <div style={{ maxWidth: 440, margin: '20px auto 0' }}>
               {poLeague === null
                 ? <Spin style={{ display: 'block', margin: '60px auto' }} />

@@ -6,7 +6,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { playerApi } from '../../api/player'
 import { teamApi } from '../../api/team'
 import { HONOR_GROUPS } from './honorConfig'
-import { NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, RANKING_STATS, fmtNum, fmtPct, fmtTeamChainZh, playoffRecord, LATEST_SEASON, honorEligible, qualifiedBoard } from './rankConfig'
+import { ADVANCED_STATS, NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, RANKING_STATS, fmtAdv, fmtNum, fmtPct, fmtTeamChainZh, playoffRecord, LATEST_SEASON, honorEligible, qualifiedBoard } from './rankConfig'
 import { compactColumns, sumColWidth } from './statColumns'
 import SeasonPicker from '../../components/SeasonPicker'
 import { TeamCell } from '../../components/TeamLogo'
@@ -60,12 +60,12 @@ function StatRankCard({ stat, seasonNum, stage }) {
             <span style={{ width: 28, fontWeight: 700, fontStyle: 'italic', fontSize: i < 3 ? 16 : 14, color: i < 3 ? MEDAL[i] : '#bbb' }}>
               {i + 1}
             </span>
-            <Link to={`/players/${r.playerId}`} style={{ flex: 1, fontWeight: i < 3 ? 600 : 400 }}>
+            <Link to={`/players/${r.playerId}?seasonNum=${seasonNum}`} style={{ flex: 1, fontWeight: i < 3 ? 600 : 400 }}>
               {r.playerName}
             </Link>
             <span style={{ color: '#999', fontSize: 12, marginRight: 14 }}><TeamCell value={r.playerTeam} size={14} /></span>
             <span style={{ fontWeight: 700, color: '#fa541c', fontVariantNumeric: 'tabular-nums' }}>
-              {stat.pct ? fmtPct(r[stat.field]) : fmtNum(r[stat.field], stat.digits)}
+              {stat.pct || stat.rate ? fmtAdv(r[stat.field], stat) : fmtNum(r[stat.field], stat.digits)}
             </span>
           </div>
         ))
@@ -77,14 +77,27 @@ function StatRankCard({ stat, seasonNum, stage }) {
 }
 
 function StatsTab({ seasonNum, stage }) {
+  // 基础 14 项 + 高阶 21 项混在一页要滚很久，拆成两组切换（与数据表口径一致）
+  const [view, setView] = useState('basic')
+  const list = (view === 'adv' ? ADVANCED_STATS : RANKING_STATS)
+    .filter((s) => stage === 'po' || !s.poOnly)
   return (
-    <Row gutter={[16, 16]}>
-      {RANKING_STATS.map((s) => (
-        <Col key={s.field} xs={24} sm={12} lg={8}>
-          <StatRankCard stat={s} seasonNum={seasonNum} stage={stage} />
-        </Col>
-      ))}
-    </Row>
+    <>
+      <div style={{ marginBottom: 14 }}>
+        <Segmented
+          value={view}
+          onChange={setView}
+          options={[{ label: '基础数据', value: 'basic' }, { label: '高阶数据', value: 'adv' }]}
+        />
+      </div>
+      <Row gutter={[16, 16]}>
+        {list.map((s) => (
+          <Col key={s.field} xs={24} sm={12} lg={8}>
+            <StatRankCard stat={s} seasonNum={seasonNum} stage={stage} />
+          </Col>
+        ))}
+      </Row>
+    </>
   )
 }
 
@@ -119,7 +132,7 @@ function HonorCard({ group, rows, seasonNum }) {
               </span>
             )}
             <div style={{ flex: 1, minWidth: 0 }}>
-              <Link to={`/players/${r.playerId}`} style={{ fontWeight: i < 3 ? 600 : 400 }}>{r.playerName}</Link>
+              <Link to={`/players/${r.playerId}?seasonNum=${seasonNum}`} style={{ fontWeight: i < 3 ? 600 : 400 }}>{r.playerName}</Link>
               <span style={{ color: '#999', fontSize: 12, marginLeft: 8 }}>{fmtTeamChainZh(r.playerTeam)} · {r.playerPosition}</span>
               <div style={{ color: '#8c8c8c', fontSize: 12 }}>{group.sub(r)}</div>
             </div>
@@ -210,7 +223,7 @@ function SpecialAwardCards({ seasonNum, rows }) {
                 <span style={{ fontSize: isMobile ? 22 : 30, lineHeight: 1 }}>{meta.icon}</span>
                 <div>
                   <div style={{ color: '#888', fontSize: 12 }}>{meta.label}</div>
-                  <Link to={`/players/${e.playerId}`} style={{ fontWeight: 700, fontSize: 16 }}>{e.playerName}</Link>
+                  <Link to={`/players/${e.playerId}?seasonNum=${seasonNum}`} style={{ fontWeight: 700, fontSize: 16 }}>{e.playerName}</Link>
                   <span style={{ color: '#999', fontSize: 12, marginLeft: 8 }}><TeamCell value={e.playerTeam} size={14} /></span>
                   {e.lines}
                 </div>

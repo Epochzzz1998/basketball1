@@ -4,9 +4,10 @@ import { useParams, Link } from 'react-router-dom'
 import { Button, Card, Col, ConfigProvider, Empty, Row, Segmented, Space, Spin, Tag } from 'antd'
 import { BarChartOutlined, FireOutlined, IdcardOutlined, TrophyOutlined } from '@ant-design/icons'
 import { playerApi } from '../../api/player'
-import { CAREER_SEASON, NBA_TEAM_NAMES, PLAYOFF_TAG, fmtNum as num, fmtPair, fmtReb, seasonYearLabel, seasonShort, fmtPct } from './rankConfig'
+import { CAREER_SEASON, NBA_TEAM_NAMES, PLAYOFF_TAG, fmtNum as num, fmtPair, seasonYearLabel, seasonShort, fmtPct } from './rankConfig'
 import { CAREER_AWARDS } from './honorConfig'
 import { compactColumns, sumColWidth } from './statColumns'
+import { ADVANCED_STATS, fmtAdv } from './rankConfig'
 import TeamLogo, { TeamNames } from '../../components/TeamLogo'
 import SeasonProfile from './SeasonProfile'
 import GameLogTable from './GameLog'
@@ -78,21 +79,34 @@ function HonorShelf({ honors }) {
   )
 }
 
+/** 逐季表的高阶列：赛季/球队/出场打头，后面接共享的高阶指标定义 */
+const advSeasonColumns = (po) => [
+  { title: '赛季', dataIndex: 'seasonNum', width: 64, fixed: 'left', render: (s) => (s === CAREER_SEASON ? '生涯' : seasonShort(s)) },
+  { title: '球队', dataIndex: 'playerTeam', width: 78, render: (v) => <TeamNames value={v} /> },
+  { title: '出场', dataIndex: 'playerAppearance', width: 48 },
+  { title: '时间', dataIndex: 'playingTime', width: 48, render: (v) => num(v) },
+  ...(po ? [{ title: '正负值', dataIndex: 'playerAvgPn', width: 62, render: (v) => num(v) }] : []),
+  ...ADVANCED_STATS.map((a) => ({
+    title: a.label,
+    dataIndex: a.field,
+    width: a.label.length >= 5 ? 86 : a.label.length >= 4 ? 74 : 62,
+    render: (v) => fmtAdv(v, a),
+  })),
+]
+
 /* ============ Tab 1：生涯逐季数据 ============ */
 
 function CareerTable({ playerId }) {
   const isMobile = useIsMobile()
-  const columns = [
+  const [view, setView] = useState('basic')
+  const basicColumns = [
     { title: '赛季', dataIndex: 'seasonNum', width: 64, fixed: 'left', render: (s) => (s === CAREER_SEASON ? '生涯' : seasonShort(s)) },
     { title: '球队', dataIndex: 'playerTeam', width: 78, render: (v) => <TeamNames value={v} /> },
     { title: '位置', dataIndex: 'playerPosition', width: 46 },
     { title: '首发/出场', dataIndex: 'playerAppearance', width: 80, render: (_, r) => `${r.playerFrAppearance ?? 0}/${r.playerAppearance ?? 0}` },
     { title: '时间', dataIndex: 'playingTime', width: 48, render: (v) => num(v) },
     { title: '得分', dataIndex: 'playerAvgScore', width: 48, render: (v) => num(v) },
-    {
-      title: '篮板', dataIndex: 'playerAvgReb', width: 112,
-      render: (_, r) => <span style={{ whiteSpace: 'nowrap' }}>{fmtReb(r.playerAvgReb, r.playerAvgOffReb, r.playerAvgDefReb)}</span>,
-    },
+    { title: '篮板', dataIndex: 'playerAvgReb', width: 48, render: (v) => num(v) },
     { title: '助攻', dataIndex: 'playerAvgAss', width: 48, render: (v) => num(v) },
     { title: '投篮', dataIndex: 'playerAvgFgm', width: 88, render: (_, r) => fmtPair(r.playerAvgFgm, r.playerAvgFga) },
     { title: '投篮%', dataIndex: 'playerAccuracy', width: 56, render: (v) => fmtPct(v) },
@@ -100,23 +114,29 @@ function CareerTable({ playerId }) {
     { title: '三分%', dataIndex: 'playerThreeAccuracy', width: 56, render: (v) => fmtPct(v) },
     { title: '罚球', dataIndex: 'playerAvgFtm', width: 88, render: (_, r) => fmtPair(r.playerAvgFtm, r.playerAvgFta) },
     { title: '罚球%', dataIndex: 'playerFreethrowAccuracy', width: 56, render: (v) => fmtPct(v) },
+    { title: '前板', dataIndex: 'playerAvgOffReb', width: 48, render: (v) => num(v) },
+    { title: '后板', dataIndex: 'playerAvgDefReb', width: 48, render: (v) => num(v) },
     { title: '盖帽', dataIndex: 'playerAvgBlock', width: 48, render: (v) => num(v) },
     { title: '抢断', dataIndex: 'playerAvgSteal', width: 48, render: (v) => num(v) },
     { title: '失误', dataIndex: 'playerAvgTurnover', width: 48, render: (v) => num(v) },
     { title: '犯规', dataIndex: 'playerAvgPf', width: 48, render: (v) => num(v) },
-    { title: '效率值', dataIndex: 'playerPer', width: 58, render: (v) => num(v) },
+    { title: '效率值EFF', dataIndex: 'playerPer', width: 78, render: (v) => num(v) },
     { title: 'MVP', dataIndex: 'mvpRank', width: 50 },
     { title: 'DPOY', dataIndex: 'dpoyRank', width: 56 },
     { title: '最佳阵容', dataIndex: 'allDbaTeam', width: 72 },
     { title: '最佳防守', dataIndex: 'allDefTeam', width: 72 },
   ]
 
+  const columns = view === 'adv' ? advSeasonColumns(false) : basicColumns
   const cols = isMobile ? compactColumns(columns) : columns
   return (
     <ProTable
       className="stat-compact"
       bordered
-      toolBarRender={false}
+      toolBarRender={() => [
+        <Segmented key="v" size="small" value={view} onChange={setView}
+          options={[{ label: '基础数据', value: 'basic' }, { label: '高阶数据', value: 'adv' }]} />,
+      ]}
       rowKey="statsId"
       columns={cols}
       search={false}
@@ -142,6 +162,7 @@ function CareerTable({ playerId }) {
 
 function PlayoffTable({ playerId }) {
   const isMobile = useIsMobile()
+  const [view, setView] = useState('basic')
   const [rows, setRows] = useState(null)
 
   useEffect(() => {
@@ -156,7 +177,7 @@ function PlayoffTable({ playerId }) {
   if (rows === null) return <Spin style={{ display: 'block', margin: '40px auto' }} />
   if (!rows.length) return <Empty description="生涯未进过季后赛" />
 
-  const columns = [
+  const basicColumns = [
     { title: '赛季', dataIndex: 'seasonNum', width: 64, fixed: 'left', render: (s) => (s === CAREER_SEASON ? '生涯' : seasonShort(s)) },
     { title: '球队', dataIndex: 'playerTeam', width: 78, render: (v) => <TeamNames value={v} /> },
     {
@@ -166,10 +187,7 @@ function PlayoffTable({ playerId }) {
     { title: '首发/出场', dataIndex: 'playerAppearance', width: 80, render: (_, r) => `${r.playerFrAppearance ?? 0}/${r.playerAppearance ?? 0}` },
     { title: '时间', dataIndex: 'playingTime', width: 48, render: (v) => num(v) },
     { title: '得分', dataIndex: 'playerAvgScore', width: 48, render: (v) => <b style={{ color: '#fa541c' }}>{num(v)}</b> },
-    {
-      title: '篮板', dataIndex: 'playerAvgReb', width: 112,
-      render: (_, r) => <span style={{ whiteSpace: 'nowrap' }}>{fmtReb(r.playerAvgReb, r.playerAvgOffReb, r.playerAvgDefReb)}</span>,
-    },
+    { title: '篮板', dataIndex: 'playerAvgReb', width: 48, render: (v) => num(v) },
     { title: '助攻', dataIndex: 'playerAvgAss', width: 48, render: (v) => num(v) },
     { title: '投篮', dataIndex: 'playerAvgFgm', width: 88, render: (_, r) => fmtPair(r.playerAvgFgm, r.playerAvgFga) },
     { title: '投篮%', dataIndex: 'playerAccuracy', width: 56, render: (v) => fmtPct(v) },
@@ -177,19 +195,25 @@ function PlayoffTable({ playerId }) {
     { title: '三分%', dataIndex: 'playerThreeAccuracy', width: 56, render: (v) => fmtPct(v) },
     { title: '罚球', dataIndex: 'playerAvgFtm', width: 88, render: (_, r) => fmtPair(r.playerAvgFtm, r.playerAvgFta) },
     { title: '罚球%', dataIndex: 'playerFreethrowAccuracy', width: 56, render: (v) => fmtPct(v) },
+    { title: '前板', dataIndex: 'playerAvgOffReb', width: 48, render: (v) => num(v) },
+    { title: '后板', dataIndex: 'playerAvgDefReb', width: 48, render: (v) => num(v) },
     { title: '盖帽', dataIndex: 'playerAvgBlock', width: 48, render: (v) => num(v) },
     { title: '抢断', dataIndex: 'playerAvgSteal', width: 48, render: (v) => num(v) },
     { title: '失误', dataIndex: 'playerAvgTurnover', width: 48, render: (v) => num(v) },
     { title: '犯规', dataIndex: 'playerAvgPf', width: 48, render: (v) => num(v) },
-    { title: '效率值', dataIndex: 'playerPer', width: 58, render: (v) => num(v) },
+    { title: '效率值EFF', dataIndex: 'playerPer', width: 78, render: (v) => num(v) },
   ]
 
+  const columns = view === 'adv' ? advSeasonColumns(true) : basicColumns
   const cols = isMobile ? compactColumns(columns) : columns
   return (
     <ProTable
       className="stat-compact"
       bordered
-      toolBarRender={false}
+      toolBarRender={() => [
+        <Segmented key="v" size="small" value={view} onChange={setView}
+          options={[{ label: '基础数据', value: 'basic' }, { label: '高阶数据', value: 'adv' }]} />,
+      ]}
       rowKey="statsId"
       dataSource={rows}
       columns={cols}

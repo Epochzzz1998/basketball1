@@ -294,6 +294,19 @@ def build(years, dry):
     if p.returncode != 0:
         raise RuntimeError(p.stderr.decode()[:800])
     print('applied.')
+    # 正负值不在 B-R 系列赛页上，来自逐场 box score（1997 起）。这里整删整插会把它清掉，
+    # 所以每次 build 之后按 (球员, 赛季, 轮次) 重新累加回来。
+    pm = ("UPDATE player_playoff_round_stats r "
+          "JOIN (SELECT PLAYER_ID, SEASON_NUM, `ROUND` rd, AVG(PLUS_MINUS) pm "
+          "      FROM player_game_stats "
+          "      WHERE SEASON_TYPE=3 AND PLUS_MINUS IS NOT NULL AND `ROUND` IS NOT NULL "
+          "      GROUP BY PLAYER_ID, SEASON_NUM, `ROUND`) x "
+          "  ON x.PLAYER_ID=r.PLAYER_ID AND x.SEASON_NUM=r.SEASON_NUM AND x.rd=r.`ROUND` "
+          "SET r.PLAYER_AVG_PN = ROUND(x.pm, 2);")
+    q = subprocess.run(sync.mysql_cmd(), input=pm.encode(), capture_output=True)
+    if q.returncode != 0:
+        raise RuntimeError(q.stderr.decode()[:500])
+    print('plus-minus re-derived from game logs.')
 
 
 def main():

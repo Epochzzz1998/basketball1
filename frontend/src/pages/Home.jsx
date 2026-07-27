@@ -75,7 +75,7 @@ function LeaderCard({ stat, rows, seasonNum }) {
         <>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
             <Link
-              to={`/players/${top.playerId}`}
+              to={`/players/${top.playerId}?seasonNum=${seasonNum}`}
               onClick={(e) => e.stopPropagation()}
               style={{ fontSize: 16, fontWeight: 700, color: '#222', ...clamp(1) }}
             >
@@ -157,7 +157,7 @@ function StandingsCard({ conf, rows, accent }) {
 }
 
 /** 赛季荣誉速览：总冠军（季后赛球队榜推得，带夺冠战绩） + FMVP/最佳第六人/MIP/最佳新秀（season_award） */
-function HonorsCard({ awards, poTeams }) {
+function HonorsCard({ awards, poTeams, seasonNum }) {
   const off = (p, r, a) => `${fmtNum(p)}分 ${fmtNum(r)}板 ${fmtNum(a)}助`
   const champion = poTeams?.find((t) => t.playoffResult === '总冠军')
   const rec = champion && playoffRecord('总冠军', champion.games)
@@ -174,7 +174,7 @@ function HonorsCard({ awards, poTeams }) {
     const w = awards?.find((r) => r.award === key)
     if (!w) continue
     rows.push({
-      key, icon, label, name: w.playerName, to: `/players/${w.playerId}`,
+      key, icon, label, name: w.playerName, to: `/players/${w.playerId}?seasonNum=${seasonNum}`,
       sub: key === 'fmvp'
         ? `季后赛 ${off(w.poPts, w.poReb, w.poAst)}`
         : key === 'mip' && w.prevPts != null && w.pts != null
@@ -377,7 +377,7 @@ export default function Home() {
         <Col xs={24} md={12} lg={8}><StandingsCard conf="西部" rows={teams} accent="#f5222d" /></Col>
         <Col xs={24} lg={8}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%' }}>
-            <HonorsCard awards={awards} poTeams={poTeams} />
+            <HonorsCard awards={awards} poTeams={poTeams} seasonNum={seasonNum} />
             <HotList posts={hotPosts} />
           </div>
         </Col>
