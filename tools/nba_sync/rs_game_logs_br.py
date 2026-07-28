@@ -64,6 +64,8 @@ TABLE = 'player_game_stats'
 REGULAR_TYPE = 2
 MONTHS = ('october', 'november', 'december', 'january', 'february',
           'march', 'april', 'may', 'june', 'july', 'august', 'september')
+# The mid-season tournament, under both names B-R has used for it
+CUP_RE = re.compile(r'NBA Cup|In-Season Tournament', re.I)
 
 
 def league(year):
@@ -144,8 +146,11 @@ def index_season(year, force=False):
     #                      does not, and B-R gives it the same remark as the rest, so it is
     #                      identified as the chronologically last Cup game of the season.
     #                      (2025-26: 67 Cup games, 66 of them regular season.)
-    #   anything else    — kept, but printed, so a remark I have not seen shows up loudly
-    cup = [gid for gid, rk in live if rk == 'NBA Cup']
+    #                      The 2023-24 season calls the very same thing "In-Season
+    #                      Tournament" — matched on both names, or that season lands on 1231.
+    #   at <city>        — a neutral-site regular-season game (Mexico City, Paris…). Counts.
+    #   anything else    — kept, but printed loudly, so a remark I have not seen is visible
+    cup = [gid for gid, rk in live if CUP_RE.search(rk)]
     drop = {cup[-1]} if cup else set()
 
     games, remarked = [], {}
@@ -167,7 +172,8 @@ def index_season(year, force=False):
             'excluded_playoff': len(found) - len(live),
             'remarks': remarked, 'home_per_team': spread}
     out.write_text(json.dumps(data, ensure_ascii=False))
-    unknown = {k: v for k, v in remarked.items() if k not in ('Play-In Game', 'NBA Cup')}
+    unknown = {k: v for k, v in remarked.items()
+               if k != 'Play-In Game' and not CUP_RE.search(k) and not k.startswith('at ')}
     print(f'{year}: {len(games)} games | {len(home)} teams, home/team {spread} | '
           f'playoff excl {data["excluded_playoff"]}'
           + (f' | remarks {remarked}' if remarked else '')
