@@ -33,6 +33,8 @@ import { userInformationApi } from '../api/userInformation'
 import { pmApi } from '../api/pm'
 import { topicApi } from '../api/topic'
 import { connectPmSocket, disconnectPmSocket } from '../realtime/pmSocket'
+import AnnouncementBar from '../components/AnnouncementBar'
+import AnnouncementEditModal from '../components/AnnouncementEditModal'
 import useIsMobile from '../hooks/useIsMobile'
 
 /**
@@ -53,6 +55,7 @@ export default function AppLayout() {
   const [pmUnread, setPmUnread] = useState(0)
   // 受控折叠：移动端默认收起（抽屉关闭）；点菜单项后主动收回抽屉（ProLayout 默认不收）
   const [collapsed, setCollapsed] = useState(typeof window !== 'undefined' && window.innerWidth < 768)
+  const [announceOpen, setAnnounceOpen] = useState(false) // 全站公告编辑（仅超管）
   // 订阅的专题（侧栏独立折叠区，默认展开）
   const [subs, setSubs] = useState([])
   const [subsOpen, setSubsOpen] = useState(true)
@@ -354,6 +357,15 @@ export default function AppLayout() {
                         ),
                         onClick: () => navigate('/me'),
                       },
+                      // 全站公告是全局的事，入口放在头像下拉而不是某个模块里
+                      ...(user.isSuperManager
+                        ? [{
+                            key: 'announce',
+                            icon: <NotificationOutlined />,
+                            label: '全站公告',
+                            onClick: () => setAnnounceOpen(true),
+                          }]
+                        : []),
                       { type: 'divider' },
                       { key: 'logout', icon: <LogoutOutlined />, label: '登出', onClick: onLogout },
                     ],
@@ -410,6 +422,9 @@ export default function AppLayout() {
       {/* 内容区是 flex 列容器：flex 子项上 margin:auto 会把宽度压成"内容宽"再居中，
           必须显式 width:100% 才能占满（maxWidth 只在超宽屏才生效） */}
       <div className="app-content" style={{ padding: 20, maxWidth: 1440, margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
+        {/* 全站公告：内容区最上面（顶栏是 fixed 的，摆到它上面会互相压）。
+            游客也能看到——公告本来就是发给所有人的 */}
+        <AnnouncementBar />
         {showBack && (
           <a
             onClick={goBack}
@@ -420,6 +435,9 @@ export default function AppLayout() {
         )}
         <Outlet />
       </div>
+      {user?.isSuperManager && (
+        <AnnouncementEditModal open={announceOpen} onClose={() => setAnnounceOpen(false)} />
+      )}
     </ProLayout>
   )
 }
