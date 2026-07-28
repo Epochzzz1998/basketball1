@@ -7,7 +7,7 @@ import { playerApi } from '../../api/player'
 import TeamLogo, { HomeAwayTag, TeamNames } from '../../components/TeamLogo'
 import useIsMobile from '../../hooks/useIsMobile'
 import { compactColumns, sumColWidth } from '../players/statColumns'
-import { seasonYearLabel } from '../players/rankConfig'
+import { fmtMadePct, fmtPair, seasonYearLabel } from '../players/rankConfig'
 
 const BRAND = '#fa541c'
 const ROUND_LABEL = { 1: '首轮', 2: '半决赛', 3: '分区决赛', 4: '总决赛' }
@@ -18,7 +18,8 @@ const periodLabel = (p, maxPeriod) => {
   return maxPeriod > 5 ? `加${p - 4}` : '加时'
 }
 
-const pct = (made, att) => (Number(att) > 0 ? `${((Number(made) / Number(att)) * 100).toFixed(1)}%` : '-')
+// 命中率现算，和球员逐场表共用一份（fmtMadePct）——两处各写一份迟早在
+// "出手 0 该显示什么"上分道扬镳
 
 /**
  * 单场详情：每节得分 + 两队合计 + 两队球员数据。
@@ -177,12 +178,12 @@ function TeamBox({ team, isHome, players, totals, isMobile, onPlayer }) {
     // 命中数和命中率分开成列，和场均表（statColumns 的「投篮 / 投篮%」）一套写法。
     // 原来挤成 "8/15 53.3%" 一格：两个数量级不同的东西并排，扫一列比命中率时
     // 眼睛要越过前面的比分才找得到百分号，而且 104px 里塞 11 个字符本来就紧
-    { title: '投篮', dataIndex: 'fgm', width: 66, render: (_, r) => `${r.fgm ?? '-'}/${r.fga ?? '-'}` },
-    { title: '投篮%', dataIndex: 'fgPct', width: 58, render: (_, r) => pct(r.fgm, r.fga) },
-    { title: '三分', dataIndex: 'tpm', width: 66, render: (_, r) => `${r.tpm ?? '-'}/${r.tpa ?? '-'}` },
-    { title: '三分%', dataIndex: 'tpPct', width: 58, render: (_, r) => pct(r.tpm, r.tpa) },
-    { title: '罚球', dataIndex: 'ftm', width: 66, render: (_, r) => `${r.ftm ?? '-'}/${r.fta ?? '-'}` },
-    { title: '罚球%', dataIndex: 'ftPct', width: 58, render: (_, r) => pct(r.ftm, r.fta) },
+    { title: '投篮', dataIndex: 'fgm', width: 66, render: (_, r) => fmtPair(r.fgm, r.fga, 0) },
+    { title: '投篮%', dataIndex: 'fgPct', width: 58, render: (_, r) => fmtMadePct(r.fgm, r.fga) },
+    { title: '三分', dataIndex: 'tpm', width: 66, render: (_, r) => fmtPair(r.tpm, r.tpa, 0) },
+    { title: '三分%', dataIndex: 'tpPct', width: 58, render: (_, r) => fmtMadePct(r.tpm, r.tpa) },
+    { title: '罚球', dataIndex: 'ftm', width: 66, render: (_, r) => fmtPair(r.ftm, r.fta, 0) },
+    { title: '罚球%', dataIndex: 'ftPct', width: 58, render: (_, r) => fmtMadePct(r.ftm, r.fta) },
     { title: '前板', dataIndex: 'offReb', width: 48 },
     { title: '后板', dataIndex: 'defReb', width: 48 },
     { title: '盖帽', dataIndex: 'blk', width: 48 },

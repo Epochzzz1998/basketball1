@@ -5,7 +5,7 @@ import { Empty, Select } from 'antd'
 import { playerApi } from '../../api/player'
 import { TeamNames } from '../../components/TeamLogo'
 import useIsMobile from '../../hooks/useIsMobile'
-import { seasonShort, seasonYearLabel } from './rankConfig'
+import { fmtMadePct, fmtPair, seasonShort, seasonYearLabel } from './rankConfig'
 import { ROUND_LABEL, SEASON_TYPE } from './gameLogConfig'
 import { compactColumns, sumColWidth } from './statColumns'
 
@@ -56,9 +56,15 @@ function buildColumns(seasonType, isMobile, openGame) {
     { title: '得分', dataIndex: 'pts', width: 48, render: (v) => <b style={{ color: '#fa541c' }}>{v}</b> },
     { title: '篮板', dataIndex: 'reb', width: 48 },
     { title: '助攻', dataIndex: 'ast', width: 48 },
-    { title: '投篮', dataIndex: 'fgm', width: 88, render: (_, r) => `${r.fgm}/${r.fga}` },
-    { title: '三分', dataIndex: 'tpm', width: 88, render: (_, r) => `${r.tpm}/${r.tpa}` },
-    { title: '罚球', dataIndex: 'ftm', width: 88, render: (_, r) => `${r.ftm}/${r.fta}` },
+    // 命中数和命中率分开成列，和单场详情、场均表同一套写法。
+    // 用 fmtPair 而不是模板串：1980 年前没有三分线、1974 年前没有抢断/盖帽/失误，
+    // 那几列存的是 NULL，直接拼字符串会在页面上印出 "null/null"
+    { title: '投篮', dataIndex: 'fgm', width: 66, render: (_, r) => fmtPair(r.fgm, r.fga, 0) },
+    { title: '投篮%', dataIndex: 'fgPct', width: 58, render: (_, r) => fmtMadePct(r.fgm, r.fga) },
+    { title: '三分', dataIndex: 'tpm', width: 66, render: (_, r) => fmtPair(r.tpm, r.tpa, 0) },
+    { title: '三分%', dataIndex: 'tpPct', width: 58, render: (_, r) => fmtMadePct(r.tpm, r.tpa) },
+    { title: '罚球', dataIndex: 'ftm', width: 66, render: (_, r) => fmtPair(r.ftm, r.fta, 0) },
+    { title: '罚球%', dataIndex: 'ftPct', width: 58, render: (_, r) => fmtMadePct(r.ftm, r.fta) },
     // 前后场篮板独立成列，与场均表口径一致；紧挨盖帽之前，两张表顺序对齐
     { title: '前板', dataIndex: 'offReb', width: 48 },
     { title: '后板', dataIndex: 'defReb', width: 48 },
