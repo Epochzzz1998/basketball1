@@ -225,3 +225,14 @@ body {
   background: #fafafa !important;
   font-weight: 700;
 }
+
+/* NBA 专题顶部那行模块标签：窄屏横向滑动，但不显示滚动条——
+   一条灰杠横在标签下面很脏，而且这行本来就是"能滑"的手感，不需要视觉提示。
+   仍然可以用触摸/触控板滑动，键盘 Tab 也照常。 */
+.nba-tabs {
+  -ms-overflow-style: none;   /* 旧版 Edge */
+  scrollbar-width: none;      /* Firefox */
+}
+.nba-tabs::-webkit-scrollbar { display: none; }
+/* Segmented 在滚动容器里默认会被压缩换行，钉死不换行才能真的横向滑 */
+.nba-tabs .ant-segmented-group { flex-wrap: nowrap; }

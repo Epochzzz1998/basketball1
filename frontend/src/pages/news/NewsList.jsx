@@ -353,7 +353,11 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
 
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={17}>
-          {/* 工具栏：搜索 + 最新/最热 */}
+          {/* NBA 数据入口：单独占最上面一行。它是「去别的模块」，不是「怎么筛这一页的帖子」，
+              所以刻意和下面搜索/类别/排序那三层隔开。只在 NBA 专题渲染（组件内部判断） */}
+          {isTopic && <NbaModuleEntry topic={topic} />}
+
+          {/* 第一层：搜索 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
             <Input
               allowClear
@@ -365,6 +369,16 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
             />
             {/* 篇数紧跟搜索框：它说明的是"搜出来多少"，离搜索框越近越好读（与百家说首页一致） */}
             {filtered != null && <span style={{ fontSize: 13, color: '#999', whiteSpace: 'nowrap' }}>{filtered.length} 篇</span>}
+          </div>
+
+          {/* 第二层：帖子类别筛选（题主配的那份），类别多了会自己换行 */}
+          <CategoryFilter options={catOptions} value={cat} onChange={(v) => { setCat(v); setPage(1) }} />
+
+          {/* 第三层：排序/视图 + 群聊。
+              放在类别下面是因为它作用在"已经筛出来的这批"上——从上到下正好是
+              搜索 → 分类 → 排序，一层层收窄。
+              群聊挨着它们但样式刻意不同：它不是第四个"看法"，点下去是进另一个空间 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
             <Segmented
               value={view}
               onChange={(v) => { setView(v); setPage(1) }}
@@ -375,16 +389,9 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
                 ...(isTopic && topic?.ownerIds?.length ? [{ label: '题主', value: '只看题主', icon: <CrownOutlined /> }] : []),
               ]}
             />
-            {/* 群聊 / NBA 数据入口：和上面那组视图切换并排，但样式刻意不一样——
-                它们不是第四个"看法"，点下去是进另一个空间。
-                NBA 那个只在 NBA 专题出现（组件内部按 topicId 判断） */}
-            {isTopic && <NbaModuleEntry topic={topic} />}
             {isTopic && <TopicChatEntry topic={topic} />}
             <span style={{ flex: 1 }} />
           </div>
-
-          {/* 帖子类别筛选（题主配的那份）：搜索/排序那条下面单独一行，类别多了会自己换行 */}
-          <CategoryFilter options={catOptions} value={cat} onChange={(v) => { setCat(v); setPage(1) }} />
 
           {/* 帖子流 */}
           {paged == null ? (
