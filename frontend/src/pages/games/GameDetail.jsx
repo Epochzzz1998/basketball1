@@ -4,7 +4,7 @@ import { ProTable } from '@ant-design/pro-components'
 import { Button, Card, Empty, Spin, Tag } from 'antd'
 import dayjs from 'dayjs'
 import { playerApi } from '../../api/player'
-import TeamLogo, { TeamNames } from '../../components/TeamLogo'
+import TeamLogo, { HomeAwayTag, TeamNames } from '../../components/TeamLogo'
 import useIsMobile from '../../hooks/useIsMobile'
 import { compactColumns, sumColWidth } from '../players/statColumns'
 import { seasonYearLabel } from '../players/rankConfig'
@@ -77,9 +77,9 @@ export default function GameDetail() {
 
         {/* 比分牌 */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isMobile ? 14 : 32 }}>
-          <Side team={awayTeam} score={awayScore} win={Number(awayScore) > Number(homeScore)} isMobile={isMobile} />
+          <Side team={awayTeam} score={awayScore} win={Number(awayScore) > Number(homeScore)} isHome={false} isMobile={isMobile} />
           <span style={{ color: '#ccc', fontSize: 13 }}>@</span>
-          <Side team={homeTeam} score={homeScore} win={Number(homeScore) > Number(awayScore)} isMobile={isMobile} />
+          <Side team={homeTeam} score={homeScore} win={Number(homeScore) > Number(awayScore)} isHome isMobile={isMobile} />
         </div>
 
         {/* 每节得分 */}
@@ -106,7 +106,10 @@ export default function GameDetail() {
                   return (
                     <tr key={team} style={{ borderTop: '1px solid #f0f0f0' }}>
                       <td style={{ padding: '8px', fontWeight: win ? 700 : 500 }}>
-                        <TeamNames value={team} />
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          <HomeAwayTag home={team === homeTeam} size={16} />
+                          <TeamNames value={team} />
+                        </span>
                       </td>
                       {Array.from({ length: maxPeriod }, (_, i) => (
                         <td key={i} style={{ textAlign: 'center', padding: '8px' }}>
@@ -129,6 +132,7 @@ export default function GameDetail() {
         <TeamBox
           key={team}
           team={team}
+          isHome={team === homeTeam}
           players={data.players?.[team] || []}
           totals={data.totals?.[team]}
           isMobile={isMobile}
@@ -139,11 +143,14 @@ export default function GameDetail() {
   )
 }
 
-function Side({ team, score, win, isMobile }) {
+function Side({ team, score, win, isHome, isMobile }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
       <TeamLogo code={team} size={isMobile ? 44 : 56} />
-      <span style={{ fontWeight: 700, fontSize: isMobile ? 13 : 14, color: '#555' }}>
+      {/* 主客标挨着队名，不放队标上方：比分牌是左右对称的两栏，标签落在名字这一行
+          两边高度才齐 */}
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 700, fontSize: isMobile ? 13 : 14, color: '#555' }}>
+        <HomeAwayTag home={isHome} size={16} />
         <TeamNames value={team} />
       </span>
       <span style={{ fontSize: isMobile ? 30 : 38, fontWeight: 800, lineHeight: 1, color: win ? BRAND : '#bbb' }}>
@@ -154,7 +161,7 @@ function Side({ team, score, win, isMobile }) {
 }
 
 /** 一支球队的 box score。合计行钉在表底，就是 B-R 的 Team Totals 那一行 */
-function TeamBox({ team, players, totals, isMobile, onPlayer }) {
+function TeamBox({ team, isHome, players, totals, isMobile, onPlayer }) {
   const cols = [
     {
       title: '球员', dataIndex: 'playerName', width: 108, fixed: 'left',
@@ -196,6 +203,9 @@ function TeamBox({ team, players, totals, isMobile, onPlayer }) {
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
           <TeamLogo code={team} size={22} />
           <TeamNames value={team} />
+          {/* 两张 box score 上下排，翻到下面那张时比分牌已经滚出屏幕了，
+              标题上得自己说清楚这是主队还是客队 */}
+          <HomeAwayTag home={isHome} size={16} />
         </span>
       }
     >

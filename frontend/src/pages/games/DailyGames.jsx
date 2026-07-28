@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Card, Empty, Spin, Tag } from 'antd'
 import { playerApi } from '../../api/player'
-import TeamLogo, { TeamNames } from '../../components/TeamLogo'
+import TeamLogo, { HomeAwayTag, TeamNames } from '../../components/TeamLogo'
 import useIsMobile from '../../hooks/useIsMobile'
 import GameDayNav from './GameDayNav'
 import { seasonYearLabel } from '../players/rankConfig'
@@ -101,27 +101,14 @@ export default function DailyGames() {
 
 /**
  * 一场比赛的卡片：客队在上、主队在下（和比分牌一致），赢的那边加粗。
- *
- * 每行前面挂一个「主 / 客」小标：光靠上下顺序看不出主客——上下两行长得一样，
- * 只有知道"客在上"这条约定的人才读得懂，而这条约定卡片上没写。主场标成品牌橙、
- * 客场灰，扫一眼就分得清。宽度写死，两行的队标才对得齐。
+ * 每行前面挂一个「主 / 客」小标（HomeAwayTag，和单场详情共用一份）。
  */
 function GameCard({ g, onOpen }) {
   const home = Number(g.homeScore)
   const away = Number(g.awayScore)
   const line = (team, score, win, isHome) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <span
-        style={{
-          flexShrink: 0, width: 18, height: 18, borderRadius: 4,
-          fontSize: 11, lineHeight: '17px', textAlign: 'center', fontWeight: 700,
-          background: isHome ? '#fff2e8' : '#fafafa',
-          color: isHome ? BRAND : '#aaa',
-          border: `1px solid ${isHome ? '#ffd8bf' : '#eee'}`,
-        }}
-      >
-        {isHome ? '主' : '客'}
-      </span>
+      <HomeAwayTag home={isHome} />
       <TeamLogo code={team} size={26} />
       <span style={{ fontWeight: win ? 800 : 500, color: win ? '#222' : '#888', flex: 1 }}>
         <TeamNames value={team} />

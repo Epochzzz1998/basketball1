@@ -26,20 +26,28 @@ function buildColumns(seasonType, isMobile, openGame) {
     {
       // 结果这一格点得动：跳到这场比赛的详情（两队完整 box score + 每节得分）。
       // 挂在这一列是因为比分本来就在这儿——"想知道这场到底怎么打的"就是看着比分产生的念头。
-      // 没有 gameId 的行（理论上不该有）退回纯文本，不给一个点不动的链接
+      //
+      // 用 span 不用 <a>：<a> 会吃到 antd 的链接色（主色是橙），和左边红色的「负」撞在一起。
+      // 这一格不加任何链接装饰，就是纯数字（见 index.css 的 .game-link）。
+      // 没有 gameId 的行（理论上不该有）退回纯文本，不给一个点不动的假链接
       title: '结果', dataIndex: 'win', width: 84,
       render: (v, r) => {
         const body = (
           <>
             <b style={{ color: Number(v) ? '#52c41a' : '#ff4d4f' }}>{Number(v) ? '胜' : '负'}</b>
-            <span style={{ marginLeft: 4 }}>{r.teamScore}-{r.oppScore}</span>
+            <span className="score" style={{ color: '#999', marginLeft: 4 }}>{r.teamScore}-{r.oppScore}</span>
           </>
         )
-        if (!r.gameId) return <span style={{ whiteSpace: 'nowrap', color: '#999' }}>{body}</span>
+        if (!r.gameId) return <span style={{ whiteSpace: 'nowrap' }}>{body}</span>
         return (
-          <a onClick={() => openGame(r.gameId)} title="查看这场比赛" style={{ whiteSpace: 'nowrap' }}>
+          <span
+            className="game-link"
+            onClick={() => openGame(r.gameId)}
+            title="查看这场比赛"
+            style={{ whiteSpace: 'nowrap' }}
+          >
             {body}
-          </a>
+          </span>
         )
       },
     },

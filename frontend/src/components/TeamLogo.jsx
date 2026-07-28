@@ -47,6 +47,34 @@ export default function TeamLogo({ code, size = 22, style, title }) {
 }
 
 /**
+ * 主 / 客 小标。每日赛场的卡片、单场详情的比分牌、每节得分表、两张 box score
+ * 都用这一份——三四个地方各画一遍的话，颜色和尺寸迟早会飘。
+ *
+ * 光靠"客在上、主在下"的排列顺序是不够的：两行长得一样，只有知道这条约定的人
+ * 才读得出来，而这条约定页面上没写。主场标品牌橙、客场标灰，扫一眼就分得清。
+ * 宽高写死成正方形，同一列里的几个标才对得齐。
+ */
+export function HomeAwayTag({ home, size = 18, style }) {
+  return (
+    <span
+      title={home ? '主场' : '客场'}
+      style={{
+        flexShrink: 0, display: 'inline-block', boxSizing: 'border-box',
+        width: size, height: size, borderRadius: 4,
+        fontSize: Math.round(size * 0.61), lineHeight: `${size - 2}px`,
+        textAlign: 'center', fontWeight: 700,
+        background: home ? '#fff2e8' : '#fafafa',
+        color: home ? '#fa541c' : '#aaa',
+        border: `1px solid ${home ? '#ffd8bf' : '#eee'}`,
+        ...style,
+      }}
+    >
+      {home ? '主' : '客'}
+    </span>
+  )
+}
+
+/**
  * 交易链展开成「队标+中文队名 → 队标+中文队名」（标签这类宽松场合用）。
  * 数据表格里不上队标（用户要求），球队列走下面的 TeamNames 纯文字。
  */
