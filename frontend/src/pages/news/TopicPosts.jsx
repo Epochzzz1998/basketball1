@@ -14,7 +14,8 @@ import useIsMobile from '../../hooks/useIsMobile'
  * - 有浏览权：渲染 NewsList 的专题模式（发帖/发言/管理按该专题权限）。
  */
 export default function TopicPosts() {
-  const { topicId } = useParams()
+  // section 来自 /news/topic/:topicId/nba/:section —— NBA 专题里的分区
+  const { topicId, section } = useParams()
   const { user } = useAuth()
   const [searchParams] = useSearchParams()
   // 从"我的消息"点专题通知进来时带 userInformationId，请求详情即标记该消息已读
@@ -72,5 +73,5 @@ export default function TopicPosts() {
     )
   }
 
-  return <NewsList topic={topic} onApplied={() => load(true)} />
+  return <NewsList topic={topic} nbaSection={section} onApplied={() => load(true)} />
 }

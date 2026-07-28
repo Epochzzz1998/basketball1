@@ -97,6 +97,10 @@ export default function App() {
         {/* 百家说：现在是专题列表；点进单个专题看帖流 */}
         <Route path="news" element={<TopicsList />} />
         <Route path="news/topic/:topicId" element={<TopicPosts />} />
+        {/* NBA 专题里的分区：同一个组件，只是多带一个 section。
+            用路径段而不是查询参数——DailyGames 自己要用 ?date=，而 setSearchParams
+            会整个替换查询串，把分区参数一起抹掉 */}
+        <Route path="news/topic/:topicId/nba/:section" element={<TopicPosts />} />
         {/* 专题群聊：一张普通页面而不是浮层——浮层在移动端和软键盘打架 */}
         <Route path="news/topic/:topicId/chat" element={<ProtectedRoute><TopicChatPage /></ProtectedRoute>} />
         {/* 发帖/编辑：登录即可；论坛发帖须带 ?topicId（后端按专题权限校验） */}

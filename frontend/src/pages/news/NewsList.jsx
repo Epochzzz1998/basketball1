@@ -20,6 +20,7 @@ import useIsMobile from '../../hooks/useIsMobile'
 import { NEWS_MODULE_ENABLED } from '../../config/modules'
 import TopicChatEntry from '../../components/TopicChatEntry'
 import NbaModuleEntry from '../../components/NbaModuleEntry'
+import { sectionRenderer } from '../../components/nbaSections'
 
 /**
  * 帖子列表（公开，P5-2 内容流改版），按频道复用：
@@ -190,7 +191,7 @@ function HotRail({ rows, official }) {
  * - topic={...}：某个专题的帖子流（专题横幅，发帖/发言/管理按该专题权限）；
  * 均复用同一套卡片流 + 热榜。列表接口 ES 全量返回，前端搜索/排序/分页。
  */
-export default function NewsList({ channel = 'forum', topic = null, onApplied }) {
+export default function NewsList({ channel = 'forum', topic = null, onApplied, nbaSection = null }) {
   const navigate = useNavigate()
   const { user, dn } = useAuth()
   const isMobile = useIsMobile()
@@ -274,6 +275,9 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
     border: '2px solid rgba(255,255,255,.16)', ...pos,
   })
 
+  // 认不出来的分区（手打错、老链接）当作没选，退回帖子流
+  const renderNbaSection = nbaSection ? sectionRenderer(nbaSection) : null
+
   return (
     <>
       <style>{`
@@ -351,12 +355,17 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
         </div>
       </div>
 
+      {/* NBA 分区标签条：放在 Row 外面，所以切分区时它和上面的横幅都不动，
+          只有下面的内容整块换。只在 NBA 专题渲染（组件内部按 topicId 判断） */}
+      {isTopic && <NbaModuleEntry topic={topic} section={nbaSection} />}
+
+      {renderNbaSection ? (
+        /* 选中了某个 NBA 分区：整块换成那一页，且不分左右栏——
+           右栏那些「发帖 / 热帖」对着一张联盟看板毫无意义，而这些页面本身要宽度 */
+        renderNbaSection()
+      ) : (
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={17}>
-          {/* NBA 数据入口：单独占最上面一行。它是「去别的模块」，不是「怎么筛这一页的帖子」，
-              所以刻意和下面搜索/类别/排序那三层隔开。只在 NBA 专题渲染（组件内部判断） */}
-          {isTopic && <NbaModuleEntry topic={topic} />}
-
           {/* 第一层：搜索 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
             <Input
@@ -463,6 +472,7 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
           </div>
         </Col>
       </Row>
+      )}
 
       {/* 移动端：发帖按钮固定在屏幕底部（新用户不用翻到页尾找入口）；占位块防止最后的内容被盖住。PC 端不变 */}
       {isMobile && canPost && (
