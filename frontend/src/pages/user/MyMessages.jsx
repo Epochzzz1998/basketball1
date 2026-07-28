@@ -43,7 +43,7 @@ const actionTextOf = (m) => {
     case 'commentComment': return t ? `回复了您在${t}下的评论` : '回复了您的评论'
     case 'mentionComment': return t ? `在${t}的评论里@了您` : '在评论里@了您'
     case 'mentionNews': return t ? `在帖子${t}里@了您` : '在帖子里@了您'
-    case 'mentionChat': return '在专题群聊里@了您'
+    case 'mentionChat': return `在${m.content ? `「${m.content}」` : '专题'}的群聊里@了您`
     case 'follow': return '关注了你'
     case 'topicApply': return `申请加入你的专题${m.content ? `「${m.content}」` : ''}`
     case 'topicApproved': return `通过了你加入${m.content ? `「${m.content}」` : '专题'}的申请`
@@ -66,6 +66,8 @@ const detailOf = (m) => {
     case 'badComment': return `您的评论：${s(m.content)}`
     case 'mentionComment': return `评论内容：${s(m.content)}`
     case 'mentionNews': return `帖子：${s(m.content)}`
+    // 群聊没有「原帖」这回事：content 存的是专题名（已进标题），明细给那条群聊原文
+    case 'mentionChat': return `群聊消息：${s(m.contentMsg)}`
     case 'follow': return '点击去 TA 的主页看看'
     case 'topicApply': return '点击进入专题，在成员管理里审批'
     case 'topicApproved': return '点击进入该专题'

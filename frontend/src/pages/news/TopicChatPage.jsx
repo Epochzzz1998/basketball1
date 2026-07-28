@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { Avatar, Button, Card, DatePicker, Empty, Input, Popconfirm, Spin, Upload, message as toast } from 'antd'
+import { Avatar, Button, Card, DatePicker, Empty, Image, Input, Popconfirm, Spin, Upload, message as toast } from 'antd'
 import { ArrowLeftOutlined, CalendarOutlined, ClearOutlined, DownloadOutlined, LoadingOutlined, MessageOutlined, PaperClipOutlined, PictureOutlined, SendOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { chatApi } from '../../api/chat'
@@ -109,6 +109,7 @@ export default function TopicChatPage() {
   const endRef = useRef(null)
   const cardRef = useRef(null)
   const listRef = useRef(null)
+  const bodyRef = useRef(null)   // 消息内容盒子：高度一变就重新贴底
   const [height, setHeight] = useState(null) // 聊天卡的高度：PC 上撑到屏幕底部
   const [vp, setVp] = useState({ h: null, top: 0 }) // 可视视口（移动端拿它定位整块卡片）
 
@@ -146,7 +147,27 @@ export default function TopicChatPage() {
     toBottom()
   }, [rows, height, vp.h, isMobile])
 
-  /** 图片是异步加载的，加载完内容会变高，黏底状态下要再滚一次 */
+  /**
+   * 内容盒子的高度**一变就重新贴底**（黏底状态下）。
+   *
+   * 之前只在 rows / height 变化时滚一次，但"内容最终有多高"要晚得多才定下来：
+   * 图片是异步加载的（加载前 img 是 0 高）、字体回退会重排、antd 的卡片高度量出来
+   * 又是一次布局。任何一样迟到，那一次滚动量到的都是**偏矮的** scrollHeight，
+   * 结果就是打开时停在半路。
+   *
+   * 与其一样样去补，不如盯住"内容盒子的高度"这个总闸——它变了就说明还没定下来，
+   * 再贴一次底即可。图片、字体、迟到的布局一网打尽。
+   */
+  useEffect(() => {
+    const el = bodyRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return undefined
+    const ro = new ResizeObserver(() => { if (stickRef.current) toBottom() })
+    ro.observe(el)
+    return () => ro.disconnect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows === null])
+
+  /** 图片加载完的兜底：缓存命中的图 React 的 onLoad 可能赶不上，ResizeObserver 才是主力 */
   const onMediaLoad = () => {
     if (stickRef.current) toBottom()
   }
@@ -506,7 +527,7 @@ export default function TopicChatPage() {
         // 否则 iOS 会顺手去滚身后的文档，手感上就是"划一下整个界面跳一下"
         style={{ flex: 1, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain', padding: '16px 16px 8px' }}
       >
-        <div>
+        <div ref={bodyRef}>
         {rows === null ? (
           <Spin style={{ display: 'block', margin: '40px auto' }} />
         ) : rows.length === 0 ? (
@@ -551,14 +572,18 @@ export default function TopicChatPage() {
                       )}
                     </div>
                     {m.imageUrl && (
-                      <a href={m.imageUrl} target="_blank" rel="noreferrer">
-                        <img
-                          src={m.imageUrl}
-                          alt=""
-                          onLoad={onMediaLoad}
-                          style={{ maxWidth: 220, maxHeight: 220, borderRadius: 10, display: 'block', marginBottom: m.content ? 6 : 0 }}
-                        />
-                      </a>
+                      // 本页放大，不再开新标签页：聊天看图开一个新页面，看完还得手动关回来，
+                      // 而且整个聊天页（含 WebSocket 订阅）留在后台，回来还要重新定位到刚才那条。
+                      // antd 的 Image 自带遮罩预览，支持缩放/旋转，Esc 关闭。
+                      <Image
+                        src={m.imageUrl}
+                        alt=""
+                        onLoad={onMediaLoad}
+                        style={{ maxWidth: 220, maxHeight: 220, borderRadius: 10, display: 'block', marginBottom: m.content ? 6 : 0 }}
+                        // 预览遮罩的层级要高过移动端那个 fixed 卡片（z-index 1000），
+                        // 否则点开是"看得见按钮点不到"——群聊的撤回气泡就栽过一次
+                        preview={{ mask: false, zIndex: 1200 }}
+                      />
                     )}
                     {m.fileUrl && (
                       <a

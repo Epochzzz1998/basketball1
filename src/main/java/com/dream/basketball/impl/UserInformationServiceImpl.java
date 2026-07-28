@@ -146,6 +146,21 @@ public class UserInformationServiceImpl extends ServiceImpl<UserInformationMappe
             contentMsg = StringUtils.equals(SCHEDULE_ASSIGN, msgType) ? "给你指派了一条日程"
                     : StringUtils.equals(SCHEDULE_OVERDUE, msgType) ? "日程超时提醒"
                     : StringUtils.equals(SCHEDULE_EXPIRY, msgType) ? "循环日程即将结束" : "今日日程提醒";
+        } else if (StringUtils.equals(FOLLOW, msgType)) {
+            // msgId=关注者的用户 id（点击跳他的主页）。前端这一类现在不显示 content，
+            // 但那是碰巧不是设计——库里躺着 "消息类型错误！" 迟早会漏到界面上。
+            DreamUser follower = userService.getById(msgId);
+            content = follower == null ? "用户已注销" : follower.getUserNickname();
+            contentMsg = "关注了你";
+        } else if (StringUtils.equals(MENTION_CHAT, msgType)) {
+            // msgId=专题 id（点击要跳回那个专题的群聊），commentContent=被 @ 的那条群聊原文。
+            // 漏掉这一支的后果不是报错而是**默认值原样落库**：content 存成 "消息类型错误！"，
+            // 消息列表照着显示，看起来像系统坏了。
+            com.dream.basketball.entity.ForumTopic topic = forumTopicMapper.selectById(msgId);
+            content = topic == null ? "专题已删除" : topic.getName();
+            contentMsg = StringUtils.length(commentContent) > 30
+                    ? StringUtils.substring(commentContent, 0, 30) + "......"
+                    : StringUtils.defaultIfBlank(commentContent, "(图片或附件)");
         } else if (StringUtils.equals(TOPIC_APPLY, msgType) || StringUtils.equals(TOPIC_APPROVED, msgType)
                 || StringUtils.equals(TOPIC_REJECTED, msgType)) {
             // msgId=专题 id：content 存专题名，供"我的消息"展示与跳转

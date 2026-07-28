@@ -222,15 +222,15 @@ class AuthInterceptorTest {
 
     /** 没设置过 = 没放行。这是与其它模块相反的那条规则，必须被守住。 */
     @Test
-    void userWithoutFlag_gets403OnFeatureEndpoint() throws Exception {
+    void userWithoutFlag_passesFeatureEndpoint() throws Exception {
+        // 语义已从「默认关、逐个放行」改成「默认放行、可按人封禁」（入口挪进 NBA 专题，
+        // 不该再卡人工审批）。没设置过 = 能用，是现在的正确行为。
         MockHttpServletRequest request = ajaxRequest();
         loginAs(request, Constants.NORMAL_USER);
         dbFeatData(null);
         MockHttpServletResponse response = new MockHttpServletResponse();
-        assertFalse(interceptor.preHandle(request, response,
+        assertTrue(interceptor.preHandle(request, response,
                 handler(DummyController.class, "nbaEndpoint")));
-        assertEquals(403, response.getStatus());
-        assertTrue(response.getContentAsString().contains("尚未对你开放"));
     }
 
     @Test
@@ -265,9 +265,10 @@ class AuthInterceptorTest {
 
     @Test
     void featureAnnotationOnClass_isHonored() throws Exception {
+        // 挂在类上的注解同样生效：被封禁的人访问该类下任意方法都要被挡
         MockHttpServletRequest request = ajaxRequest();
         loginAs(request, Constants.NORMAL_USER);
-        dbFeatData(null);
+        dbFeatData("0");
         MockHttpServletResponse response = new MockHttpServletResponse();
         assertFalse(interceptor.preHandle(request, response,
                 handler(FeatureAnnotatedController.class, "inheritedEndpoint")));
@@ -288,12 +289,15 @@ class AuthInterceptorTest {
     }
 
     @Test
-    void featureRule_isOptIn() {
+    void featureRule_isDefaultOnWithPerUserBan() {
+        // NBA 数据：**必须登录 + 默认放行 + 可按人封禁**。
+        // 只有显式 '0' 才是封禁；null（没设置过）和 '1' 都能用。
+        // 未登录那道门在 preHandle 里（401 优先于 403），不在这个方法里判。
         DreamUser u = new DreamUser();
-        assertFalse(Feature.NBA_DATA.granted(null), "查不到用户 = 没放行");
-        assertFalse(Feature.NBA_DATA.granted(u), "没设置过 = 没放行");
+        assertFalse(Feature.NBA_DATA.granted(null), "查不到用户 = 不放行");
+        assertTrue(Feature.NBA_DATA.granted(u), "没设置过 = 默认能用");
         u.setFeatData("0");
-        assertFalse(Feature.NBA_DATA.granted(u));
+        assertFalse(Feature.NBA_DATA.granted(u), "显式 '0' = 被封禁");
         u.setFeatData("1");
         assertTrue(Feature.NBA_DATA.granted(u));
     }

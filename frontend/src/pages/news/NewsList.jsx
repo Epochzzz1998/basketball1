@@ -19,6 +19,7 @@ import UserTitles from '../../components/UserTitles'
 import useIsMobile from '../../hooks/useIsMobile'
 import { NEWS_MODULE_ENABLED } from '../../config/modules'
 import TopicChatEntry from '../../components/TopicChatEntry'
+import NbaModuleEntry from '../../components/NbaModuleEntry'
 
 /**
  * 帖子列表（公开，P5-2 内容流改版），按频道复用：
@@ -376,6 +377,7 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
             />
             {/* 群聊入口：和上面那组视图切换并排，但样式刻意不一样——
                 它不是第四个"看法"，点下去是进另一个空间 */}
+            {isTopic && <NbaModuleEntry topic={topic} />}
             {isTopic && <TopicChatEntry topic={topic} />}
             <span style={{ flex: 1 }} />
           </div>

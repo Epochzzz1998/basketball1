@@ -81,7 +81,12 @@ export function AuthProvider({ children }) {
   //  · **默认开**（百家说 / 新闻 / 私信 / 日程）：游客可看，超管显式关掉才隐藏；
   //    flag 未定义（老数据、后端没下发）也按可用处理，保证前后兼容。
   // 超管一律放行（否则管不了自己关掉的模块）。
-  const OPT_IN_FEATURES = new Set(['featData'])
+  const OPT_IN_FEATURES = new Set([])
+  // 第三档：**必须登录 + 默认放行 + 可按人封禁**。NBA 数据从「默认关、逐个放行」改过来——
+  // 入口挪进 NBA 专题之后，想看的人自己点进去就能用，不该再卡一道人工审批。
+  // 但不能直接归到「默认开」那一档：那条规则头一句是 `!user`，**对游客返回 true**，
+  // 游客会被放进路由、页面一挂载就发请求、后端 401、拦截器把人硬跳登录页还丢了来路。
+  const LOGIN_REQUIRED_FEATURES = new Set(['featData'])
   const canUse = (flag) => {
     // 全站关掉的模块，谁都别想用，超管也一样（见 config/modules.js）
     if (flag === 'featNews' && !NEWS_MODULE_ENABLED) {
@@ -89,6 +94,9 @@ export function AuthProvider({ children }) {
     }
     if (OPT_IN_FEATURES.has(flag)) {
       return !!user && (user.isSuperManager || user[flag] === true)
+    }
+    if (LOGIN_REQUIRED_FEATURES.has(flag)) {
+      return !!user && (user.isSuperManager || user[flag] !== false)
     }
     return !user || user.isSuperManager || user[flag] !== false
   }
