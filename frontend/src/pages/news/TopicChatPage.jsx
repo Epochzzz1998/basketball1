@@ -643,6 +643,15 @@ export default function TopicChatPage() {
                     ? <Avatar size={22} src={u.avatar} />
                     : <Avatar size={22} style={{ background: avatarColor(u.userNickname), fontSize: 12 }}>{String(u.userNickname || '?')[0].toUpperCase()}</Avatar>}
                   <span style={{ fontSize: 13 }}>{dn(u.userId, u.userNickname)}</span>
+                  {/* 还没进过这个群、靠关注关系列出来的，标一下——不然会以为他人已经在群里了 */}
+                  {u.viaFollow && (
+                    <span style={{
+                      fontSize: 11, color: '#bbb', border: '1px solid #f0f0f0',
+                      borderRadius: 4, padding: '0 4px', lineHeight: '16px',
+                    }}>
+                      关注
+                    </span>
+                  )}
                 </div>
               ))}
               <div style={{ padding: '5px 12px', borderTop: '1px solid #f5f5f5', fontSize: 11, color: '#bbb' }}>

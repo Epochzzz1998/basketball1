@@ -71,6 +71,8 @@ public class ChatController {
     @Autowired
     private com.dream.basketball.mapper.ForumTopicMemberMapper memberMapper;
     @Autowired
+    private com.dream.basketball.mapper.UserFollowMapper followMapper;
+    @Autowired
     private TopicPermissionService perms;
     @Autowired
     private UserMapper userMapper;
@@ -159,19 +161,34 @@ public class ChatController {
         if (!perms.canChat(me, t)) {
             return new Result<>(0, "成功", out);
         }
-        Set<String> pool = new java.util.LinkedHashSet<>(perms.ownerIds(t));
-        pool.addAll(perms.subOwnerIds(t));
+        // 第一梯队：房间里的人
+        Set<String> room = new java.util.LinkedHashSet<>(perms.ownerIds(t));
+        room.addAll(perms.subOwnerIds(t));
         for (com.dream.basketball.entity.ForumTopicMember m : memberMapper.selectList(
                 new QueryWrapper<com.dream.basketball.entity.ForumTopicMember>().eq("TOPIC_ID", topicId))) {
-            pool.add(m.getUserId());
+            room.add(m.getUserId());
         }
-        pool.addAll(chatMapper.speakerIds(topicId));
-        pool.remove(me.getUserId()); // @ 自己没意义
+        room.addAll(chatMapper.speakerIds(topicId));
+        room.remove(me.getUserId()); // @ 自己没意义
+        // 第二梯队：只有公开专题才有——我关注的人 + 关注我的人
+        Set<String> followed = perms.isPublic(t) ? followGraphIds(me.getUserId()) : new java.util.LinkedHashSet<>();
+        followed.removeAll(room);
+
+        Set<String> pool = new java.util.LinkedHashSet<>(room);
+        pool.addAll(followed);
         if (pool.isEmpty()) {
             return new Result<>(0, "成功", out);
         }
         String kw = StringUtils.trimToEmpty(keyword).toLowerCase();
+        Map<String, DreamUser> byId = new HashMap<>();
         for (DreamUser u : userMapper.selectList(new QueryWrapper<DreamUser>().in("USER_ID", pool))) {
+            if (u != null) {
+                byId.put(u.getUserId(), u);
+            }
+        }
+        // 按梯队顺序挑，不能直接遍历 selectList 的结果——那个顺序是数据库定的
+        for (String uid : pool) {
+            DreamUser u = byId.get(uid);
             if (u == null || StringUtils.isBlank(u.getUserNickname())) {
                 continue;
             }
@@ -185,12 +202,32 @@ public class ChatController {
             m.put("userId", u.getUserId());
             m.put("userNickname", u.getUserNickname());
             m.put("avatar", u.getAvatar());
+            m.put("viaFollow", !room.contains(uid)); // 靠关注关系进来的，前端标一下，免得以为他已经在群里
             out.add(m);
             if (out.size() >= 8) {
                 break;
             }
         }
         return new Result<>(0, "成功", out);
+    }
+
+    /**
+     * 我关注的人 + 关注我的人（双向都算，各取边的另一端）。
+     *
+     * 只给公开专题的 @ 候选用。公开专题任何登录用户都进得来群聊，所以 @ 一个还没进过房间的
+     * 关注对象不存在"叫不到人"的问题——他收得到提醒、点进来就能看见。私密专题不放这一路：
+     * 那里 @ 一个进不来的人，他既收不到也看不见，纯属误导。
+     */
+    private Set<String> followGraphIds(String myId) {
+        Set<String> ids = new java.util.LinkedHashSet<>();
+        for (com.dream.basketball.entity.UserFollow f : followMapper.selectList(
+                new QueryWrapper<com.dream.basketball.entity.UserFollow>()
+                        .eq("FOLLOWER_ID", myId).or().eq("FOLLOWEE_ID", myId))) {
+            ids.add(StringUtils.equals(myId, f.getFollowerId()) ? f.getFolloweeId() : f.getFollowerId());
+        }
+        ids.remove(myId);
+        ids.remove(null);
+        return ids;
     }
 
     /** 发一条：校验 → 落库 → 广播。自己也是从广播里收到的，前端不做本地回显。 */

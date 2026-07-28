@@ -51,7 +51,8 @@ public class TopicPermissionService {
         return user != null && Role.fromUserRole(user.getUserRole()) == Role.SUPER_MANAGER;
     }
 
-    private boolean isPublic(ForumTopic t) {
+    /** Public topic: visible to everyone, and any logged-in user may enter its chat room. */
+    public boolean isPublic(ForumTopic t) {
         return t != null && !PRIVATE.equals(t.getVisibility());
     }
 
