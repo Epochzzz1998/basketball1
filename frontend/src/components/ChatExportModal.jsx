@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Alert, Checkbox, DatePicker, Modal } from 'antd'
+import { Alert, Checkbox, Modal } from 'antd'
 import dayjs from 'dayjs'
 import { chatApi } from '../api/chat'
-
-const { RangePicker } = DatePicker
+import DayRangePicker from './DayRangePicker'
 
 /**
  * 导出群聊备份（题主/管理者）。
@@ -45,13 +44,14 @@ export default function ChatExportModal({ topicId, open, onClose }) {
         <code>files/</code>（图片和附件原件）。
       </div>
       <Checkbox checked={all} onChange={(e) => setAll(e.target.checked)}>导出全部记录</Checkbox>
-      <RangePicker
-        style={{ width: '100%', marginTop: 12 }}
-        value={range}
-        onChange={(v) => { setRange(v); if (v) setAll(false) }}
-        disabled={all}
-        disabledDate={(d) => d && d > dayjs().endOf('day')}
-      />
+      <div style={{ marginTop: 12 }}>
+        <DayRangePicker
+          value={range}
+          onChange={(v) => { setRange(v); if (v) setAll(false) }}
+          disabled={all}
+          disabledDate={(d) => d && d > dayjs().endOf('day')}
+        />
+      </div>
       {!all && range && (
         <Alert
           style={{ marginTop: 12 }}

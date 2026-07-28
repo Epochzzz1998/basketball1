@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Alert, DatePicker, Modal, Spin, message } from 'antd'
+import { Alert, Modal, Spin, message } from 'antd'
 import dayjs from 'dayjs'
 import { chatApi } from '../api/chat'
-
-const { RangePicker } = DatePicker
+import DayRangePicker from './DayRangePicker'
 
 /**
  * 按日期清理群聊记录（题主/管理者）。
@@ -65,8 +64,7 @@ export default function ChatPurgeModal({ topicId, open, onClose, onDone }) {
         选一段日期，把这段时间里的消息删除（**含结束日当天**），消息里的图片和附件也会一并删掉。
         建议先「导出备份」再清理。
       </div>
-      <RangePicker
-        style={{ width: '100%' }}
+      <DayRangePicker
         value={range}
         onChange={setRange}
         disabledDate={(d) => d && d > dayjs().endOf('day')}

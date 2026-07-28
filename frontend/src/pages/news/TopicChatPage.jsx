@@ -448,6 +448,7 @@ export default function TopicChatPage() {
             onOpenChange={setDateOpen}
             value={null}
             allowClear={false}
+            inputReadOnly
             onChange={(d) => { setDateOpen(false); jumpToDay(d) }}
             disabledDate={(d) => d && d > dayjs().endOf('day')}
             style={{ width: 0, height: 0, padding: 0, margin: 0, border: 'none', visibility: 'hidden' }}
