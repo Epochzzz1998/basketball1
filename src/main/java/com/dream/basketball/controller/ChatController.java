@@ -55,7 +55,7 @@ public class ChatController {
     /** 同一个人两条消息之间的最小间隔（毫秒），挡住手抖和脚本刷屏 */
     private static final long SEND_INTERVAL_MS = 500;
     /** 自己撤回自己的消息的时限；超过这个时间只有管理者能撤 */
-    private static final long RECALL_WINDOW_MS = 5 * 60 * 1000L;
+    private static final long RECALL_WINDOW_MS = 2 * 60 * 1000L;
 
     private final Map<String, Long> lastSendAt = new ConcurrentHashMap<>();
 
@@ -100,7 +100,8 @@ public class ChatController {
     /** 发一条：校验 → 落库 → 广播。自己也是从广播里收到的，前端不做本地回显。 */
     @RequiresRole(Role.USER)
     @PostMapping("/send")
-    public Object send(String topicId, String content, String imageUrl, HttpServletRequest request) {
+    public Object send(String topicId, String content, String imageUrl,
+                       String fileUrl, String fileName, HttpServletRequest request) {
         DreamUser me = SecUtil.getLoginUserToSession(request);
         ForumTopic t = perms.getTopic(topicId);
         if (!perms.canChat(me, t)) {
@@ -108,7 +109,8 @@ public class ChatController {
         }
         String text = StringUtils.trimToEmpty(content);
         String img = StringUtils.trimToEmpty(imageUrl);
-        if (text.isEmpty() && img.isEmpty()) {
+        String file = StringUtils.trimToEmpty(fileUrl);
+        if (text.isEmpty() && img.isEmpty() && file.isEmpty()) {
             return new Result<>(1, "说点什么吧", null);
         }
         if (text.length() > MAX_LEN) {
@@ -127,6 +129,8 @@ public class ChatController {
         msg.setSenderId(me.getUserId());
         msg.setContent(text);
         msg.setImageUrl(img.isEmpty() ? null : img);
+        msg.setFileUrl(file.isEmpty() ? null : file);
+        msg.setFileName(file.isEmpty() ? null : StringUtils.abbreviate(StringUtils.trimToEmpty(fileName), 200));
         msg.setSendTime(new Date(now));
         msg.setRecalled("0");
         // @：复用评论那套「按全站昵称、最长前缀匹配」的识别，前端插的就是真实昵称
@@ -140,7 +144,7 @@ public class ChatController {
     }
 
     /**
-     * 撤回：自己发的 5 分钟内可撤；专题管理者不受时限（这是他们清理刷屏的手段）。
+     * 撤回：自己发的 2 分钟内可撤；专题管理者不受时限（这是他们清理刷屏的手段）。
      * 不删行，只打标记——留着才知道"这里本来有条消息"。
      */
     @RequiresRole(Role.USER)
@@ -158,7 +162,7 @@ public class ChatController {
             return new Result<>(1, "只能撤回自己发的消息", null);
         }
         if (!manager && System.currentTimeMillis() - msg.getSendTime().getTime() > RECALL_WINDOW_MS) {
-            return new Result<>(1, "超过 5 分钟就撤不回来了", null);
+            return new Result<>(1, "超过 2 分钟就撤不回来了", null);
         }
         msg.setRecalled("1");
         chatMapper.updateById(msg);
@@ -258,6 +262,8 @@ public class ChatController {
             // 撤回的消息不把原文发出去——已经撤了还能从接口里读到就没意义了
             v.put("content", recalled ? "" : m.getContent());
             v.put("imageUrl", recalled ? null : m.getImageUrl());
+            v.put("fileUrl", recalled ? null : m.getFileUrl());
+            v.put("fileName", recalled ? null : m.getFileName());
             v.put("mentions", recalled ? null : m.getMentions());
             v.put("recalled", recalled);
             v.put("sendTime", m.getSendTime() == null ? null : m.getSendTime().getTime());

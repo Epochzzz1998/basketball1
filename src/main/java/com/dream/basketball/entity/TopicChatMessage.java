@@ -47,6 +47,29 @@ public class TopicChatMessage extends Model<TopicChatMessage> implements Seriali
     @TableField("IMAGE_URL")
     private String imageUrl;
 
+    /** 附件（非图片）的 URL 和原始文件名。图片单独走 IMAGE_URL——它要内联显示，附件只出一行可点的名字 */
+    @TableField("FILE_URL")
+    private String fileUrl;
+
+    @TableField("FILE_NAME")
+    private String fileName;
+
+    public String getFileUrl() {
+        return fileUrl;
+    }
+
+    public void setFileUrl(String fileUrl) {
+        this.fileUrl = fileUrl;
+    }
+
+    public String getFileName() {
+        return fileName;
+    }
+
+    public void setFileName(String fileName) {
+        this.fileName = fileName;
+    }
+
     public String getRecalled() {
         return recalled;
     }

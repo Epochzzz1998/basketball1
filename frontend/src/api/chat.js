@@ -13,7 +13,7 @@ const form = (obj) => {
 export const chatApi = {
   // before：上一屏最早那条消息的时间戳（毫秒），用于往上翻
   history: (topicId, before, limit) => http.get('/chat/history', { params: { topicId, before, limit } }),
-  send: (topicId, content, imageUrl) => http.post('/chat/send', form({ topicId, content, imageUrl })),
+  send: (topicId, payload) => http.post('/chat/send', form({ topicId, ...payload })),
   recall: (msgId) => http.post('/chat/recall', form({ msgId })),
   unread: (topicId) => http.get('/chat/unread', { params: { topicId } }),
   markRead: (topicId) => http.post('/chat/read', form({ topicId })),
