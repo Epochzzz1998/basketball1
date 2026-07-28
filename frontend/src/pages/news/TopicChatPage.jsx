@@ -92,6 +92,7 @@ export default function TopicChatPage() {
   const [uploading, setUploading] = useState(false)
   const [more, setMore] = useState(false)
   const [atOpts, setAtOpts] = useState(null)
+  const [atIndex, setAtIndex] = useState(0)   // @ 候选里高亮的那一项（键盘上下键移动）
   const [purgeOpen, setPurgeOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const [dateOpen, setDateOpen] = useState(false)   // 小日历的显隐（触发器是旁边那个链接）
@@ -319,10 +320,26 @@ export default function TopicChatPage() {
       // 他既收不到也看不见，纯属误导
       const list = await chatApi.mentionCandidates(topicId, v.slice(at + 1))
       setAtOpts((list || []).slice(0, 6))
+      setAtIndex(0)
     } catch {
       setAtOpts(null)
     }
   }
+  /**
+   * 输入框的按键统一在这里分派。**不能用 antd 的 onPressEnter**——候选面板开着的时候
+   * 回车该是"选中这一项"，关着的时候才是"发送"，两个语义共用一个键，必须自己判断先后。
+   */
+  const onKeyDown = (e) => {
+    if (atOpts?.length) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); setAtIndex((i) => (i + 1) % atOpts.length); return }
+      if (e.key === 'ArrowUp') { e.preventDefault(); setAtIndex((i) => (i - 1 + atOpts.length) % atOpts.length); return }
+      if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); pickAt(atOpts[atIndex] || atOpts[0]); return }
+      if (e.key === 'Escape') { e.preventDefault(); setAtOpts(null); return }
+    }
+    // 回车发送，Shift+回车换行（和大多数聊天框一致）
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
+  }
+
   const pickAt = (u) => {
     const at = text.lastIndexOf('@')
     // 插进去的必须是真昵称：后端按全站昵称反查 id，用备注名会认不出来
@@ -513,13 +530,17 @@ export default function TopicChatPage() {
             <div style={{
               position: 'absolute', bottom: '100%', left: 0, right: 0, background: '#fff',
               border: '1px solid #f0f0f0', borderRadius: 10, boxShadow: '0 -4px 16px rgba(0,0,0,.08)',
-              maxHeight: 200, overflowY: 'auto', zIndex: 5, marginBottom: 6,
+              maxHeight: 280, overflowY: 'auto', zIndex: 5, marginBottom: 6, overflow: 'hidden',
             }}>
-              {atOpts.map((u) => (
+              {atOpts.map((u, i) => (
                 <div
                   key={u.userId}
                   onMouseDown={(e) => { e.preventDefault(); pickAt(u) }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', cursor: 'pointer' }}
+                  onMouseEnter={() => setAtIndex(i)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', cursor: 'pointer',
+                    background: i === atIndex ? 'rgba(250,84,28,.08)' : 'transparent',
+                  }}
                 >
                   {u.avatar
                     ? <Avatar size={22} src={u.avatar} />
@@ -527,6 +548,9 @@ export default function TopicChatPage() {
                   <span style={{ fontSize: 13 }}>{dn(u.userId, u.userNickname)}</span>
                 </div>
               ))}
+              <div style={{ padding: '5px 12px', borderTop: '1px solid #f5f5f5', fontSize: 11, color: '#bbb' }}>
+                ↑↓ 选择 · Enter 确认 · Esc 取消
+              </div>
             </div>
           )}
 
@@ -547,10 +571,7 @@ export default function TopicChatPage() {
               ref={taRef}
               value={text}
               onChange={(e) => onTextChange(e.target.value)}
-              onPressEnter={(e) => {
-                // 回车发送，Shift+回车换行（和大多数聊天框一致）
-                if (!e.shiftKey) { e.preventDefault(); send() }
-              }}
+              onKeyDown={onKeyDown}
               placeholder="说点什么…（@ 提到人，回车发送，Shift+回车换行）"
               maxLength={500}
               autoSize={{ minRows: 2, maxRows: 5 }}
