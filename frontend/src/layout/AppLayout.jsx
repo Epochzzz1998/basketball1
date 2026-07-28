@@ -17,6 +17,7 @@ import {
   NotificationOutlined,
   PushpinFilled,
   ReadOutlined,
+  TeamOutlined,
   UsergroupAddOutlined,
   UserOutlined,
 } from '@ant-design/icons'
@@ -145,9 +146,47 @@ export default function AppLayout() {
       routes: [
         // 百家说（论坛）是落地页与首要入口，放最前
         ...(canUse('featForum') ? [{ path: '/news', name: '百家说', icon: <ReadOutlined /> }] : []),
-        // NBA 数据不再出现在侧栏：不是每个人都看球，一整组菜单挂在那儿是噪音。
+        // NBA 数据不再出现在侧栏：不是每个人都看球，一整组菜单挂在那儿对多数人是噪音。
         // 入口改在 NBA 专题的横幅上（components/NbaModuleEntry.jsx）——想看的人进那个专题就看得见。
         // 路由和后端门禁都没动，直连 /players 之类照样能进（登录且没被封禁的话）。
+        ...(canUse('featNews') ? [{ path: '/official', name: '新闻', icon: <NotificationOutlined /> }] : []),
+        // 日程（登录用户；按用户可关）
+        ...(user && canUse('featSchedule') ? [{ path: '/schedule', name: '日程', icon: <CalendarOutlined /> }] : []),
+        // 耿阿姨烤串（单店薪资管理）：店长=全部四项；店员=只有台账（看自己的薪资，只读）
+        ...(user?.bbqRole === 'manager'
+          ? [{
+              path: '/bbq',
+              name: '耿阿姨烤串',
+              icon: <FireOutlined />,
+              routes: [
+                { path: '/bbq/wage', name: '薪资计算', icon: <DollarOutlined /> },
+                { path: '/bbq/ledger', name: '经营台账', icon: <BarChartOutlined /> },
+                { path: '/bbq/burning', name: 'Burning！', icon: <FireOutlined /> },
+                { path: '/bbq/members', name: '成员管理', icon: <TeamOutlined /> },
+                { path: '/bbq/skewers', name: '串价设置', icon: <TagsOutlined /> },
+              ],
+            }]
+          : []),
+        ...(user?.bbqRole === 'staff'
+          ? [{
+              path: '/bbq',
+              name: '耿阿姨烤串',
+              icon: <FireOutlined />,
+              routes: [
+                { path: '/bbq/ledger', name: '我的薪资', icon: <BarChartOutlined /> },
+                { path: '/bbq/burning', name: 'Burning！', icon: <FireOutlined /> },
+              ],
+            }]
+          : []),
+        // 私信：侧栏一个入口（未读数在 menuItemRender 里挂角标），头像下拉里那个也保留——
+        // 两个入口指同一页，习惯点哪个都行
+        ...(user && canUse('featPm') ? [{ path: '/messages', name: '私信', icon: <MessageOutlined /> }] : []),
+        ...(user?.isSuperManager
+          ? [
+              { path: '/admin/players', name: '球员管理', icon: <DatabaseOutlined /> },
+              { path: '/admin/users', name: '用户管理', icon: <UsergroupAddOutlined /> },
+            ]
+          : []),
       ],
     }),
     // canUse 只依赖 user，所以 user 变了就够了；把它列进来会让每次渲染都重算菜单

@@ -375,8 +375,9 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
                 ...(isTopic && topic?.ownerIds?.length ? [{ label: '题主', value: '只看题主', icon: <CrownOutlined /> }] : []),
               ]}
             />
-            {/* 群聊入口：和上面那组视图切换并排，但样式刻意不一样——
-                它不是第四个"看法"，点下去是进另一个空间 */}
+            {/* 群聊 / NBA 数据入口：和上面那组视图切换并排，但样式刻意不一样——
+                它们不是第四个"看法"，点下去是进另一个空间。
+                NBA 那个只在 NBA 专题出现（组件内部按 topicId 判断） */}
             {isTopic && <NbaModuleEntry topic={topic} />}
             {isTopic && <TopicChatEntry topic={topic} />}
             <span style={{ flex: 1 }} />
