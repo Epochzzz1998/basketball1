@@ -94,6 +94,7 @@ export default function TopicChatPage() {
   const [atOpts, setAtOpts] = useState(null)
   const [purgeOpen, setPurgeOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
+  const [dateOpen, setDateOpen] = useState(false)   // 小日历的显隐（触发器是旁边那个链接）
   const [days, setDays] = useState(null)      // 有聊天记录的日期集合（小日历标深色）
   const [jumped, setJumped] = useState(false) // 是否处于"跳到某天"的状态（决定要不要出"加载更新的"）
   const taRef = useRef(null)
@@ -330,23 +331,22 @@ export default function TopicChatPage() {
       }
       extra={(
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 14, fontSize: 13 }}>
-          {/* 备份和清理只给管理者。清理会连图片附件一起删，所以入口放在导出旁边，
-              顺序上先看到「导出备份」再看到「清理记录」 */}
-          {topic?.canManage && (
-            <a onClick={() => setExportOpen(true)} style={{ color: '#666' }}>
-              <DownloadOutlined /> 导出备份
-            </a>
-          )}
-          {/* 按日期查找：所有能进群聊的人都能用，不只是题主 */}
+          {/* 按日期查找：所有能进群聊的人都能用，不只是题主，所以排在管理动作前面。
+              做成和旁边一样的「图标 + 文字」链接——原来那个带输入框的日期选择器夹在
+              两个按钮中间，是这一行里唯一一个有边框的控件，扎眼 */}
+          <a onClick={() => setDateOpen(true)} style={{ color: '#666' }}>
+            <CalendarOutlined /> 按日期
+          </a>
+          {/* 真正的日历藏在这里：DatePicker 没法换掉自己的输入框，所以把它缩成零尺寸
+              当锚点用，弹层照样挂在这个位置 */}
           <DatePicker
-            size="small"
-            allowClear={false}
+            open={dateOpen}
+            onOpenChange={setDateOpen}
             value={null}
-            placeholder="按日期查找"
-            suffixIcon={<CalendarOutlined />}
-            style={{ width: 132 }}
-            onChange={jumpToDay}
+            allowClear={false}
+            onChange={(d) => { setDateOpen(false); jumpToDay(d) }}
             disabledDate={(d) => d && d > dayjs().endOf('day')}
+            style={{ width: 0, height: 0, padding: 0, margin: 0, border: 'none', visibility: 'hidden' }}
             cellRender={(current, info) => {
               if (info.type !== 'date') return info.originNode
               const has = days?.has(current.format('YYYY-MM-DD'))
@@ -360,6 +360,12 @@ export default function TopicChatPage() {
               )
             }}
           />
+          {/* 备份和清理只给管理者，两个挨在一起 */}
+          {topic?.canManage && (
+            <a onClick={() => setExportOpen(true)} style={{ color: '#666' }}>
+              <DownloadOutlined /> 导出备份
+            </a>
+          )}
           {topic?.canManage && (
             <a onClick={() => setPurgeOpen(true)} style={{ color: '#666' }}>
               <ClearOutlined /> 清理记录
