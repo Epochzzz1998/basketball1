@@ -9,6 +9,7 @@ import { topicApi } from '../../api/topic'
 import { subscribeRoom } from '../../realtime/pmSocket'
 import { useAuth } from '../../auth/AuthContext'
 import EmojiPicker from '../../components/EmojiPicker'
+import useIsMobile from '../../hooks/useIsMobile'
 import { compressImage } from '../../utils/image'
 import ChatPurgeModal from '../../components/ChatPurgeModal'
 import ChatExportModal from '../../components/ChatExportModal'
@@ -84,6 +85,7 @@ export default function TopicChatPage() {
   const { topicId } = useParams()
   const navigate = useNavigate()
   const { user, dn } = useAuth()
+  const isMobile = useIsMobile()
   const [topic, setTopic] = useState(null)
   const [loading, setLoading] = useState(true)
   const [rows, setRows] = useState(null)
@@ -112,9 +114,20 @@ export default function TopicChatPage() {
 
   const onListScroll = () => {
     const el = listRef.current
-    if (!el) return
+    if (!el || isMobile) return // 移动端滚的是整页，见下面那个 window 监听
     stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60
   }
+
+  // 移动端：整页滚动，黏底判定看窗口
+  useEffect(() => {
+    if (!isMobile) return undefined
+    const onWin = () => {
+      const doc = document.documentElement
+      stickRef.current = doc.scrollHeight - window.scrollY - window.innerHeight < 120
+    }
+    window.addEventListener('scroll', onWin, { passive: true })
+    return () => window.removeEventListener('scroll', onWin)
+  }, [isMobile])
 
   /**
    * 滚到底必须在 **DOM 提交之后**做，所以用 useLayoutEffect 而不是在事件回调里 rAF。
@@ -128,52 +141,45 @@ export default function TopicChatPage() {
    */
   useLayoutEffect(() => {
     if (!rows || !stickRef.current) return
+    if (isMobile) {
+      // 移动端没有内层滚动容器，滚的是整页
+      endRef.current?.scrollIntoView({ block: 'end' })
+      return
+    }
     const el = listRef.current
     if (el) el.scrollTop = el.scrollHeight
-  }, [rows, height])
+  }, [rows, height, isMobile])
 
   /** 图片是异步加载的，加载完内容会变高，黏底状态下要再滚一次 */
   const onMediaLoad = () => {
+    if (!stickRef.current) return
+    if (isMobile) { endRef.current?.scrollIntoView({ block: 'end' }); return }
     const el = listRef.current
-    if (el && stickRef.current) el.scrollTop = el.scrollHeight
+    if (el) el.scrollTop = el.scrollHeight
   }
 
   /**
-   * 聊天卡要占满一屏，不能只有内容那么高——半屏聊天框下面空一大片很怪。
+   * 卡片高度**只在 PC 上量**：视口高 - 卡片距顶 - 底部留白，撑满一屏。
    *
-   * 高度按**可视视口**算，不是 `window.innerHeight`。移动端软键盘弹出时：
-   *  · 安卓（配合 interactive-widget=resizes-content）布局视口会缩，innerHeight 跟着变；
-   *  · **iOS 不缩** —— 只有 visualViewport 变矮，页面被整体往上推。
-   * 只看 innerHeight 的话，iOS 上卡片仍然按全屏高度算，比看得见的区域高一大截，
-   * 于是输入框和最新消息被顶到键盘后面去——就是私信页早期版本踩过的那个坑。
+   * 移动端一律不定高。之前两版都想让卡片贴着可视视口，结果在 iOS 上一直打架——
+   * 软键盘弹出时 iOS 不缩布局视口，只把页面整体往上推，而推多少、什么时候推
+   * 是浏览器自己决定的，我这边量到的 `getBoundingClientRect()` 和 `visualViewport`
+   * 永远慢半拍，表现就是卡片被压成一小条、下面露出一大片灰底。
    *
-   * offsetTop 是可视区在布局视口里的偏移（iOS 推上去多少），要从卡片距顶的距离里减掉，
-   * 否则键盘一弹高度会算多。
+   * 现在移动端就是一张普通长页面：消息按内容铺开、页面整体滚动、输入区 sticky 贴底。
+   * 键盘弹出时浏览器自己会把输入框滚进可视区——这是浏览器的本职工作，不该由我复刻。
    */
   useEffect(() => {
-    const vv = window.visualViewport
+    if (isMobile) { setHeight(null); return undefined }
     const fit = () => {
       const el = cardRef.current
       if (!el) return
-      const vh = vv ? vv.height : window.innerHeight
-      const vTop = vv ? vv.offsetTop : 0
-      const topInView = Math.max(0, el.getBoundingClientRect().top - vTop)
-      setHeight(Math.max(240, vh - topInView - 12))
+      setHeight(Math.max(360, window.innerHeight - el.getBoundingClientRect().top - 20))
     }
     fit()
     window.addEventListener('resize', fit)
-    if (vv) {
-      vv.addEventListener('resize', fit)
-      vv.addEventListener('scroll', fit)
-    }
-    return () => {
-      window.removeEventListener('resize', fit)
-      if (vv) {
-        vv.removeEventListener('resize', fit)
-        vv.removeEventListener('scroll', fit)
-      }
-    }
-  }, [loading])
+    return () => window.removeEventListener('resize', fit)
+  }, [loading, isMobile])
 
   useEffect(() => {
     let alive = true
@@ -317,6 +323,21 @@ export default function TopicChatPage() {
     return false
   }
 
+  /**
+   * 直接粘贴图片：截图之后 Cmd+V 就能发，不用先存成文件再点上传。
+   * 剪贴板里同时有图片和文字时（比如从网页复制一块内容）优先按图片走，
+   * 并且要 preventDefault，否则文件名之类的文本会被一起粘进输入框。
+   */
+  const onPaste = (e) => {
+    const items = Array.from(e.clipboardData?.items || [])
+    const item = items.find((it) => it.kind === 'file' && it.type.startsWith('image/'))
+    if (!item) return
+    const file = item.getAsFile()
+    if (!file) return
+    e.preventDefault()
+    makeUpload(true)(file)
+  }
+
   /** 在光标处插入 emoji，插完把光标放到它后面（不然连点几个会插到开头） */
   const insertEmoji = (e) => {
     const ta = taRef.current?.resizableTextArea?.textArea
@@ -442,7 +463,13 @@ export default function TopicChatPage() {
     >
       {/* 消息区：卡片高度定死之后，滚动就发生在这里面。
           消息从上往下排（最早的顶在最上面），空的部分留在下面 */}
-      <div ref={listRef} onScroll={onListScroll} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 16px 8px' }}>
+      <div
+        ref={listRef}
+        onScroll={onListScroll}
+        style={isMobile
+          ? { padding: '16px 16px 8px' }                                  // 移动端：跟着整页滚
+          : { flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 16px 8px' }}
+      >
         <div>
         {rows === null ? (
           <Spin style={{ display: 'block', margin: '40px auto' }} />
@@ -539,9 +566,10 @@ export default function TopicChatPage() {
         </div>
       </div>
 
-      {/* 输入区：固定在卡片底部 */}
+      {/* 输入区：PC 固定在卡片底部；移动端 sticky 贴在视口底，跟着页面走 */}
       <div style={{
         flexShrink: 0, background: '#fff', borderTop: '1px solid #f0f0f0',
+        ...(isMobile ? { position: 'sticky', bottom: 0, zIndex: 2 } : null),
         padding: '8px 12px calc(10px + env(safe-area-inset-bottom))',
         borderBottomLeftRadius: 14, borderBottomRightRadius: 14,
       }}>
@@ -592,6 +620,7 @@ export default function TopicChatPage() {
               value={text}
               onChange={(e) => onTextChange(e.target.value)}
               onKeyDown={onKeyDown}
+              onPaste={onPaste}
               placeholder="说点什么…（@ 提到人，回车发送，Shift+回车换行）"
               maxLength={500}
               autoSize={{ minRows: 2, maxRows: 5 }}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button, Card, Col, Empty, Input, Popconfirm, Row, Spin, Tag, message } from 'antd'
 import {
   AppstoreOutlined, DatabaseOutlined, DeleteOutlined, EditOutlined, EyeInvisibleOutlined, LockOutlined, PlusOutlined, PushpinFilled,
@@ -34,7 +34,8 @@ export default function TopicsList() {
   const [cats, setCats] = useState([])       // 全站专题类别（超管配）
   const [catOpen, setCatOpen] = useState(false)
   const [usageOpen, setUsageOpen] = useState(false)  // 群聊占用（仅超管）
-  const [cat, setCat] = useState('all')      // 当前筛选：all / 类别 id / '' = 未分类
+  // 默认停在「已收藏」；等专题拉回来发现一个收藏都没有，再退回「全部」（见下面的 effect）
+  const [cat, setCat] = useState('fav')      // 当前筛选：all / fav / 类别 id / '' = 未分类
   const [kw, setKw] = useState('')           // 专题搜索关键词
 
   const load = useCallback(() => {
@@ -83,6 +84,15 @@ export default function TopicsList() {
     // 专题名 + 简介 + 类别名一起匹配（列表已全量在手，纯前端筛）
     return hit.filter((t) => `${t.name || ''}${t.description || ''}${t.categoryName || ''}`.toLowerCase().includes(k))
   }, [topics, cat, kw])
+
+  // 一个收藏都没有时别把人晾在空列表上——退回「全部」。
+  // 只在首次拿到数据时判断，之后用户自己切到哪儿就是哪儿
+  const settledRef = useRef(false)
+  useEffect(() => {
+    if (settledRef.current || !topics) return
+    settledRef.current = true
+    if (!topics.some(isFav)) setCat('all')
+  }, [topics])
 
   const enter = (t) => {
     if (t.locked) return message.info('该专题为私密专题，你没有浏览权限')
