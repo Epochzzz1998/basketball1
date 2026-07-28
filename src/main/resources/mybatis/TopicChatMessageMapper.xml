@@ -18,6 +18,19 @@
         order by count(*) desc
     </select>
 
+    <!-- 哪几天有聊天记录：小日历上把这些日子标深色，点一下跳过去 -->
+    <select id="distinctDays" resultType="java.lang.String">
+        select distinct date_format(SEND_TIME, '%Y-%m-%d')
+        from topic_chat_message
+        where TOPIC_ID = #{topicId} and RECALLED &lt;&gt; '1'
+        order by 1
+    </select>
+
+    <!-- 曾在这个群里发过言的人：@ 候选要用（公开专题里"成员"是空的，靠发言过的人补上） -->
+    <select id="speakerIds" resultType="java.lang.String">
+        select distinct SENDER_ID from topic_chat_message where TOPIC_ID = #{topicId}
+    </select>
+
     <!-- 所有带附件的消息（导出、清理、算体积都用它） -->
     <select id="attachmentsOf" resultType="java.util.Map">
         select TOPIC_ID as topicId, IMAGE_URL as imageUrl, FILE_URL as fileUrl

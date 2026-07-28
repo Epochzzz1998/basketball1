@@ -5,6 +5,12 @@ import com.dream.basketball.entity.TopicChatMessage;
 
 public interface TopicChatMessageMapper extends BaseMapper<TopicChatMessage> {
 
+    /** 哪几天有聊天记录（yyyy-MM-dd 升序），小日历标记用。 */
+    java.util.List<String> distinctDays(@org.apache.ibatis.annotations.Param("topicId") String topicId);
+
+    /** 曾在这个群里发过言的人。 */
+    java.util.List<String> speakerIds(@org.apache.ibatis.annotations.Param("topicId") String topicId);
+
     /** 各专题的群聊占用（仅超管看）：条数、正文字节、时间跨度。 */
     java.util.List<java.util.Map<String, Object>> usageByTopic();
 

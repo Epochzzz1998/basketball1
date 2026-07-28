@@ -69,6 +69,8 @@ public class ChatController {
     @Autowired
     private TopicChatReadMapper readMapper;
     @Autowired
+    private com.dream.basketball.mapper.ForumTopicMemberMapper memberMapper;
+    @Autowired
     private TopicPermissionService perms;
     @Autowired
     private UserMapper userMapper;
@@ -83,13 +85,22 @@ public class ChatController {
      */
     @RequiresRole(Role.USER)
     @GetMapping("/history")
-    public Object history(String topicId, Long before, Integer limit, HttpServletRequest request) {
+    public Object history(String topicId, Long before, String since, Integer limit, HttpServletRequest request) {
         DreamUser me = SecUtil.getLoginUserToSession(request);
         ForumTopic t = perms.getTopic(topicId);
         if (!perms.canChat(me, t)) {
             return new Result<>(1, "你不能进入该专题的群聊", null);
         }
         int size = limit == null || limit <= 0 || limit > MAX_PAGE ? 30 : limit;
+        // since：从某一天的第一条开始**往后**取（小日历跳转用），这时天然就是正序，不用翻转
+        Date from = parseDate(since);
+        if (from != null) {
+            List<TopicChatMessage> rows = chatMapper.selectList(new QueryWrapper<TopicChatMessage>()
+                    .eq("TOPIC_ID", topicId).ge("SEND_TIME", from)
+                    .orderByAsc("SEND_TIME").orderByAsc("MSG_ID")
+                    .last("limit " + size));
+            return new Result<>(0, "成功", withSenders(rows));
+        }
         QueryWrapper<TopicChatMessage> qw = new QueryWrapper<TopicChatMessage>()
                 .eq("TOPIC_ID", topicId)
                 .orderByDesc("SEND_TIME").orderByDesc("MSG_ID")
@@ -100,6 +111,86 @@ public class ChatController {
         List<TopicChatMessage> rows = chatMapper.selectList(qw);
         Collections.reverse(rows); // 倒序取、正序还
         return new Result<>(0, "成功", withSenders(rows));
+    }
+
+    /** 往后翻一页：跳到某天之后要能接着往下看。after = 当前最后一条的时间戳（毫秒）。 */
+    @RequiresRole(Role.USER)
+    @GetMapping("/newer")
+    public Object newer(String topicId, Long after, Integer limit, HttpServletRequest request) {
+        DreamUser me = SecUtil.getLoginUserToSession(request);
+        ForumTopic t = perms.getTopic(topicId);
+        if (!perms.canChat(me, t)) {
+            return new Result<>(1, "你不能进入该专题的群聊", null);
+        }
+        int size = limit == null || limit <= 0 || limit > MAX_PAGE ? 30 : limit;
+        List<TopicChatMessage> rows = chatMapper.selectList(new QueryWrapper<TopicChatMessage>()
+                .eq("TOPIC_ID", topicId).gt("SEND_TIME", new Date(after == null ? 0 : after))
+                .orderByAsc("SEND_TIME").orderByAsc("MSG_ID")
+                .last("limit " + size));
+        return new Result<>(0, "成功", withSenders(rows));
+    }
+
+    /** 哪几天有聊天记录（小日历标深色用）。能进群聊的人都能查。 */
+    @RequiresRole(Role.USER)
+    @GetMapping("/days")
+    public Object days(String topicId, HttpServletRequest request) {
+        DreamUser me = SecUtil.getLoginUserToSession(request);
+        ForumTopic t = perms.getTopic(topicId);
+        if (!perms.canChat(me, t)) {
+            return new Result<>(0, "成功", new ArrayList<>());
+        }
+        return new Result<>(0, "成功", chatMapper.distinctDays(topicId));
+    }
+
+    /**
+     * 群聊里 @ 的候选人：**只给真的在这个专题里、且能进群聊的人**。
+     *
+     * 不能直接用全站用户搜索——@ 一个根本进不来的人，他既收不到也看不见，纯属误导。
+     * 候选池 = 专题成员 ∪ 题主/小题主 ∪ 曾在这个群里发过言的人，再逐个过一遍 canChat
+     * （被单独禁言的、群聊关了的都会被刷掉）。公开专题里"成员"往往是空的，
+     * 所以"发过言的人"这一支必须有，否则公开专题一个候选都搜不到。
+     */
+    @RequiresRole(Role.USER)
+    @GetMapping("/mentionCandidates")
+    public Object mentionCandidates(String topicId, String keyword, HttpServletRequest request) {
+        DreamUser me = SecUtil.getLoginUserToSession(request);
+        ForumTopic t = perms.getTopic(topicId);
+        List<Map<String, Object>> out = new ArrayList<>();
+        if (!perms.canChat(me, t)) {
+            return new Result<>(0, "成功", out);
+        }
+        Set<String> pool = new java.util.LinkedHashSet<>(perms.ownerIds(t));
+        pool.addAll(perms.subOwnerIds(t));
+        for (com.dream.basketball.entity.ForumTopicMember m : memberMapper.selectList(
+                new QueryWrapper<com.dream.basketball.entity.ForumTopicMember>().eq("TOPIC_ID", topicId))) {
+            pool.add(m.getUserId());
+        }
+        pool.addAll(chatMapper.speakerIds(topicId));
+        pool.remove(me.getUserId()); // @ 自己没意义
+        if (pool.isEmpty()) {
+            return new Result<>(0, "成功", out);
+        }
+        String kw = StringUtils.trimToEmpty(keyword).toLowerCase();
+        for (DreamUser u : userMapper.selectList(new QueryWrapper<DreamUser>().in("USER_ID", pool))) {
+            if (u == null || StringUtils.isBlank(u.getUserNickname())) {
+                continue;
+            }
+            if (!kw.isEmpty() && !u.getUserNickname().toLowerCase().contains(kw)) {
+                continue;
+            }
+            if (!perms.canChat(u, t)) {
+                continue; // 群聊被单独关掉的人不该出现在候选里
+            }
+            Map<String, Object> m = new HashMap<>();
+            m.put("userId", u.getUserId());
+            m.put("userNickname", u.getUserNickname());
+            m.put("avatar", u.getAvatar());
+            out.add(m);
+            if (out.size() >= 8) {
+                break;
+            }
+        }
+        return new Result<>(0, "成功", out);
     }
 
     /** 发一条：校验 → 落库 → 广播。自己也是从广播里收到的，前端不做本地回显。 */
@@ -215,19 +306,20 @@ public class ChatController {
      */
     @RequiresRole(Role.USER)
     @GetMapping("/purgePreview")
-    public Object purgePreview(String topicId, String before, HttpServletRequest request) {
+    public Object purgePreview(String topicId, String from, String to, HttpServletRequest request) {
         ForumTopic t = perms.getTopic(topicId);
         if (!perms.canManage(SecUtil.getLoginUserToSession(request), t)) {
             return new Result<>(1, "无权管理该专题", null);
         }
-        Date cut = parseDate(before);
-        if (cut == null) {
-            return new Result<>(1, "请选择日期", null);
+        Date begin = parseDate(from);
+        Date end = endOfDay(to);
+        if (begin == null || end == null) {
+            return new Result<>(1, "请选择日期范围", null);
         }
         Map<String, Object> m = new HashMap<>();
         m.put("count", chatMapper.selectCount(new QueryWrapper<TopicChatMessage>()
-                .eq("TOPIC_ID", topicId).lt("SEND_TIME", cut)));
-        m.put("files", urlsOf(chatMapper.attachmentsOf(topicId, cut, null)).size());
+                .eq("TOPIC_ID", topicId).ge("SEND_TIME", begin).lt("SEND_TIME", end)));
+        m.put("files", urlsOf(chatMapper.attachmentsOf(topicId, end, begin)).size());
         return new Result<>(0, "成功", m);
     }
 
@@ -237,20 +329,22 @@ public class ChatController {
      */
     @RequiresRole(Role.USER)
     @PostMapping("/purge")
-    public Object purge(String topicId, String before, HttpServletRequest request) {
+    public Object purge(String topicId, String from, String to, HttpServletRequest request) {
         ForumTopic t = perms.getTopic(topicId);
         if (!perms.canManage(SecUtil.getLoginUserToSession(request), t)) {
             return new Result<>(1, "无权管理该专题", null);
         }
-        Date cut = parseDate(before);
-        if (cut == null) {
-            return new Result<>(1, "请选择日期", null);
+        Date begin = parseDate(from);
+        Date end = endOfDay(to);
+        if (begin == null || end == null) {
+            return new Result<>(1, "请选择日期范围", null);
         }
         // 相同内容的文件只落一份盘（上传时按内容指纹命名去重），所以删之前要看清楚：
         // 留下来的消息里还有没有人指着同一个 URL。有的话只删行不删文件，否则会把别人的图删没。
-        Set<String> doomed = urlsOf(chatMapper.attachmentsOf(topicId, cut, null));
-        Set<String> surviving = urlsOf(chatMapper.attachmentsOf(topicId, null, cut));
-        doomed.removeAll(surviving);
+        Set<String> doomed = urlsOf(chatMapper.attachmentsOf(topicId, end, begin));       // 区间内
+        Set<String> surviving = new java.util.HashSet<>(urlsOf(chatMapper.attachmentsOf(topicId, begin, null)));
+        surviving.addAll(urlsOf(chatMapper.attachmentsOf(topicId, null, end)));           // 区间外（前 + 后）
+        doomed.removeAll(surviving);                                                      // 差集才是真能删的
 
         // 先删文件再删行——顺序反了就再也找不到该删哪些文件了
         int files = 0;
@@ -261,7 +355,7 @@ public class ChatController {
             }
         }
         int rows = chatMapper.delete(new QueryWrapper<TopicChatMessage>()
-                .eq("TOPIC_ID", topicId).lt("SEND_TIME", cut));
+                .eq("TOPIC_ID", topicId).ge("SEND_TIME", begin).lt("SEND_TIME", end));
         Map<String, Object> m = new HashMap<>();
         m.put("messages", rows);
         m.put("files", files);
@@ -307,7 +401,8 @@ public class ChatController {
      */
     @RequiresRole(Role.USER)
     @GetMapping("/export")
-    public void export(String topicId, HttpServletRequest request, javax.servlet.http.HttpServletResponse response)
+    public void export(String topicId, String from, String to,
+                       HttpServletRequest request, javax.servlet.http.HttpServletResponse response)
             throws java.io.IOException {
         ForumTopic t = perms.getTopic(topicId);
         if (!perms.canManage(SecUtil.getLoginUserToSession(request), t)) {
@@ -316,15 +411,27 @@ public class ChatController {
             response.getWriter().write("{\"code\":403,\"msg\":\"无权管理该专题\",\"data\":null}");
             return;
         }
-        List<TopicChatMessage> rows = chatMapper.selectList(new QueryWrapper<TopicChatMessage>()
-                .eq("TOPIC_ID", topicId).orderByAsc("SEND_TIME"));
+        // 日期是闭区间：选到 7-28 就包含 7-28 整天（也就包含到此刻为止的最新消息）。
+        // 不传 = 全量导出
+        Date begin = parseDate(from);
+        Date end = endOfDay(to);
+        QueryWrapper<TopicChatMessage> qw = new QueryWrapper<TopicChatMessage>()
+                .eq("TOPIC_ID", topicId).orderByAsc("SEND_TIME");
+        if (begin != null) {
+            qw.ge("SEND_TIME", begin);
+        }
+        if (end != null) {
+            qw.lt("SEND_TIME", end);
+        }
+        List<TopicChatMessage> rows = chatMapper.selectList(qw);
         Map<String, String> names = new HashMap<>();
         for (DreamUser u : userMapper.selectList(new QueryWrapper<DreamUser>().select("USER_ID", "USER_NICKNAME"))) {
             names.put(u.getUserId(), u.getUserNickname());
         }
 
-        String base = "chat-" + safeName(t.getName()) + "-"
-                + new java.text.SimpleDateFormat("yyyyMMdd").format(new Date());
+        String span = (begin == null && end == null) ? "全部"
+                : StringUtils.trimToEmpty(from) + "_" + StringUtils.trimToEmpty(to);
+        String base = "chat-" + safeName(t.getName()) + "-" + safeName(span);
         response.setContentType("application/zip");
         // filename* 才是带中文能正确落地的写法；filename= 留个 ASCII 兜底给老浏览器
         response.setHeader("Content-Disposition", "attachment; filename=\"" + base + ".zip\"; "
@@ -412,6 +519,24 @@ public class ChatController {
     /** 文件名里只留安全字符，中文保留（zip 内部用 UTF-8） */
     private String safeName(String s) {
         return StringUtils.trimToEmpty(s).replaceAll("[\\\\/:*?\"<>|\\s]", "_");
+    }
+
+    /**
+     * yyyy-MM-dd → **第二天** 00:00，用作右开区间的上界。
+     *
+     * 日期选择一律是「包含当天」：选到 7-28，意思是要 7-28 这一整天，
+     * 也就自然包含操作那一刻为止的最新消息。所以上界取次日零点，条件写 `< 次日零点`
+     * 而不是 `<= 当天零点`——后者会把当天整天漏掉，是这类需求最常见的错法。
+     */
+    private Date endOfDay(String s) {
+        Date d = parseDate(s);
+        if (d == null) {
+            return null;
+        }
+        java.util.Calendar c = java.util.Calendar.getInstance();
+        c.setTime(d);
+        c.add(java.util.Calendar.DAY_OF_MONTH, 1);
+        return c.getTime();
     }
 
     /** yyyy-MM-dd → 当天 00:00；解析不出来返回 null。 */

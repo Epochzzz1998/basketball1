@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Avatar, Button, Card, Empty, Input, Popconfirm, Spin, Upload, message as toast } from 'antd'
-import { ClearOutlined, DownloadOutlined, LoadingOutlined, MessageOutlined, PaperClipOutlined, PictureOutlined, SendOutlined } from '@ant-design/icons'
+import { Avatar, Button, Card, DatePicker, Empty, Input, Popconfirm, Spin, Upload, message as toast } from 'antd'
+import { CalendarOutlined, ClearOutlined, DownloadOutlined, LoadingOutlined, MessageOutlined, PaperClipOutlined, PictureOutlined, SendOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { chatApi } from '../../api/chat'
 import { newsApi } from '../../api/news'
-import { searchApi } from '../../api/search'
 import { topicApi } from '../../api/topic'
 import { subscribeRoom } from '../../realtime/pmSocket'
 import { useAuth } from '../../auth/AuthContext'
 import EmojiPicker from '../../components/EmojiPicker'
 import { compressImage } from '../../utils/image'
 import ChatPurgeModal from '../../components/ChatPurgeModal'
+import ChatExportModal from '../../components/ChatExportModal'
 
 /**
  * 专题群聊页（/news/topic/:topicId/chat）。
@@ -93,6 +93,9 @@ export default function TopicChatPage() {
   const [more, setMore] = useState(false)
   const [atOpts, setAtOpts] = useState(null)
   const [purgeOpen, setPurgeOpen] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
+  const [days, setDays] = useState(null)      // 有聊天记录的日期集合（小日历标深色）
+  const [jumped, setJumped] = useState(false) // 是否处于"跳到某天"的状态（决定要不要出"加载更新的"）
   const taRef = useRef(null)
   const endRef = useRef(null)
   const cardRef = useRef(null)
@@ -154,6 +157,12 @@ export default function TopicChatPage() {
     }
   }, [topic?.canChat, topicId, scrollToBottom])
 
+  // 哪几天有记录：小日历要拿它标深色。能进群聊的人都能查
+  useEffect(() => {
+    if (!topic?.canChat) return
+    chatApi.days(topicId).then((r) => setDays(new Set(Array.isArray(r) ? r : []))).catch(() => setDays(new Set()))
+  }, [topic?.canChat, topicId])
+
   // 实时接收
   useEffect(() => {
     if (!topic?.canChat) return undefined
@@ -188,6 +197,31 @@ export default function TopicChatPage() {
         // 往顶部插会把当前内容顶下去，按插入前的距离补回来，视觉上停在原处
         requestAnimationFrame(() => { if (el) el.scrollTop = el.scrollHeight - keep })
       }
+    } catch { /* 拦截器已提示 */ }
+  }
+
+  /** 跳到某一天的第一条。找不到当天记录时，接口给的是这一天**之后**最近的一批，不会空手而归 */
+  const jumpToDay = async (d) => {
+    if (!d) return
+    try {
+      const r = await chatApi.jumpTo(topicId, d.format('YYYY-MM-DD'))
+      const list = Array.isArray(r) ? r : []
+      setRows(list)
+      setMore(list.length > 0)   // 跳过去之后上面一定还有更早的
+      setJumped(true)
+      requestAnimationFrame(() => { if (listRef.current) listRef.current.scrollTop = 0 })
+      if (!list.length) toast.info('这一天及之后都没有记录')
+    } catch { /* 拦截器已提示 */ }
+  }
+
+  /** 往后翻一页（只有跳转之后才需要——正常进来就是停在最新那条） */
+  const loadNewer = async () => {
+    if (!rows?.length) return
+    try {
+      const r = await chatApi.newer(topicId, rows[rows.length - 1].sendTime)
+      const list = Array.isArray(r) ? r : []
+      if (!list.length) { setJumped(false); return } // 追平最新了，回到普通模式
+      setRows((prev) => [...(prev || []), ...list])
     } catch { /* 拦截器已提示 */ }
   }
 
@@ -252,7 +286,9 @@ export default function TopicChatPage() {
       return
     }
     try {
-      const list = await searchApi.mentionUsers(v.slice(at + 1))
+      // 只在**这个专题里、且能进群聊**的人里找：@ 一个根本进不来的人，
+      // 他既收不到也看不见，纯属误导
+      const list = await chatApi.mentionCandidates(topicId, v.slice(at + 1))
       setAtOpts((list || []).slice(0, 6))
     } catch {
       setAtOpts(null)
@@ -297,10 +333,33 @@ export default function TopicChatPage() {
           {/* 备份和清理只给管理者。清理会连图片附件一起删，所以入口放在导出旁边，
               顺序上先看到「导出备份」再看到「清理记录」 */}
           {topic?.canManage && (
-            <a href={chatApi.exportUrl(topicId)} style={{ color: '#666' }}>
+            <a onClick={() => setExportOpen(true)} style={{ color: '#666' }}>
               <DownloadOutlined /> 导出备份
             </a>
           )}
+          {/* 按日期查找：所有能进群聊的人都能用，不只是题主 */}
+          <DatePicker
+            size="small"
+            allowClear={false}
+            value={null}
+            placeholder="按日期查找"
+            suffixIcon={<CalendarOutlined />}
+            style={{ width: 132 }}
+            onChange={jumpToDay}
+            disabledDate={(d) => d && d > dayjs().endOf('day')}
+            cellRender={(current, info) => {
+              if (info.type !== 'date') return info.originNode
+              const has = days?.has(current.format('YYYY-MM-DD'))
+              return (
+                <div className="ant-picker-cell-inner" style={has
+                  ? { background: '#fff1e6', color: '#d4380d', fontWeight: 700, borderRadius: 4 }
+                  : undefined}
+                >
+                  {current.date()}
+                </div>
+              )
+            }}
+          />
           {topic?.canManage && (
             <a onClick={() => setPurgeOpen(true)} style={{ color: '#666' }}>
               <ClearOutlined /> 清理记录
@@ -399,6 +458,11 @@ export default function TopicChatPage() {
             })}
           </>
         )}
+        {jumped && rows?.length > 0 && (
+          <div style={{ textAlign: 'center', marginTop: 6 }}>
+            <a onClick={loadNewer} style={{ fontSize: 12, color: '#999' }}>加载更新的消息</a>
+          </div>
+        )}
         <div ref={endRef} />
         </div>
       </div>
@@ -471,6 +535,8 @@ export default function TopicChatPage() {
           </div>
         </div>
       </div>
+
+      <ChatExportModal topicId={topicId} open={exportOpen} onClose={() => setExportOpen(false)} />
 
       <ChatPurgeModal
         topicId={topicId}
