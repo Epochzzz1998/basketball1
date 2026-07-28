@@ -203,7 +203,6 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
   const [page, setPage] = useState(1)
   const [memberOpen, setMemberOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false) // 专题设置弹窗（横幅上那个小铅笔）
-  const [chatOpen, setChatOpen] = useState(false)  // 群聊抽屉
   const [cats, setCats] = useState([])            // 全站专题类别，供弹窗里的下拉用
   const [cat, setCat] = useState('all') // 帖子类别筛选：all / 类别 id / '' = 未分类
 
@@ -321,18 +320,6 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
             </div>
           </div>
           {/* 订阅（已加入的成员/管理者可见）：入侧栏"订阅的专题"折叠区 */}
-          {/* 群聊：题主开了、且我有资格进，才出现这个入口 */}
-          {isTopic && topic.canChat && (
-            <Button
-              className="banner-btn"
-              size={isMobile ? 'small' : 'middle'}
-              icon={<MessageOutlined />}
-              onClick={() => setChatOpen(true)}
-              style={{ flexShrink: 0 }}
-            >
-              群聊
-            </Button>
-          )}
           {isTopic && topic.joined && (
             <Button
               /* 订阅是个开关：没订=空心玻璃，订了=实心白底品牌色字，形状变化比文字变化显眼 */
@@ -385,6 +372,9 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
                 ...(isTopic && topic?.ownerIds?.length ? [{ label: '题主', value: '只看题主', icon: <CrownOutlined /> }] : []),
               ]}
             />
+            {/* 群聊入口：和上面那组视图切换并排，但样式刻意不一样——
+                它不是第四个"看法"，点下去是进另一个空间 */}
+            {isTopic && <TopicChat topic={topic} />}
             <span style={{ flex: 1 }} />
             {filtered != null && <span style={{ fontSize: 13, color: '#999' }}>{filtered.length} 篇</span>}
           </div>
@@ -491,11 +481,6 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
             </Button>
           </div>
         </>
-      )}
-
-      {/* 群聊抽屉：所有能进的人都要，所以不在下面 canManage 那一块里 */}
-      {isTopic && topic.canChat && (
-        <TopicChat topic={topic} open={chatOpen} onClose={() => setChatOpen(false)} />
       )}
 
       {isTopic && topic.canManage && (

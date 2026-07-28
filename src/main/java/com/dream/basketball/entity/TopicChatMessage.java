@@ -35,6 +35,42 @@ public class TopicChatMessage extends Model<TopicChatMessage> implements Seriali
     @TableField("SEND_TIME")
     private Date sendTime;
 
+    /** '1' = 已撤回。撤回不删行：留着才知道"这里本来有条消息"，也便于日后追查 */
+    @TableField("RECALLED")
+    private String recalled;
+
+    /** @ 到的人，JSON [{"id","name"}]，与评论的 MENTIONS 同构，渲染高亮和发通知都用它 */
+    @TableField("MENTIONS")
+    private String mentions;
+
+    /** 图片消息的 URL；纯图片消息 CONTENT 为空串 */
+    @TableField("IMAGE_URL")
+    private String imageUrl;
+
+    public String getRecalled() {
+        return recalled;
+    }
+
+    public void setRecalled(String recalled) {
+        this.recalled = recalled;
+    }
+
+    public String getMentions() {
+        return mentions;
+    }
+
+    public void setMentions(String mentions) {
+        this.mentions = mentions;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
+    }
+
     public String getMsgId() {
         return msgId;
     }

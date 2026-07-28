@@ -38,6 +38,9 @@ public class Constants {
     /** @-mention inside a post body (someone @'d you in a news/forum post) */
     public static final String MENTION_NEWS = "mentionNews";
 
+    /** 群聊里被 @ 到（msgId 存专题 id，点开直接进那个专题） */
+    public static final String MENTION_CHAT = "mentionChat";
+
     /** a schedule event was assigned to you (immediate, from the event creator) */
     public static final String SCHEDULE_ASSIGN = "scheduleAssign";
 

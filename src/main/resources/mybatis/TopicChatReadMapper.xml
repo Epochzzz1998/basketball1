@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dream.basketball.mapper.TopicChatReadMapper">
+
+    <!-- 已读游标只进不退：同一行重复写时取较大的时间，避免"翻旧历史"把游标推回去 -->
+    <insert id="upsert">
+        insert into topic_chat_read (USER_ID, TOPIC_ID, LAST_READ)
+        values (#{userId}, #{topicId}, #{lastRead})
+        on duplicate key update LAST_READ = greatest(LAST_READ, values(LAST_READ))
+    </insert>
+</mapper>

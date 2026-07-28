@@ -14,7 +14,7 @@ const stripHtml = (s) => (s || '').replace(/<[^>]+>/g, '')
 // 点赞/点踩帖子类消息 msgId=帖子 id；评论类（含评论里@）msgId=评论 id、msgIdSecond=帖子 id
 const COMMENT_TYPES = ['goodComment', 'badComment', 'commentComment', 'mentionComment']
 // 专题类消息 msgId=专题 id，点进去跳专题页
-const TOPIC_TYPES = ['topicApply', 'topicApproved', 'topicRejected']
+const TOPIC_TYPES = ['topicApply', 'topicApproved', 'topicRejected', 'mentionChat']
 // 日程类：remind 的 msgId=日期；assign 的 msgId=事件id、msgIdSecond=日期。点进日历对应那天（顺便标已读）
 const SCHEDULE_TYPES = ['scheduleAssign', 'scheduleRemind', 'scheduleOverdue', 'scheduleExpiry']
 const newsIdOf = (m) => (COMMENT_TYPES.includes(m.msgType) ? m.msgIdSecond : m.msgId)
@@ -43,6 +43,7 @@ const actionTextOf = (m) => {
     case 'commentComment': return t ? `回复了您在${t}下的评论` : '回复了您的评论'
     case 'mentionComment': return t ? `在${t}的评论里@了您` : '在评论里@了您'
     case 'mentionNews': return t ? `在帖子${t}里@了您` : '在帖子里@了您'
+    case 'mentionChat': return '在专题群聊里@了您'
     case 'follow': return '关注了你'
     case 'topicApply': return `申请加入你的专题${m.content ? `「${m.content}」` : ''}`
     case 'topicApproved': return `通过了你加入${m.content ? `「${m.content}」` : '专题'}的申请`
