@@ -105,6 +105,7 @@ export default function TopicChatPage() {
   const cardRef = useRef(null)
   const listRef = useRef(null)
   const [height, setHeight] = useState(null) // 聊天卡的高度：撑到屏幕底部
+  const [kbInset, setKbInset] = useState(0)  // 软键盘吃掉的那一截高度（移动端），输入区靠它抬起来
 
   /**
    * 是否"黏"在底部。真值时新消息进来自动滚到底；用户手动往上翻（或跳到某天）就置假，
@@ -139,23 +140,25 @@ export default function TopicChatPage() {
    *
    * 依赖里带上 height，就是为了让"高度量出来"这一次也重新滚一遍。
    */
-  useLayoutEffect(() => {
-    if (!rows || !stickRef.current) return
-    if (isMobile) {
-      // 移动端没有内层滚动容器，滚的是整页
-      endRef.current?.scrollIntoView({ block: 'end' })
-      return
-    }
+  /**
+   * 滚到最新那条。移动端滚的是整页（滚到底就行——底下垫了键盘那么高的空白，
+   * 滚到底之后最后一条正好落在输入框上方）；PC 端滚的是消息区自己。
+   */
+  const toBottom = () => {
+    if (isMobile) { window.scrollTo(0, document.documentElement.scrollHeight); return }
     const el = listRef.current
     if (el) el.scrollTop = el.scrollHeight
-  }, [rows, height, isMobile])
+  }
+
+  useLayoutEffect(() => {
+    if (!rows || !stickRef.current) return
+    toBottom()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, height, kbInset, isMobile])
 
   /** 图片是异步加载的，加载完内容会变高，黏底状态下要再滚一次 */
   const onMediaLoad = () => {
-    if (!stickRef.current) return
-    if (isMobile) { endRef.current?.scrollIntoView({ block: 'end' }); return }
-    const el = listRef.current
-    if (el) el.scrollTop = el.scrollHeight
+    if (stickRef.current) toBottom()
   }
 
   /**
@@ -180,6 +183,48 @@ export default function TopicChatPage() {
     window.addEventListener('resize', fit)
     return () => window.removeEventListener('resize', fit)
   }, [loading, isMobile])
+
+  /**
+   * 量软键盘占掉多高，输入区靠它抬起来。
+   *
+   * 输入区是 `position: sticky; bottom: 0`，而 sticky 的 bottom 量的是**布局视口**的底边。
+   * iOS 弹键盘时布局视口一点没变矮，只是可视视口被压短了——那条"底边"于是落在键盘背面。
+   * 结果就是：页面停在最底时还能看见输入框（那是它的自然位置），一往上翻 sticky 生效，
+   * 输入框就沉到键盘后面去了。
+   *
+   * 所以把这条线抬高键盘那一截：
+   *   innerHeight（布局视口高）- visualViewport.height - visualViewport.offsetTop
+   * 键盘收起时算出来是 0，sticky 退回 bottom:0，和没这段代码时一模一样。
+   *
+   * 两个刻意的选择：
+   * - **量 visualViewport 报的数，不猜键盘高度**，所以换输入法、带候选栏、转屏都跟得上；
+   * - **用 sticky 不用 fixed**：iOS 上 fixed 元素在可视视口滚动期间会自己漂移，
+   *   sticky 挂在文档滚动上，稳。
+   *
+   * 小于 80px 的差值当成浏览器地址栏伸缩，不算键盘（键盘再矮也有两百多）。
+   */
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!isMobile || !vv) { setKbInset(0); return undefined }
+    let raf = 0
+    const sync = () => {
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(() => {
+        const gap = Math.round(window.innerHeight - vv.height - vv.offsetTop)
+        const next = gap > 80 ? gap : 0
+        // 差几个像素就不重渲染了，页面滚动时 visualViewport 也会一直报 scroll
+        setKbInset((prev) => (Math.abs(prev - next) < 4 ? prev : next))
+      })
+    }
+    sync()
+    vv.addEventListener('resize', sync)
+    vv.addEventListener('scroll', sync)
+    return () => {
+      cancelAnimationFrame(raf)
+      vv.removeEventListener('resize', sync)
+      vv.removeEventListener('scroll', sync)
+    }
+  }, [isMobile])
 
   useEffect(() => {
     let alive = true
@@ -467,7 +512,9 @@ export default function TopicChatPage() {
         ref={listRef}
         onScroll={onListScroll}
         style={isMobile
-          ? { padding: '16px 16px 8px' }                                  // 移动端：跟着整页滚
+          // 移动端：跟着整页滚。底下额外垫出键盘那么高的空白——输入区被抬起来之后
+          // 会盖住它上面的 kbInset 像素，不垫的话最后一条消息就被压在输入框底下了
+          ? { padding: `16px 16px ${8 + kbInset}px` }
           : { flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 16px 8px' }}
       >
         <div>
@@ -566,11 +613,13 @@ export default function TopicChatPage() {
         </div>
       </div>
 
-      {/* 输入区：PC 固定在卡片底部；移动端 sticky 贴在视口底，跟着页面走 */}
+      {/* 输入区：PC 固定在卡片底部；移动端 sticky 贴在**可视**视口底（bottom 抬过键盘高度） */}
       <div style={{
         flexShrink: 0, background: '#fff', borderTop: '1px solid #f0f0f0',
-        ...(isMobile ? { position: 'sticky', bottom: 0, zIndex: 2 } : null),
-        padding: '8px 12px calc(10px + env(safe-area-inset-bottom))',
+        ...(isMobile ? { position: 'sticky', bottom: kbInset, zIndex: 2 } : null),
+        padding: kbInset
+          ? '8px 12px 10px'                                     // 键盘顶着的时候没有 home 条，不用留安全区
+          : '8px 12px calc(10px + env(safe-area-inset-bottom))',
         borderBottomLeftRadius: 14, borderBottomRightRadius: 14,
       }}>
         <div style={{ position: 'relative' }}>
