@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ProTable } from '@ant-design/pro-components'
 import { Empty, Select } from 'antd'
 import { playerApi } from '../../api/player'
@@ -8,7 +9,7 @@ import { seasonShort, seasonYearLabel } from './rankConfig'
 import { ROUND_LABEL, SEASON_TYPE } from './gameLogConfig'
 import { compactColumns, sumColWidth } from './statColumns'
 
-function buildColumns(seasonType, isMobile) {
+function buildColumns(seasonType, isMobile, openGame) {
   const cols = [
     { title: '日期', dataIndex: 'gameDate', width: 92, fixed: 'left', render: (v) => String(v || '').slice(5) },
     // 轮次只对季后赛有意义，常规赛行的 ROUND 是 NULL
@@ -23,13 +24,24 @@ function buildColumns(seasonType, isMobile) {
       ),
     },
     {
+      // 结果这一格点得动：跳到这场比赛的详情（两队完整 box score + 每节得分）。
+      // 挂在这一列是因为比分本来就在这儿——"想知道这场到底怎么打的"就是看着比分产生的念头。
+      // 没有 gameId 的行（理论上不该有）退回纯文本，不给一个点不动的链接
       title: '结果', dataIndex: 'win', width: 84,
-      render: (v, r) => (
-        <span style={{ whiteSpace: 'nowrap' }}>
-          <b style={{ color: Number(v) ? '#52c41a' : '#ff4d4f' }}>{Number(v) ? '胜' : '负'}</b>
-          <span style={{ color: '#999', marginLeft: 4 }}>{r.teamScore}-{r.oppScore}</span>
-        </span>
-      ),
+      render: (v, r) => {
+        const body = (
+          <>
+            <b style={{ color: Number(v) ? '#52c41a' : '#ff4d4f' }}>{Number(v) ? '胜' : '负'}</b>
+            <span style={{ marginLeft: 4 }}>{r.teamScore}-{r.oppScore}</span>
+          </>
+        )
+        if (!r.gameId) return <span style={{ whiteSpace: 'nowrap', color: '#999' }}>{body}</span>
+        return (
+          <a onClick={() => openGame(r.gameId)} title="查看这场比赛" style={{ whiteSpace: 'nowrap' }}>
+            {body}
+          </a>
+        )
+      },
     },
     { title: '首发', dataIndex: 'starter', width: 48, render: (v) => (Number(v) ? '✓' : '-') },
     { title: '时间', dataIndex: 'playingTime', width: 48 },
@@ -61,6 +73,7 @@ function buildColumns(seasonType, isMobile) {
  */
 export default function GameLogTable({ playerId, seasonType, seasons }) {
   const isMobile = useIsMobile()
+  const navigate = useNavigate()
   const [season, setSeason] = useState(seasons?.[0]?.seasonNum ?? null)
   const [rows, setRows] = useState(null)
 
@@ -80,7 +93,7 @@ export default function GameLogTable({ playerId, seasonType, seasons }) {
 
   if (!seasons?.length) return <Empty description="该球员暂无逐场数据" />
 
-  const cols = buildColumns(seasonType, isMobile)
+  const cols = buildColumns(seasonType, isMobile, (gameId) => navigate(`/games/${gameId}`))
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>

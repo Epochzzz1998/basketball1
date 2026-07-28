@@ -474,8 +474,11 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied, n
       </Row>
       )}
 
-      {/* 移动端：发帖按钮固定在屏幕底部（新用户不用翻到页尾找入口）；占位块防止最后的内容被盖住。PC 端不变 */}
-      {isMobile && canPost && (
+      {/* 移动端：发帖按钮固定在屏幕底部（新用户不用翻到页尾找入口）；占位块防止最后的内容被盖住。PC 端不变。
+          选中了 NBA 分区就不出——那几页是数据看板，底下压一个"发帖"既没处发（帖子发到讨论区去了，
+          不在你正看的这一页），还盖住内容。回讨论区自然就回来了。
+          PC 端不受影响：那边的发帖引导在右栏，而 NBA 分区本来就不渲染右栏 */}
+      {isMobile && canPost && !renderNbaSection && (
         <>
           <div style={{ height: 68 }} />
           <div
