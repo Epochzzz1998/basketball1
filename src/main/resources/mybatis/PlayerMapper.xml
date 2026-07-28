@@ -255,6 +255,20 @@
         select date_format(max(GAME_DATE), '%Y-%m-%d') from player_game_stats
     </select>
 
+    <!-- 相邻的比赛日。左右箭头要跳到**真正有比赛**的那天，不是机械减一天——
+         休赛期能连点四个月都是空的。放在 SQL 里做而不是前端在"当月的比赛日"里找下一个：
+         那样跨不过月份边界，月初月末的箭头会莫名其妙点不动。
+         两条各写一条，不做动态拼运算符。GAME_DATE 上有单列索引，这两句是索引端点读取。 -->
+    <select id="findPrevGameDate" resultType="java.lang.String">
+        select date_format(max(GAME_DATE), '%Y-%m-%d') from player_game_stats
+        where GAME_DATE &lt; #{gameDate}
+    </select>
+
+    <select id="findNextGameDate" resultType="java.lang.String">
+        select date_format(min(GAME_DATE), '%Y-%m-%d') from player_game_stats
+        where GAME_DATE &gt; #{gameDate}
+    </select>
+
     <!-- 某个月哪几天有比赛：日期选择器据此标记，避免用户一天天点空 -->
     <select id="findGameDates" resultType="java.lang.String">
         select distinct date_format(GAME_DATE, '%Y-%m-%d')

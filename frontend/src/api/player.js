@@ -39,6 +39,8 @@ export const playerApi = {
   gamesByDate: (date) => http.get('/player/gamesByDate', { params: { date } }),
   // 有比赛的最后一天：逐场数据还在回补，"今天"多半没有比赛，页面默认落在这天
   latestGameDate: () => http.get('/player/latestGameDate'),
+  // 某天前后相邻的**比赛日** { prev, next }，左右箭头据此翻页并决定灰不灰
+  adjacentGameDates: (date) => http.get('/player/adjacentGameDates', { params: { date } }),
   // 某个月哪几天有比赛（yyyy-MM），日期选择器据此标记
   gameDates: (month) => http.get('/player/gameDates', { params: { month } }),
   // 单场详情：比赛信息 + 每节得分 + 两队球员 + 两队合计

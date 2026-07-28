@@ -109,6 +109,15 @@ public class PlayerServiceImpl extends ServiceImpl<PlayerMapper, DreamPlayer> im
     }
 
     @Override
+    public Map<String, Object> findAdjacentGameDates(String gameDate) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        // 两头都给出来，前端据此决定箭头灰不灰；到头的一端是 null
+        out.put("prev", StringUtils.isBlank(gameDate) ? null : baseMapper.findPrevGameDate(gameDate));
+        out.put("next", StringUtils.isBlank(gameDate) ? null : baseMapper.findNextGameDate(gameDate));
+        return out;
+    }
+
+    @Override
     public List<String> findGameDates(String begin, String end) {
         return StringUtils.isAnyBlank(begin, end) ? new ArrayList<>() : baseMapper.findGameDates(begin, end);
     }

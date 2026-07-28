@@ -263,6 +263,16 @@ public class PlayerController extends BaseUtils {
         return new Result<>(0, "成功", playerService.findGamesByDate(StringUtils.trimToEmpty(date)));
     }
 
+    /**
+     * 某天前后相邻的**比赛日**（公开）：{prev, next}，到头的一端为 null。
+     * 左右箭头用它翻页——机械地减一天，在休赛期能连点四个月都是空的。
+     */
+    @GetMapping("/adjacentGameDates")
+    public Object adjacentGameDates(String date) {
+        return new Result<>(0, "成功",
+                playerService.findAdjacentGameDates(StringUtils.trimToEmpty(date)));
+    }
+
     /** 有比赛的最后一天（公开）。每日赛场默认落在这天，而不是今天。 */
     @GetMapping("/latestGameDate")
     public Object latestGameDate() {

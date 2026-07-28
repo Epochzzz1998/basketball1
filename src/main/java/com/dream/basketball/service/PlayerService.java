@@ -47,6 +47,9 @@ public interface PlayerService extends IService<DreamPlayer> {
     /** 有比赛的最后一天；库里一场都没有时返回 null。 */
     String findLatestGameDate();
 
+    /** 某天前后相邻的比赛日：{prev, next}，到头的一端为 null。 */
+    Map<String, Object> findAdjacentGameDates(String gameDate);
+
     /** 某个月有比赛的日期，右开区间 [begin, end)。 */
     List<String> findGameDates(String begin, String end);
 

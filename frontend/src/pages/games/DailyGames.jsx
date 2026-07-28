@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Card, DatePicker, Empty, Segmented, Spin, Tag } from 'antd'
-import { LeftOutlined, RightOutlined } from '@ant-design/icons'
-import dayjs from 'dayjs'
+import { Card, Empty, Spin, Tag } from 'antd'
 import { playerApi } from '../../api/player'
 import TeamLogo, { TeamNames } from '../../components/TeamLogo'
 import useIsMobile from '../../hooks/useIsMobile'
+import GameDayNav from './GameDayNav'
 import { seasonYearLabel } from '../players/rankConfig'
 
 const BRAND = '#fa541c'
@@ -64,19 +63,8 @@ export default function DailyGames() {
     return () => { alive = false }
   }, [month])
 
-  // 有比赛的日子里，当前这天的前一天/后一天（跳到真正有内容的日期，不是机械 ±1 天）
-  const sorted = useMemo(() => [...(days || [])].sort(), [days])
-  const step = (dir) => {
-    const i = sorted.indexOf(date)
-    if (i < 0) return null
-    return sorted[i + dir] || null
-  }
-
   if (!date) return <Spin style={{ display: 'block', margin: '80px auto' }} size="large" />
 
-  const d = dayjs(date)
-  const prev = step(-1)
-  const next = step(1)
 
   return (
     <>
@@ -86,37 +74,9 @@ export default function DailyGames() {
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <span style={{ fontWeight: 800, fontSize: isMobile ? 18 : 20 }}>每日赛场</span>
-          <DatePicker
-            value={d}
-            onChange={(v) => v && setDate(v.format('YYYY-MM-DD'))}
-            allowClear={false}
-            inputReadOnly={isMobile}
-            style={{ width: isMobile ? 150 : 176 }}
-            cellRender={(current, info) => {
-              if (info.type !== 'date') return info.originNode
-              const has = days?.has(current.format('YYYY-MM-DD'))
-              return (
-                <div className="ant-picker-cell-inner" style={has
-                  ? { background: '#fff1e6', color: '#d4380d', fontWeight: 700, borderRadius: 4 }
-                  : undefined}
-                >
-                  {current.date()}
-                </div>
-              )
-            }}
-          />
-          {/* 上一/下一个**有比赛的日子**，不是机械减一天——休赛期点十几下都是空的 */}
-          <Segmented
-            size="small"
-            value=""
-            onChange={(v) => setDate(v === 'prev' ? prev : next)}
-            options={[
-              { value: 'prev', disabled: !prev, label: <span><LeftOutlined /> 上一日</span> },
-              { value: 'next', disabled: !next, label: <span>下一日 <RightOutlined /></span> },
-            ]}
-          />
+          <GameDayNav date={date} onChange={setDate} days={days} />
           <span style={{ color: '#999', fontSize: 13, marginLeft: 'auto' }}>
-            {d.format('M 月 D 日')} · {rows === null ? '…' : `${rows.length} 场`}
+            {rows === null ? '…' : `${rows.length} 场`}
           </span>
         </div>
       </Card>

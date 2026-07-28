@@ -56,6 +56,12 @@ public interface PlayerMapper extends BaseMapper<DreamPlayer> {
     /** The most recent date with any game; the daily page defaults there, not to today. */
     String findLatestGameDate();
 
+    /** Nearest earlier date with a game, or null at the start of the data. */
+    String findPrevGameDate(@Param("gameDate") String gameDate);
+
+    /** Nearest later date with a game, or null at the end of the data. */
+    String findNextGameDate(@Param("gameDate") String gameDate);
+
     /** Dates carrying at least one game, over the half-open range [begin, end). */
     List<String> findGameDates(@Param("begin") String begin, @Param("end") String end);
 
