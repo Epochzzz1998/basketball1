@@ -36,6 +36,7 @@ import java.util.Map;
 
 import static com.dream.basketball.utils.Constants.NEWS_CHANNEL_FORUM;
 import static com.dream.basketball.utils.Constants.NEWS_CHANNEL_OFFICIAL;
+import static com.dream.basketball.utils.Constants.NEWS_MODULE_ENABLED;
 import static com.dream.basketball.utils.Constants.NO_ANCHOR;
 
 /**
@@ -86,6 +87,10 @@ public class NewsController extends BaseUtils {
         DreamUser me = SecUtil.getLoginUserToSession(request);
         // 全局限制：被禁止浏览的登录用户看不到论坛/新闻
         if (me != null && !userPerms.canBrowse(me.getUserId())) {
+            return handlerSuccessPageJson(0, "成功", 0, java.util.Collections.emptyList());
+        }
+        // 官方新闻整站关闭中：这个频道不返回任何内容（前端已藏入口，这里挡直连）
+        if (!NEWS_MODULE_ENABLED && NEWS_CHANNEL_OFFICIAL.equals(param.getNewsChannel())) {
             return handlerSuccessPageJson(0, "成功", 0, java.util.Collections.emptyList());
         }
         if (StringUtils.isNotBlank(param.getTopicId())) {
@@ -174,6 +179,11 @@ public class NewsController extends BaseUtils {
             return new Result<>(1, "你已被限制浏览论坛/新闻", null);
         }
         com.dream.basketball.esEntity.News news = newsService.getNewsShow(newsId);
+        // 官方新闻整站关闭中：直接按不存在处理（老链接、收藏夹里的地址都进不去）
+        if (!NEWS_MODULE_ENABLED && news != null
+                && NEWS_CHANNEL_OFFICIAL.equals(news.getNewsChannel())) {
+            return new Result<>(1, "该内容暂不可见", null);
+        }
         // 专题帖：无浏览权直接拒（防私密专题内容泄露）
         if (news != null && StringUtils.isNotBlank(news.getTopicId())
                 && !topicPerms.canView(SecUtil.getLoginUserToSession(request), topicPerms.getTopic(news.getTopicId()))) {
@@ -422,6 +432,9 @@ public class NewsController extends BaseUtils {
             // and must belong to a topic the user is allowed to post in.
             boolean official = StringUtils.equals(NEWS_CHANNEL_OFFICIAL, news.getNewsChannel());
             if (official) {
+                if (!NEWS_MODULE_ENABLED) {
+                    return handlerResultJson(false, "官方新闻已暂时关闭");
+                }
                 if (!isManager) {
                     return handlerResultJson(false, "只有管理员可以发布官方新闻！");
                 }

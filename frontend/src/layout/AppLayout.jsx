@@ -121,12 +121,12 @@ export default function AppLayout() {
     if (authLoading || !user || user.isSuperManager) return
     const p = location.pathname
     const blocked =
-      (user.featNews === false && p.startsWith('/official')) ||
+      (!canUse('featNews') && p.startsWith('/official')) ||
       (user.featForum === false && p.startsWith('/news')) ||
       (user.featPm === false && p.startsWith('/messages')) ||
       (user.featSchedule === false && p.startsWith('/schedule'))
     if (blocked) navigate('/', { replace: true })
-  }, [location.pathname, user, authLoading, navigate])
+  }, [location.pathname, user, authLoading, canUse, navigate])
 
   // 耿阿姨烤串按店内角色（bbqRole）而非功能开关：台账店内成员皆可（店员只见自己的数据），
   // 其余页面店长专属。超管也不豁免——想看就到用户管理里任命自己当店长（后端逐接口校验，这里只是少一次白屏）。

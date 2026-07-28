@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { authApi } from '../api/auth'
 import { remarkApi } from '../api/remark'
+import { NEWS_MODULE_ENABLED } from '../config/modules'
 
 /**
  * 全局登录态：用 React 自带的 Context 在整棵组件树里共享"当前用户"，
@@ -82,6 +83,10 @@ export function AuthProvider({ children }) {
   // 超管一律放行（否则管不了自己关掉的模块）。
   const OPT_IN_FEATURES = new Set(['featData'])
   const canUse = (flag) => {
+    // 全站关掉的模块，谁都别想用，超管也一样（见 config/modules.js）
+    if (flag === 'featNews' && !NEWS_MODULE_ENABLED) {
+      return false
+    }
     if (OPT_IN_FEATURES.has(flag)) {
       return !!user && (user.isSuperManager || user[flag] === true)
     }

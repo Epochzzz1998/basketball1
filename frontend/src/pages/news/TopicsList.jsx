@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Button, Card, Col, Empty, Popconfirm, Row, Spin, Tag, message } from 'antd'
+import { Button, Card, Col, Empty, Input, Popconfirm, Row, Spin, Tag, message } from 'antd'
 import {
   AppstoreOutlined, DeleteOutlined, EditOutlined, EyeInvisibleOutlined, LockOutlined, PlusOutlined, PushpinFilled,
-  PushpinOutlined, RightOutlined, TeamOutlined, UnlockOutlined,
+  PushpinOutlined, RightOutlined, SearchOutlined, TeamOutlined, UnlockOutlined,
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { topicApi } from '../../api/topic'
@@ -33,6 +33,7 @@ export default function TopicsList() {
   const [cats, setCats] = useState([])       // 全站专题类别（超管配）
   const [catOpen, setCatOpen] = useState(false)
   const [cat, setCat] = useState('all')      // 当前筛选：all / 类别 id / '' = 未分类
+  const [kw, setKw] = useState('')           // 专题搜索关键词
 
   const load = useCallback(() => {
     setTopics(null)
@@ -62,8 +63,12 @@ export default function TopicsList() {
 
   const shown = useMemo(() => {
     if (!topics) return null
-    return cat === 'all' ? topics : topics.filter((t) => (t.categoryId || '') === cat)
-  }, [topics, cat])
+    const hit = cat === 'all' ? topics : topics.filter((t) => (t.categoryId || '') === cat)
+    const k = kw.trim().toLowerCase()
+    if (!k) return hit
+    // 专题名 + 简介 + 类别名一起匹配（列表已全量在手，纯前端筛）
+    return hit.filter((t) => `${t.name || ''}${t.description || ''}${t.categoryName || ''}`.toLowerCase().includes(k))
+  }, [topics, cat, kw])
 
   const enter = (t) => {
     if (t.locked) return message.info('该专题为私密专题，你没有浏览权限')
@@ -113,6 +118,20 @@ export default function TopicsList() {
             </Button>
           )}
         </div>
+      </div>
+
+      {/* 搜索 + 类别筛选：与专题内帖子流的工具条同一套外观 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
+        <Input
+          allowClear
+          prefix={<SearchOutlined style={{ color: '#bbb' }} />}
+          placeholder="搜索专题名 / 简介 / 类别"
+          value={kw}
+          onChange={(e) => setKw(e.target.value)}
+          style={{ maxWidth: 260, borderRadius: 10 }}
+        />
+        <span style={{ flex: 1 }} />
+        {shown != null && <span style={{ fontSize: 13, color: '#999' }}>{shown.length} 个专题</span>}
       </div>
 
       <CategoryFilter options={catOptions} value={cat} onChange={setCat} />
@@ -205,8 +224,8 @@ export default function TopicsList() {
         </Row>
       ) : (
         <Card style={{ borderRadius: 14 }}>
-          <Empty description={cat === 'all' ? '还没有专题' : '这个类别下还没有专题'}>
-            {user && cat === 'all' && <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>新建专题</Button>}
+          <Empty description={kw ? '没有匹配的专题' : cat === 'all' ? '还没有专题' : '这个类别下还没有专题'}>
+            {user && cat === 'all' && !kw && <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>新建专题</Button>}
           </Empty>
         </Card>
       )}

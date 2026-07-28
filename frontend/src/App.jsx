@@ -4,6 +4,7 @@ import { useAuth } from './auth/AuthContext'
 import ProtectedRoute from './router/ProtectedRoute'
 import FeatureRoute from './router/FeatureRoute'
 import RoleRoute from './router/RoleRoute'
+import { NEWS_MODULE_ENABLED } from './config/modules'
 import Login from './pages/Login'
 import Home from './pages/Home'
 import Forbidden from './pages/Forbidden'
@@ -85,7 +86,8 @@ export default function App() {
         </Route>
 
         {/* 公开浏览 */}
-        <Route path="official" element={<NewsList channel="official" />} />
+        {/* 官方新闻整站关闭中（config/modules.js）：直连也进不去，直接弹回首页 */}
+        <Route path="official" element={NEWS_MODULE_ENABLED ? <NewsList channel="official" /> : <Navigate to="/" replace />} />
         {/* 百家说：现在是专题列表；点进单个专题看帖流 */}
         <Route path="news" element={<TopicsList />} />
         <Route path="news/topic/:topicId" element={<TopicPosts />} />

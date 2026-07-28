@@ -228,8 +228,9 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
     if (rows === null) return null
     const k = kw.trim().toLowerCase()
     let hit = k
-      // 作者既按真名也按备注名匹配：页面上显示的是备注名，搜不到会很困惑
-      ? rows.filter((p) => `${p.title || ''}${p.author || ''}${dn(p.authorId, '') || ''}`.toLowerCase().includes(k))
+      // 作者既按真名也按备注名匹配：页面上显示的是备注名，搜不到会很困惑。
+      // 标签也一起匹配——按球队标签找帖子是最常见的用法
+      ? rows.filter((p) => `${p.title || ''}${p.author || ''}${dn(p.authorId, '') || ''}${p.tags || ''}`.toLowerCase().includes(k))
       : rows
     // 类别：题主配的那几项，帖子记的是 id（列表已全量在手，纯前端筛）
     if (cat !== 'all') hit = hit.filter((p) => (p.categoryId || '') === cat)
@@ -354,7 +355,7 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
             <Input
               allowClear
               prefix={<SearchOutlined style={{ color: '#bbb' }} />}
-              placeholder="搜索标题 / 作者"
+              placeholder="搜索标题 / 作者 / 标签"
               value={kw}
               onChange={(e) => { setKw(e.target.value); setPage(1) }}
               style={{ maxWidth: 260, borderRadius: 10 }}
@@ -437,9 +438,12 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
                 <TopicApplyButton topic={topic} onApplied={onApplied} block />
               </Card>
             )}
-            <Link to={official ? '/news' : '/official'} style={{ color: '#888', fontSize: 13, textAlign: 'center' }}>
-              去{official ? '百家说' : '官方新闻'}逛逛 <RightOutlined style={{ fontSize: 10 }} />
-            </Link>
+            {/* 官方新闻整站关掉时，这条互指的链接也别渲染，免得点进去被弹回来 */}
+            {(official || NEWS_MODULE_ENABLED) && (
+              <Link to={official ? '/news' : '/official'} style={{ color: '#888', fontSize: 13, textAlign: 'center' }}>
+                去{official ? '百家说' : '官方新闻'}逛逛 <RightOutlined style={{ fontSize: 10 }} />
+              </Link>
+            )}
           </div>
         </Col>
       </Row>

@@ -73,7 +73,9 @@ public class SearchController {
         // NBA 是「默认关、超管放行」，与下面两项相反：未登录也搜不到球员（模块本身就不对游客开放）
         boolean featData = isSuper || com.dream.basketball.config.Feature.NBA_DATA.granted(meFresh);
         boolean featForum = meFresh == null || isSuper || !"0".equals(meFresh.getFeatForum()); // 百家说：论坛帖
-        boolean featNews = meFresh == null || isSuper || !"0".equals(meFresh.getFeatNews());   // 新闻：官方资讯
+        // 官方新闻整站关闭中：不管谁搜都不返回（Constants.NEWS_MODULE_ENABLED）
+        boolean featNews = com.dream.basketball.utils.Constants.NEWS_MODULE_ENABLED
+                && (meFresh == null || isSuper || !"0".equals(meFresh.getFeatNews()));
 
         // 球员：按名字模糊（仅当 Dream Union 对本人开放）。
         // PLAYER_NAME 已汉化、NAME_EN 存英文名——两列都命中，中英文都能搜到

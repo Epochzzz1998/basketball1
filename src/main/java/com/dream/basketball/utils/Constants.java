@@ -76,4 +76,11 @@ public class Constants {
     public static final String NEWS_CHANNEL_OFFICIAL = "official";
 
     public static final String NEWS_CHANNEL_FORUM = "forum";
+
+    /**
+     * 官方新闻模块的全站开关（暂时关闭）。关掉后官方频道的读写接口一律不响应，
+     * 已有的官方帖留在库里、只是没人看得到。前端有一份同名开关（config/modules.js）
+     * 负责藏菜单和拦路由，两边要一起改。
+     */
+    public static final boolean NEWS_MODULE_ENABLED = false;
 }
