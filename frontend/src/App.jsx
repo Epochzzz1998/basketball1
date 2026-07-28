@@ -25,6 +25,7 @@ import PlayerStatsManage from './pages/players/PlayerStatsManage'
 import NewsList from './pages/news/NewsList'
 import TopicsList from './pages/news/TopicsList'
 import TopicPosts from './pages/news/TopicPosts'
+import TopicChatPage from './pages/news/TopicChatPage'
 import NewsDetail from './pages/news/NewsDetail'
 import NewsEdit from './pages/news/NewsEdit'
 import MyMessages from './pages/user/MyMessages'
@@ -91,6 +92,8 @@ export default function App() {
         {/* 百家说：现在是专题列表；点进单个专题看帖流 */}
         <Route path="news" element={<TopicsList />} />
         <Route path="news/topic/:topicId" element={<TopicPosts />} />
+        {/* 专题群聊：一张普通页面而不是浮层——浮层在移动端和软键盘打架 */}
+        <Route path="news/topic/:topicId/chat" element={<ProtectedRoute><TopicChatPage /></ProtectedRoute>} />
         {/* 发帖/编辑：登录即可；论坛发帖须带 ?topicId（后端按专题权限校验） */}
         <Route path="news/new" element={<ProtectedRoute><NewsEdit /></ProtectedRoute>} />
         <Route path="news/edit/:newsId" element={<ProtectedRoute><NewsEdit /></ProtectedRoute>} />
