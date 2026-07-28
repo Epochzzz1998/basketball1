@@ -227,7 +227,7 @@ public class ChatController {
         Map<String, Object> m = new HashMap<>();
         m.put("count", chatMapper.selectCount(new QueryWrapper<TopicChatMessage>()
                 .eq("TOPIC_ID", topicId).lt("SEND_TIME", cut)));
-        m.put("files", chatMapper.attachmentsOf(topicId, cut).size());
+        m.put("files", urlsOf(chatMapper.attachmentsOf(topicId, cut, null)).size());
         return new Result<>(0, "成功", m);
     }
 
@@ -246,14 +246,18 @@ public class ChatController {
         if (cut == null) {
             return new Result<>(1, "请选择日期", null);
         }
-        // 先按 URL 找到文件再删行——顺序反了就再也找不到该删哪些文件了
+        // 相同内容的文件只落一份盘（上传时按内容指纹命名去重），所以删之前要看清楚：
+        // 留下来的消息里还有没有人指着同一个 URL。有的话只删行不删文件，否则会把别人的图删没。
+        Set<String> doomed = urlsOf(chatMapper.attachmentsOf(topicId, cut, null));
+        Set<String> surviving = urlsOf(chatMapper.attachmentsOf(topicId, null, cut));
+        doomed.removeAll(surviving);
+
+        // 先删文件再删行——顺序反了就再也找不到该删哪些文件了
         int files = 0;
-        for (Map<String, Object> row : chatMapper.attachmentsOf(topicId, cut)) {
-            for (String key : new String[]{"imageUrl", "fileUrl"}) {
-                java.io.File f = FileUtils.resolveUploadFile(uploadPath, (String) row.get(key));
-                if (f != null && f.delete()) {
-                    files++;
-                }
+        for (String url : doomed) {
+            java.io.File f = FileUtils.resolveUploadFile(uploadPath, url);
+            if (f != null && f.delete()) {
+                files++;
             }
         }
         int rows = chatMapper.delete(new QueryWrapper<TopicChatMessage>()
@@ -270,7 +274,7 @@ public class ChatController {
     public Object usage() {
         // 附件体积按专题汇总：库里只有 URL，大小得去磁盘上问
         Map<String, long[]> fileAgg = new HashMap<>(); // topicId -> [字节数, 文件数]
-        for (Map<String, Object> row : chatMapper.attachmentsOf(null, null)) {
+        for (Map<String, Object> row : chatMapper.attachmentsOf(null, null, null)) {
             String tid = String.valueOf(row.get("topicId"));
             long[] agg = fileAgg.computeIfAbsent(tid, k -> new long[2]);
             for (String key : new String[]{"imageUrl", "fileUrl"}) {
@@ -373,6 +377,20 @@ public class ChatController {
             zip.write(txt.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
             zip.closeEntry();
         }
+    }
+
+    /** 一批消息行里出现过的所有附件 URL（去重）。 */
+    private Set<String> urlsOf(List<Map<String, Object>> rows) {
+        Set<String> out = new java.util.HashSet<>();
+        for (Map<String, Object> row : rows) {
+            for (String key : new String[]{"imageUrl", "fileUrl"}) {
+                String u = (String) row.get(key);
+                if (StringUtils.isNotBlank(u)) {
+                    out.add(u);
+                }
+            }
+        }
+        return out;
     }
 
     /** 把一个附件塞进 zip 的 files/ 下，返回包内文件名；不是本站文件或已经塞过就返回原名/ null。 */

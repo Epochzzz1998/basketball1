@@ -4,6 +4,7 @@ import { ArrowLeftOutlined, CloseCircleFilled, DeleteOutlined, FileOutlined, Pic
 import { Link, useSearchParams } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { pmApi } from '../../api/pm'
+import { compressImage } from '../../utils/image'
 import { userApi } from '../../api/user'
 import { useAuth } from '../../auth/AuthContext'
 import EmojiPicker from '../../components/EmojiPicker'
@@ -286,10 +287,12 @@ export default function Messages() {
     if (attachments.length >= MAX_ATTACH) { message.warning(`最多 ${MAX_ATTACH} 个附件`); onError?.(new Error('max')); return }
     setUploading(true)
     try {
-      const url = await pmApi.uploadFile(file)
+      // 手机拍的照片动辄三四 MB，上传前先缩到长边 1600（非图片原样返回）
+      const packed = await compressImage(file)
+      const url = await pmApi.uploadFile(packed)
       if (url) {
         const isImage = (file.type || '').startsWith('image/')
-        setAttachments((a) => [...a, { type: isImage ? 'image' : 'file', url, name: file.name, size: file.size }])
+        setAttachments((a) => [...a, { type: isImage ? 'image' : 'file', url, name: file.name, size: packed.size }])
         onSuccess?.()
       } else {
         onError?.(new Error('上传失败'))

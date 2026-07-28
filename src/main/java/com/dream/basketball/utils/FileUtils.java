@@ -38,6 +38,16 @@ public class FileUtils {
     /** URL prefix that ImgConfigurer maps to the upload dir (e.g. /picImg/). */
     private static String picPath;
 
+    /** 文件名指纹的盐：外置，改了只影响新文件的去重命中，不影响已有链接 */
+    private static String hashSalt = "dream-upload";
+
+    @Value("${picPath.hashSalt:dream-upload}")
+    public void setHashSalt(String salt) {
+        if (salt != null && !salt.isEmpty()) {
+            FileUtils.hashSalt = salt;
+        }
+    }
+
     @Value("${picPath.picPath:}")
     public void setPicPath(String picPath) {
         FileUtils.picPath = picPath;
@@ -76,18 +86,55 @@ public class FileUtils {
         if (!allowedExt.contains(ext)) {
             throw new IllegalArgumentException("不支持的文件类型，" + typeHint);
         }
-        // path-traversal-safe folder segment + server-generated filename (decoupled from original name)
+        // path-traversal-safe folder segment; the filename is always server-generated
         String safeFolder = folderKey == null ? "" : folderKey.replaceAll("[^a-zA-Z0-9_\\-]", "");
-        String safeName = UUID.randomUUID().toString().replace("-", "") + "." + ext;
+
+        // 大图先瘦身再落盘（GIF、带透明的 PNG 会被 ImageUtil 自己放过）。
+        // 顺带一提：PNG 转 JPEG 之后扩展名也会变，所以名字要用返回的那个
+        byte[] bytes = file.getBytes();
+        ImageUtil.Result img = ImageUtil.shrink(bytes, ext);
+        bytes = img.data;
+        ext = img.ext;
+
+        // 文件名 = 内容指纹。同一个文件重复上传只会落一份盘，天然去重。
+        // 加盐是为了让名字仍然猜不到：直接用内容哈希的话，谁手里有同一张图就能拼出 URL
+        // 去探测"这张图是不是被发过"，私信附件尤其不该泄露这个。
+        String safeName = contentName(bytes) + "." + ext;
 
         File dir = safeFolder.isEmpty() ? new File(uploadPath) : new File(uploadPath, safeFolder);
         if (!dir.exists() && !dir.mkdirs()) {
             throw new IOException("无法创建上传目录");
         }
-        file.transferTo(new File(dir, safeName));
+        File target = new File(dir, safeName);
+        if (!target.exists()) {
+            java.nio.file.Files.write(target.toPath(), bytes);
+        }
 
         String urlFolder = safeFolder.isEmpty() ? "" : safeFolder + "/";
         return picPath + urlFolder + safeName;
+    }
+
+    /**
+     * 内容指纹（32 位十六进制）：同样的字节永远得到同样的名字，不同的字节几乎不可能撞上。
+     *
+     * 去重就是靠它——文件已经在那儿就不再写一遍。盐让名字不可预测；盐变了顶多是
+     * 旧文件不再被复用（多存一份），不会坏掉任何已有链接。
+     */
+    static String contentName(byte[] bytes) {
+        try {
+            javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+            mac.init(new javax.crypto.spec.SecretKeySpec(
+                    hashSalt.getBytes(java.nio.charset.StandardCharsets.UTF_8), "HmacSHA256"));
+            byte[] h = mac.doFinal(bytes);
+            StringBuilder sb = new StringBuilder(32);
+            for (int i = 0; i < 16; i++) {
+                sb.append(String.format("%02x", h[i]));
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            // 拿不到 HMAC 就退回随机名：去重是优化，不能因此传不上去
+            return UUID.randomUUID().toString().replace("-", "");
+        }
     }
 
     /** True if a URL points into our own upload store (rejects external / javascript: URLs on save). */

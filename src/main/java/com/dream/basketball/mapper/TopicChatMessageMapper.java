@@ -8,8 +8,12 @@ public interface TopicChatMessageMapper extends BaseMapper<TopicChatMessage> {
     /** 各专题的群聊占用（仅超管看）：条数、正文字节、时间跨度。 */
     java.util.List<java.util.Map<String, Object>> usageByTopic();
 
-    /** 带附件的消息的 URL；topicId/before 为空表示不限。导出、清理、算体积共用。 */
+    /**
+     * 带附件的消息的 URL。三个条件都可为空：topicId 限专题，before 取该时间之前，
+     * after 取该时间之后（清理时要知道"留下来的还在用哪些文件"）。导出、清理、算体积共用。
+     */
     java.util.List<java.util.Map<String, Object>> attachmentsOf(
             @org.apache.ibatis.annotations.Param("topicId") String topicId,
-            @org.apache.ibatis.annotations.Param("before") java.util.Date before);
+            @org.apache.ibatis.annotations.Param("before") java.util.Date before,
+            @org.apache.ibatis.annotations.Param("after") java.util.Date after);
 }

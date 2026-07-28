@@ -10,6 +10,7 @@ import { topicApi } from '../../api/topic'
 import { subscribeRoom } from '../../realtime/pmSocket'
 import { useAuth } from '../../auth/AuthContext'
 import EmojiPicker from '../../components/EmojiPicker'
+import { compressImage } from '../../utils/image'
 import ChatPurgeModal from '../../components/ChatPurgeModal'
 
 /**
@@ -219,7 +220,9 @@ export default function TopicChatPage() {
     ;(async () => {
       setUploading(true)
       try {
-        const url = await newsApi.uploadCommentFile(file, topicId)
+        // 手机拍的照片动辄三四 MB，上传前先缩到长边 1600（非图片原样返回）
+        const packed = asImage ? await compressImage(file) : file
+        const url = await newsApi.uploadCommentFile(packed, topicId)
         if (url) await send(asImage ? { imageUrl: url } : { fileUrl: url, fileName: file.name })
       } catch {
         toast.error(asImage ? '图片上传失败' : '附件上传失败')

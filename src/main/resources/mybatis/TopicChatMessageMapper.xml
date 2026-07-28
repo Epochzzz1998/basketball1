@@ -25,5 +25,6 @@
         where (IMAGE_URL is not null or FILE_URL is not null)
         <if test="topicId != null and topicId != ''">and TOPIC_ID = #{topicId}</if>
         <if test="before != null">and SEND_TIME &lt; #{before}</if>
+        <if test="after != null">and SEND_TIME &gt;= #{after}</if>
     </select>
 </mapper>
