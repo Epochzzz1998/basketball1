@@ -290,9 +290,9 @@ export default function TopicChatPage() {
       extra={<a onClick={() => navigate(`/news/topic/${topicId}`)} style={{ fontSize: 13 }}>回专题</a>}
     >
       {/* 消息区：卡片高度定死之后，滚动就发生在这里面。
-          里面那层 marginTop:auto 让消息贴着底部排（聊天的习惯），内容多了自动失效 */}
-      <div ref={listRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 16px 8px', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ marginTop: 'auto' }}>
+          消息从上往下排（最早的顶在最上面），空的部分留在下面 */}
+      <div ref={listRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 16px 8px' }}>
+        <div>
         {rows === null ? (
           <Spin style={{ display: 'block', margin: '40px auto' }} />
         ) : rows.length === 0 ? (
