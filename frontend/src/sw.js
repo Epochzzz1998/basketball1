@@ -77,7 +77,7 @@ self.addEventListener('push', (event) => {
  */
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
-  const url = event.notification.data?.url || '/myMessages'
+  const url = event.notification.data?.url || '/me'   // /me 是消息页的真实路由，见 App.jsx
   event.waitUntil((async () => {
     const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
     for (const c of all) {

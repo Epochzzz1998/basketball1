@@ -126,8 +126,14 @@ export default function PushToggle() {
           <Switch size="small" checked={on} loading={busy} onChange={toggle} />
         </Space>
       </Tooltip>
+      {/* 失败时后端返回 code=1，http 拦截器会把真实原因弹出来并 reject，
+          所以这里只管成功那一支。n 是**送达成功的台数**，不是设备总数 */}
       {on && (
-        <Button size="small" type="link" onClick={() => pushApi.test().then((n) => message.success(`已发往 ${n} 台设备`))}>
+        <Button
+          size="small"
+          type="link"
+          onClick={() => pushApi.test().then((n) => message.success(`已送达 ${n} 台设备`)).catch(() => {})}
+        >
           发一条测试
         </Button>
       )}

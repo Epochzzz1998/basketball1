@@ -50,6 +50,10 @@ public class PmController extends BaseUtils {
     @Autowired
     private UserMapper userMapper;
 
+    /** 私信不走 user_information，所以推送要在这里单独触发（见 WebPushSender.notifyPmAsync）。 */
+    @Autowired
+    private com.dream.basketball.service.WebPushSender webPushSender;
+
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
 
@@ -128,6 +132,11 @@ public class PmController extends BaseUtils {
 
         push(receiverId, "message", msg);
         push(me, "message", msg);
+        // STOMP 只送到**开着页面**的标签页；手机锁屏或者根本没打开网站时那条推送就丢了。
+        // Web Push 走系统通知，这两条互补，所以两个都发
+        DreamUser sender = userMapper.selectById(me);
+        webPushSender.notifyPmAsync(receiverId, me,
+                sender == null ? null : sender.getUserNickname(), msg.getContent());
         return new Result<>(0, "发送成功", msg);
     }
 

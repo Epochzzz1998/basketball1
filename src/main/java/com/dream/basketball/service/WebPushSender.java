@@ -172,7 +172,40 @@ public class WebPushSender {
     }
 
     /**
-     * 给某个人的所有设备发一条测试通知，返回设备数（同步发，好让调用方立刻知道结果）。
+     * 私信的推送入口。
+     *
+     * 私信**不经过** saveUserInformation —— 它直接写 dream_private_message 表、走 STOMP
+     * 推给在线的标签页，库里根本没有对应的 user_information 行。所以上面那个统一入口
+     * 覆盖不到它，必须单开一条。
+     *
+     * 而私信恰恰是最该响手机的一类：它是一对一的，对方明确在等回复。
+     *
+     * msgId 里放**发信人 id**，前端据此深链到 /messages?peerId=xxx 直接打开那个会话。
+     */
+    public void notifyPmAsync(String receiverId, String senderId, String senderName, String content) {
+        if (push == null || StringUtils.isBlank(receiverId)) {
+            return;
+        }
+        JSONObject o = new JSONObject();
+        o.put("msgType", "pm");
+        o.put("msgId", senderId);
+        o.put("operatorName", StringUtils.defaultIfBlank(senderName, "有人"));
+        // 纯附件的私信 content 是空串，通知里给个说得通的占位，别显示成空白
+        o.put("contentMsg", StringUtils.defaultIfBlank(content, "[附件]"));
+        String payload = o.toJSONString();
+        try {
+            pool.execute(() -> sendToUser(receiverId, payload));
+        } catch (RuntimeException e) {
+            log.warn("Push queue rejected a PM for {}", receiverId, e);
+        }
+    }
+
+    /**
+     * 给某个人的所有设备发一条测试通知，**同步**发并返回真正成功的台数。
+     *
+     * 返回成功数而不是设备数：这是个诊断入口，报"已发往 2 台设备"而实际两台都失败了，
+     * 等于把唯一的线索藏起来——第一次上线就是这么被瞒过去的。
+     *
      * 用 msgType=test，前端 service worker 认这个类型，点开就回消息列表。
      */
     public int sendTest(String userId) {
@@ -182,19 +215,23 @@ public class WebPushSender {
         JSONObject o = new JSONObject();
         o.put("msgType", "test");
         o.put("operatorName", "测试");
-        List<PushSubscription> subs = subMapper.selectList(
-                new QueryWrapper<PushSubscription>().eq("USER_ID", userId));
-        sendToUser(userId, o.toJSONString());
-        return subs.size();
+        return sendToUser(userId, o.toJSONString());
     }
 
-    private void sendToUser(String userId, String payload) {
+    /** 返回成功送出的台数。 */
+    private int sendToUser(String userId, String payload) {
         List<PushSubscription> subs = subMapper.selectList(
                 new QueryWrapper<PushSubscription>().eq("USER_ID", userId));
+        int ok = 0;
         for (PushSubscription s : subs) {
             try {
+                // 参数顺序是 (payload, endpoint, p256dh, auth, ...)，**载荷在前**。
+                // 这个库的 javap 签名不带参数名，全是 String，写反了编译照过；
+                // 真正说明顺序的是它的 byte[] 重载 send(byte[], String, byte[], byte[], ...)
+                // ——第一个是 byte[] 只可能是载荷，第二个 String 才是 endpoint。
+                // 写反的表现是把 JSON 当 URI 解析：URISyntaxException: Illegal character in scheme name
                 WebPush.SubscriptionState state = push.send(
-                        s.getEndpoint(), payload, s.getP256dh(), s.getAuth(),
+                        payload, s.getEndpoint(), s.getP256dh(), s.getAuth(),
                         TTL_SECONDS, null, WebPush.Urgency.Normal);
                 if (state == WebPush.SubscriptionState.EXPIRED) {
                     // 推送服务明确说这个订阅没了（卸载、清数据、换设备）。留着只会每次都失败一遍
@@ -203,11 +240,13 @@ public class WebPushSender {
                 } else {
                     s.setLastOk(new Date());
                     subMapper.updateById(s);
+                    ok++;
                 }
             } catch (Exception e) {
                 // 网络抖动、推送服务 5xx：这次漏掉就漏掉了，不重试也不删订阅
                 log.warn("Push failed for subscription {}", s.getSubId(), e);
             }
         }
+        return ok;
     }
 }

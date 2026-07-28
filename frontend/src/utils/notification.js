@@ -21,11 +21,21 @@ const newsIdOf = (m) => (COMMENT_TYPES.includes(m.msgType) ? m.msgIdSecond : m.m
 /** 富文本摘要剥成纯文本（通知里不能出现 HTML 标签） */
 export const stripHtml = (s) => (s || '').replace(/<[^>]+>/g, '')
 
-/** 点击一条消息去哪：专题类→专题页，日程类→日历，关注→主页，其余→帖子详情。都带 userInformationId 顺便标已读 */
+/**
+ * 点击一条消息去哪：私信→会话，专题类→专题页，日程类→日历，关注→主页，其余→帖子详情。
+ * 都带 userInformationId 顺便标已读。
+ *
+ * 路径必须和 App.jsx 里的路由**逐字对得上**。这里曾经写成 /myMessages，
+ * 而真实路由是 /me，点开只会落到 404——推送场景下没人会去看地址栏，光看现象
+ * 只知道"点了没反应"。
+ */
 export const linkOf = (m) =>
   m.msgType === 'test'
-    ? '/myMessages'
-    : m.msgType === 'follow'
+    ? '/me'
+    : m.msgType === 'pm'
+      // 私信不走 user_information 表，msgId 里放的是**发信人 id**，深链直接开那个会话
+      ? `/messages?peerId=${m.msgId}`
+      : m.msgType === 'follow'
       ? `/users/${m.msgId}` // follow 的 msgId=关注者 id → 跳其主页（已读由消息页统一处理）
       : TOPIC_TYPES.includes(m.msgType)
         ? `/news/topic/${m.msgId}?userInformationId=${m.userInformationId}`
@@ -62,6 +72,7 @@ export const actionTextOf = (m) => {
     case 'scheduleRemind': return '' // operatorName 即「日程提醒」，短语留空避免重复
     case 'scheduleOverdue': return ''
     case 'scheduleExpiry': return ''
+    case 'pm': return '给你发了一条私信'
     case 'test': return '推送已经通了'
     default: return m.contentMsg || ''
   }
@@ -87,6 +98,7 @@ export const detailOf = (m) => {
     case 'scheduleRemind': return s(m.content)
     case 'scheduleOverdue': return `⚠️ ${s(m.content)}`
     case 'scheduleExpiry': return `⏳ ${s(m.content)}`
+    case 'pm': return s(m.contentMsg)
     case 'test': return '收到这条就说明整条链路是通的'
     default: return `原帖：${s(m.content)}` // goodNews / badNews
   }

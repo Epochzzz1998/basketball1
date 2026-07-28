@@ -117,7 +117,17 @@ public class PushController {
     @PostMapping("/test")
     public Object test(HttpServletRequest request) {
         DreamUser me = SecUtil.getLoginUserToSession(request);
-        int n = sender.sendTest(me.getUserId());
-        return new Result<>(0, n > 0 ? "已发往 " + n + " 台设备" : "这个账号还没有已登记的设备", n);
+        long devices = subMapper.selectCount(
+                new QueryWrapper<PushSubscription>().eq("USER_ID", me.getUserId()));
+        int ok = sender.sendTest(me.getUserId());
+        // 报**成功数**而不是设备数。第一版报的是设备数，于是两台设备全都发失败时
+        // 界面照样弹「已发往 2 台设备」，把唯一的线索盖掉了，只能去翻服务器日志
+        if (devices == 0) {
+            return new Result<>(1, "这个账号还没有已登记的设备", 0);
+        }
+        if (ok == 0) {
+            return new Result<>(1, devices + " 台设备全部发送失败，去看服务器日志", 0);
+        }
+        return new Result<>(0, "已送达 " + ok + "/" + devices + " 台设备", ok);
     }
 }
