@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Avatar, Button, Card, DatePicker, Empty, Input, Popconfirm, Spin, Upload, message as toast } from 'antd'
 import { CalendarOutlined, ClearOutlined, DownloadOutlined, LoadingOutlined, MessageOutlined, PaperClipOutlined, PictureOutlined, SendOutlined } from '@ant-design/icons'
@@ -103,13 +103,39 @@ export default function TopicChatPage() {
   const listRef = useRef(null)
   const [height, setHeight] = useState(null) // 聊天卡的高度：撑到屏幕底部
 
-  /** 滚到最后一条（消息区自己是滚动容器） */
-  const scrollToBottom = useCallback(() => {
-    requestAnimationFrame(() => {
-      const el = listRef.current
-      if (el) el.scrollTop = el.scrollHeight
-    })
-  }, [])
+  /**
+   * 是否"黏"在底部。真值时新消息进来自动滚到底；用户手动往上翻（或跳到某天）就置假，
+   * 免得正在看历史时被新消息一把拽走。滚回底部附近会自动恢复。
+   */
+  const stickRef = useRef(true)
+
+  const onListScroll = () => {
+    const el = listRef.current
+    if (!el) return
+    stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60
+  }
+
+  /**
+   * 滚到底必须在 **DOM 提交之后**做，所以用 useLayoutEffect 而不是在事件回调里 rAF。
+   *
+   * 之前的写法是收到消息后调一个 rAF 去滚——但 setState 是异步的，rAF 很可能比 React
+   * 那次重渲染先跑，量到的是**旧 DOM 的高度**，于是滚到"上一条的底部"，新消息一渲染又被顶下去，
+   * 表现就是"永远差一条、根本不动"。首屏也一样：历史拉回来时卡片高度还没量出来、
+   * 容器还没溢出，scrollTop 设了等于没设。
+   *
+   * 依赖里带上 height，就是为了让"高度量出来"这一次也重新滚一遍。
+   */
+  useLayoutEffect(() => {
+    if (!rows || !stickRef.current) return
+    const el = listRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [rows, height])
+
+  /** 图片是异步加载的，加载完内容会变高，黏底状态下要再滚一次 */
+  const onMediaLoad = () => {
+    const el = listRef.current
+    if (el && stickRef.current) el.scrollTop = el.scrollHeight
+  }
 
   /**
    * 聊天卡要占满一屏，不能只有内容那么高——半屏聊天框下面空一大片很怪。
@@ -147,7 +173,7 @@ export default function TopicChatPage() {
         const list = Array.isArray(r) ? r : []
         setRows(list)
         setMore(list.length >= 30)
-        scrollToBottom()
+        stickRef.current = true // 进来就该停在最新那条
       })
       .catch(() => { if (alive) setRows([]) })
     chatApi.markRead(topicId).catch(() => {})
@@ -156,7 +182,7 @@ export default function TopicChatPage() {
       // 离开时再打一次卡：这段时间里进来的消息是当面看过的，不该算未读
       chatApi.markRead(topicId).catch(() => {})
     }
-  }, [topic?.canChat, topicId, scrollToBottom])
+  }, [topic?.canChat, topicId])
 
   // 哪几天有记录：小日历要拿它标深色。能进群聊的人都能查
   useEffect(() => {
@@ -181,9 +207,9 @@ export default function TopicChatPage() {
         if (prev.some((m) => m.msgId === data.msgId)) return prev // 重连可能重复推
         return [...prev, data]
       })
-      scrollToBottom()
+      // 滚动交给上面那个 useLayoutEffect，这里只管把数据塞进去
     })
-  }, [topic?.canChat, topicId, scrollToBottom])
+  }, [topic?.canChat, topicId])
 
   const loadEarlier = async () => {
     if (!rows?.length) return
@@ -193,6 +219,7 @@ export default function TopicChatPage() {
       setMore(list.length >= 30)
       if (list.length) {
         const el = listRef.current
+        stickRef.current = false // 正在往回看，别被新消息拽走
         const keep = el ? el.scrollHeight - el.scrollTop : 0
         setRows((prev) => [...list, ...(prev || [])])
         // 往顶部插会把当前内容顶下去，按插入前的距离补回来，视觉上停在原处
@@ -210,6 +237,7 @@ export default function TopicChatPage() {
       setRows(list)
       setMore(list.length > 0)   // 跳过去之后上面一定还有更早的
       setJumped(true)
+      stickRef.current = false
       requestAnimationFrame(() => { if (listRef.current) listRef.current.scrollTop = 0 })
       if (!list.length) toast.info('这一天及之后都没有记录')
     } catch { /* 拦截器已提示 */ }
@@ -377,7 +405,7 @@ export default function TopicChatPage() {
     >
       {/* 消息区：卡片高度定死之后，滚动就发生在这里面。
           消息从上往下排（最早的顶在最上面），空的部分留在下面 */}
-      <div ref={listRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 16px 8px' }}>
+      <div ref={listRef} onScroll={onListScroll} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 16px 8px' }}>
         <div>
         {rows === null ? (
           <Spin style={{ display: 'block', margin: '40px auto' }} />
@@ -427,6 +455,7 @@ export default function TopicChatPage() {
                         <img
                           src={m.imageUrl}
                           alt=""
+                          onLoad={onMediaLoad}
                           style={{ maxWidth: 220, maxHeight: 220, borderRadius: 10, display: 'block', marginBottom: m.content ? 6 : 0 }}
                         />
                       </a>
