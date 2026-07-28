@@ -17,6 +17,7 @@ import CategoryFilter from '../../components/CategoryFilter'
 import { SuperAdminBadge, TopicOwnerBadge } from '../../components/RoleBadges'
 import UserTitles from '../../components/UserTitles'
 import useIsMobile from '../../hooks/useIsMobile'
+import { NEWS_MODULE_ENABLED } from '../../config/modules'
 
 /**
  * 帖子列表（公开，P5-2 内容流改版），按频道复用：
