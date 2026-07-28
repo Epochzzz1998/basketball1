@@ -25,7 +25,7 @@ const clamp = (n) => ({ display: '-webkit-box', WebkitLineClamp: n, WebkitBoxOri
 
 export default function TopicsList() {
   const navigate = useNavigate()
-  const { user, dn } = useAuth() // dn：题主名走我自己的备注
+  const { user } = useAuth()
   const isMobile = useIsMobile()
   const [topics, setTopics] = useState(null)
   const [createOpen, setCreateOpen] = useState(false)
@@ -180,8 +180,10 @@ export default function TopicsList() {
                   </div>
 
                   <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', fontSize: 12, color: '#999', minHeight: 32 }}>
+                    {/* 原来这儿写的是题主名——谁开的版跟"值不值得点进去"没什么关系，
+                        换成参与人数（发过帖或留过言的去重人数），图标不变 */}
                     <TeamOutlined style={{ marginRight: 5 }} />
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dn(t.ownerId, t.ownerName) || '未知'}</span>
+                    <span style={{ whiteSpace: 'nowrap' }}>{t.participantCount ?? 0} 人正在讨论</span>
                     <span style={{ margin: '0 8px', color: '#ddd' }}>·</span>
                     <span>{t.postCount ?? 0} 帖</span>
                     <span style={{ flex: 1 }} />

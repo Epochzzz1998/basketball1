@@ -225,6 +225,8 @@ public class TopicController {
         m.put("openPost", ON.equals(t.getOpenPost()));
         m.put("openComment", ON.equals(t.getOpenComment()));
         m.put("postCount", dreamNewsMapper.selectCount(new QueryWrapper<DreamNews>().eq("TOPIC_ID", t.getTopicId())));
+        // 卡片左下角的「x 人正在讨论」：发过帖或留过言的人数（去重）
+        m.put("participantCount", dreamNewsMapper.countTopicParticipants(t.getTopicId()));
         m.put("canView", perms.canView(me, t));
         m.put("canPost", perms.canPost(me, t));
         m.put("canComment", perms.canComment(me, t));

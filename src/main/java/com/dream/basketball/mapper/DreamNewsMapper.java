@@ -11,4 +11,6 @@ import java.util.List;
 
 public interface DreamNewsMapper extends BaseMapper<DreamNews> {
 
+    /** 专题里发过帖或留过言的不重复人数（专题卡片的「x 人正在讨论」）。 */
+    int countTopicParticipants(@Param("topicId") String topicId);
 }

@@ -1,4 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.dream.basketball.mapper.DreamNewsMapper">
+
+    <!-- 专题卡片上的「x 人正在讨论」：在这个专题里发过帖**或**留过言的不重复人数。
+         union 本身就去重，所以外面直接 count(*) 即可。
+         草稿没发出去、隐藏帖别人看不见、墓碑评论已删，三种都不算参与。 -->
+    <select id="countTopicParticipants" resultType="int">
+        select count(*) from (
+            select n.AUTHOR_ID uid
+            from dream_news n
+            where n.TOPIC_ID = #{topicId} and n.AUTHOR_ID is not null
+              and (n.DRAFT is null or n.DRAFT &lt;&gt; 1) and n.HIDDEN &lt;&gt; '1'
+            union
+            select c.USER_ID
+            from dream_news_comment c
+            join dream_news n2 on n2.NEWS_ID = c.NEWS_ID
+            where n2.TOPIC_ID = #{topicId} and c.USER_ID is not null
+              and (c.DELETED is null or c.DELETED &lt;&gt; '1')
+              and (n2.DRAFT is null or n2.DRAFT &lt;&gt; 1) and n2.HIDDEN &lt;&gt; '1'
+        ) t
+    </select>
 </mapper>
