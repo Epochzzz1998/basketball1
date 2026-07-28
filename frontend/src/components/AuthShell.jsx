@@ -76,9 +76,6 @@ function BrandPanel() {
         <br />
         想你所想
       </div>
-      <div style={{ opacity: 0.85, marginTop: 12, fontSize: 14, lineHeight: 1.8 }}>
-        百家说社区 · 发帖 · 评论 · 私信
-      </div>
       <div style={{ display: 'flex', gap: 10, marginTop: 26, flexWrap: 'wrap' }}>
         <span style={chip}>百家说</span>
         <span style={chip}>专题</span>
@@ -117,8 +114,9 @@ export default function AuthShell({ title, subtitle, children }) {
             }}
           >
             {!wide && <div style={{ fontSize: 20, fontWeight: 800, color: BRAND, marginBottom: 6 }}>Dream Everything</div>}
-            <div style={{ fontSize: 24, fontWeight: 800 }}>{title}</div>
-            <div style={{ color: '#8c8c8c', fontSize: 14, margin: '8px 0 30px' }}>{subtitle}</div>
+            <div style={{ fontSize: 24, fontWeight: 800, marginBottom: subtitle ? 0 : 30 }}>{title}</div>
+            {/* 没传副标题就整行不渲染，不然会留一条 30px 的空档 */}
+            {subtitle && <div style={{ color: '#8c8c8c', fontSize: 14, margin: '8px 0 30px' }}>{subtitle}</div>}
             {children}
           </div>
         </div>
