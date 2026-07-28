@@ -63,12 +63,12 @@ export default function AnnouncementBar() {
       <div
         className="announce-bar"
         style={{
-          display: 'flex', alignItems: 'center', gap: 10,
+          display: 'flex', alignItems: 'center', gap: 12,
           background: tone.bg, border: `1px solid ${tone.border}`, color: tone.color,
-          borderRadius: 10, padding: '7px 12px', marginBottom: 14, fontSize: 13,
+          borderRadius: 10, padding: '12px 16px', marginBottom: 14, fontSize: 14, lineHeight: 1.5,
         }}
       >
-        <NotificationOutlined style={{ flexShrink: 0 }} />
+        <NotificationOutlined style={{ flexShrink: 0, fontSize: 16 }} />
         {/* 跑马灯：外层裁切，内层整段平移；overflow 必须在这一层，不然会把整页撑宽 */}
         <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
           <span className="announce-track" style={{ animationDuration: `${seconds}s` }}>
@@ -78,7 +78,7 @@ export default function AnnouncementBar() {
         <CloseOutlined
           onClick={close}
           title={data.level === 'error' ? '暂时收起（刷新后仍会显示）' : '不再显示这条公告'}
-          style={{ flexShrink: 0, cursor: 'pointer', opacity: 0.6 }}
+          style={{ flexShrink: 0, cursor: 'pointer', opacity: 0.6, fontSize: 14 }}
         />
       </div>
     </>
