@@ -44,7 +44,8 @@ export default function TopicChatEntry({ topic }) {
     <Badge count={unread} size="small" offset={[-4, 2]}>
       <Button
         icon={<MessageOutlined />}
-        onClick={() => navigate(`/news/topic/${topicId}/chat`)}
+        // 带上 fromTopic：群聊页的「回专题」靠它决定能不能安全地走历史回退（见 TopicChatPage.backToTopic）
+        onClick={() => navigate(`/news/topic/${topicId}/chat`, { state: { fromTopic: true } })}
         style={{ fontWeight: 600, borderRadius: 999, color: BRAND, borderColor: '#ffbb96', background: '#fff7f0' }}
       >
         群聊

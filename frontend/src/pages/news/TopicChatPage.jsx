@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Avatar, Button, Card, DatePicker, Empty, Input, Popconfirm, Spin, Upload, message as toast } from 'antd'
 import { ArrowLeftOutlined, CalendarOutlined, ClearOutlined, DownloadOutlined, LoadingOutlined, MessageOutlined, PaperClipOutlined, PictureOutlined, SendOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
@@ -88,6 +88,7 @@ function renderText(content, mentionsJson, myId) {
 export default function TopicChatPage() {
   const { topicId } = useParams()
   const navigate = useNavigate()
+  const fromTopic = !!useLocation().state?.fromTopic
   const { user, dn } = useAuth()
   const isMobile = useIsMobile()
   const [topic, setTopic] = useState(null)
@@ -396,13 +397,28 @@ export default function TopicChatPage() {
   const canRecall = (m) => !m.recalled && (m.senderId === user?.userId || topic?.canManage)
   const goUser = (id) => id && navigate(`/users/${id}`)
 
+  /**
+   * 回专题。**不能直接 navigate() 跳过去**——那是往历史栈里推一条新记录，栈会变成
+   * 专题 → 群聊 → 专题，而专题页左上角的全局返回是 `navigate(-1)`，一按又退回群聊，
+   * 于是在这两页之间无限来回，怎么按都出不去。
+   *
+   * 从专题页点进来的（state.fromTopic）直接回退一步：这一条历史记录的**前一条**恒定是专题页，
+   * 中途点头像去过别人主页再退回来也不影响这个关系。
+   * 直链进来的没有上一页可退，才真的跳一次，并且用 replace，同样不留多余记录。
+   */
+  const backToTopic = () => {
+    if (fromTopic && window.history.state?.idx > 0) navigate(-1)
+    else navigate(`/news/topic/${topicId}`, { replace: true })
+  }
+
   if (loading) return <Spin style={{ display: 'block', margin: '80px auto' }} size="large" />
 
   if (!topic?.canChat) {
     return (
       <Card style={{ borderRadius: 14 }}>
         <Empty description={topic ? '这个专题没有开放群聊，或者你没有进入权限' : '专题不存在'}>
-          <Button onClick={() => navigate(topic ? `/news/topic/${topicId}` : '/news')}>返回</Button>
+          {/* 同样走 backToTopic，否则这里也会和全局返回来回弹 */}
+          <Button onClick={() => (topic ? backToTopic() : navigate('/news', { replace: true }))}>返回</Button>
         </Empty>
       </Card>
     )
@@ -426,7 +442,7 @@ export default function TopicChatPage() {
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
           {/* 移动端卡片是钉死的一屏，退不出去，所以标题左边给一个返回箭头（和私信一样） */}
           {isMobile
-            ? <ArrowLeftOutlined onClick={() => navigate(`/news/topic/${topicId}`)} style={{ color: '#555' }} />
+            ? <ArrowLeftOutlined onClick={backToTopic} style={{ color: '#555' }} />
             : <MessageOutlined style={{ color: BRAND }} />}
           {topic.name}
           {!isMobile && <span style={{ color: '#bbb', fontSize: 13, fontWeight: 400 }}>群聊</span>}
@@ -477,7 +493,7 @@ export default function TopicChatPage() {
             </a>
           )}
           {/* 移动端的返回入口在标题左边那个箭头上，这里就不重复了 */}
-          {!isMobile && <a onClick={() => navigate(`/news/topic/${topicId}`)}>回专题</a>}
+          {!isMobile && <a onClick={backToTopic}>回专题</a>}
         </span>
       )}
     >
