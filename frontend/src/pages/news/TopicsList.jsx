@@ -138,8 +138,9 @@ export default function TopicsList() {
           onChange={(e) => setKw(e.target.value)}
           style={{ maxWidth: 260, borderRadius: 10 }}
         />
+        {/* 数量紧跟搜索框，专题页里的「x 篇」同理 */}
+        {shown != null && <span style={{ fontSize: 13, color: '#999', whiteSpace: 'nowrap' }}>{shown.length} 个专题</span>}
         <span style={{ flex: 1 }} />
-        {shown != null && <span style={{ fontSize: 13, color: '#999' }}>{shown.length} 个专题</span>}
       </div>
 
       <CategoryFilter options={catOptions} value={cat} onChange={setCat} />

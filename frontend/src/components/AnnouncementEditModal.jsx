@@ -11,7 +11,7 @@ import { announceApi } from '../api/announce'
 const LEVELS = [
   { label: '普通', value: 'info' },
   { label: '提醒', value: 'warning' },
-  { label: '重要', value: 'error' },
+  { label: '紧急', value: 'error' },
 ]
 
 export default function AnnouncementEditModal({ open, onClose }) {
@@ -69,7 +69,9 @@ export default function AnnouncementEditModal({ open, onClose }) {
       <Alert
         style={{ marginTop: 12 }}
         type="info"
-        message="保存后，之前把公告叉掉的人也会重新看到——关闭状态是按版本记的，内容一改就是新的一版。"
+        message={level === 'error'
+          ? '紧急公告叉掉只是暂时收起，刷新或下次进站还会出现——维护、故障这类通知不该被一键永久静音。'
+          : '保存后，之前把公告叉掉的人也会重新看到——关闭状态是按版本记的，内容一改就是新的一版。'}
       />
     </Modal>
   )

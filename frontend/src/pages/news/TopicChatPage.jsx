@@ -140,19 +140,39 @@ export default function TopicChatPage() {
 
   /**
    * 聊天卡要占满一屏，不能只有内容那么高——半屏聊天框下面空一大片很怪。
-   * 高度是量出来的：视口高 - 卡片距顶的距离 - 底部留白。不写死是因为上面有
-   * 顶栏、内容区内边距、还有那个全局「返回」，加起来多少跟页面状态有关。
+   *
+   * 高度按**可视视口**算，不是 `window.innerHeight`。移动端软键盘弹出时：
+   *  · 安卓（配合 interactive-widget=resizes-content）布局视口会缩，innerHeight 跟着变；
+   *  · **iOS 不缩** —— 只有 visualViewport 变矮，页面被整体往上推。
+   * 只看 innerHeight 的话，iOS 上卡片仍然按全屏高度算，比看得见的区域高一大截，
+   * 于是输入框和最新消息被顶到键盘后面去——就是私信页早期版本踩过的那个坑。
+   *
+   * offsetTop 是可视区在布局视口里的偏移（iOS 推上去多少），要从卡片距顶的距离里减掉，
+   * 否则键盘一弹高度会算多。
    */
   useEffect(() => {
+    const vv = window.visualViewport
     const fit = () => {
       const el = cardRef.current
       if (!el) return
-      const top = el.getBoundingClientRect().top
-      setHeight(Math.max(360, window.innerHeight - top - 20))
+      const vh = vv ? vv.height : window.innerHeight
+      const vTop = vv ? vv.offsetTop : 0
+      const topInView = Math.max(0, el.getBoundingClientRect().top - vTop)
+      setHeight(Math.max(240, vh - topInView - 12))
     }
     fit()
     window.addEventListener('resize', fit)
-    return () => window.removeEventListener('resize', fit)
+    if (vv) {
+      vv.addEventListener('resize', fit)
+      vv.addEventListener('scroll', fit)
+    }
+    return () => {
+      window.removeEventListener('resize', fit)
+      if (vv) {
+        vv.removeEventListener('resize', fit)
+        vv.removeEventListener('scroll', fit)
+      }
+    }
   }, [loading])
 
   useEffect(() => {

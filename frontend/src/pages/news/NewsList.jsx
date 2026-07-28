@@ -362,6 +362,8 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
               onChange={(e) => { setKw(e.target.value); setPage(1) }}
               style={{ maxWidth: 260, borderRadius: 10 }}
             />
+            {/* 篇数紧跟搜索框：它说明的是"搜出来多少"，离搜索框越近越好读（与百家说首页一致） */}
+            {filtered != null && <span style={{ fontSize: 13, color: '#999', whiteSpace: 'nowrap' }}>{filtered.length} 篇</span>}
             <Segmented
               value={view}
               onChange={(v) => { setView(v); setPage(1) }}
@@ -376,7 +378,6 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
                 它不是第四个"看法"，点下去是进另一个空间 */}
             {isTopic && <TopicChatEntry topic={topic} />}
             <span style={{ flex: 1 }} />
-            {filtered != null && <span style={{ fontSize: 13, color: '#999' }}>{filtered.length} 篇</span>}
           </div>
 
           {/* 帖子类别筛选（题主配的那份）：搜索/排序那条下面单独一行，类别多了会自己换行 */}
