@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Avatar, Button, Card, DatePicker, Empty, Input, Popconfirm, Spin, Upload, message as toast } from 'antd'
-import { CalendarOutlined, ClearOutlined, DownloadOutlined, LoadingOutlined, MessageOutlined, PaperClipOutlined, PictureOutlined, SendOutlined } from '@ant-design/icons'
+import { ArrowLeftOutlined, CalendarOutlined, ClearOutlined, DownloadOutlined, LoadingOutlined, MessageOutlined, PaperClipOutlined, PictureOutlined, SendOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { chatApi } from '../../api/chat'
 import { newsApi } from '../../api/news'
@@ -17,13 +17,17 @@ import ChatExportModal from '../../components/ChatExportModal'
 /**
  * 专题群聊页（/news/topic/:topicId/chat）。
  *
- * **是一张普通页面，不是浮层。** 之前做成 fixed 全屏罩子，移动端软键盘一弹就出各种
- * 对不齐的毛病：底下漏出专题页、还能滑动。改成走路由之后这些问题从根上没有了——
- * 页面就是页面，滚动条只有一个，键盘弹出浏览器自己会把输入框顶上来。
+ * 布局和私信（pages/user/Messages.jsx）是同一套，移动端尤其是照搬的，别再各写一套：
  *
- * 卡片高度是量出来的（视口高 - 卡片距顶），撑满一屏；滚动发生在消息区自己身上，
- * 输入区固定在卡片底部。不用 fixed 定位，所以移动端软键盘弹出时不会出现
- * 「底下漏出别的页面」那类对不齐的问题。
+ *  - **PC**：卡片高度量出来（视口高 - 卡片距顶），撑满一屏；
+ *  - **移动端**：整块卡片 `position: fixed` 钉在**可视视口**上——`top: visualViewport.offsetTop`、
+ *    `height: visualViewport.height`。软键盘弹出时可视视口变矮，卡片跟着变矮，输入区自然
+ *    停在键盘正上方。
+ *
+ * 两种情况下滚动都只发生在**消息区自己**身上，整页不滚。这一点是关键：
+ * 之前试过"整页滚 + 输入区 sticky"，结果是 sticky 的 bottom 量的是布局视口（iOS 弹键盘时
+ * 它一点不变矮），输入框会沉到键盘背面；再靠 padding 去补，页面高度又在滚动中途变化，
+ * 滑动会直接卡死。让页面完全不滚就没有这一摊事。
  *
  * 收发两条路：发走 REST（/chat/send），收走 WebSocket（订阅 /room/{topicId}）。
  * 自己发的消息也从广播回来，不做本地回显。
@@ -104,8 +108,8 @@ export default function TopicChatPage() {
   const endRef = useRef(null)
   const cardRef = useRef(null)
   const listRef = useRef(null)
-  const [height, setHeight] = useState(null) // 聊天卡的高度：撑到屏幕底部
-  const [kbInset, setKbInset] = useState(0)  // 软键盘吃掉的那一截高度（移动端），输入区靠它抬起来
+  const [height, setHeight] = useState(null) // 聊天卡的高度：PC 上撑到屏幕底部
+  const [vp, setVp] = useState({ h: null, top: 0 }) // 可视视口（移动端拿它定位整块卡片）
 
   /**
    * 是否"黏"在底部。真值时新消息进来自动滚到底；用户手动往上翻（或跳到某天）就置假，
@@ -115,20 +119,15 @@ export default function TopicChatPage() {
 
   const onListScroll = () => {
     const el = listRef.current
-    if (!el || isMobile) return // 移动端滚的是整页，见下面那个 window 监听
+    if (!el) return
     stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60
   }
 
-  // 移动端：整页滚动，黏底判定看窗口
-  useEffect(() => {
-    if (!isMobile) return undefined
-    const onWin = () => {
-      const doc = document.documentElement
-      stickRef.current = doc.scrollHeight - window.scrollY - window.innerHeight < 120
-    }
-    window.addEventListener('scroll', onWin, { passive: true })
-    return () => window.removeEventListener('scroll', onWin)
-  }, [isMobile])
+  /** 滚到最新那条。PC 和移动端滚的都是消息区自己——整页从来不滚 */
+  const toBottom = () => {
+    const el = listRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }
 
   /**
    * 滚到底必须在 **DOM 提交之后**做，所以用 useLayoutEffect 而不是在事件回调里 rAF。
@@ -138,23 +137,13 @@ export default function TopicChatPage() {
    * 表现就是"永远差一条、根本不动"。首屏也一样：历史拉回来时卡片高度还没量出来、
    * 容器还没溢出，scrollTop 设了等于没设。
    *
-   * 依赖里带上 height，就是为了让"高度量出来"这一次也重新滚一遍。
+   * 依赖里带上 height / vp.h：这两个都会改变消息区的高度（PC 是量出来的，移动端是
+   * 软键盘挤的），高度一变就得重新贴底，不然键盘弹出来正好把最新几条压在下面。
    */
-  /**
-   * 滚到最新那条。移动端滚的是整页（滚到底就行——底下垫了键盘那么高的空白，
-   * 滚到底之后最后一条正好落在输入框上方）；PC 端滚的是消息区自己。
-   */
-  const toBottom = () => {
-    if (isMobile) { window.scrollTo(0, document.documentElement.scrollHeight); return }
-    const el = listRef.current
-    if (el) el.scrollTop = el.scrollHeight
-  }
-
   useLayoutEffect(() => {
     if (!rows || !stickRef.current) return
     toBottom()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, height, kbInset, isMobile])
+  }, [rows, height, vp.h, isMobile])
 
   /** 图片是异步加载的，加载完内容会变高，黏底状态下要再滚一次 */
   const onMediaLoad = () => {
@@ -163,14 +152,7 @@ export default function TopicChatPage() {
 
   /**
    * 卡片高度**只在 PC 上量**：视口高 - 卡片距顶 - 底部留白，撑满一屏。
-   *
-   * 移动端一律不定高。之前两版都想让卡片贴着可视视口，结果在 iOS 上一直打架——
-   * 软键盘弹出时 iOS 不缩布局视口，只把页面整体往上推，而推多少、什么时候推
-   * 是浏览器自己决定的，我这边量到的 `getBoundingClientRect()` 和 `visualViewport`
-   * 永远慢半拍，表现就是卡片被压成一小条、下面露出一大片灰底。
-   *
-   * 现在移动端就是一张普通长页面：消息按内容铺开、页面整体滚动、输入区 sticky 贴底。
-   * 键盘弹出时浏览器自己会把输入框滚进可视区——这是浏览器的本职工作，不该由我复刻。
+   * 移动端不量，高度由下面那个可视视口的 vp.h 直接给。
    */
   useEffect(() => {
     if (isMobile) { setHeight(null); return undefined }
@@ -185,46 +167,24 @@ export default function TopicChatPage() {
   }, [loading, isMobile])
 
   /**
-   * 量软键盘占掉多高，输入区靠它抬起来。
+   * 追踪可视视口（visualViewport），移动端拿它把整块卡片钉住。和私信是同一段逻辑。
    *
-   * 输入区是 `position: sticky; bottom: 0`，而 sticky 的 bottom 量的是**布局视口**的底边。
-   * iOS 弹键盘时布局视口一点没变矮，只是可视视口被压短了——那条"底边"于是落在键盘背面。
-   * 结果就是：页面停在最底时还能看见输入框（那是它的自然位置），一往上翻 sticky 生效，
-   * 输入框就沉到键盘后面去了。
+   * 软键盘弹出时 iOS **不缩布局视口**，只缩可视视口；所以任何靠布局视口定位的做法
+   * （100vh、sticky bottom、fixed inset:0）都会把输入框留在键盘背面。
+   * 反过来，直接按 `top = offsetTop`、`height = height` 摆一个 fixed 层，键盘一弹层就变矮，
+   * 输入区正好停在键盘上沿，一行换算都不用做。
    *
-   * 所以把这条线抬高键盘那一截：
-   *   innerHeight（布局视口高）- visualViewport.height - visualViewport.offsetTop
-   * 键盘收起时算出来是 0，sticky 退回 bottom:0，和没这段代码时一模一样。
-   *
-   * 两个刻意的选择：
-   * - **量 visualViewport 报的数，不猜键盘高度**，所以换输入法、带候选栏、转屏都跟得上；
-   * - **用 sticky 不用 fixed**：iOS 上 fixed 元素在可视视口滚动期间会自己漂移，
-   *   sticky 挂在文档滚动上，稳。
-   *
-   * 小于 80px 的差值当成浏览器地址栏伸缩，不算键盘（键盘再矮也有两百多）。
+   * `resize` 管键盘开合，`scroll` 管 iOS 顶不动页面时改成偏移可视视口的那种情况。
    */
   useEffect(() => {
     const vv = window.visualViewport
-    if (!isMobile || !vv) { setKbInset(0); return undefined }
-    let raf = 0
-    const sync = () => {
-      cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(() => {
-        const gap = Math.round(window.innerHeight - vv.height - vv.offsetTop)
-        const next = gap > 80 ? gap : 0
-        // 差几个像素就不重渲染了，页面滚动时 visualViewport 也会一直报 scroll
-        setKbInset((prev) => (Math.abs(prev - next) < 4 ? prev : next))
-      })
-    }
-    sync()
-    vv.addEventListener('resize', sync)
-    vv.addEventListener('scroll', sync)
-    return () => {
-      cancelAnimationFrame(raf)
-      vv.removeEventListener('resize', sync)
-      vv.removeEventListener('scroll', sync)
-    }
-  }, [isMobile])
+    if (!vv) return undefined
+    const update = () => setVp({ h: vv.height, top: vv.offsetTop })
+    update()
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => { vv.removeEventListener('resize', update); vv.removeEventListener('scroll', update) }
+  }, [])
 
   useEffect(() => {
     let alive = true
@@ -448,25 +408,38 @@ export default function TopicChatPage() {
     )
   }
 
+  // 移动端把整块卡片钉在可视视口上（照搬私信）。拿不到 visualViewport 的浏览器退回普通布局
+  const pinned = isMobile && vp.h != null
+
   return (
     <Card
       ref={cardRef}
-      style={{ borderRadius: 14, height: height ?? undefined, display: 'flex', flexDirection: 'column' }}
+      style={{
+        borderRadius: 14, height: height ?? undefined, display: 'flex', flexDirection: 'column',
+        ...(pinned ? {
+          position: 'fixed', left: 0, top: vp.top, width: '100%', height: vp.h,
+          zIndex: 1000, borderRadius: 0, margin: 0, overflow: 'hidden',
+        } : null),
+      }}
       styles={{ body: { padding: 0, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } }}
       title={
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-          <MessageOutlined style={{ color: BRAND }} />
+          {/* 移动端卡片是钉死的一屏，退不出去，所以标题左边给一个返回箭头（和私信一样） */}
+          {isMobile
+            ? <ArrowLeftOutlined onClick={() => navigate(`/news/topic/${topicId}`)} style={{ color: '#555' }} />
+            : <MessageOutlined style={{ color: BRAND }} />}
           {topic.name}
-          <span style={{ color: '#bbb', fontSize: 13, fontWeight: 400 }}>群聊</span>
+          {!isMobile && <span style={{ color: '#bbb', fontSize: 13, fontWeight: 400 }}>群聊</span>}
         </span>
       }
       extra={(
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 14, fontSize: 13 }}>
+        // 移动端只留图标：四个带文字的链接在手机上要折两行，把本来就不宽裕的聊天区吃掉
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: isMobile ? 18 : 14, fontSize: 13 }}>
           {/* 按日期查找：所有能进群聊的人都能用，不只是题主，所以排在管理动作前面。
               做成和旁边一样的「图标 + 文字」链接——原来那个带输入框的日期选择器夹在
               两个按钮中间，是这一行里唯一一个有边框的控件，扎眼 */}
-          <a onClick={() => setDateOpen(true)} style={{ color: '#666' }}>
-            <CalendarOutlined /> 按日期
+          <a onClick={() => setDateOpen(true)} style={{ color: '#666' }} title="按日期">
+            <CalendarOutlined />{!isMobile && ' 按日期'}
           </a>
           {/* 真正的日历藏在这里：DatePicker 没法换掉自己的输入框，所以把它缩成零尺寸
               当锚点用，弹层照样挂在这个位置 */}
@@ -493,29 +466,28 @@ export default function TopicChatPage() {
           />
           {/* 备份和清理只给管理者，两个挨在一起 */}
           {topic?.canManage && (
-            <a onClick={() => setExportOpen(true)} style={{ color: '#666' }}>
-              <DownloadOutlined /> 导出备份
+            <a onClick={() => setExportOpen(true)} style={{ color: '#666' }} title="导出备份">
+              <DownloadOutlined />{!isMobile && ' 导出备份'}
             </a>
           )}
           {topic?.canManage && (
-            <a onClick={() => setPurgeOpen(true)} style={{ color: '#666' }}>
-              <ClearOutlined /> 清理记录
+            <a onClick={() => setPurgeOpen(true)} style={{ color: '#666' }} title="清理记录">
+              <ClearOutlined />{!isMobile && ' 清理记录'}
             </a>
           )}
-          <a onClick={() => navigate(`/news/topic/${topicId}`)}>回专题</a>
+          {/* 移动端的返回入口在标题左边那个箭头上，这里就不重复了 */}
+          {!isMobile && <a onClick={() => navigate(`/news/topic/${topicId}`)}>回专题</a>}
         </span>
       )}
     >
-      {/* 消息区：卡片高度定死之后，滚动就发生在这里面。
+      {/* 消息区：唯一的滚动容器（PC 和移动端都是）。
           消息从上往下排（最早的顶在最上面），空的部分留在下面 */}
       <div
         ref={listRef}
         onScroll={onListScroll}
-        style={isMobile
-          // 移动端：跟着整页滚。底下额外垫出键盘那么高的空白——输入区被抬起来之后
-          // 会盖住它上面的 kbInset 像素，不垫的话最后一条消息就被压在输入框底下了
-          ? { padding: `16px 16px ${8 + kbInset}px` }
-          : { flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 16px 8px' }}
+        // overscrollBehavior: contain —— 滑到顶/底之后别把滚动传给下面的页面，
+        // 否则 iOS 会顺手去滚身后的文档，手感上就是"划一下整个界面跳一下"
+        style={{ flex: 1, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain', padding: '16px 16px 8px' }}
       >
         <div>
         {rows === null ? (
@@ -613,14 +585,11 @@ export default function TopicChatPage() {
         </div>
       </div>
 
-      {/* 输入区：PC 固定在卡片底部；移动端 sticky 贴在**可视**视口底（bottom 抬过键盘高度） */}
+      {/* 输入区：卡片底部的普通 flex 子项。不用 sticky / fixed——卡片本身已经贴着可视视口了 */}
       <div style={{
         flexShrink: 0, background: '#fff', borderTop: '1px solid #f0f0f0',
-        ...(isMobile ? { position: 'sticky', bottom: kbInset, zIndex: 2 } : null),
-        padding: kbInset
-          ? '8px 12px 10px'                                     // 键盘顶着的时候没有 home 条，不用留安全区
-          : '8px 12px calc(10px + env(safe-area-inset-bottom))',
-        borderBottomLeftRadius: 14, borderBottomRightRadius: 14,
+        padding: '8px 12px 12px',
+        borderBottomLeftRadius: pinned ? 0 : 14, borderBottomRightRadius: pinned ? 0 : 14,
       }}>
         <div style={{ position: 'relative' }}>
           {atOpts?.length > 0 && (
