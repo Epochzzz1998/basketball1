@@ -48,16 +48,26 @@ export default function TopicsList() {
   }, [])
   useEffect(() => { load(); loadCats() }, [load, loadCats])
 
+  /**
+   * 「已收藏」= 我订阅过的 ∪ 我置顶过的。
+   * 这两个都是**按人**存的标记（订阅进侧栏、置顶只改自己看到的顺序），
+   * 合起来就是"我特意标过的专题"，没必要再造第三种收藏。
+   */
+  const isFav = (t) => !!(t.subscribed || t.pinned)
+
   // 筛选器只列**真的有专题挂着**的类别：配了但没人用的类别摆在那儿只会点出一片空
   const catOptions = useMemo(() => {
     if (!topics?.length) return []
     const count = (id) => topics.filter((t) => (t.categoryId || '') === id).length
     const used = cats.filter((c) => count(c.categoryId) > 0)
     const none = count('')
-    // 一个类别都没用上就别出这排按钮了（等于只有「全部」，纯占地方）
-    if (!used.length) return []
+    const favCount = topics.filter(isFav).length
+    // 类别一个没用上、收藏也一个没有，就别出这排按钮了（等于只有「全部」，纯占地方）
+    if (!used.length && !favCount) return []
     return [
       { value: 'all', label: '全部', count: topics.length },
+      // 收藏排在类别前面：它是"我的东西"，比按类别翻更常用
+      ...(favCount ? [{ value: 'fav', label: '已收藏', count: favCount }] : []),
       ...used.map((c) => ({ value: c.categoryId, label: c.name, count: count(c.categoryId) })),
       ...(none ? [{ value: '', label: '未分类', count: none }] : []),
     ]
@@ -65,7 +75,9 @@ export default function TopicsList() {
 
   const shown = useMemo(() => {
     if (!topics) return null
-    const hit = cat === 'all' ? topics : topics.filter((t) => (t.categoryId || '') === cat)
+    const hit = cat === 'all' ? topics
+      : cat === 'fav' ? topics.filter(isFav)
+        : topics.filter((t) => (t.categoryId || '') === cat)
     const k = kw.trim().toLowerCase()
     if (!k) return hit
     // 专题名 + 简介 + 类别名一起匹配（列表已全量在手，纯前端筛）
@@ -87,6 +99,8 @@ export default function TopicsList() {
     try {
       await topicApi.pin(t.topicId, !t.pinned)
       message.success(t.pinned ? '已取消置顶' : '已置顶')
+      // 站在「已收藏」筛选里取消最后一个收藏，会剩一片空——退回全部更合理
+      if (cat === 'fav' && t.pinned && !t.subscribed) setCat('all')
       load()
       window.dispatchEvent(new Event('subs-changed'))
     } catch { /* 已提示 */ }
@@ -233,7 +247,10 @@ export default function TopicsList() {
         </Row>
       ) : (
         <Card style={{ borderRadius: 14 }}>
-          <Empty description={kw ? '没有匹配的专题' : cat === 'all' ? '还没有专题' : '这个类别下还没有专题'}>
+          <Empty description={kw ? '没有匹配的专题'
+            : cat === 'all' ? '还没有专题'
+              : cat === 'fav' ? '还没有收藏的专题——进专题点「订阅」，或在卡片上点图钉置顶'
+                : '这个类别下还没有专题'}>
             {user && cat === 'all' && !kw && <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>新建专题</Button>}
           </Empty>
         </Card>
