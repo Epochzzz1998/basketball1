@@ -76,7 +76,7 @@ const advWidth = (a) => advColWidth(a, 14, 14)
  * 高阶数据列。基础表已经 20+ 列，再把 20 个高阶指标并进去就没法看了，
  * 所以拆成两组、由页面上的「基础 / 高阶」开关切换（AllPlayerSeasonStats、生涯表都接了）。
  */
-export function buildAdvancedStatColumns({ po = false } = {}) {
+export function buildAdvancedStatColumns() {
   return withGlossary([
     {
       title: '球员', dataIndex: 'playerName', fixed: 'left', width: 96,
@@ -88,7 +88,9 @@ export function buildAdvancedStatColumns({ po = false } = {}) {
     // 出场场次不在这儿重复——基础表已经有「首发/出场」。时间留着：使用率、篮板率
     // 这些率值得配上场时间才读得懂
     { title: '时间', dataIndex: 'playingTime', width: 48, render: (v) => num(v) },
-    ...(po ? [{ title: '正负值', dataIndex: 'playerAvgPn', width: 62, render: (v) => num(v) }] : []),
+    // 正负值季后赛和常规赛都有了：赛季汇总表本来就没有这项，只能靠逐场累加，
+    // 常规赛的逐场数据补到哪一季，这一列就有到哪一季（更早的留空，和 1980 前没三分同理）
+    { title: '正负值', dataIndex: 'playerAvgPn', width: 62, render: (v) => num(v) },
     ...ADVANCED_STATS.map((a) => ({
       title: a.label,
       dataIndex: a.field,
@@ -125,7 +127,7 @@ const LOGIC_FIELDS = ['playerPosition', 'playerAppearance']
 
 /** 数据表两种视图各自要的字段（榜单页、球队名单、完整排行共用） */
 export const BASIC_TABLE_FIELDS = [...new Set([...fieldsOfColumns(buildFullStatColumns()), ...LOGIC_FIELDS])].join(',')
-export const ADVANCED_TABLE_FIELDS = [...new Set([...fieldsOfColumns(buildAdvancedStatColumns({ po: true })), ...LOGIC_FIELDS])].join(',')
+export const ADVANCED_TABLE_FIELDS = [...new Set([...fieldsOfColumns(buildAdvancedStatColumns()), ...LOGIC_FIELDS])].join(',')
 
 /**
  * 排行卡要的字段：身份 + 位置（筛选）+ 出场（资格线）+ 所排的那一项。
@@ -182,6 +184,4 @@ export const sumColWidth = (cols) => cols.reduce((s, c) => s + (c.width || 0), 0
 
 // 季后赛表用：荣誉四列（MVP/DPOY/最佳阵容/最佳防守）是常规赛评选，季后赛数据里无意义
 export const HONOR_COLUMN_KEYS = ['mvpRank', 'dpoyRank', 'allDbaTeam', 'allDefTeam']
-// 常规赛表用：正负值只有季后赛有数据（1997 起），常规赛视图整列去掉
-export const PLAYOFF_ONLY_COLUMN_KEYS = ['playerAvgPn']
 export const PLAYOFF_COLUMNS_SCROLL_X = FULL_COLUMNS_SCROLL_X - 272

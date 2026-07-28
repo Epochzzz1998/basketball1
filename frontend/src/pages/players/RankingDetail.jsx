@@ -57,7 +57,7 @@ export default function RankingDetail() {
     // 高阶项要配高阶列，否则点「PER榜」进来整张表里根本没有 PER 这一列
     ...(isMobile ? compactColumns : (c) => c)(
       (isAdvanced
-        ? buildAdvancedStatColumns({ po: stage === 'po' })
+        ? buildAdvancedStatColumns()
         : buildFullStatColumns({ serverSort: false }))
         .filter((c) => stage !== 'po' || !HONOR_COLUMN_KEYS.includes(c.dataIndex)),
     ).map((c) =>

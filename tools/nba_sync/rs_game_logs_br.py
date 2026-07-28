@@ -358,17 +358,46 @@ def build_season(year, roster, slug_ids, dry):
     return len(tuples), unresolved
 
 
+def refresh_plus_minus(seasons):
+    """Fill player_stats.PLAYER_AVG_PN from the game logs.
+
+    Plus/minus is the one stat the season-level scrape can never supply: B-R's season
+    tables simply do not carry it, only the per-game box scores do (and only from 1997 —
+    before that B-R has no plus/minus at all). So this column sat defined-but-empty until
+    the game logs arrived, and the frontend hid it for regular-season views.
+
+    Averaged over the games that **have** a value, not over games played: a handful of rows
+    come back without plus/minus, and counting those as zero would drag every average
+    toward 0. Run after every build so a newly crawled season fills itself in."""
+    if not seasons:
+        return
+    q = (f"UPDATE player_stats s JOIN ("
+         f"  SELECT PLAYER_ID, SEASON_NUM, AVG(PLUS_MINUS) pm FROM {TABLE}"
+         f"  WHERE SEASON_TYPE={REGULAR_TYPE} AND PLUS_MINUS IS NOT NULL"
+         f"    AND SEASON_NUM IN ({','.join(map(str, sorted(seasons)))})"
+         f"  GROUP BY PLAYER_ID, SEASON_NUM) x"
+         f" ON x.PLAYER_ID = s.PLAYER_ID AND x.SEASON_NUM = s.SEASON_NUM"
+         f" SET s.PLAYER_AVG_PN = x.pm;")
+    p = subprocess.run(sync.mysql_cmd(), input=q.encode(), capture_output=True)
+    if p.returncode != 0:
+        raise RuntimeError(p.stderr.decode()[:500])
+    print(f'plus/minus refreshed for seasons {sorted(seasons)}')
+
+
 def build(years, dry):
     roster = load_rosters()
     slug_ids = json.loads(IDS_CACHE.read_text()) if IDS_CACHE.exists() else {}
-    total, all_unresolved = 0, []
+    total, all_unresolved, done = 0, [], []
     for year in years:
         rows, unresolved = build_season(year, roster, slug_ids, dry)
         if rows:
             print(f'{year}: {rows} rows{"" if dry else " applied"}, '
                   f'{len(unresolved)} unresolved', flush=True)
+            done.append(year - SEASON_BASE)
         total += rows
         all_unresolved += unresolved
+    if done and not dry:
+        refresh_plus_minus(done)
     print(f'\ntotal rows: {total}   unresolved: {len(all_unresolved)}')
     seen = {}
     for y, t, nme in all_unresolved:

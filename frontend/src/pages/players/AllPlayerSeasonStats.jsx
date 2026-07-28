@@ -34,7 +34,7 @@ export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: s
   const [pos, setPos] = useState('all')
   const adv = view === 'adv' && !byRound
 
-  const base = (adv ? buildAdvancedStatColumns({ po }) : buildFullStatColumns())
+  const base = (adv ? buildAdvancedStatColumns() : buildFullStatColumns())
     .filter((c) => !po || !HONOR_COLUMN_KEYS.includes(c.dataIndex))
     // 单轮次数据来自 B-R 系列赛表：没有位置列，球队恒为本队、换成更有用的对手
     .filter((c) => !byRound || c.dataIndex !== 'playerPosition')
