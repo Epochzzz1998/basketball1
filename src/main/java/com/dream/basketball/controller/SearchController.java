@@ -70,7 +70,8 @@ public class SearchController {
         DreamUser meFresh = me == null ? null : userMapper.selectById(me.getUserId());
         boolean isSuper = meFresh != null
                 && com.dream.basketball.config.Role.fromUserRole(meFresh.getUserRole()) == com.dream.basketball.config.Role.SUPER_MANAGER;
-        boolean featData = meFresh == null || isSuper || !"0".equals(meFresh.getFeatData());   // Dream Union：球员/球队
+        // NBA 是「默认关、超管放行」，与下面两项相反：未登录也搜不到球员（模块本身就不对游客开放）
+        boolean featData = isSuper || com.dream.basketball.config.Feature.NBA_DATA.granted(meFresh);
         boolean featForum = meFresh == null || isSuper || !"0".equals(meFresh.getFeatForum()); // 百家说：论坛帖
         boolean featNews = meFresh == null || isSuper || !"0".equals(meFresh.getFeatNews());   // 新闻：官方资讯
 
@@ -231,9 +232,16 @@ public class SearchController {
      * 混着回用户会让"@ 出来的到底是谁"变得不确定。
      */
     @GetMapping("/mentionPlayers")
-    public Result<List<Map<String, Object>>> mentionPlayers(String keyword) {
+    public Result<List<Map<String, Object>>> mentionPlayers(String keyword,
+                                                            javax.servlet.http.HttpServletRequest request) {
         String kw = keyword == null ? "" : keyword.trim();
-        if (kw.length() > 50) {
+        // 没被放行 NBA 模块的人也能进 NBA 专区发帖，但 @ 不出球员——@ 出来的金标点进去是资料卡，
+        // 他本来就进不去。这里静默返回空列表而不是 403：@ 面板每敲一个字都会调，弹一串「权限不足」很吵
+        DreamUser me = com.dream.basketball.utils.SecUtil.getLoginUserToSession(request);
+        DreamUser meFresh = me == null ? null : userMapper.selectById(me.getUserId());
+        boolean isSuper = meFresh != null
+                && com.dream.basketball.config.Role.fromUserRole(meFresh.getUserRole()) == com.dream.basketball.config.Role.SUPER_MANAGER;
+        if (kw.length() > 50 || !(isSuper || com.dream.basketball.config.Feature.NBA_DATA.granted(meFresh))) {
             return new Result<>(0, "成功", new ArrayList<>());
         }
         return new Result<>(0, "成功", playerMapper.searchMentionPlayers(kw, 8));

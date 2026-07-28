@@ -202,7 +202,8 @@ export default function UserManageDetail() {
 
       {/* 功能模块 */}
       <Card title="功能模块" style={{ borderRadius: 12, marginBottom: 16 }} extra={<span style={{ color: '#999', fontSize: 12 }}>关掉则该用户导航里整块隐藏、深链也进不去</span>}>
-        {permRow('数据分析', 'featData', 'NBA：联盟概览 / 数据概览 / 联盟排行 / 球员对比')}
+        {/* NBA 与其余几项相反：默认就是关的，要在这里逐个打开；游客根本看不到这个模块 */}
+        {permRow('NBA 数据', 'featData', '默认关闭，需在此放行；游客不可见。含联盟概览 / 数据概览 / 联盟排行 / 历史数据 / 球员对比')}
         {permRow('新闻', 'featNews')}
         {permRow('百家说', 'featForum')}
         {permRow('私信', 'featPm')}

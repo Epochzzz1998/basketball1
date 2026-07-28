@@ -17,13 +17,17 @@ public class BeanResolveConfiguration implements WebMvcConfigurer {
     @Value("${cors.allowed-origins:http://localhost:5173,http://localhost:3000}")
     private String[] allowedOrigins;
 
+    /** 功能开关要现读库（@RequiresFeature），所以拦截器需要一个 mapper。 */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.dream.basketball.mapper.UserMapper userMapper;
+
     /**
      * One interceptor over everything; access rules are declared per endpoint
-     * with @RequiresRole (P2-5). Un-annotated handlers remain public.
+     * with @RequiresRole / @RequiresFeature (P2-5). Un-annotated handlers remain public.
      */
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(new AuthInterceptor()).addPathPatterns("/**");
+        registry.addInterceptor(new AuthInterceptor(userMapper)).addPathPatterns("/**");
     }
 
     @Override

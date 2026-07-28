@@ -4,6 +4,8 @@ import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.dream.basketball.common.Result;
+import com.dream.basketball.config.Feature;
+import com.dream.basketball.config.RequiresFeature;
 import com.dream.basketball.config.RequiresRole;
 import com.dream.basketball.config.Role;
 import com.dream.basketball.dto.DreamPlayerDto;
@@ -35,9 +37,13 @@ import java.util.Set;
 import java.util.TreeSet;
 
 /**
- * 球员相关 JSON 接口（P4-1 REST 化）。读接口公开，写接口需 superManager（P2-5）。
+ * 球员相关 JSON 接口（P4-1 REST 化）。写接口另需 superManager（P2-5）。
  * 异常交由 GlobalExceptionHandler 统一处理（P4-2），不再逐方法 try/catch。
+ *
+ * 整个 NBA 模块不再公开：必须登录，且必须被超管在用户管理里放行（FEAT_DATA='1'）。
+ * 挂在类上而不是逐方法挂——这里每一个接口都是 NBA 数据，漏一个就等于没关。
  */
+@RequiresFeature(Feature.NBA_DATA)
 @RestController
 @RequestMapping("/player")
 public class PlayerController extends BaseUtils {

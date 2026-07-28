@@ -45,7 +45,7 @@ import useIsMobile from '../hooks/useIsMobile'
  * - 子页面渲染进 <Outlet/>，内容区灰底，各页的 Card/ProTable 自然浮成白卡片。
  */
 export default function AppLayout() {
-  const { user, logout } = useAuth()
+  const { user, loading: authLoading, logout, canUse } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const isMobile = useIsMobile()
@@ -116,17 +116,17 @@ export default function AppLayout() {
 
   // 功能模块被禁用的用户，若深链进入该模块的页面（菜单已隐藏，这里兜底），重定向回首页。
   // 超管与未登录访客不受限（访客看公开站点）。按路径前缀判断，覆盖各子页。
+  // NBA 不在这里——它是「默认关」且一进页面就发请求，改由路由级的 FeatureRoute 在渲染前拦。
   useEffect(() => {
-    if (!user || user.isSuperManager) return
+    if (authLoading || !user || user.isSuperManager) return
     const p = location.pathname
     const blocked =
-      (user.featData === false && (p.startsWith('/players') || p.startsWith('/rankings') || p.startsWith('/history') || p.startsWith('/compare') || p.startsWith('/league'))) ||
       (user.featNews === false && p.startsWith('/official')) ||
       (user.featForum === false && p.startsWith('/news')) ||
       (user.featPm === false && p.startsWith('/messages')) ||
       (user.featSchedule === false && p.startsWith('/schedule'))
     if (blocked) navigate('/', { replace: true })
-  }, [location.pathname, user, navigate])
+  }, [location.pathname, user, authLoading, navigate])
 
   // 耿阿姨烤串按店内角色（bbqRole）而非功能开关：台账店内成员皆可（店员只见自己的数据），
   // 其余页面店长专属。超管也不豁免——想看就到用户管理里任命自己当店长（后端逐接口校验，这里只是少一次白屏）。
@@ -139,9 +139,9 @@ export default function AppLayout() {
     if (!ok) navigate('/', { replace: true })
   }, [location.pathname, user, navigate])
 
-  // 功能模块可用性（按用户）：超管始终可见（便于管理）；未登录按公开可见；
-  // flag 未定义（后端还没下发/老数据）时默认显示，保证前后兼容。关掉的模块整块从导航隐藏。
-  const canUse = (flag) => !user || user.isSuperManager || user[flag] !== false
+  // 功能模块可用性（按用户）的规则在 AuthContext.canUse 里，全站一份：
+  // 百家说/新闻/私信/日程默认开放（游客可看），NBA 默认关闭（要登录 + 超管放行）。
+  // 关掉的模块整块从导航隐藏。
   const route = useMemo(
     () => ({
       path: '/',
@@ -204,7 +204,8 @@ export default function AppLayout() {
           : []),
       ],
     }),
-    [user],
+    // canUse 只依赖 user，所以 user 变了就够了；把它列进来会让每次渲染都重算菜单
+    [user], // eslint-disable-line react-hooks/exhaustive-deps
   )
 
   const onLogout = async () => {

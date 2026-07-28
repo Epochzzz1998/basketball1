@@ -33,7 +33,7 @@ export default function UserManage() {
     if (!r.canBrowse) off.push('禁浏览')
     if (!r.canComment) off.push('禁发言')
     if (!r.canPost) off.push('禁发帖')
-    if (!r.featData) off.push('无数据分析')
+    if (!r.featData) off.push('无 NBA') // 默认就是没有，要在详情页里放行
     if (!r.featNews) off.push('无新闻')
     if (!r.featForum) off.push('无百家说')
     if (!r.featPm) off.push('无私信')

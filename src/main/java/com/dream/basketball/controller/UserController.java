@@ -155,8 +155,9 @@ public class UserController extends BaseUtils {
         data.put("canBrowse", !"0".equals(u.getCanBrowse()));
         data.put("canComment", !"0".equals(u.getCanComment()));
         data.put("canPost", !"0".equals(u.getCanPost()));
-        // 功能模块可用性（前端据此显隐导航菜单）
-        data.put("featData", !"0".equals(u.getFeatData()));
+        // 功能模块可用性（前端据此显隐导航菜单）。
+        // NBA 与其余几项语义相反：**默认关**，超管逐个放行才是 true（见 config.Feature.NBA_DATA）
+        data.put("featData", "1".equals(u.getFeatData()));
         data.put("featNews", !"0".equals(u.getFeatNews()));
         data.put("featForum", !"0".equals(u.getFeatForum()));
         data.put("featPm", !"0".equals(u.getFeatPm()));
@@ -206,7 +207,7 @@ public class UserController extends BaseUtils {
             m.put("canBrowse", !"0".equals(u.getCanBrowse()));
             m.put("canComment", !"0".equals(u.getCanComment()));
             m.put("canPost", !"0".equals(u.getCanPost()));
-            m.put("featData", !"0".equals(u.getFeatData()));
+            m.put("featData", "1".equals(u.getFeatData()));
             m.put("featNews", !"0".equals(u.getFeatNews()));
             m.put("featForum", !"0".equals(u.getFeatForum()));
             m.put("featPm", !"0".equals(u.getFeatPm()));
@@ -312,7 +313,7 @@ public class UserController extends BaseUtils {
         m.put("topicOwned", topicMapper.selectCount(
                 new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<com.dream.basketball.entity.ForumTopic>()
                         .eq("OWNER_ID", u.getUserId())));
-        m.put("featData", !"0".equals(u.getFeatData()));
+        m.put("featData", "1".equals(u.getFeatData()));
         m.put("featNews", !"0".equals(u.getFeatNews()));
         m.put("featForum", !"0".equals(u.getFeatForum()));
         m.put("featPm", !"0".equals(u.getFeatPm()));

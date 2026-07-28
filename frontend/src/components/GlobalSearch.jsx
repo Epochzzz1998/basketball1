@@ -120,9 +120,9 @@ function flatten(d, kw, canData, dn) {
 export default function GlobalSearch() {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
-  const { user, dn } = useAuth()
-  // 数据分析(NBA 模块)是否对本人开放：未开放则前端不出球队组（球员组由后端一并过滤）
-  const canData = !user || user.isSuperManager || user.featData !== false
+  const { user, dn, canUse } = useAuth()
+  // NBA 模块是否对本人开放（默认关，超管逐个放行）：未开放则不出球队组（球员组由后端一并过滤）
+  const canData = canUse('featData')
   const [open, setOpen] = useState(false)
   const [hoverTrigger, setHoverTrigger] = useState(false)
   const [kw, setKw] = useState('')

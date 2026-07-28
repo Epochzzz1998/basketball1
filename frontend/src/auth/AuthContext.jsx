@@ -73,8 +73,23 @@ export function AuthProvider({ children }) {
   // 显示名：有备注用备注，否则用真名。全站各处渲染昵称时用它
   const dn = (userId, realName) => (userId && remarks[userId]) || realName
 
+  // 功能模块能不能用。两种语义，别混：
+  //  · **默认关**（NBA 数据）：游客直接看不到；登录了也要超管在用户管理里逐个放行。
+  //    后端 /user/current 下发的 featData 已经是"放行了没"的布尔值（见 config.Feature.NBA_DATA），
+  //    所以这里只认 true，不能沿用下面那条 !== false 的写法——那样没设置过的人会被当成有权限。
+  //  · **默认开**（百家说 / 新闻 / 私信 / 日程）：游客可看，超管显式关掉才隐藏；
+  //    flag 未定义（老数据、后端没下发）也按可用处理，保证前后兼容。
+  // 超管一律放行（否则管不了自己关掉的模块）。
+  const OPT_IN_FEATURES = new Set(['featData'])
+  const canUse = (flag) => {
+    if (OPT_IN_FEATURES.has(flag)) {
+      return !!user && (user.isSuperManager || user[flag] === true)
+    }
+    return !user || user.isSuperManager || user[flag] !== false
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, refresh, remarks, dn }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, refresh, remarks, dn, canUse }}>
       {children}
     </AuthContext.Provider>
   )

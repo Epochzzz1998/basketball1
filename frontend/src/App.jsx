@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import AppLayout from './layout/AppLayout'
 import { useAuth } from './auth/AuthContext'
 import ProtectedRoute from './router/ProtectedRoute'
+import FeatureRoute from './router/FeatureRoute'
 import RoleRoute from './router/RoleRoute'
 import Login from './pages/Login'
 import Home from './pages/Home'
@@ -46,8 +47,7 @@ import UserManageDetail from './pages/admin/UserManageDetail'
  */
 /** 落地页：默认进百家说；若该用户被禁用百家说，顺延到下一个可用模块，避免与守卫来回弹造成循环。 */
 function HomeRedirect() {
-  const { user } = useAuth()
-  const canUse = (f) => !user || user.isSuperManager || user[f] !== false
+  const { user, canUse } = useAuth() // canUse 的规则统一在 AuthContext（NBA 是「默认关」）
   const to = canUse('featForum') ? '/news'
     : canUse('featData') ? '/league'
     : canUse('featNews') ? '/official'
@@ -65,21 +65,26 @@ export default function App() {
       <Route path="/" element={<AppLayout />}>
         {/* 落地页=百家说（论坛）；旧的篮球看板挪到 /league（NBA 模块里的「联盟概览」） */}
         <Route index element={<HomeRedirect />} />
-        <Route path="league" element={<Home />} />
+
+        {/* NBA 模块：不再公开。必须登录 + 超管在用户管理里放行；游客直接跳登录页。
+            用一个布局路由罩住整组，比逐个包一层清爽，也不会漏掉某一页 */}
+        <Route element={<FeatureRoute feature="featData" />}>
+          <Route path="league" element={<Home />} />
+          <Route path="players" element={<PlayersHome />} />
+          <Route path="players/team/:teamCode" element={<TeamPlayers />} />
+          {/* 历史球员最小档案要排在 :playerId 前面，否则 "history" 会被当成 playerId 吃掉 */}
+          <Route path="players/history/:brId" element={<HistoryPlayer />} />
+          <Route path="players/:playerId" element={<PlayerCareer />} />
+          <Route path="compare" element={<PlayerCompare />} />
+          <Route path="rankings" element={<LeagueRankings />} />
+          <Route path="history" element={<HistoryHome />} />
+          <Route path="rankings/honors/:group" element={<HonorDetail />} />
+          {/* 同理：alltime 段必须在 :field 之前 */}
+          <Route path="rankings/alltime/:field" element={<AllTimeBoard />} />
+          <Route path="rankings/:field" element={<RankingDetail />} />
+        </Route>
 
         {/* 公开浏览 */}
-        <Route path="players" element={<PlayersHome />} />
-        <Route path="players/team/:teamCode" element={<TeamPlayers />} />
-        {/* 历史球员最小档案要排在 :playerId 前面，否则 "history" 会被当成 playerId 吃掉 */}
-        <Route path="players/history/:brId" element={<HistoryPlayer />} />
-        <Route path="players/:playerId" element={<PlayerCareer />} />
-        <Route path="compare" element={<PlayerCompare />} />
-        <Route path="rankings" element={<LeagueRankings />} />
-        <Route path="history" element={<HistoryHome />} />
-        <Route path="rankings/honors/:group" element={<HonorDetail />} />
-        {/* 同理：alltime 段必须在 :field 之前 */}
-        <Route path="rankings/alltime/:field" element={<AllTimeBoard />} />
-        <Route path="rankings/:field" element={<RankingDetail />} />
         <Route path="official" element={<NewsList channel="official" />} />
         {/* 百家说：现在是专题列表；点进单个专题看帖流 */}
         <Route path="news" element={<TopicsList />} />

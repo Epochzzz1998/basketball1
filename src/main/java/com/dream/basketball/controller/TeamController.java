@@ -1,6 +1,8 @@
 package com.dream.basketball.controller;
 
 import com.dream.basketball.common.Result;
+import com.dream.basketball.config.Feature;
+import com.dream.basketball.config.RequiresFeature;
 import com.dream.basketball.dto.TeamSeasonDto;
 import com.dream.basketball.mapper.TeamMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,9 +13,12 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 /**
- * 球队榜单 JSON 接口（公开读）。战绩/季后赛来自 team_season，
+ * 球队榜单 JSON 接口。战绩/季后赛来自 team_season，
  * 场均数据由该队球员当季数据聚合而来；东西部/分区在前端按队码归类。
+ *
+ * 与球员接口同属 NBA 模块：必须登录 + 被超管放行（见 {@link Feature#NBA_DATA}）。
  */
+@RequiresFeature(Feature.NBA_DATA)
 @RestController
 @RequestMapping("/team")
 public class TeamController {
