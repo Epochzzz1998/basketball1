@@ -49,10 +49,6 @@ function BrandPanel() {
     position: 'absolute', width: size, height: size, borderRadius: '50%',
     border: '2px solid rgba(255,255,255,.14)', ...pos,
   })
-  const chip = {
-    background: 'rgba(255,255,255,.16)', borderRadius: 999, padding: '6px 14px',
-    fontSize: 12, fontWeight: 600, backdropFilter: 'blur(2px)', whiteSpace: 'nowrap',
-  }
   return (
     <div
       style={{
@@ -75,11 +71,6 @@ function BrandPanel() {
         见你所见
         <br />
         想你所想
-      </div>
-      <div style={{ display: 'flex', gap: 10, marginTop: 26, flexWrap: 'wrap' }}>
-        <span style={chip}>百家说</span>
-        <span style={chip}>专题</span>
-        <span style={chip}>私信</span>
       </div>
     </div>
   )
