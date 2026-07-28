@@ -100,6 +100,30 @@ def strip_suffix(n):
     return re.sub(r'\s+(jr|sr|ii|iii|iv|v)$', '', n)
 
 
+# Cyrillic / Greek letters that render identically to Latin ones. B-R writes some names in
+# native orthography — "Egor Dёmin" carries a **Cyrillic** ё, and NFD-stripping its diaeresis
+# leaves a Cyrillic е, invisibly different from Latin e, so the name silently never matches.
+HOMOGLYPH = str.maketrans({
+    'а': 'a', 'в': 'b', 'е': 'e', 'к': 'k', 'м': 'm', 'н': 'h', 'о': 'o', 'р': 'p',
+    'с': 'c', 'т': 't', 'у': 'y', 'х': 'x', 'і': 'i', 'ј': 'j', 'ѕ': 's', 'ԁ': 'd',
+    'α': 'a', 'ε': 'e', 'ο': 'o', 'ρ': 'p', 'υ': 'u', 'ι': 'i', 'κ': 'k', 'ν': 'v',
+})
+
+
+def key(name):
+    """The name form every roster lookup should use: normalised, then homoglyph-folded."""
+    return norm(name).translate(HOMOGLYPH)
+
+
+def initial_key(k):
+    """'ronald holland' -> 'r|holland'. Catches the nickname gap (a box score's "Ron Holland"
+    vs the roster's "Ronald Holland II") without the false positives a bare surname match
+    would give. Only safe inside one team's roster for one season, and only when the key has
+    a single claimant — a wrong player is worse than an unresolved row."""
+    parts = k.split()
+    return f'{parts[0][0]}|{parts[-1]}' if len(parts) >= 2 and parts[0] else None
+
+
 def fetch_html(url):
     req = urllib.request.Request(url, headers=sync.UA)
     return urllib.request.urlopen(req, timeout=30).read().decode('utf-8', 'replace')

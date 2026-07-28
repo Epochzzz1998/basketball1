@@ -34,6 +34,16 @@ export const playerApi = {
   // 该球员有逐场数据的赛季，空数组说明还没回补到他
   playerGameLogSeasons: (playerId) => http.get('/player/playerGameLogSeasons', { params: { playerId } }),
 
+  // ===== 每日赛场 =====
+  // 某一天的全部比赛
+  gamesByDate: (date) => http.get('/player/gamesByDate', { params: { date } }),
+  // 有比赛的最后一天：逐场数据还在回补，"今天"多半没有比赛，页面默认落在这天
+  latestGameDate: () => http.get('/player/latestGameDate'),
+  // 某个月哪几天有比赛（yyyy-MM），日期选择器据此标记
+  gameDates: (month) => http.get('/player/gameDates', { params: { month } }),
+  // 单场详情：比赛信息 + 每节得分 + 两队球员 + 两队合计
+  gameDetail: (gameId) => http.get('/player/gameDetail', { params: { gameId } }),
+
   // ===== 写（superManager） =====
   // 新增行只在前端本地加（带 new- 临时 id），保存时把临时 id 清空交后端补 UUID，故不再用 insertAndSave* 接口。
   savePlayers: (rows) => http.post('/player/savePlayer', new URLSearchParams({ data: JSON.stringify(rows) })),

@@ -50,8 +50,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import sync
-from br_backfill import BR2CODE, norm, strip_suffix
-from po_game_logs_br import fetch_html, parse_box_table, GAMES_CACHE as PO_GAMES_CACHE
+from br_backfill import BR2CODE, initial_key, key, strip_suffix
+from po_game_logs_br import (fetch_html, parse_box_table, parse_line_score,
+                            GAMES_CACHE as PO_GAMES_CACHE)
 
 HERE = Path(__file__).parent
 INDEX_CACHE = HERE / 'rs_index_cache'
@@ -233,8 +234,12 @@ def scrape_season(year):
             if len(teams) != 2:
                 print(f'    {g["id"]}: parsed {list(teams)}, skipped', flush=True)
                 continue
+            # Quarter scores come off the same page — grabbing them here rather than in a
+            # second pass is the whole reason this is captured now: re-fetching 68,000 box
+            # pages later would cost another 66 hours for one extra table.
             fh.write(json.dumps({'id': g['id'], 'date': g['date'], 'home': g['home'],
-                                 'teams': teams}, ensure_ascii=False) + '\n')
+                                 'teams': teams, 'periods': parse_line_score(page)},
+                                ensure_ascii=False) + '\n')
             fh.flush()                  # per game, so a kill costs one request
             ok += 1
             if i % 100 == 0:
@@ -243,28 +248,6 @@ def scrape_season(year):
 
 
 # ─────────────────────────────────────────── phase 3: identity + SQL
-
-# Cyrillic / Greek letters that render identically to Latin ones. B-R writes some names in
-# native orthography — "Egor Dёmin" carries a **Cyrillic** ё, and NFD-stripping its diaeresis
-# leaves a Cyrillic е, invisibly different from Latin e, so the name silently never matches.
-HOMOGLYPH = str.maketrans({
-    'а': 'a', 'в': 'b', 'е': 'e', 'к': 'k', 'м': 'm', 'н': 'h', 'о': 'o', 'р': 'p',
-    'с': 'c', 'т': 't', 'у': 'y', 'х': 'x', 'і': 'i', 'ј': 'j', 'ѕ': 's', 'ԁ': 'd',
-    'α': 'a', 'ε': 'e', 'ο': 'o', 'ρ': 'p', 'υ': 'u', 'ι': 'i', 'κ': 'k', 'ν': 'v',
-})
-
-
-def key(name):
-    return norm(name).translate(HOMOGLYPH)
-
-
-def initial_key(k):
-    """'ronald holland' -> 'r|holland'. Catches the nickname gap (B-R's "Ron Holland" vs the
-    roster's "Ronald Holland II") without the false positives a bare surname match would give.
-    Only ever consulted inside one team's roster for one season, and only when unambiguous."""
-    parts = k.split()
-    return f'{parts[0][0]}|{parts[-1]}' if len(parts) >= 2 and parts[0] else None
-
 
 def db_rows(q):
     res = subprocess.run(sync.mysql_cmd(), input=q.encode(), capture_output=True)

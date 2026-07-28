@@ -218,3 +218,10 @@ body {
     margin-inline-end: 0;
   }
 }
+
+/* 每日赛场·单场 box score 的「全队」合计行：底色区分，数字加粗，
+   钉在表底但仍然是普通数据行，所以横向滚动时不会和上面的列错位 */
+.game-total-row > td {
+  background: #fafafa !important;
+  font-weight: 700;
+}

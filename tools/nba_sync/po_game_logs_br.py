@@ -38,7 +38,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import sync
-from br_backfill import BR2CODE, norm, strip_suffix
+from br_backfill import BR2CODE, initial_key, key, strip_suffix
 
 ROUNDS_CACHE = Path(__file__).parent / 'po_rounds_cache'
 GAMES_CACHE = Path(__file__).parent / 'po_games_cache'
@@ -126,6 +126,33 @@ def parse_box_table(page, br_code):
     return players, total
 
 
+def parse_line_score(page):
+    """-> {team_code: [q1, q2, q3, q4, ot1, ...]} or None.
+
+    B-R serves this table **inside an HTML comment** (it does that for several secondary
+    tables), so the comment markers have to be stripped before the table is even visible
+    to a regex. Periods are taken as "every column that is not `team` and not `T`", in
+    document order, because the column set is not fixed: a regulation game has 1-4, an
+    overtime game grows OT / OT1 / OT2… and hardcoding four quarters would silently drop
+    the overtime points from the totals."""
+    raw = page.replace('<!--', '').replace('-->', '')
+    m = re.search(r'<table[^>]*id="line[_-]score".*?</table>', raw, re.S)
+    if not m:
+        return None
+    out = {}
+    for tr in re.findall(r'<tr[^>]*>(.*?)</tr>', m.group(0), re.S):
+        cells = re.findall(r'data-stat="([^"]+)"[^>]*>(.*?)</t[dh]>', tr, re.S)
+        row = [(k, cell_text(v)) for k, v in cells]
+        if not row or row[0][0] != 'team':
+            continue
+        team = row[0][1]
+        if not re.fullmatch(r'[A-Z]{3}', team):     # the header row's blank team cell
+            continue
+        periods = [v for k, v in row[1:] if k != 'T']
+        out[team] = [int(v) if v.lstrip('-').isdigit() else None for v in periods]
+    return out or None
+
+
 def series_box_links(slug, br_codes, expect):
     """Box-score links belonging to THIS series. The page also links other series, so
     filter by home code (a box URL ends with the home team's code) — every game of a
@@ -199,15 +226,40 @@ def db_rows(q):
 
 
 def load_rosters():
-    """(season_num, team_code) -> {norm_name: pid}, from the per-round table, which is
-    exactly 'who appeared for this team in this season's playoffs'."""
+    """(season_num, team_code) -> {name key: pid}.
+
+    Two sources unioned, and the second one is not optional: the per-round table is
+    "who B-R's series pages list for this team", and those pages **do miss people** —
+    Ronald Holland II has four 2026 playoff box scores for Detroit and zero rows there,
+    so no amount of name matching could resolve him from that pool alone. The regular
+    season roster (player_stats, traded chains split) covers him, and staying scoped to
+    one team in one season keeps the pool just as safe."""
     q = ("SELECT SEASON_NUM, PLAYER_TEAM, r.PLAYER_ID, COALESCE(p.NAME_EN, p.PLAYER_NAME) "
-         "FROM player_playoff_round_stats r JOIN dream_player p ON p.PLAYER_ID = r.PLAYER_ID;")
-    roster = {}
-    for season, team, pid, name in db_rows(q):
-        d = roster.setdefault((int(season), team), {})
-        for n in {norm(name), strip_suffix(norm(name))}:
-            d.setdefault(n, pid)
+         "FROM player_playoff_round_stats r JOIN dream_player p ON p.PLAYER_ID = r.PLAYER_ID "
+         "UNION ALL "
+         "SELECT s.SEASON_NUM, s.PLAYER_TEAM, s.PLAYER_ID, COALESCE(p.NAME_EN, p.PLAYER_NAME) "
+         "FROM player_stats s JOIN dream_player p ON p.PLAYER_ID = s.PLAYER_ID "
+         "WHERE s.SEASON_NUM <> 99;")
+    roster, loose = {}, {}
+    for season, teams, pid, name in db_rows(q):
+        k = key(name)
+        # player_stats 用 'HOU->BKN' 记交易赛季，拆开后两支球队都注册
+        for team in str(teams).split('->'):
+            team = team.strip()
+            if not team:
+                continue
+            cell = (int(season), team)
+            d = roster.setdefault(cell, {})
+            for n in {k, strip_suffix(k)}:
+                d.setdefault(n, pid)
+            ik = initial_key(strip_suffix(k))
+            if ik:
+                # 记下所有认领者；同一个 key 有两个人时整条丢掉，不随便挑一个
+                loose.setdefault(cell, {}).setdefault(ik, set()).add(pid)
+    for cell, keys in loose.items():
+        for ik, pids in keys.items():
+            if len(pids) == 1:
+                roster[cell].setdefault(ik, next(iter(pids)))
     return roster
 
 
@@ -240,12 +292,12 @@ def build(years, dry):
                 win = 1 if (me['score'] or 0) > (other['score'] or 0) else 0
                 pool = roster.get((season_num, code), {})
                 for p in me['players']:
-                    pid = None
-                    for k in {norm(p['name']), strip_suffix(norm(p['name']))}:
-                        if k in pool:
-                            pid = pool[k]
-                            break
-                    pid = pid or slug_ids.get(p['slug'])
+                    # 全名 -> 去后缀 -> B-R slug -> 首字母+姓（最后一步只在单队单季的池子里用）
+                    k = key(p['name'])
+                    pid = pool.get(k) or pool.get(strip_suffix(k)) or slug_ids.get(p['slug'])
+                    if not pid:
+                        ik = initial_key(strip_suffix(k))
+                        pid = pool.get(ik) if ik else None
                     if not pid:
                         unresolved.append((year, code, p['name']))
                         continue

@@ -16,6 +16,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.RequestBody;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -88,6 +90,67 @@ public class PlayerServiceImpl extends ServiceImpl<PlayerMapper, DreamPlayer> im
     @Override
     public List<Map<String, Object>> findPlayerGameLogSeasons(String playerId) {
         return baseMapper.findPlayerGameLogSeasons(playerId);
+    }
+
+    // ===== 每日赛场 =====
+
+    /** 一场比赛里要合计的列。上场时间也合计——和 box score 的 Team Totals 行口径一致。 */
+    private static final String[] SUM_COLS = {"playingTime", "pts", "reb", "offReb", "defReb",
+            "ast", "stl", "blk", "tov", "pf", "fgm", "fga", "tpm", "tpa", "ftm", "fta"};
+
+    @Override
+    public List<Map<String, Object>> findGamesByDate(String gameDate) {
+        return StringUtils.isBlank(gameDate) ? new ArrayList<>() : baseMapper.findGamesByDate(gameDate);
+    }
+
+    @Override
+    public String findLatestGameDate() {
+        return baseMapper.findLatestGameDate();
+    }
+
+    @Override
+    public List<String> findGameDates(String begin, String end) {
+        return StringUtils.isAnyBlank(begin, end) ? new ArrayList<>() : baseMapper.findGameDates(begin, end);
+    }
+
+    @Override
+    public Map<String, Object> findGameDetail(String gameId) {
+        if (StringUtils.isBlank(gameId)) {
+            return null;
+        }
+        List<Map<String, Object>> meta = baseMapper.findGameMeta(gameId);
+        if (meta.isEmpty()) {
+            return null;
+        }
+        Map<String, Object> game = meta.get(0);
+
+        // 每节得分：一节一行取回来，按队装成数组。分节数不固定，加时就是第 5 节起
+        Map<String, List<Map<String, Object>>> periods = new LinkedHashMap<>();
+        for (Map<String, Object> row : baseMapper.findGamePeriods(gameId)) {
+            periods.computeIfAbsent(String.valueOf(row.get("team")), k -> new ArrayList<>()).add(row);
+        }
+
+        // 球员按队分组，并顺手算出每队合计（就是 box score 里的 Team Totals 行）
+        Map<String, List<Map<String, Object>>> players = new LinkedHashMap<>();
+        Map<String, Map<String, Object>> totals = new LinkedHashMap<>();
+        for (Map<String, Object> row : baseMapper.findGameBoxScore(gameId)) {
+            String team = String.valueOf(row.get("playerTeam"));
+            players.computeIfAbsent(team, k -> new ArrayList<>()).add(row);
+            Map<String, Object> sum = totals.computeIfAbsent(team, k -> new LinkedHashMap<>());
+            for (String col : SUM_COLS) {
+                Object v = row.get(col);
+                if (v instanceof Number) {
+                    sum.merge(col, ((Number) v).longValue(),
+                            (a, b) -> ((Number) a).longValue() + ((Number) b).longValue());
+                }
+            }
+        }
+
+        Map<String, Object> out = new LinkedHashMap<>(game);
+        out.put("periods", periods);
+        out.put("players", players);
+        out.put("totals", totals);
+        return out;
     }
 
     @Override

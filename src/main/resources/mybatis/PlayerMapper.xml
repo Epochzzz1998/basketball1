@@ -230,6 +230,72 @@
         group by SEASON_NUM, SEASON_TYPE order by SEASON_NUM desc, SEASON_TYPE
     </select>
 
+    <!-- ===== 每日赛场 ===== -->
+
+    <!-- 某一天的全部比赛。
+         每场比赛在 player_game_stats 里是两队各一批球员行，所以按 GAME_ID + 主客聚合成一行：
+         主队那一半给 homeTeam/homeScore，客队那一半给 awayTeam/awayScore。
+         用 max(...) 而不是 group_concat：同一场同一队的所有球员行里这些字段是一样的。 -->
+    <select id="findGamesByDate" resultType="java.util.Map">
+        select GAME_ID as gameId, GAME_DATE as gameDate,
+               max(SEASON_NUM) as seasonNum, max(SEASON_TYPE) as seasonType, max(`ROUND`) as round,
+               max(case when HOME = 1 then PLAYER_TEAM end) as homeTeam,
+               max(case when HOME = 1 then TEAM_SCORE end) as homeScore,
+               max(case when HOME = 0 then PLAYER_TEAM end) as awayTeam,
+               max(case when HOME = 0 then TEAM_SCORE end) as awayScore
+        from player_game_stats
+        where GAME_DATE = #{gameDate}
+        group by GAME_ID, GAME_DATE
+        order by GAME_ID
+    </select>
+
+    <!-- 有比赛的最后一天。逐场数据是逐步回补的，"今天"多半没有比赛，
+         所以每日赛场默认落在这一天而不是当天，否则一进来就是空页面，看着像坏了 -->
+    <select id="findLatestGameDate" resultType="java.lang.String">
+        select date_format(max(GAME_DATE), '%Y-%m-%d') from player_game_stats
+    </select>
+
+    <!-- 某个月哪几天有比赛：日期选择器据此标记，避免用户一天天点空 -->
+    <select id="findGameDates" resultType="java.lang.String">
+        select distinct date_format(GAME_DATE, '%Y-%m-%d')
+        from player_game_stats
+        where GAME_DATE &gt;= #{begin} and GAME_DATE &lt; #{end}
+        order by 1
+    </select>
+
+    <!-- 单场：两队全部球员行。首发在前、其次按上场时间降序，和 box score 的读法一致 -->
+    <select id="findGameBoxScore" resultType="java.util.Map">
+        select g.PLAYER_ID as playerId, g.PLAYER_TEAM as playerTeam, g.STARTER as starter,
+               coalesce(p.PLAYER_NAME, p.NAME_EN) as playerName, p.NAME_EN as nameEn, p.PHOTO as photo,
+               g.PLAYING_TIME as playingTime, g.PTS as pts, g.REB as reb, g.OFF_REB as offReb,
+               g.DEF_REB as defReb, g.AST as ast, g.STL as stl, g.BLK as blk, g.TOV as tov,
+               g.PF as pf, g.FGM as fgm, g.FGA as fga, g.TPM as tpm, g.TPA as tpa,
+               g.FTM as ftm, g.FTA as fta, g.PLUS_MINUS as plusMinus
+        from player_game_stats g
+        left join dream_player p on p.PLAYER_ID = g.PLAYER_ID
+        where g.GAME_ID = #{gameId}
+        order by g.PLAYER_TEAM, g.STARTER desc, g.PLAYING_TIME desc
+    </select>
+
+    <!-- 单场的比赛信息（同 findGamesByDate 的聚合口径，只是限定一场） -->
+    <select id="findGameMeta" resultType="java.util.Map">
+        select GAME_ID as gameId, GAME_DATE as gameDate,
+               max(SEASON_NUM) as seasonNum, max(SEASON_TYPE) as seasonType, max(`ROUND`) as round,
+               max(case when HOME = 1 then PLAYER_TEAM end) as homeTeam,
+               max(case when HOME = 1 then TEAM_SCORE end) as homeScore,
+               max(case when HOME = 0 then PLAYER_TEAM end) as awayTeam,
+               max(case when HOME = 0 then TEAM_SCORE end) as awayScore
+        from player_game_stats where GAME_ID = #{gameId}
+        group by GAME_ID, GAME_DATE
+    </select>
+
+    <!-- 每节得分。分节数不固定（加时就不止 4 节），所以是一节一行，不是四个固定列 -->
+    <select id="findGamePeriods" resultType="java.util.Map">
+        select TEAM as team, PERIOD as period, PTS as pts
+        from game_period_score where GAME_ID = #{gameId}
+        order by TEAM, PERIOD
+    </select>
+
 
     <!-- 生涯总数 + 历史排名。排名必须在**全表**上算：这张表覆盖 1947 年至今、含大量我们
          库里没有的球员（张伯伦、拉塞尔……），只按 player_stats 的 50 季算出来的名次是错的。

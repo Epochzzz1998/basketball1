@@ -20,6 +20,8 @@ import HistoryPlayer from './pages/players/HistoryPlayer'
 import HonorDetail from './pages/players/HonorDetail'
 import PlayerCareer from './pages/players/PlayerCareer'
 import PlayerCompare from './pages/players/PlayerCompare'
+import DailyGames from './pages/games/DailyGames'
+import GameDetail from './pages/games/GameDetail'
 import PlayerManage from './pages/players/PlayerManage'
 import PlayerStatsManage from './pages/players/PlayerStatsManage'
 import NewsList from './pages/news/NewsList'
@@ -78,6 +80,9 @@ export default function App() {
           <Route path="players/history/:brId" element={<HistoryPlayer />} />
           <Route path="players/:playerId" element={<PlayerCareer />} />
           <Route path="compare" element={<PlayerCompare />} />
+          {/* 每日赛场：选日期看当天比赛，点进去是单场 box score */}
+          <Route path="games" element={<DailyGames />} />
+          <Route path="games/:gameId" element={<GameDetail />} />
           <Route path="rankings" element={<LeagueRankings />} />
           <Route path="history" element={<HistoryHome />} />
           <Route path="rankings/honors/:group" element={<HonorDetail />} />

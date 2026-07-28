@@ -41,6 +41,18 @@ public interface PlayerService extends IService<DreamPlayer> {
     /** Seasons where this player has game-log rows. */
     List<Map<String, Object>> findPlayerGameLogSeasons(String playerId);
 
+    /** 某一天的全部比赛（每日赛场列表）。 */
+    List<Map<String, Object>> findGamesByDate(String gameDate);
+
+    /** 有比赛的最后一天；库里一场都没有时返回 null。 */
+    String findLatestGameDate();
+
+    /** 某个月有比赛的日期，右开区间 [begin, end)。 */
+    List<String> findGameDates(String begin, String end);
+
+    /** 单场详情：比赛信息 + 每节得分 + 两队球员数据 + 两队合计。找不到该场返回 null。 */
+    Map<String, Object> findGameDetail(String gameId);
+
     /** 生涯总数 + 历史排名；该球员没匹配到全历史表时返回 null。 */
     Map<String, Object> findCareerTotals(String playerId);
 

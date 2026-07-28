@@ -50,6 +50,24 @@ public interface PlayerMapper extends BaseMapper<DreamPlayer> {
     /** Seasons where this player has game-log rows: {seasonNum, seasonType, games}. */
     List<Map<String, Object>> findPlayerGameLogSeasons(@Param("playerId") String playerId);
 
+    /** Every game played on one date, aggregated from the per-player rows into one row each. */
+    List<Map<String, Object>> findGamesByDate(@Param("gameDate") String gameDate);
+
+    /** The most recent date with any game; the daily page defaults there, not to today. */
+    String findLatestGameDate();
+
+    /** Dates carrying at least one game, over the half-open range [begin, end). */
+    List<String> findGameDates(@Param("begin") String begin, @Param("end") String end);
+
+    /** Both teams' player lines for one game, starters first. */
+    List<Map<String, Object>> findGameBoxScore(@Param("gameId") String gameId);
+
+    /** One game's header row: date, season, type, round, both teams and their scores. */
+    List<Map<String, Object>> findGameMeta(@Param("gameId") String gameId);
+
+    /** Line score: one row per team per period (5+ = overtime). */
+    List<Map<String, Object>> findGamePeriods(@Param("gameId") String gameId);
+
     /** 生涯总数 + 历史排名（nba_career_totals，1947 年至今全联盟）。没匹配上则返回空。 */
     List<Map<String, Object>> findCareerTotals(@Param("playerId") String playerId);
 

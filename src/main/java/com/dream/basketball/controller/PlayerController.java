@@ -257,6 +257,44 @@ public class PlayerController extends BaseUtils {
                 playerService.findPlayerGameLogSeasons(StringUtils.trimToEmpty(playerId)));
     }
 
+    /** 每日赛场：某一天的全部比赛（公开）。date 形如 2026-06-13。 */
+    @GetMapping("/gamesByDate")
+    public Object gamesByDate(String date) {
+        return new Result<>(0, "成功", playerService.findGamesByDate(StringUtils.trimToEmpty(date)));
+    }
+
+    /** 有比赛的最后一天（公开）。每日赛场默认落在这天，而不是今天。 */
+    @GetMapping("/latestGameDate")
+    public Object latestGameDate() {
+        return new Result<>(0, "成功", playerService.findLatestGameDate());
+    }
+
+    /**
+     * 某个月哪几天有比赛（公开），日期选择器据此标记。
+     *
+     * month 形如 2026-06；下界是当月 1 号，上界是**次月 1 号且严格小于**，
+     * 写成 `<= 当月最后一天` 的话，带时分秒的那一天会整天漏掉。
+     */
+    @GetMapping("/gameDates")
+    public Object gameDates(String month) {
+        String m = StringUtils.trimToEmpty(month);
+        if (!m.matches("\\d{4}-\\d{2}")) {
+            return new Result<>(1, "月份格式应为 yyyy-MM", null);
+        }
+        int y = Integer.parseInt(m.substring(0, 4));
+        int mo = Integer.parseInt(m.substring(5));
+        String begin = String.format("%04d-%02d-01", y, mo);
+        String end = mo == 12 ? String.format("%04d-01-01", y + 1) : String.format("%04d-%02d-01", y, mo + 1);
+        return new Result<>(0, "成功", playerService.findGameDates(begin, end));
+    }
+
+    /** 单场详情（公开）：比赛信息 + 每节得分 + 两队球员数据 + 两队合计。 */
+    @GetMapping("/gameDetail")
+    public Object gameDetail(String gameId) {
+        Map<String, Object> d = playerService.findGameDetail(StringUtils.trimToEmpty(gameId));
+        return d == null ? new Result<>(1, "没有这场比赛", null) : new Result<>(0, "成功", d);
+    }
+
     // ===== 写接口：superManager 专属（P2-5），多步写已下沉为 @Transactional 服务方法（P3-2） =====
 
     @RequiresRole(Role.SUPER_MANAGER)
