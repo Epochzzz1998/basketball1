@@ -60,7 +60,7 @@ export default function TopicApplyButton({ topic, onApplied, banner, block, size
       >
         {user ? label : '登录后申请'}
       </Button>
-      <Modal open={open} onCancel={() => setOpen(false)} onOk={submit} confirmLoading={saving} okText="提交申请" title={`${label}「${topic?.name || ''}」`}>
+      <Modal open={open} onCancel={() => setOpen(false)} onOk={submit} confirmLoading={saving} okText="提交申请" cancelText="取消" title={`${label}「${topic?.name || ''}」`}>
         <Input.TextArea
           value={msg}
           onChange={(e) => setMsg(e.target.value)}

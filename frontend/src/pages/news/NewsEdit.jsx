@@ -170,7 +170,7 @@ export default function NewsEdit() {
           await pollApi.create({ newsId: newsIdRef.current, subject: pollSub, options: JSON.stringify(pollOpts) })
         } catch { message.warning('帖子已发出，但投票发起失败，可在评论区重新发起') }
       }
-      message.success(isDraft ? '已发布' : '已保存')
+      message.success(isEdit && !isDraft ? '已保存' : '已发布')
       navigate(-1)
     } finally {
       setSaving(false)
@@ -347,7 +347,8 @@ export default function NewsEdit() {
             loading={saving}
             onClick={() => { draftRef.current = false }}
           >
-            {isDraft ? '发布' : '保存'}
+            {/* 只有「改一篇已经发出去的帖子」才叫保存；新帖和草稿点下去都是真的发出去 */}
+            {isEdit && !isDraft ? '保存' : '发布'}
           </Button>
           {/* 草稿：不校验必填也不通知任何人，随手存下来就走 */}
           <Button

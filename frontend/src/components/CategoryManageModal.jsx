@@ -78,7 +78,7 @@ export default function CategoryManageModal({ open, onClose, onChanged }) {
               />
               <Button size="small" type="text" icon={<UpOutlined />} disabled={busy || i === 0} onClick={() => move(i, -1)} />
               <Button size="small" type="text" icon={<DownOutlined />} disabled={busy || i === rows.length - 1} onClick={() => move(i, 1)} />
-              <Popconfirm title={`删除「${r.name}」？`} description="该类别下的专题会退回未分类" okText="删除" okButtonProps={{ danger: true }} onConfirm={() => apply(() => topicApi.deleteCategory(r.categoryId))}>
+              <Popconfirm title={`删除「${r.name}」？`} description="该类别下的专题会退回未分类" okText="删除" cancelText="取消" okButtonProps={{ danger: true }} onConfirm={() => apply(() => topicApi.deleteCategory(r.categoryId))}>
                 <Button size="small" type="text" danger icon={<DeleteOutlined />} disabled={busy} />
               </Popconfirm>
             </div>

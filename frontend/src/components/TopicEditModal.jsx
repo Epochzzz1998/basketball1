@@ -108,6 +108,7 @@ export default function TopicEditModal({ open, onClose, onSaved, topic, categori
       onOk={submit}
       confirmLoading={saving}
       okText={isEdit ? '保存' : '创建'}
+      cancelText="取消"
       title={isEdit ? '编辑专题' : '新建专题'}
       width={520}
       destroyOnClose
