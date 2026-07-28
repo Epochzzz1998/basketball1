@@ -182,7 +182,7 @@ export default function UserManageDetail() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <span style={{ fontWeight: 600 }}>专题数量上限</span>
             <span style={{ color: '#999', fontSize: 12, marginLeft: 8 }}>
-              留空跟随系统默认（{data.topicLimitDefault ?? 5} 个）；已建 {data.topicOwned ?? 0} 个
+              留空跟随系统默认（{data.topicLimitDefault ?? 2} 个）；已建 {data.topicOwned ?? 0} 个
             </span>
           </div>
           <InputNumber
@@ -190,7 +190,7 @@ export default function UserManageDetail() {
             max={99}
             precision={0}
             value={data.topicLimit ?? null}
-            placeholder={`默认 ${data.topicLimitDefault ?? 5}`}
+            placeholder={`默认 ${data.topicLimitDefault ?? 2}`}
             disabled={locked}
             style={{ width: 110 }}
             onChange={(v) => setData((d) => ({ ...d, topicLimit: v }))}
