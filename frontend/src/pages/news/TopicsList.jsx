@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button, Card, Col, Empty, Input, Popconfirm, Row, Spin, Tag, message } from 'antd'
 import {
-  AppstoreOutlined, DeleteOutlined, EditOutlined, EyeInvisibleOutlined, LockOutlined, PlusOutlined, PushpinFilled,
+  AppstoreOutlined, DatabaseOutlined, DeleteOutlined, EditOutlined, EyeInvisibleOutlined, LockOutlined, PlusOutlined, PushpinFilled,
   PushpinOutlined, RightOutlined, SearchOutlined, TeamOutlined, UnlockOutlined,
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
@@ -10,6 +10,7 @@ import { useAuth } from '../../auth/AuthContext'
 import TopicEditModal from '../../components/TopicEditModal'
 import TopicApplyButton from '../../components/TopicApplyButton'
 import CategoryManageModal from '../../components/CategoryManageModal'
+import ChatUsageModal from '../../components/ChatUsageModal'
 import CategoryFilter from '../../components/CategoryFilter'
 import useIsMobile from '../../hooks/useIsMobile'
 
@@ -32,6 +33,7 @@ export default function TopicsList() {
   const [editTopic, setEditTopic] = useState(null)
   const [cats, setCats] = useState([])       // 全站专题类别（超管配）
   const [catOpen, setCatOpen] = useState(false)
+  const [usageOpen, setUsageOpen] = useState(false)  // 群聊占用（仅超管）
   const [cat, setCat] = useState('all')      // 当前筛选：all / 类别 id / '' = 未分类
   const [kw, setKw] = useState('')           // 专题搜索关键词
 
@@ -109,6 +111,12 @@ export default function TopicsList() {
           {user?.isSuperManager && (
             <Button className="banner-btn" size={isMobile ? 'middle' : 'large'} icon={<AppstoreOutlined />} onClick={() => setCatOpen(true)}>
               管理类别
+            </Button>
+          )}
+          {/* 群聊占用只有超管看得到；清理动作在各专题的群聊页里，由题主自己做 */}
+          {user?.isSuperManager && (
+            <Button className="banner-btn" size={isMobile ? 'middle' : 'large'} icon={<DatabaseOutlined />} onClick={() => setUsageOpen(true)}>
+              群聊存储
             </Button>
           )}
           {/* 人人可建（默认允许，超管可按用户关闭；每人限 5 个，后端校验） */}
@@ -233,6 +241,7 @@ export default function TopicsList() {
       <TopicEditModal open={createOpen} categories={cats} onClose={() => setCreateOpen(false)} onSaved={load} />
       <TopicEditModal open={!!editTopic} topic={editTopic} categories={cats} onClose={() => setEditTopic(null)} onSaved={load} />
       <CategoryManageModal open={catOpen} onClose={() => setCatOpen(false)} onChanged={() => { loadCats(); load() }} />
+      <ChatUsageModal open={usageOpen} onClose={() => setUsageOpen(false)} />
     </>
   )
 }

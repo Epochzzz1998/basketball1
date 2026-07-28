@@ -17,4 +17,11 @@ export const chatApi = {
   recall: (msgId) => http.post('/chat/recall', form({ msgId })),
   unread: (topicId) => http.get('/chat/unread', { params: { topicId } }),
   markRead: (topicId) => http.post('/chat/read', form({ topicId })),
+  // 清理：先预览要删多少，再执行。删除连同图片和附件一起，不可恢复
+  purgePreview: (topicId, before) => http.get('/chat/purgePreview', { params: { topicId, before } }),
+  purge: (topicId, before) => http.post('/chat/purge', form({ topicId, before })),
+  // 各专题群聊占用（仅超管）
+  usage: () => http.get('/chat/usage'),
+  // 导出是直接下载，不走 axios（要的是浏览器保存文件，不是拿到响应体）
+  exportUrl: (topicId) => `/chat/export?topicId=${encodeURIComponent(topicId)}`,
 }

@@ -14,6 +14,7 @@ import com.dream.basketball.mapper.TopicChatMessageMapper;
 import com.dream.basketball.mapper.TopicChatReadMapper;
 import com.dream.basketball.mapper.UserMapper;
 import com.dream.basketball.utils.Constants;
+import com.dream.basketball.utils.FileUtils;
 import com.dream.basketball.utils.MentionUtil;
 import com.dream.basketball.utils.SecUtil;
 import org.apache.commons.lang3.StringUtils;
@@ -58,6 +59,10 @@ public class ChatController {
     private static final long RECALL_WINDOW_MS = 2 * 60 * 1000L;
 
     private final Map<String, Long> lastSendAt = new ConcurrentHashMap<>();
+
+    /** 上传根目录，导出要按 URL 找回原文件、清理要把文件一起删 */
+    @org.springframework.beans.factory.annotation.Value("${picPath.uploadPath:}")
+    private String uploadPath;
 
     @Autowired
     private TopicChatMessageMapper chatMapper;
@@ -200,6 +205,204 @@ public class ChatController {
             readMapper.upsert(me.getUserId(), topicId, new Date());
         }
         return new Result<>(0, "成功", null);
+    }
+
+    // ===== 备份 / 清理 / 占用 =====
+
+    /**
+     * 清理前的预览：这个日期之前有多少条、其中多少条带附件。
+     * 删除是不可逆的，所以先让题主看清楚要删掉什么。
+     */
+    @RequiresRole(Role.USER)
+    @GetMapping("/purgePreview")
+    public Object purgePreview(String topicId, String before, HttpServletRequest request) {
+        ForumTopic t = perms.getTopic(topicId);
+        if (!perms.canManage(SecUtil.getLoginUserToSession(request), t)) {
+            return new Result<>(1, "无权管理该专题", null);
+        }
+        Date cut = parseDate(before);
+        if (cut == null) {
+            return new Result<>(1, "请选择日期", null);
+        }
+        Map<String, Object> m = new HashMap<>();
+        m.put("count", chatMapper.selectCount(new QueryWrapper<TopicChatMessage>()
+                .eq("TOPIC_ID", topicId).lt("SEND_TIME", cut)));
+        m.put("files", chatMapper.attachmentsOf(topicId, cut).size());
+        return new Result<>(0, "成功", m);
+    }
+
+    /**
+     * 按日期清理（题主/管理者）：删掉该日期 00:00 之前的消息，**连同它们的图片和附件一起删**。
+     * 只删行不删文件的话，磁盘并没有腾出来，那这个功能就没意义了。
+     */
+    @RequiresRole(Role.USER)
+    @PostMapping("/purge")
+    public Object purge(String topicId, String before, HttpServletRequest request) {
+        ForumTopic t = perms.getTopic(topicId);
+        if (!perms.canManage(SecUtil.getLoginUserToSession(request), t)) {
+            return new Result<>(1, "无权管理该专题", null);
+        }
+        Date cut = parseDate(before);
+        if (cut == null) {
+            return new Result<>(1, "请选择日期", null);
+        }
+        // 先按 URL 找到文件再删行——顺序反了就再也找不到该删哪些文件了
+        int files = 0;
+        for (Map<String, Object> row : chatMapper.attachmentsOf(topicId, cut)) {
+            for (String key : new String[]{"imageUrl", "fileUrl"}) {
+                java.io.File f = FileUtils.resolveUploadFile(uploadPath, (String) row.get(key));
+                if (f != null && f.delete()) {
+                    files++;
+                }
+            }
+        }
+        int rows = chatMapper.delete(new QueryWrapper<TopicChatMessage>()
+                .eq("TOPIC_ID", topicId).lt("SEND_TIME", cut));
+        Map<String, Object> m = new HashMap<>();
+        m.put("messages", rows);
+        m.put("files", files);
+        return new Result<>(0, "已清理", m);
+    }
+
+    /** 各专题群聊的占用（仅超管）：正文字节来自库，附件字节按文件逐个 stat。 */
+    @RequiresRole(Role.SUPER_MANAGER)
+    @GetMapping("/usage")
+    public Object usage() {
+        // 附件体积按专题汇总：库里只有 URL，大小得去磁盘上问
+        Map<String, long[]> fileAgg = new HashMap<>(); // topicId -> [字节数, 文件数]
+        for (Map<String, Object> row : chatMapper.attachmentsOf(null, null)) {
+            String tid = String.valueOf(row.get("topicId"));
+            long[] agg = fileAgg.computeIfAbsent(tid, k -> new long[2]);
+            for (String key : new String[]{"imageUrl", "fileUrl"}) {
+                java.io.File f = FileUtils.resolveUploadFile(uploadPath, (String) row.get(key));
+                if (f != null) {
+                    agg[0] += f.length();
+                    agg[1]++;
+                }
+            }
+        }
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (Map<String, Object> row : chatMapper.usageByTopic()) {
+            Map<String, Object> m = new HashMap<>(row);
+            long[] agg = fileAgg.getOrDefault(String.valueOf(row.get("topicId")), new long[2]);
+            long text = row.get("textBytes") == null ? 0 : ((Number) row.get("textBytes")).longValue();
+            m.put("fileBytes", agg[0]);
+            m.put("files", agg[1]);
+            m.put("totalBytes", text + agg[0]);
+            out.add(m);
+        }
+        return new Result<>(0, "成功", out);
+    }
+
+    /**
+     * 导出备份（题主/管理者）：一个 zip，里面是
+     *   messages.json —— 全部消息的结构化数据（含发送者、时间、@ 到谁、附件文件名）
+     *   chat.txt      —— 同样的内容排成人能读的流水
+     *   files/        —— 所有图片和附件的原件
+     * 直接流式写进响应，不在内存里攒整个包——附件多了会撑爆堆。
+     */
+    @RequiresRole(Role.USER)
+    @GetMapping("/export")
+    public void export(String topicId, HttpServletRequest request, javax.servlet.http.HttpServletResponse response)
+            throws java.io.IOException {
+        ForumTopic t = perms.getTopic(topicId);
+        if (!perms.canManage(SecUtil.getLoginUserToSession(request), t)) {
+            response.setStatus(javax.servlet.http.HttpServletResponse.SC_FORBIDDEN);
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write("{\"code\":403,\"msg\":\"无权管理该专题\",\"data\":null}");
+            return;
+        }
+        List<TopicChatMessage> rows = chatMapper.selectList(new QueryWrapper<TopicChatMessage>()
+                .eq("TOPIC_ID", topicId).orderByAsc("SEND_TIME"));
+        Map<String, String> names = new HashMap<>();
+        for (DreamUser u : userMapper.selectList(new QueryWrapper<DreamUser>().select("USER_ID", "USER_NICKNAME"))) {
+            names.put(u.getUserId(), u.getUserNickname());
+        }
+
+        String base = "chat-" + safeName(t.getName()) + "-"
+                + new java.text.SimpleDateFormat("yyyyMMdd").format(new Date());
+        response.setContentType("application/zip");
+        // filename* 才是带中文能正确落地的写法；filename= 留个 ASCII 兜底给老浏览器
+        response.setHeader("Content-Disposition", "attachment; filename=\"" + base + ".zip\"; "
+                + "filename*=UTF-8''" + java.net.URLEncoder.encode(base + ".zip", "UTF-8"));
+
+        try (java.util.zip.ZipOutputStream zip = new java.util.zip.ZipOutputStream(response.getOutputStream())) {
+            com.alibaba.fastjson.JSONArray arr = new com.alibaba.fastjson.JSONArray();
+            StringBuilder txt = new StringBuilder("# ").append(t.getName()).append(" 群聊记录\n\n");
+            java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            java.util.Set<String> packed = new java.util.HashSet<>();
+
+            for (TopicChatMessage m : rows) {
+                String who = names.getOrDefault(m.getSenderId(), m.getSenderId());
+                String when = m.getSendTime() == null ? "" : fmt.format(m.getSendTime());
+                boolean recalled = "1".equals(m.getRecalled());
+                String imgName = packFile(zip, m.getImageUrl(), packed);
+                String fileName = packFile(zip, m.getFileUrl(), packed);
+
+                com.alibaba.fastjson.JSONObject o = new com.alibaba.fastjson.JSONObject(true);
+                o.put("time", when);
+                o.put("sender", who);
+                o.put("senderId", m.getSenderId());
+                o.put("recalled", recalled);
+                o.put("content", recalled ? "" : m.getContent());
+                o.put("image", imgName);
+                o.put("file", fileName);
+                o.put("fileName", m.getFileName());
+                o.put("mentions", m.getMentions());
+                arr.add(o);
+
+                txt.append('[').append(when).append("] ").append(who).append(": ");
+                if (recalled) {
+                    txt.append("(已撤回)");
+                } else {
+                    txt.append(StringUtils.trimToEmpty(m.getContent()));
+                    if (imgName != null) {
+                        txt.append(" [图片 files/").append(imgName).append(']');
+                    }
+                    if (fileName != null) {
+                        txt.append(" [附件 files/").append(fileName).append(']');
+                    }
+                }
+                txt.append('\n');
+            }
+
+            zip.putNextEntry(new java.util.zip.ZipEntry("messages.json"));
+            zip.write(com.alibaba.fastjson.JSON.toJSONString(arr, true).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            zip.closeEntry();
+            zip.putNextEntry(new java.util.zip.ZipEntry("chat.txt"));
+            zip.write(txt.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            zip.closeEntry();
+        }
+    }
+
+    /** 把一个附件塞进 zip 的 files/ 下，返回包内文件名；不是本站文件或已经塞过就返回原名/ null。 */
+    private String packFile(java.util.zip.ZipOutputStream zip, String url, java.util.Set<String> packed)
+            throws java.io.IOException {
+        java.io.File f = FileUtils.resolveUploadFile(uploadPath, url);
+        if (f == null) {
+            return null;
+        }
+        String name = f.getName();
+        if (packed.add(name)) {
+            zip.putNextEntry(new java.util.zip.ZipEntry("files/" + name));
+            java.nio.file.Files.copy(f.toPath(), zip);
+            zip.closeEntry();
+        }
+        return name;
+    }
+
+    /** 文件名里只留安全字符，中文保留（zip 内部用 UTF-8） */
+    private String safeName(String s) {
+        return StringUtils.trimToEmpty(s).replaceAll("[\\\\/:*?\"<>|\\s]", "_");
+    }
+
+    /** yyyy-MM-dd → 当天 00:00；解析不出来返回 null。 */
+    private Date parseDate(String s) {
+        try {
+            return new java.text.SimpleDateFormat("yyyy-MM-dd").parse(StringUtils.trimToEmpty(s));
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private Map<String, Object> envelope(String type, Object data) {

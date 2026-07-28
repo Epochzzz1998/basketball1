@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dream.basketball.mapper.TopicChatMessageMapper">
+
+    <!-- 每个专题的群聊占用：条数 + 正文字节数。LENGTH() 是字节不是字符，
+         中文一个字三字节，这里要的就是真实占用。附件体积在 Java 侧按文件 stat 汇总，
+         库里只有 URL，算不出大小。 -->
+    <select id="usageByTopic" resultType="java.util.Map">
+        select m.TOPIC_ID as topicId,
+               t.NAME as topicName,
+               count(*) as msgs,
+               ifnull(sum(length(m.CONTENT)), 0) as textBytes,
+               min(m.SEND_TIME) as firstAt,
+               max(m.SEND_TIME) as lastAt
+        from topic_chat_message m
+        left join forum_topic t on t.TOPIC_ID = m.TOPIC_ID
+        group by m.TOPIC_ID, t.NAME
+        order by count(*) desc
+    </select>
+
+    <!-- 所有带附件的消息（导出、清理、算体积都用它） -->
+    <select id="attachmentsOf" resultType="java.util.Map">
+        select TOPIC_ID as topicId, IMAGE_URL as imageUrl, FILE_URL as fileUrl
+        from topic_chat_message
+        where (IMAGE_URL is not null or FILE_URL is not null)
+        <if test="topicId != null and topicId != ''">and TOPIC_ID = #{topicId}</if>
+        <if test="before != null">and SEND_TIME &lt; #{before}</if>
+    </select>
+</mapper>

@@ -96,6 +96,34 @@ public class FileUtils {
     }
 
     /**
+     * 把一个上传 URL（/picImg/xxx/abc.png）还原成磁盘上的文件。
+     *
+     * 群聊的导出和清理都要按 URL 找到真实文件，这是唯一该做这件事的地方。
+     * 三道防线：必须是本站上传前缀、不许出现 .. 之类的段、最后用规范化路径
+     * 再确认一次确实落在上传根目录内（软链接和编码绕过都挡掉）。
+     * 任何一条不满足、或者文件不存在，都返回 null。
+     */
+    public static File resolveUploadFile(String uploadPath, String url) {
+        if (!isLocalUploadUrl(url) || uploadPath == null || uploadPath.isEmpty()) {
+            return null;
+        }
+        String rel = url.substring(picPath.length());
+        if (rel.isEmpty() || rel.startsWith("/") || rel.contains("..")) {
+            return null;
+        }
+        File f = new File(uploadPath, rel);
+        try {
+            java.nio.file.Path root = new File(uploadPath).getCanonicalFile().toPath();
+            if (!f.getCanonicalFile().toPath().startsWith(root)) {
+                return null;
+            }
+        } catch (IOException e) {
+            return null;
+        }
+        return f.isFile() ? f : null;
+    }
+
+    /**
      * Delete one upload folder (e.g. a deleted post's images at {uploadPath}/{folderKey}).
      * The folder segment is sanitized exactly like upload(), and a blank key is refused,
      * so this can never escape or wipe the upload root. Best-effort: quietly no-ops when

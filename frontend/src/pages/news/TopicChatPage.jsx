@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Avatar, Button, Card, Empty, Input, Popconfirm, Spin, Upload, message as toast } from 'antd'
-import { LoadingOutlined, MessageOutlined, PaperClipOutlined, PictureOutlined, SendOutlined } from '@ant-design/icons'
+import { ClearOutlined, DownloadOutlined, LoadingOutlined, MessageOutlined, PaperClipOutlined, PictureOutlined, SendOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { chatApi } from '../../api/chat'
 import { newsApi } from '../../api/news'
@@ -10,6 +10,7 @@ import { topicApi } from '../../api/topic'
 import { subscribeRoom } from '../../realtime/pmSocket'
 import { useAuth } from '../../auth/AuthContext'
 import EmojiPicker from '../../components/EmojiPicker'
+import ChatPurgeModal from '../../components/ChatPurgeModal'
 
 /**
  * 专题群聊页（/news/topic/:topicId/chat）。
@@ -90,6 +91,7 @@ export default function TopicChatPage() {
   const [uploading, setUploading] = useState(false)
   const [more, setMore] = useState(false)
   const [atOpts, setAtOpts] = useState(null)
+  const [purgeOpen, setPurgeOpen] = useState(false)
   const taRef = useRef(null)
   const endRef = useRef(null)
   const cardRef = useRef(null)
@@ -287,7 +289,23 @@ export default function TopicChatPage() {
           <span style={{ color: '#bbb', fontSize: 13, fontWeight: 400 }}>群聊</span>
         </span>
       }
-      extra={<a onClick={() => navigate(`/news/topic/${topicId}`)} style={{ fontSize: 13 }}>回专题</a>}
+      extra={(
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 14, fontSize: 13 }}>
+          {/* 备份和清理只给管理者。清理会连图片附件一起删，所以入口放在导出旁边，
+              顺序上先看到「导出备份」再看到「清理记录」 */}
+          {topic?.canManage && (
+            <a href={chatApi.exportUrl(topicId)} style={{ color: '#666' }}>
+              <DownloadOutlined /> 导出备份
+            </a>
+          )}
+          {topic?.canManage && (
+            <a onClick={() => setPurgeOpen(true)} style={{ color: '#666' }}>
+              <ClearOutlined /> 清理记录
+            </a>
+          )}
+          <a onClick={() => navigate(`/news/topic/${topicId}`)}>回专题</a>
+        </span>
+      )}
     >
       {/* 消息区：卡片高度定死之后，滚动就发生在这里面。
           消息从上往下排（最早的顶在最上面），空的部分留在下面 */}
@@ -450,6 +468,16 @@ export default function TopicChatPage() {
           </div>
         </div>
       </div>
+
+      <ChatPurgeModal
+        topicId={topicId}
+        open={purgeOpen}
+        onClose={() => setPurgeOpen(false)}
+        onDone={() => {
+          // 清完把当前这屏重新拉一次，不然界面上还挂着已经删掉的消息
+          chatApi.history(topicId).then((r) => setRows(Array.isArray(r) ? r : [])).catch(() => {})
+        }}
+      />
     </Card>
   )
 }
