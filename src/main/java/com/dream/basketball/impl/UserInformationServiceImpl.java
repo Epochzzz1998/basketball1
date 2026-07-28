@@ -35,6 +35,10 @@ public class UserInformationServiceImpl extends ServiceImpl<UserInformationMappe
     @Autowired
     com.dream.basketball.mapper.ForumTopicMapper forumTopicMapper;
 
+    /** 消息落库后顺手推到手机（Web Push）。内部异步，不会拖慢这里的事务。 */
+    @Autowired
+    com.dream.basketball.service.WebPushSender webPushSender;
+
     /**
     * @Description: 发送消息
     * @param: [operatorId, operatorName, receiverId, msgType, msgId, commentContent]
@@ -65,6 +69,10 @@ public class UserInformationServiceImpl extends ServiceImpl<UserInformationMappe
         userInformation.setMsgIdThird(msgIdThird);
         userInformation.setCommentRelRelId(commentRelRelId);
         saveOrUpdate(userInformation);
+        // 推到手机上。挂在这里是因为这里是全站消息的唯一入口——各调用方（点赞 MQ 消费者/
+        // 评论/@/关注/专题/日程）都经过这一行，推送的接入点就只有这一个。
+        // 哪些类型真的会响手机由 WebPushSender.PUSHABLE 决定，不是每条都推
+        webPushSender.notifyAsync(userInformation);
     }
 
     /**

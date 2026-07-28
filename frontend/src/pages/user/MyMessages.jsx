@@ -6,79 +6,13 @@ import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { userInformationApi } from '../../api/userInformation'
 import { useAuth } from '../../auth/AuthContext'
+import { actionTextOf, detailOf, linkOf } from '../../utils/notification'
+import PushToggle from '../../components/PushToggle'
 
 const fmt = (v) => (v ? dayjs(v).format('YYYY-MM-DD HH:mm') : '')
-// 原帖摘要是富文本 HTML 截断，剥掉标签只展示纯文本
-const stripHtml = (s) => (s || '').replace(/<[^>]+>/g, '')
 
-// 点赞/点踩帖子类消息 msgId=帖子 id；评论类（含评论里@）msgId=评论 id、msgIdSecond=帖子 id
-const COMMENT_TYPES = ['goodComment', 'badComment', 'commentComment', 'mentionComment']
-// 专题类消息 msgId=专题 id，点进去跳专题页
-const TOPIC_TYPES = ['topicApply', 'topicApproved', 'topicRejected', 'mentionChat']
-// 日程类：remind 的 msgId=日期；assign 的 msgId=事件id、msgIdSecond=日期。点进日历对应那天（顺便标已读）
-const SCHEDULE_TYPES = ['scheduleAssign', 'scheduleRemind', 'scheduleOverdue', 'scheduleExpiry']
-const newsIdOf = (m) => (COMMENT_TYPES.includes(m.msgType) ? m.msgIdSecond : m.msgId)
-// 点击一条消息去哪：专题类→专题页，其余→帖子详情。都带 userInformationId 顺便标已读
-const linkOf = (m) =>
-  m.msgType === 'follow'
-    ? `/users/${m.msgId}` // follow 的 msgId=关注者 id → 跳其主页（已读由消息页统一处理）
-    : TOPIC_TYPES.includes(m.msgType)
-      ? `/news/topic/${m.msgId}?userInformationId=${m.userInformationId}`
-      : SCHEDULE_TYPES.includes(m.msgType)
-        ? `/schedule?date=${m.msgType === 'scheduleAssign' ? (m.msgIdSecond || '') : m.msgId}&userInformationId=${m.userInformationId}`
-        : `/news/${newsIdOf(m)}?userInformationId=${m.userInformationId}`
-
-// 动作短语按 msgType 在前端固定构造（库里 commentNews/commentComment 的 contentMsg 存的是评论原文，
-// 不是短语——直接显示会变成「xxx "评论内容"」，很怪；这里统一映射，老消息也能正确显示）。
-// 帖子类：动作对象就是帖子 → 「xxx 点赞了您的帖子《标题》」；
-// 评论类：动作对象是评论、标题只是位置 → 「xxx 点赞了您在《标题》下的评论」（标题缺失=原帖已删，退回短句）。
-const actionTextOf = (m) => {
-  const t = m.newsTitle ? `「${m.newsTitle}」` : ''
-  switch (m.msgType) {
-    case 'goodNews': return `点赞了您的帖子${t}`
-    case 'badNews': return `点踩了您的帖子${t}`
-    case 'commentNews': return `评论了您的帖子${t}`
-    case 'goodComment': return t ? `点赞了您在${t}下的评论` : '点赞了您的评论'
-    case 'badComment': return t ? `点踩了您在${t}下的评论` : '点踩了您的评论'
-    case 'commentComment': return t ? `回复了您在${t}下的评论` : '回复了您的评论'
-    case 'mentionComment': return t ? `在${t}的评论里@了您` : '在评论里@了您'
-    case 'mentionNews': return t ? `在帖子${t}里@了您` : '在帖子里@了您'
-    case 'mentionChat': return `在${m.content ? `「${m.content}」` : '专题'}的群聊里@了您`
-    case 'follow': return '关注了你'
-    case 'topicApply': return `申请加入你的专题${m.content ? `「${m.content}」` : ''}`
-    case 'topicApproved': return `通过了你加入${m.content ? `「${m.content}」` : '专题'}的申请`
-    case 'topicRejected': return `驳回了你加入${m.content ? `「${m.content}」` : '专题'}的申请`
-    case 'scheduleAssign': return '给你指派了一条日程'
-    case 'scheduleRemind': return '' // operatorName 即「日程提醒」，短语留空避免重复
-    case 'scheduleOverdue': return ''
-    case 'scheduleExpiry': return ''
-    default: return m.contentMsg || ''
-  }
-}
-
-// 第二行明细：评论类展示评论/回复原文（存在 contentMsg 里），点赞类展示原帖/原评论摘要（存在 content 里）
-const detailOf = (m) => {
-  const s = (v) => stripHtml(v) || '(无内容)'
-  switch (m.msgType) {
-    case 'commentNews': return `评论内容：${s(m.contentMsg)}`
-    case 'commentComment': return `回复内容：${s(m.contentMsg)} ｜ 您的评论：${s(m.content)}`
-    case 'goodComment':
-    case 'badComment': return `您的评论：${s(m.content)}`
-    case 'mentionComment': return `评论内容：${s(m.content)}`
-    case 'mentionNews': return `帖子：${s(m.content)}`
-    // 群聊没有「原帖」这回事：content 存的是专题名（已进标题），明细给那条群聊原文
-    case 'mentionChat': return `群聊消息：${s(m.contentMsg)}`
-    case 'follow': return '点击去 TA 的主页看看'
-    case 'topicApply': return '点击进入专题，在成员管理里审批'
-    case 'topicApproved': return '点击进入该专题'
-    case 'topicRejected': return `专题：${s(m.content)}`
-    case 'scheduleAssign': return `日程：${s(m.content)} ｜ 点击查看当天日历`
-    case 'scheduleRemind': return s(m.content)
-    case 'scheduleOverdue': return `⚠️ ${s(m.content)}`
-    case 'scheduleExpiry': return `⏳ ${s(m.content)}`
-    default: return `原帖：${s(m.content)}` // goodNews / badNews
-  }
-}
+// 文案与跳转规则搬到了 utils/notification.js —— service worker 弹的那条系统通知
+// 必须和这里说的是同一件事，所以两边共用一份，见那个文件顶部的说明
 
 /**
  * 我的消息（登录用户，/me）。替代 user-information.ftl。
@@ -107,6 +41,9 @@ export default function MyMessages() {
       rowKey="userInformationId"
       headerTitle="我的消息"
       toolBarRender={() => [
+        // 推送开关放这儿：这一页就是「我的通知」，想开关通知的人自然会来这儿找，
+        // 埋进设置页反而没人找得到
+        <PushToggle key="push" />,
         <Button key="readall" icon={<CheckOutlined />} onClick={readAll}>一键已读</Button>,
       ]}
       pagination={{ pageSize: 10 }}

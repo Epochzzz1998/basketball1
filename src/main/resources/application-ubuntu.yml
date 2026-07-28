@@ -98,3 +98,14 @@ picPath:
   # 确保你已经在 Code-Server 里创建了这个文件夹：mkdir -p /config/workspace/uploads
   uploadPath: /config/workspace/uploads/
   picPath: /picImg/
+
+# Web Push (RFC 8292 VAPID). Both halves come from the environment: the pair has to
+# match, and splitting one into the repo and one into env is how they end up not
+# matching. Absent -> WebPushSender logs a warning and quietly does nothing, so the
+# app still starts on a machine that has no keys.
+# Server: dream-app/.env
+push:
+  vapid:
+    public-key: ${VAPID_PUBLIC_KEY:}
+    private-key: ${VAPID_PRIVATE_KEY:}
+    subject: mailto:bliuzzz1016@gmail.com

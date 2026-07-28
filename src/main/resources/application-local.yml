@@ -96,3 +96,11 @@ picPath:
   # /picImg/** 由 ImgConfigurer 映射到同一目录提供访问。服务器用 ubuntu profile 的 Linux 路径。
   uploadPath: /Users/epoch/basketball-uploads/
   picPath: /picImg/
+
+# Web Push: no keys locally by default, so push is simply off (see WebPushSender.init).
+# Export VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY to exercise it against a local browser.
+push:
+  vapid:
+    public-key: ${VAPID_PUBLIC_KEY:}
+    private-key: ${VAPID_PRIVATE_KEY:}
+    subject: mailto:bliuzzz1016@gmail.com

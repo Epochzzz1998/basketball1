@@ -38,8 +38,15 @@ const api = (extra = {}) => ({ target: backend, changeOrigin: true, bypass: spaF
  *    结果就是装了个离线打不开的壳。
  *
  * 4. **不在 dev 下启用。** service worker 会缓存住旧代码，本地改完不生效，极难查。
+ *
+ * 用 injectManifest 而不是 generateSW：service worker 要接推送（push / notificationclick），
+ * 自动生成的那个是成品，插不进自己的监听。改成手写 src/sw.js，构建期只把预缓存清单
+ * 注入进去。上面第 1、2 条的实现也随之搬进了 sw.js。
  */
 const pwa = VitePWA({
+  strategies: 'injectManifest',
+  srcDir: 'src',
+  filename: 'sw.js',
   registerType: 'autoUpdate',
   includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
   manifest: {
@@ -59,15 +66,11 @@ const pwa = VitePWA({
       { src: '/pwa-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
   },
-  workbox: {
+  // injectManifest 模式下这里只管"哪些文件进预缓存清单"，
+  // 缓存策略和导航兜底都写在 src/sw.js 里
+  injectManifest: {
     globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
     maximumFileSizeToCacheInBytes: 6 * 1024 * 1024, // 见上面第 3 条
-    cleanupOutdatedCaches: true,
-    navigateFallback: '/index.html',
-    navigateFallbackDenylist: [
-      /^\/picImg\//,      // 上传的图片和附件
-      /^\/chat\/export/,  // 群聊导出（zip）
-    ],
   },
   devOptions: { enabled: false },
 })

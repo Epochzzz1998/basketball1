@@ -15,6 +15,16 @@
     <description>Demo project for Spring Boot</description>
     <properties>
         <java.version>17</java.version>
+        <!--
+          Spring Boot 2.7's dependency management pins kotlin-stdlib to 1.6.21, and that
+          version silently wins over what com.interaso:webpush asks for. The library is
+          compiled against Kotlin 1.9: its enums' static initialisers call
+          kotlin.enums.EnumEntriesKt.enumEntries, which does not exist before 1.9. Since
+          WebPushService.send returns one of those enums, the class loads on the first
+          send and dies with NoClassDefFoundError — at runtime, in production, never at
+          build time. Overriding the property is the supported way to lift it.
+        -->
+        <kotlin.version>1.9.25</kotlin.version>
     </properties>
     <dependencies>
         <!-- P4-1: removed spring-boot-starter-freemarker — backend is now a pure JSON API -->
@@ -26,6 +36,17 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+        <!--
+          Web Push (RFC 8291 payload encryption + RFC 8292 VAPID). Chosen over the more
+          widely used nl.martijndwars:web-push because that one drags in async-http-client
+          (Netty), jose4j, jcommander and BouncyCastle; this one is pure JDK crypto plus
+          java.net.http and brings only kotlin-stdlib. Bytecode targets Java 11.
+        -->
+        <dependency>
+            <groupId>com.interaso</groupId>
+            <artifactId>webpush</artifactId>
+            <version>1.2.0</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
