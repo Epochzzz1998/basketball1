@@ -15,6 +15,14 @@ public interface TopicChatMessageMapper extends BaseMapper<TopicChatMessage> {
     java.util.List<java.util.Map<String, Object>> usageByTopic();
 
     /**
+     * 我在各专题群聊里的未读条数：[{topicId, cnt}]，没有未读的专题不出现在结果里。
+     *
+     * 专题列表要给每张卡片标红点，按专题挨个调 /chat/unread 就是 N 次 SQL，这里一把查完。
+     */
+    java.util.List<java.util.Map<String, Object>> unreadByTopic(
+            @org.apache.ibatis.annotations.Param("userId") String userId);
+
+    /**
      * 带附件的消息的 URL。三个条件都可为空：topicId 限专题，before 取该时间之前，
      * after 取该时间之后（清理时要知道"留下来的还在用哪些文件"）。导出、清理、算体积共用。
      */

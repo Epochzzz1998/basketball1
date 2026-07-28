@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button, Card, Col, Empty, Input, Popconfirm, Row, Spin, Tag, message } from 'antd'
 import {
-  AppstoreOutlined, DatabaseOutlined, DeleteOutlined, EditOutlined, EyeInvisibleOutlined, LockOutlined, PlusOutlined, PushpinFilled,
-  PushpinOutlined, RightOutlined, SearchOutlined, TeamOutlined, UnlockOutlined,
+  AppstoreOutlined, DatabaseOutlined, DeleteOutlined, EditOutlined, EyeInvisibleOutlined, LockOutlined, MessageOutlined,
+  PlusOutlined, PushpinFilled, PushpinOutlined, RightOutlined, SearchOutlined, TeamOutlined, UnlockOutlined,
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { topicApi } from '../../api/topic'
@@ -239,6 +239,23 @@ export default function TopicsList() {
                     <span style={{ whiteSpace: 'nowrap' }}>{t.participantCount ?? 0} 人正在讨论</span>
                     <span style={{ margin: '0 8px', color: '#ddd' }}>·</span>
                     <span>{t.postCount ?? 0} 帖</span>
+                    {/* 群聊未读：和左上角那个红点分开——那个是新帖/新评论，这个是群聊，
+                        位置和图标都不同才分得清。点它直接进群聊，省得"进专题→再点群聊"两步 */}
+                    {t.chatUnread > 0 && (
+                      <span
+                        onClick={(e) => { e.stopPropagation(); navigate(`/news/topic/${t.topicId}/chat`) }}
+                        title={`群聊有 ${t.chatUnread} 条新消息`}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 10,
+                          padding: '1px 8px', borderRadius: 999, background: '#fff1f0',
+                          border: '1px solid #ffccc7', color: '#f5222d', fontWeight: 700,
+                          whiteSpace: 'nowrap', cursor: 'pointer',
+                        }}
+                      >
+                        <MessageOutlined style={{ fontSize: 11 }} />
+                        {t.chatUnread > 99 ? '99+' : t.chatUnread}
+                      </span>
+                    )}
                     <span style={{ flex: 1 }} />
                     {/* 无浏览权（不是成员）→ 卡片上直接给申请按钮；否则显示"进入" */}
                     {t.locked ? (

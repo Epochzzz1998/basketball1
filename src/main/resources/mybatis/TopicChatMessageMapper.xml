@@ -18,6 +18,23 @@
         order by count(*) desc
     </select>
 
+    <!-- 我在各专题群聊里的未读条数（专题列表的红点）。
+
+         left join 已读游标：从没打开过某个群 = 没有游标行，那一整群都算未读。
+         这条规则和单专题的 /chat/unread 必须一致——卡片上的数和进去之后群聊按钮上的数
+         对不上的话，看着就是个 bug。
+
+         RECALLED 是 NOT NULL DEFAULT '0'，所以 &lt;&gt; '1' 不会漏行，不用另外判空。 -->
+    <select id="unreadByTopic" resultType="java.util.Map">
+        select m.TOPIC_ID as topicId, count(*) as cnt
+        from topic_chat_message m
+        left join topic_chat_read r on r.TOPIC_ID = m.TOPIC_ID and r.USER_ID = #{userId}
+        where m.SENDER_ID &lt;&gt; #{userId}
+          and m.RECALLED &lt;&gt; '1'
+          and (r.LAST_READ is null or m.SEND_TIME &gt; r.LAST_READ)
+        group by m.TOPIC_ID
+    </select>
+
     <!-- 哪几天有聊天记录：小日历上把这些日子标深色，点一下跳过去 -->
     <select id="distinctDays" resultType="java.lang.String">
         select distinct date_format(SEND_TIME, '%Y-%m-%d')

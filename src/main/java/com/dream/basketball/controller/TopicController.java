@@ -60,6 +60,8 @@ public class TopicController {
     @Autowired
     private com.dream.basketball.mapper.ForumCategoryMapper categoryMapper;
     @Autowired
+    private com.dream.basketball.mapper.TopicChatMessageMapper chatMapper;
+    @Autowired
     private com.dream.basketball.service.UserInformationService userInformationService;
     @Autowired
     private com.dream.basketball.config.UserPermService userPerms;
@@ -88,6 +90,8 @@ public class TopicController {
                 subscribedIds.add(sub.getTopicId());
             }
         }
+        // 群聊未读也是一把查完再分发（见 chatUnreadByTopic）
+        Map<String, Integer> chatUnread = me == null ? new HashMap<>() : chatUnreadByTopic(me.getUserId());
         List<Map<String, Object>> out = new ArrayList<>();
         for (ForumTopic t : topics) {
             // 不可见专题（LISTED='0'）：仅题主/管理员/已加入成员能在列表看到，其余人跳过
@@ -104,6 +108,10 @@ public class TopicController {
                 }
             }
             view.put("newCount", newCount);
+            // 群聊红点：只给进得去这个房间的人。canChat 已经由 topicView 算好（登录 + 群聊开着 +
+            // 有浏览权 + 没被单独禁言），这里直接用，不重算一遍
+            view.put("chatUnread", Boolean.TRUE.equals(view.get("canChat"))
+                    ? chatUnread.getOrDefault(t.getTopicId(), 0) : 0);
             out.add(view);
         }
         Map<String, Date> pins = myPins(me);
@@ -145,6 +153,26 @@ public class TopicController {
                 .ne("USER_ID", myId).gt("COMMENT_DATE", seen)
                 .and(w -> w.isNull("DELETED").or().ne("DELETED", "1")));
         return (posts == null ? 0 : posts) + (comments == null ? 0 : comments);
+    }
+
+    /**
+     * 我在各专题群聊里的未读条数：topicId -> 条数，一次 SQL 查完。
+     *
+     * 从没打开过的群整群算未读——和单专题的 /chat/unread 同一条规则，两处的数必须对得上。
+     * 这点和上面的 newActivityCount 不一样（那个是"没 seen 记录就不计"），因为两者的游标
+     * 写入时机不同：进专题就写 seen，但要点开群聊才写 chat_read。群聊照 seen 那样处理的话，
+     * 从没点开过群聊的人永远看不到红点，而那恰恰是最该提醒的人。
+     */
+    private Map<String, Integer> chatUnreadByTopic(String userId) {
+        Map<String, Integer> out = new HashMap<>();
+        for (Map<String, Object> row : chatMapper.unreadByTopic(userId)) {
+            Object id = row.get("topicId");
+            Object cnt = row.get("cnt");
+            if (id != null && cnt instanceof Number) {
+                out.put(String.valueOf(id), ((Number) cnt).intValue());
+            }
+        }
+        return out;
     }
 
     /**
