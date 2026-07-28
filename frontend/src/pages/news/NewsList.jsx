@@ -11,6 +11,7 @@ import { newsApi } from '../../api/news'
 import { topicApi } from '../../api/topic'
 import { useAuth } from '../../auth/AuthContext'
 import TopicMemberModal from '../../components/TopicMemberModal'
+import TopicEditModal from '../../components/TopicEditModal'
 import TopicApplyButton from '../../components/TopicApplyButton'
 import CategoryFilter from '../../components/CategoryFilter'
 import { SuperAdminBadge, TopicOwnerBadge } from '../../components/RoleBadges'
@@ -199,6 +200,8 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
   const [view, setView] = useState('最新')
   const [page, setPage] = useState(1)
   const [memberOpen, setMemberOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false) // 专题设置弹窗（横幅上那个小铅笔）
+  const [cats, setCats] = useState([])            // 全站专题类别，供弹窗里的下拉用
   const [cat, setCat] = useState('all') // 帖子类别筛选：all / 类别 id / '' = 未分类
 
   const topicId = topic?.topicId
@@ -296,6 +299,18 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
               {isTopic && (topic.visibility === 'private'
                 ? <Tag icon={<LockOutlined />} style={{ marginInlineEnd: 0 }}>私密</Tag>
                 : <Tag icon={<UnlockOutlined />} color="green" style={{ marginInlineEnd: 0 }}>公开</Tag>)}
+              {/* 改专题设置的第二个入口：原来只有专题列表页的编辑图标，进来之后想改还得退出去。
+                  类别列表点开才拉——弹窗里的「专题类别」下拉要用，但普通访客用不上 */}
+              {isTopic && topic.canManage && (
+                <EditOutlined
+                  title="编辑专题"
+                  onClick={() => {
+                    setEditOpen(true)
+                    topicApi.categoryList().then((r) => setCats(Array.isArray(r) ? r : [])).catch(() => setCats([]))
+                  }}
+                  style={{ fontSize: 15, color: 'rgba(255,255,255,.8)', cursor: 'pointer' }}
+                />
+              )}
             </div>
             <div style={{ opacity: 0.88, marginTop: 6, fontSize: 13, maxWidth: 620 }}>
               {isTopic ? (topic.description || '按专题组织的讨论区') : official ? '权威发布 · 人人可评' : '见你所见，想你所想'}
@@ -458,7 +473,17 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
       )}
 
       {isTopic && topic.canManage && (
-        <TopicMemberModal topicId={topicId} open={memberOpen} onClose={() => setMemberOpen(false)} onChange={onApplied} />
+        <>
+          <TopicMemberModal topicId={topicId} open={memberOpen} onClose={() => setMemberOpen(false)} onChange={onApplied} />
+          {/* 保存后走 onApplied 重新拉专题：横幅名字、类别、帖子类别都跟着更新 */}
+          <TopicEditModal
+            open={editOpen}
+            topic={topic}
+            categories={cats}
+            onClose={() => setEditOpen(false)}
+            onSaved={onApplied}
+          />
+        </>
       )}
     </>
   )
