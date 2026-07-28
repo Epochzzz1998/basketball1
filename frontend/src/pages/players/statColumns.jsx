@@ -163,6 +163,8 @@ const COMPACT_W = {
   // 逐场数据表（单场 box score）：都是整数，比场均窄；结果列要放下「胜 105-95」
   gameDate: 60, round: 60, win: 78, starter: 40, pts: 40, reb: 40, offReb: 40, defReb: 40, ast: 40,
   fgm: 56, tpm: 56, ftm: 56, stl: 40, blk: 40, tov: 40, pf: 40, plusMinus: 46,
+  // 单场详情的三个命中率列同样给 56：不写进来会按 0.72 收到 42，"100.0%" 放不下
+  fgPct: 56, tpPct: 56, ftPct: 56,
   playerAvgPn: 50,
   // 高阶列按标签和数值实际字形算（12px 字号、左右各 5px 内边距），别再统一乘 0.72——
   // 那样「进攻胜利贡献」只剩 62px，六个汉字铁定折行

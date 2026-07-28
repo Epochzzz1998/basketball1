@@ -174,9 +174,15 @@ function TeamBox({ team, isHome, players, totals, isMobile, onPlayer }) {
     { title: '得分', dataIndex: 'pts', width: 48, render: (v) => <b style={{ color: BRAND }}>{v}</b> },
     { title: '篮板', dataIndex: 'reb', width: 48 },
     { title: '助攻', dataIndex: 'ast', width: 48 },
-    { title: '投篮', dataIndex: 'fgm', width: 104, render: (_, r) => `${r.fgm ?? '-'}/${r.fga ?? '-'} ${pct(r.fgm, r.fga)}` },
-    { title: '三分', dataIndex: 'tpm', width: 104, render: (_, r) => `${r.tpm ?? '-'}/${r.tpa ?? '-'} ${pct(r.tpm, r.tpa)}` },
-    { title: '罚球', dataIndex: 'ftm', width: 104, render: (_, r) => `${r.ftm ?? '-'}/${r.fta ?? '-'} ${pct(r.ftm, r.fta)}` },
+    // 命中数和命中率分开成列，和场均表（statColumns 的「投篮 / 投篮%」）一套写法。
+    // 原来挤成 "8/15 53.3%" 一格：两个数量级不同的东西并排，扫一列比命中率时
+    // 眼睛要越过前面的比分才找得到百分号，而且 104px 里塞 11 个字符本来就紧
+    { title: '投篮', dataIndex: 'fgm', width: 66, render: (_, r) => `${r.fgm ?? '-'}/${r.fga ?? '-'}` },
+    { title: '投篮%', dataIndex: 'fgPct', width: 58, render: (_, r) => pct(r.fgm, r.fga) },
+    { title: '三分', dataIndex: 'tpm', width: 66, render: (_, r) => `${r.tpm ?? '-'}/${r.tpa ?? '-'}` },
+    { title: '三分%', dataIndex: 'tpPct', width: 58, render: (_, r) => pct(r.tpm, r.tpa) },
+    { title: '罚球', dataIndex: 'ftm', width: 66, render: (_, r) => `${r.ftm ?? '-'}/${r.fta ?? '-'}` },
+    { title: '罚球%', dataIndex: 'ftPct', width: 58, render: (_, r) => pct(r.ftm, r.fta) },
     { title: '前板', dataIndex: 'offReb', width: 48 },
     { title: '后板', dataIndex: 'defReb', width: 48 },
     { title: '盖帽', dataIndex: 'blk', width: 48 },
