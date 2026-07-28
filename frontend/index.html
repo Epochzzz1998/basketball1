@@ -6,7 +6,22 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <!-- interactive-widget=resizes-content：安卓/Chrome 上软键盘弹出时把视口本身缩小（而不是遮住内容），
          配合 dvh/visualViewport 让页面自适应、不被顶着滚。iOS 不支持该项、无害，靠 visualViewport 兜底。 -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content, viewport-fit=cover" />
+
+    <!-- PWA：安卓和桌面浏览器读 manifest 就够了，下面三行是 iOS 专用的。
+         iOS 16.4 之前不认 manifest 的 display:standalone，只认 apple-mobile-web-app-capable；
+         新版本两个都读，所以两套都留着。 -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <!-- 先用 default（不透明状态栏，网页内容从状态栏下面开始）。
+         更好看的是 black-translucent（状态栏透明、内容顶到屏幕最上沿），但那要求页面自己
+         用 env(safe-area-inset-top) 把刘海让开——而顶栏是 ProLayout 的 fixedHeader，
+         position:fixed top:0，眼下没有任何安全区处理，直接开 translucent 会被刘海压住半条。
+         等阶段 2 有真机（TestFlight）能验证了再改，别拿没测过的效果上线。 -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <!-- 主屏图标下面显示的名字。不写会用 <title>，那个太长会被截断 -->
+    <meta name="apple-mobile-web-app-title" content="Dream" />
+    <meta name="theme-color" content="#fa541c" />
+
     <title>Dream Everything</title>
   </head>
   <body>

@@ -1,5 +1,9 @@
 package com.dream.basketball.config;
 
+import org.springframework.boot.web.server.MimeMappings;
+import org.springframework.boot.web.server.WebServerFactoryCustomizer;
+import org.springframework.boot.web.servlet.server.ConfigurableServletWebServerFactory;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
@@ -23,6 +27,21 @@ import java.util.concurrent.TimeUnit;
  */
 @Configuration
 public class SpaConfig implements WebMvcConfigurer {
+
+    /**
+     * Tomcat 的默认 MIME 表里没有 .webmanifest，PWA 的 manifest 会被当成
+     * application/octet-stream 发出去。Chrome 照样能解析，但 iOS Safari 严格得多，
+     * 类型不对就当没有 manifest —— 主屏图标、standalone 全都不生效。
+     * 而 iOS 正是这套东西最终要上的平台，所以这一行不能省。
+     */
+    @Bean
+    public WebServerFactoryCustomizer<ConfigurableServletWebServerFactory> webManifestMimeType() {
+        return factory -> {
+            MimeMappings mappings = new MimeMappings(MimeMappings.DEFAULT);
+            mappings.add("webmanifest", "application/manifest+json");
+            factory.setMimeMappings(mappings);
+        };
+    }
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
