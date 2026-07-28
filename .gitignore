@@ -58,3 +58,7 @@ tools/nba_sync/po_rounds_cache/
 tools/nba_sync/po_game_logs_br.sql
 # scraped B-R box scores; re-creatable with --scrape, the DB holds the result
 tools/nba_sync/po_games_cache/
+tools/nba_sync/rs_game_logs_*.sql
+tools/nba_sync/rs_index_cache/
+tools/nba_sync/rs_games_cache/
+tools/nba_sync/rs_crawl.log
