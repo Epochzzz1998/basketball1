@@ -18,8 +18,9 @@ import EmojiPicker from '../../components/EmojiPicker'
  * 对不齐的毛病：底下漏出专题页、还能滑动。改成走路由之后这些问题从根上没有了——
  * 页面就是页面，滚动条只有一个，键盘弹出浏览器自己会把输入框顶上来。
  *
- * 输入区用 position:sticky 贴在底部，不用 fixed：sticky 是跟着文档流走的，
- * 不需要知道视口高度，也就不会和键盘打架。
+ * 卡片高度是量出来的（视口高 - 卡片距顶），撑满一屏；滚动发生在消息区自己身上，
+ * 输入区固定在卡片底部。不用 fixed 定位，所以移动端软键盘弹出时不会出现
+ * 「底下漏出别的页面」那类对不齐的问题。
  *
  * 收发两条路：发走 REST（/chat/send），收走 WebSocket（订阅 /room/{topicId}）。
  * 自己发的消息也从广播回来，不做本地回显。
@@ -91,11 +92,34 @@ export default function TopicChatPage() {
   const [atOpts, setAtOpts] = useState(null)
   const taRef = useRef(null)
   const endRef = useRef(null)
+  const cardRef = useRef(null)
+  const listRef = useRef(null)
+  const [height, setHeight] = useState(null) // 聊天卡的高度：撑到屏幕底部
 
-  /** 滚到最后一条。整页滚动，所以是把页面滚到底部锚点那里 */
+  /** 滚到最后一条（消息区自己是滚动容器） */
   const scrollToBottom = useCallback(() => {
-    requestAnimationFrame(() => endRef.current?.scrollIntoView({ block: 'end' }))
+    requestAnimationFrame(() => {
+      const el = listRef.current
+      if (el) el.scrollTop = el.scrollHeight
+    })
   }, [])
+
+  /**
+   * 聊天卡要占满一屏，不能只有内容那么高——半屏聊天框下面空一大片很怪。
+   * 高度是量出来的：视口高 - 卡片距顶的距离 - 底部留白。不写死是因为上面有
+   * 顶栏、内容区内边距、还有那个全局「返回」，加起来多少跟页面状态有关。
+   */
+  useEffect(() => {
+    const fit = () => {
+      const el = cardRef.current
+      if (!el) return
+      const top = el.getBoundingClientRect().top
+      setHeight(Math.max(360, window.innerHeight - top - 20))
+    }
+    fit()
+    window.addEventListener('resize', fit)
+    return () => window.removeEventListener('resize', fit)
+  }, [loading])
 
   useEffect(() => {
     let alive = true
@@ -155,12 +179,11 @@ export default function TopicChatPage() {
       const list = Array.isArray(r) ? r : []
       setMore(list.length >= 30)
       if (list.length) {
-        const before = document.documentElement.scrollHeight
+        const el = listRef.current
+        const keep = el ? el.scrollHeight - el.scrollTop : 0
         setRows((prev) => [...list, ...(prev || [])])
-        // 往顶部插会把内容顶下去，按插入前后的高度差补回滚动位置，视觉上停在原处
-        requestAnimationFrame(() => {
-          window.scrollBy(0, document.documentElement.scrollHeight - before)
-        })
+        // 往顶部插会把当前内容顶下去，按插入前的距离补回来，视觉上停在原处
+        requestAnimationFrame(() => { if (el) el.scrollTop = el.scrollHeight - keep })
       }
     } catch { /* 拦截器已提示 */ }
   }
@@ -238,6 +261,7 @@ export default function TopicChatPage() {
   }
 
   const canRecall = (m) => !m.recalled && (m.senderId === user?.userId || topic?.canManage)
+  const goUser = (id) => id && navigate(`/users/${id}`)
 
   if (loading) return <Spin style={{ display: 'block', margin: '80px auto' }} size="large" />
 
@@ -253,8 +277,9 @@ export default function TopicChatPage() {
 
   return (
     <Card
-      style={{ borderRadius: 14 }}
-      styles={{ body: { padding: 0 } }}
+      ref={cardRef}
+      style={{ borderRadius: 14, height: height ?? undefined, display: 'flex', flexDirection: 'column' }}
+      styles={{ body: { padding: 0, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } }}
       title={
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
           <MessageOutlined style={{ color: BRAND }} />
@@ -264,8 +289,10 @@ export default function TopicChatPage() {
       }
       extra={<a onClick={() => navigate(`/news/topic/${topicId}`)} style={{ fontSize: 13 }}>回专题</a>}
     >
-      {/* 消息区：跟着页面一起滚，不套内层滚动条——套了移动端就会出现两套滚动互相抢 */}
-      <div style={{ padding: '16px 16px 8px', minHeight: 240 }}>
+      {/* 消息区：卡片高度定死之后，滚动就发生在这里面。
+          里面那层 marginTop:auto 让消息贴着底部排（聊天的习惯），内容多了自动失效 */}
+      <div ref={listRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 16px 8px', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ marginTop: 'auto' }}>
         {rows === null ? (
           <Spin style={{ display: 'block', margin: '40px auto' }} />
         ) : rows.length === 0 ? (
@@ -289,12 +316,20 @@ export default function TopicChatPage() {
               }
               return (
                 <div key={m.msgId} style={{ display: 'flex', gap: 8, marginBottom: 16, flexDirection: mine ? 'row-reverse' : 'row' }}>
-                  {m.senderAvatar
-                    ? <Avatar size={34} src={m.senderAvatar} style={{ flexShrink: 0 }} />
-                    : <Avatar size={34} style={{ background: avatarColor(name), flexShrink: 0 }}>{String(name)[0].toUpperCase()}</Avatar>}
+                  {/* 头像和名字都能点进个人主页——群里看到个人想知道他是谁，这是最自然的入口 */}
+                  <span onClick={() => goUser(m.senderId)} style={{ cursor: 'pointer', flexShrink: 0 }}>
+                    {m.senderAvatar
+                      ? <Avatar size={34} src={m.senderAvatar} />
+                      : <Avatar size={34} style={{ background: avatarColor(name) }}>{String(name)[0].toUpperCase()}</Avatar>}
+                  </span>
                   <div style={{ maxWidth: '72%', display: 'flex', flexDirection: 'column', alignItems: mine ? 'flex-end' : 'flex-start' }}>
                     <div style={{ fontSize: 11, color: '#aaa', marginBottom: 3, display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <span>{mine ? stamp(m.sendTime) : `${name} · ${stamp(m.sendTime)}`}</span>
+                      {mine ? <span>{stamp(m.sendTime)}</span> : (
+                        <span>
+                          <a onClick={() => goUser(m.senderId)} style={{ color: '#999' }}>{name}</a>
+                          {` · ${stamp(m.sendTime)}`}
+                        </span>
+                      )}
                       {canRecall(m) && (
                         <Popconfirm title="撤回这条消息？" okText="撤回" cancelText="取消" onConfirm={() => recall(m.msgId)}>
                           <a style={{ fontSize: 11, color: '#bbb' }}>撤回</a>
@@ -344,12 +379,12 @@ export default function TopicChatPage() {
           </>
         )}
         <div ref={endRef} />
+        </div>
       </div>
 
-      {/* 输入区：sticky 贴底。用 sticky 不用 fixed——它跟着文档流走，
-          不需要知道视口有多高，也就不会和软键盘打架 */}
+      {/* 输入区：固定在卡片底部 */}
       <div style={{
-        position: 'sticky', bottom: 0, background: '#fff', borderTop: '1px solid #f0f0f0',
+        flexShrink: 0, background: '#fff', borderTop: '1px solid #f0f0f0',
         padding: '8px 12px calc(10px + env(safe-area-inset-bottom))',
         borderBottomLeftRadius: 14, borderBottomRightRadius: 14,
       }}>
