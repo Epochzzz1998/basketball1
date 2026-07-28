@@ -195,6 +195,7 @@ public class NewsServiceImpl implements NewsService {
                     newsDto.setLocked(dreamNews.getLocked());
                     newsDto.setHidden(dreamNews.getHidden());
                     newsDto.setDraft(dreamNews.getDraft());
+                    newsDto.setCategoryId(dreamNews.getCategoryId()); // 帖子类别（专题自配），同上
                     newsDto.setLastEditTime(dreamNews.getLastEditTime());
                     newsDto.setLastEditorId(dreamNews.getLastEditorId());
                 }

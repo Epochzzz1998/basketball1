@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Avatar, Checkbox, Form, Input, Modal, Radio, Select, Switch, message } from 'antd'
+import { Avatar, Button, Checkbox, Form, Input, Modal, Radio, Select, Space, Switch, Tag, message } from 'antd'
+import { PlusOutlined } from '@ant-design/icons'
 import { topicApi } from '../api/topic'
 import { searchApi } from '../api/search'
 import { useAuth } from '../auth/AuthContext'
@@ -17,7 +18,7 @@ const avatarColor = (name) => {
   return `hsl(${h}, 52%, 52%)`
 }
 
-export default function TopicEditModal({ open, onClose, onSaved, topic }) {
+export default function TopicEditModal({ open, onClose, onSaved, topic, categories = [] }) {
   const isEdit = !!topic
   const { user, dn } = useAuth() // 题主候选也显示备注名，跟搜索口径一致
   const isSuper = !!user?.isSuperManager // 超管建专题可代指定 owner；普通用户创建后自己即题主
@@ -25,6 +26,8 @@ export default function TopicEditModal({ open, onClose, onSaved, topic }) {
   const [visibility, setVisibility] = useState('public')
   const [opts, setOpts] = useState([])
   const [saving, setSaving] = useState(false)
+  const [postCats, setPostCats] = useState([]) // 本专题的帖子类别 [{id,name}]（题主配）
+  const [newCat, setNewCat] = useState('')
   const timer = useRef()
 
   useEffect(() => {
@@ -33,16 +36,29 @@ export default function TopicEditModal({ open, onClose, onSaved, topic }) {
       form.setFieldsValue({
         name: topic.name, description: topic.description,
         visibility: topic.visibility, openPost: topic.openPost, openComment: topic.openComment,
-        listed: topic.listed !== false,
+        listed: topic.listed !== false, categoryId: topic.categoryId || undefined,
       })
       setVisibility(topic.visibility || 'public')
+      setPostCats(topic.postCategories || [])
     } else {
       form.resetFields()
       form.setFieldsValue({ visibility: 'public', openPost: false, openComment: false, listed: true })
       setVisibility('public')
+      setPostCats([])
     }
+    setNewCat('')
     setOpts([])
   }, [open, isEdit, topic, form])
+
+  // 帖子类别：本地先编好，跟专题设置一起提交（一次弹窗、一次保存，不搞两套按钮）。
+  // 新加的一项先给个临时 id，后端见到不认识的 id 会重新发一个，效果一样
+  const addPostCat = () => {
+    const n = newCat.trim()
+    if (!n || postCats.length >= 20) return
+    if (postCats.some((c) => c.name === n)) return message.info('这个类别已经有了')
+    setPostCats((arr) => [...arr, { id: `new-${Date.now()}`, name: n }])
+    setNewCat('')
+  }
 
   const search = (kw) => {
     clearTimeout(timer.current)
@@ -67,9 +83,12 @@ export default function TopicEditModal({ open, onClose, onSaved, topic }) {
         listed: v.listed === false ? '0' : '1',
         openPost: v.visibility === 'public' && v.openPost ? '1' : '0',
         openComment: v.visibility === 'public' && v.openComment ? '1' : '0',
+        categoryId: v.categoryId || '', // 空串=显式设为未分类（后端据此区分"没传"和"清空"）
       }
       if (isEdit) {
         await topicApi.update({ topicId: topic.topicId, ...payload })
+        // 帖子类别是另一个接口（整份覆盖），跟着一起提交
+        await topicApi.setPostCategories(topic.topicId, postCats)
         message.success('已保存')
       } else {
         await topicApi.create({ ...payload, ownerId: v.ownerId })
@@ -120,6 +139,16 @@ export default function TopicEditModal({ open, onClose, onSaved, topic }) {
             />
           </Form.Item>
         )}
+        {/* 专题类别：全站一份，超管在百家说首页的「管理类别」里维护。这里只是挑一个 */}
+        {categories.length > 0 && (
+          <Form.Item name="categoryId" label="专题类别" extra="决定这个专题出现在百家说首页哪个筛选按钮下">
+            <Select
+              allowClear
+              placeholder="不选=未分类"
+              options={categories.map((c) => ({ value: c.categoryId, label: c.name }))}
+            />
+          </Form.Item>
+        )}
         <Form.Item name="visibility" label="可见性">
           <Radio.Group onChange={(e) => setVisibility(e.target.value)}>
             <Radio value="public">公开（人人可浏览）</Radio>
@@ -136,6 +165,35 @@ export default function TopicEditModal({ open, onClose, onSaved, topic }) {
               <Checkbox style={{ marginLeft: 16 }}>允许所有登录用户发言</Checkbox>
             </Form.Item>
           </div>
+        )}
+        {/* 帖子类别：本专题自己的一份，题主说了算，和上面的专题类别是两回事。
+            建专题时还没有 topicId，所以只在编辑时出现 */}
+        {isEdit && (
+          <Form.Item label="帖子类别" extra="本专题内部用：发帖时选一个，帖子流里按它筛。删掉某一项，用过它的帖子会退回「未分类」">
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: postCats.length ? 10 : 0 }}>
+              {postCats.map((c) => (
+                <Tag
+                  key={c.id}
+                  closable
+                  color="volcano"
+                  onClose={() => setPostCats((arr) => arr.filter((x) => x.id !== c.id))}
+                  style={{ marginInlineEnd: 0, fontSize: 13, padding: '2px 8px' }}
+                >
+                  {c.name}
+                </Tag>
+              ))}
+            </div>
+            <Space.Compact style={{ width: '100%' }}>
+              <Input
+                placeholder="如：公告、战报、求助（最多 20 个）"
+                maxLength={12}
+                value={newCat}
+                onChange={(e) => setNewCat(e.target.value)}
+                onPressEnter={(e) => { e.preventDefault(); addPostCat() }}
+              />
+              <Button icon={<PlusOutlined />} onClick={addPostCat} disabled={!newCat.trim() || postCats.length >= 20}>添加</Button>
+            </Space.Compact>
+          </Form.Item>
         )}
         <Form.Item
           name="listed"

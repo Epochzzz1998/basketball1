@@ -438,6 +438,9 @@ public class NewsController extends BaseUtils {
                 }
             }
         }
+        // 帖子类别：只认所属专题自己配的那几项，别的（含官方新闻）一律清空。
+        // 类别被题主删掉之后，编辑器里还可能揣着旧 id，走到这里会被抹成「未分类」
+        news.setCategoryId(validPostCategoryId(news.getTopicId(), news.getCategoryId()));
         // 草稿：存下来但不算发布。'1' 存草稿，其余一律视为正式发布（发布会把旧草稿标记清掉）
         final boolean asDraft = "1".equals(news.getDraft());
         news.setDraft(asDraft ? "1" : "0");
@@ -479,6 +482,29 @@ public class NewsController extends BaseUtils {
         }
         // 返回 newsId：发帖时前端要用它关联"开启打分"等后续动作
         return new Result<>(0, "操作成功！", news.getNewsId());
+    }
+
+    /** 该专题配过的帖子类别里有这个 id 才留，否则返回 null（=未分类）。 */
+    private String validPostCategoryId(String topicId, String categoryId) {
+        if (StringUtils.isBlank(topicId) || StringUtils.isBlank(categoryId)) {
+            return null;
+        }
+        com.dream.basketball.entity.ForumTopic t = topicPerms.getTopic(topicId);
+        if (t == null || StringUtils.isBlank(t.getPostCategories())) {
+            return null;
+        }
+        try {
+            com.alibaba.fastjson.JSONArray arr = com.alibaba.fastjson.JSON.parseArray(t.getPostCategories());
+            for (int i = 0; i < arr.size(); i++) {
+                com.alibaba.fastjson.JSONObject o = arr.getJSONObject(i);
+                if (o != null && StringUtils.equals(categoryId, o.getString("id"))) {
+                    return categoryId;
+                }
+            }
+        } catch (Exception ignore) {
+            // 坏 JSON 当没配过
+        }
+        return null;
     }
 
     /**

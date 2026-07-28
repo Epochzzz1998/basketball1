@@ -12,6 +12,7 @@ import { topicApi } from '../../api/topic'
 import { useAuth } from '../../auth/AuthContext'
 import TopicMemberModal from '../../components/TopicMemberModal'
 import TopicApplyButton from '../../components/TopicApplyButton'
+import CategoryFilter from '../../components/CategoryFilter'
 import { SuperAdminBadge, TopicOwnerBadge } from '../../components/RoleBadges'
 import UserTitles from '../../components/UserTitles'
 import useIsMobile from '../../hooks/useIsMobile'
@@ -59,7 +60,7 @@ const avatarColor = (name) => {
 const hotOf = (p) => (p.goodNum ?? 0) * 2 + (p.commentNum ?? 0) * 3
 
 /** 单条帖子卡：头像 + 标题/摘要/元信息 + 首图缩略图 */
-function PostCard({ post, topicOwnerIds }) {
+function PostCard({ post, topicOwnerIds, categoryName }) {
   const { dn } = useAuth() // 备注名：我给谁备注过，全站看到的就是备注名
   const isMobile = useIsMobile()
   const navigate = useNavigate()
@@ -106,6 +107,7 @@ function PostCard({ post, topicOwnerIds }) {
           {post.hidden === '1' && <Tag icon={<EyeInvisibleOutlined />} color="purple" style={{ marginInlineEnd: 6, verticalAlign: 'middle' }}>已隐藏</Tag>}
           {/* 草稿只会出现在作者自己的列表里（后端过滤），所以这里不用再判断身份 */}
           {post.draft === '1' && <Tag icon={<EditOutlined />} color="gold" style={{ marginInlineEnd: 6, verticalAlign: 'middle' }}>草稿</Tag>}
+          {categoryName && <Tag color="volcano" style={{ marginInlineEnd: 6, verticalAlign: 'middle' }}>{categoryName}</Tag>}
           {post.title || '(无标题)'}
         </div>
         {excerpt && (
@@ -197,12 +199,19 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
   const [view, setView] = useState('最新')
   const [page, setPage] = useState(1)
   const [memberOpen, setMemberOpen] = useState(false)
+  const [cat, setCat] = useState('all') // 帖子类别筛选：all / 类别 id / '' = 未分类
 
   const topicId = topic?.topicId
+  // 本专题配的帖子类别（题主在专题设置里维护）；id -> 名字，卡片上要显示
+  const postCats = topic?.postCategories || []
+  const catName = useMemo(
+    () => Object.fromEntries(postCats.map((c) => [c.id, c.name])),
+    [postCats],
+  )
 
   useEffect(() => {
     let alive = true
-    setRows(null); setKw(''); setView('最新'); setPage(1)
+    setRows(null); setKw(''); setView('最新'); setPage(1); setCat('all')
     const params = isTopic
       ? { page: 1, limit: 9999, newsChannel: 'forum', topicId }
       : { page: 1, limit: 9999, newsChannel: channel }
@@ -219,6 +228,8 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
       // 作者既按真名也按备注名匹配：页面上显示的是备注名，搜不到会很困惑
       ? rows.filter((p) => `${p.title || ''}${p.author || ''}${dn(p.authorId, '') || ''}`.toLowerCase().includes(k))
       : rows
+    // 类别：题主配的那几项，帖子记的是 id（列表已全量在手，纯前端筛）
+    if (cat !== 'all') hit = hit.filter((p) => (p.categoryId || '') === cat)
     // 精华：只看加精帖；只看题主：前端按专题 owner 的 authorId 过滤（列表已全量在手）
     if (view === '精华') hit = hit.filter((p) => p.essence === '1')
     if (view === '只看题主' && topic?.ownerIds?.length) hit = hit.filter((p) => topic.ownerIds.includes(p.authorId))
@@ -227,7 +238,21 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
       : hit // 后端已按（置顶优先 + 发布时间倒序）排好
     // 置顶帖始终浮到最前（不论哪个视图）
     return [...sorted.filter((p) => p.top === '1'), ...sorted.filter((p) => p.top !== '1')]
-  }, [rows, kw, view, isTopic, topic, dn])
+  }, [rows, kw, view, cat, isTopic, topic, dn])
+
+  // 类别筛选条：只列真的有帖子的类别（配了没人用的先不占地方）
+  const catOptions = useMemo(() => {
+    if (!isTopic || !postCats.length || !rows?.length) return []
+    const count = (id) => rows.filter((p) => (p.categoryId || '') === id).length
+    const used = postCats.filter((c) => count(c.id) > 0)
+    if (!used.length) return []
+    const none = count('')
+    return [
+      { value: 'all', label: '全部', count: rows.length },
+      ...used.map((c) => ({ value: c.id, label: c.name, count: count(c.id) })),
+      ...(none ? [{ value: '', label: '未分类', count: none }] : []),
+    ]
+  }, [isTopic, postCats, rows])
 
   const paged = filtered?.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
@@ -331,6 +356,9 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
             {filtered != null && <span style={{ fontSize: 13, color: '#999' }}>{filtered.length} 篇</span>}
           </div>
 
+          {/* 帖子类别筛选（题主配的那份）：搜索/排序那条下面单独一行，类别多了会自己换行 */}
+          <CategoryFilter options={catOptions} value={cat} onChange={(v) => { setCat(v); setPage(1) }} />
+
           {/* 帖子流 */}
           {paged == null ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -338,7 +366,9 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied })
             </div>
           ) : paged.length ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {paged.map((p) => <PostCard key={p.newsId} post={p} topicOwnerIds={isTopic ? topic?.ownerIds : null} />)}
+              {paged.map((p) => (
+                <PostCard key={p.newsId} post={p} topicOwnerIds={isTopic ? topic?.ownerIds : null} categoryName={catName[p.categoryId]} />
+              ))}
             </div>
           ) : (
             <Card style={{ borderRadius: 14 }}>

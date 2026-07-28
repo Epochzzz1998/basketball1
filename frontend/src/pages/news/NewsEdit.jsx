@@ -38,6 +38,7 @@ export default function NewsEdit() {
   const [content, setContent] = useState('')
   const [authorId, setAuthorId] = useState(undefined) // 保存时回传：新建=当前用户，编辑=原作者
   const [topicName, setTopicName] = useState('')
+  const [postCats, setPostCats] = useState([]) // 本专题的帖子类别（题主配的 [{id,name}]）
   const [zoneTopicId, setZoneTopicId] = useState(topicId) // 本帖所属专题：新建取自路由，编辑取自帖子
   const [loading, setLoading] = useState(isEdit)
   const [saving, setSaving] = useState(false)
@@ -55,7 +56,9 @@ export default function NewsEdit() {
   // 编辑态的 topicId 要等帖子拉回来才知道，所以这里接的是 zoneTopicId 而非路由参数。
   useEffect(() => {
     if (!zoneTopicId) return
-    topicApi.get(zoneTopicId).then((t) => setTopicName(t?.name || '')).catch(() => {})
+    topicApi.get(zoneTopicId)
+      .then((t) => { setTopicName(t?.name || ''); setPostCats(t?.postCategories || []) })
+      .catch(() => {})
   }, [zoneTopicId])
 
   // 新建：用户信息异步加载好后，把作者填成当前登录用户（字段只读）
@@ -74,7 +77,10 @@ export default function NewsEdit() {
       .then((data) => {
         const n = data?.news
         if (alive && n) {
-          form.setFieldsValue({ title: n.title, author: n.author, tags: (n.tags || '').split(',').map((s) => s.trim()).filter(Boolean) })
+          form.setFieldsValue({
+            title: n.title, author: n.author, categoryId: n.categoryId || undefined,
+            tags: (n.tags || '').split(',').map((s) => s.trim()).filter(Boolean),
+          })
           setAuthorId(n.authorId)
           setContent(n.content || '')
           setZoneTopicId(n.topicId || undefined) // 编辑他人/自己的老帖时，专区靠帖子自己带
@@ -85,8 +91,6 @@ export default function NewsEdit() {
     return () => { alive = false }
   }, [routeId, isEdit, form])
 
-  // 草稿是自己没发出去的东西，随手删掉的入口就该在编辑器里——它点进来只有这一条路，
-  // 详情页那个删除按钮草稿根本走不到
   // NBA 专区（专题名含 NBA，与首页热帖榜同一判定）才开 @ 面板
   const isNbaZone = !official && topicName.includes('NBA')
 
@@ -119,6 +123,8 @@ export default function NewsEdit() {
     ]
   }
 
+  // 草稿是自己没发出去的东西，随手删掉的入口就该在编辑器里——它点进来只有这一条路，
+  // 详情页那个删除按钮草稿根本走不到
   const removeDraft = async () => {
     try {
       await newsApi.deletePost(newsIdRef.current)
@@ -136,6 +142,7 @@ export default function NewsEdit() {
         author: values.author, // 只读字段，值仍由 antd Form 收集
         authorId,
         tags: (values.tags || []).join(','), // 标签数组 → 逗号串
+        categoryId: values.categoryId || '', // 帖子类别（专题自配，可不选）
         newsChannel: official ? 'official' : 'forum',
         topicId: official ? undefined : topicId, // 新建论坛帖带专题；编辑时后端保留原专题
         content,
@@ -184,11 +191,22 @@ export default function NewsEdit() {
         <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入标题' }]}>
           <Input placeholder="请输入标题" maxLength={100} showCount />
         </Form.Item>
-        {/* 作者 + 标签：移动端标签独占一整行（Space 里 minWidth:100% 不生效，空 Select 会坍缩成一个字宽） */}
+        {/* 作者 + 类别 + 标签：移动端标签独占一整行（Space 里 minWidth:100% 不生效，空 Select 会坍缩成一个字宽） */}
         <div style={{ display: 'flex', columnGap: 24, flexWrap: 'wrap' }}>
           <Form.Item name="author" label="作者" tooltip="当前登录用户，不可修改">
             <Input disabled style={{ width: 160 }} />
           </Form.Item>
+          {/* 类别是本专题自己的一份（题主在专题设置里配）；没配过就不出这个框 */}
+          {postCats.length > 0 && (
+            <Form.Item name="categoryId" label="类别" tooltip="本专题的分类，读者可以按它筛帖子">
+              <Select
+                allowClear
+                placeholder="不选=未分类"
+                style={{ width: isMobile ? 160 : 180 }}
+                options={postCats.map((c) => ({ value: c.id, label: c.name }))}
+              />
+            </Form.Item>
+          )}
           <Form.Item
             name="tags"
             label="标签"

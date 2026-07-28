@@ -17,6 +17,13 @@ export const topicApi = {
   // userInformationId 可选：从"我的消息"点进来时带上，后端顺便把该条消息标记已读
   get: (topicId, userInformationId) => http.get('/topic/get', { params: { topicId, userInformationId } }),
   create: (payload) => http.post('/topic/create', form(payload)),
+  // 专题类别（全站一份，超管维护）：list 公开，save/delete 需超管，两者都回最新全量列表
+  categoryList: () => http.get('/topic/categoryList'),
+  saveCategory: (payload) => http.post('/topic/saveCategory', form(payload)),
+  deleteCategory: (categoryId) => http.post('/topic/deleteCategory', form({ categoryId })),
+  // 帖子类别（每个专题自己一份，题主维护）：整份覆盖，categories 是 [{id,name}] 的 JSON
+  setPostCategories: (topicId, categories) =>
+    http.post('/topic/setPostCategories', form({ topicId, categories: JSON.stringify(categories) })),
   update: (payload) => http.post('/topic/update', form(payload)),
   // 设置题主（可多个，超管专用）：ownerIds 为逗号分隔的用户 id
   setOwners: (topicId, ownerIds) => http.post('/topic/setOwners', form({ topicId, ownerIds })),

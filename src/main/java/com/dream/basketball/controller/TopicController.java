@@ -58,6 +58,8 @@ public class TopicController {
     @Autowired
     private com.dream.basketball.mapper.ForumTopicJoinRequestMapper requestMapper;
     @Autowired
+    private com.dream.basketball.mapper.ForumCategoryMapper categoryMapper;
+    @Autowired
     private com.dream.basketball.service.UserInformationService userInformationService;
     @Autowired
     private com.dream.basketball.config.UserPermService userPerms;
@@ -214,6 +216,12 @@ public class TopicController {
         m.put("canEditSubOwners", me != null && (Role.fromUserRole(me.getUserRole()) == Role.SUPER_MANAGER || perms.isOwner(me, t)));
         m.put("visibility", t.getVisibility());
         m.put("listed", !"0".equals(t.getListed())); // 是否在百家说露出（默认 true）
+        // 专题类别（全站一份，超管配）+ 本专题的帖子类别（题主配）
+        m.put("categoryId", t.getCategoryId());
+        com.dream.basketball.entity.ForumCategory cat = StringUtils.isBlank(t.getCategoryId())
+                ? null : categoryMapper.selectById(t.getCategoryId());
+        m.put("categoryName", cat == null ? null : cat.getName());
+        m.put("postCategories", postCategoriesOf(t));
         m.put("openPost", ON.equals(t.getOpenPost()));
         m.put("openComment", ON.equals(t.getOpenComment()));
         m.put("postCount", dreamNewsMapper.selectCount(new QueryWrapper<DreamNews>().eq("TOPIC_ID", t.getTopicId())));
@@ -241,6 +249,155 @@ public class TopicController {
         return m;
     }
 
+    // ===== 类别 =====
+    // 两套类别，互不相干：
+    //  · 专题类别（forum_category）：全站一份，超管维护，百家说首页按它筛专题；
+    //  · 帖子类别（forum_topic.POST_CATEGORIES）：每个专题自己一份，题主维护，专题内按它筛帖子。
+
+    /** 全站专题类别（公开）：按 SORT、创建时间排。 */
+    @GetMapping("/categoryList")
+    public Object categoryList() {
+        return new Result<>(0, "成功", categoryViews());
+    }
+
+    private List<Map<String, Object>> categoryViews() {
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (com.dream.basketball.entity.ForumCategory c : categoryMapper.selectList(
+                new QueryWrapper<com.dream.basketball.entity.ForumCategory>()
+                        .orderByAsc("SORT").orderByAsc("CREATE_TIME"))) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("categoryId", c.getCategoryId());
+            m.put("name", c.getName());
+            m.put("sort", c.getSort());
+            out.add(m);
+        }
+        return out;
+    }
+
+    /** 新增/改名专题类别（超管）：带 categoryId 是改名，不带是新增。 */
+    @RequiresRole(Role.SUPER_MANAGER)
+    @PostMapping("/saveCategory")
+    public Object saveCategory(String categoryId, String name, Integer sort) {
+        String n = StringUtils.trimToEmpty(name);
+        if (n.isEmpty()) {
+            return new Result<>(1, "类别名不能为空", null);
+        }
+        if (n.length() > 12) {
+            return new Result<>(1, "类别名最多 12 个字", null);
+        }
+        // 重名会让筛选器出现两个一模一样的按钮，直接挡掉（改名时排除自己）
+        QueryWrapper<com.dream.basketball.entity.ForumCategory> dup =
+                new QueryWrapper<com.dream.basketball.entity.ForumCategory>().eq("NAME", n);
+        if (StringUtils.isNotBlank(categoryId)) {
+            dup.ne("CATEGORY_ID", categoryId);
+        }
+        if (categoryMapper.selectCount(dup) > 0) {
+            return new Result<>(1, "已经有同名类别了", null);
+        }
+        com.dream.basketball.entity.ForumCategory c = StringUtils.isBlank(categoryId)
+                ? null : categoryMapper.selectById(categoryId);
+        if (c == null) {
+            c = new com.dream.basketball.entity.ForumCategory();
+            c.setCategoryId(UUID.randomUUID().toString());
+            c.setCreateTime(new Date());
+            c.setName(n);
+            c.setSort(sort == null ? 0 : sort);
+            categoryMapper.insert(c);
+        } else {
+            c.setName(n);
+            if (sort != null) {
+                c.setSort(sort);
+            }
+            categoryMapper.updateById(c);
+        }
+        return new Result<>(0, "已保存", categoryViews());
+    }
+
+    /** 删专题类别（超管）：挂在它下面的专题退回「未分类」，不动专题本身。 */
+    @RequiresRole(Role.SUPER_MANAGER)
+    @PostMapping("/deleteCategory")
+    public Object deleteCategory(String categoryId) {
+        if (StringUtils.isBlank(categoryId)) {
+            return new Result<>(1, "缺少类别", null);
+        }
+        categoryMapper.deleteById(categoryId);
+        topicMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<ForumTopic>()
+                .eq("CATEGORY_ID", categoryId).set("CATEGORY_ID", null));
+        return new Result<>(0, "已删除", categoryViews());
+    }
+
+    /**
+     * 设置本专题的帖子类别（题主/小题主/超管）：整份覆盖，前端传 JSON 数组 [{"id","name"}]。
+     * 已有帖子记的是 id，所以改名不影响它们；删掉某一项，用了它的帖子退回「未分类」。
+     */
+    @RequiresRole(Role.USER)
+    @PostMapping("/setPostCategories")
+    public Object setPostCategories(String topicId, String categories, HttpServletRequest request) {
+        DreamUser me = SecUtil.getLoginUserToSession(request);
+        ForumTopic t = perms.getTopic(topicId);
+        if (t == null) {
+            return new Result<>(1, "专题不存在", null);
+        }
+        if (!perms.canManage(me, t)) {
+            return new Result<>(1, "无权管理该专题", null);
+        }
+        com.alibaba.fastjson.JSONArray in;
+        try {
+            in = JSON.parseArray(StringUtils.trimToEmpty(categories));
+        } catch (Exception e) {
+            return new Result<>(1, "类别格式不对", null);
+        }
+        com.alibaba.fastjson.JSONArray out = new com.alibaba.fastjson.JSONArray();
+        Set<String> seenNames = new HashSet<>();
+        for (int i = 0; in != null && i < in.size() && out.size() < 20; i++) {
+            com.alibaba.fastjson.JSONObject o = in.getJSONObject(i);
+            String nm = o == null ? null : StringUtils.trimToEmpty(o.getString("name"));
+            if (StringUtils.isBlank(nm) || nm.length() > 12 || !seenNames.add(nm)) {
+                continue; // 空名/超长/重名一律丢掉，不报错——前端已经限制过，这里只是兜底
+            }
+            com.alibaba.fastjson.JSONObject one = new com.alibaba.fastjson.JSONObject();
+            String id = StringUtils.trimToEmpty(o.getString("id"));
+            one.put("id", id.isEmpty() ? UUID.randomUUID().toString() : id);
+            one.put("name", nm);
+            out.add(one);
+        }
+        t.setPostCategories(out.isEmpty() ? null : out.toJSONString());
+        topicMapper.updateById(t);
+        return new Result<>(0, "已保存", topicView(t, me));
+    }
+
+    /** 认得出的类别 id 才存，否则一律当未分类——类别被删之后前端还揣着旧 id 的情况就靠这个兜。 */
+    private String validCategoryId(String categoryId) {
+        if (StringUtils.isBlank(categoryId) || categoryMapper.selectById(categoryId) == null) {
+            return null;
+        }
+        return categoryId;
+    }
+
+    /** 本专题的帖子类别列表（解析 JSON，坏数据当没有）。 */
+    private List<Map<String, Object>> postCategoriesOf(ForumTopic t) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        if (t == null || StringUtils.isBlank(t.getPostCategories())) {
+            return out;
+        }
+        try {
+            com.alibaba.fastjson.JSONArray arr = JSON.parseArray(t.getPostCategories());
+            for (int i = 0; i < arr.size(); i++) {
+                com.alibaba.fastjson.JSONObject o = arr.getJSONObject(i);
+                if (o == null || StringUtils.isBlank(o.getString("id"))) {
+                    continue;
+                }
+                Map<String, Object> m = new HashMap<>();
+                m.put("id", o.getString("id"));
+                m.put("name", o.getString("name"));
+                out.add(m);
+            }
+        } catch (Exception ignore) {
+            // 坏 JSON 就当这个专题没配过类别
+        }
+        return out;
+    }
+
     // ===== 建 / 改 / 删（人人可建限 5 个，admin 删，admin+题主+小题主 改设置） =====
 
     /**
@@ -250,7 +407,8 @@ public class TopicController {
     @RequiresRole(Role.USER)
     @PostMapping("/create")
     public Object create(String name, String description, String ownerId, String visibility,
-                         String openPost, String openComment, String listed, HttpServletRequest request) {
+                         String openPost, String openComment, String listed, String categoryId,
+                         HttpServletRequest request) {
         if (StringUtils.isBlank(name)) {
             return new Result<>(1, "专题名称不能为空", null);
         }
@@ -288,6 +446,7 @@ public class TopicController {
         t.setOpenPost(ON.equals(openPost) ? ON : OFF);
         t.setOpenComment(ON.equals(openComment) ? ON : OFF);
         t.setListed("0".equals(listed) ? "0" : "1"); // 默认可见；显式传 '0' 才下架
+        t.setCategoryId(validCategoryId(categoryId));
         t.setCreateBy(SecUtil.getLoginUserIdToSession(request));
         t.setCreateTime(new Date());
         t.setSort(0);
@@ -299,7 +458,8 @@ public class TopicController {
     @RequiresRole(Role.USER)
     @PostMapping("/update")
     public Object update(String topicId, String name, String description, String visibility,
-                         String openPost, String openComment, String listed, String ownerId, HttpServletRequest request) {
+                         String openPost, String openComment, String listed, String ownerId,
+                         String categoryId, HttpServletRequest request) {
         DreamUser me = SecUtil.getLoginUserToSession(request);
         ForumTopic t = perms.getTopic(topicId);
         if (t == null) {
@@ -325,6 +485,10 @@ public class TopicController {
         }
         if (listed != null) {
             t.setListed("0".equals(listed) ? "0" : "1"); // 题主/管理员切换是否在百家说露出
+        }
+        // 空串 = 显式清成「未分类」，null（没传这个参数）= 不动
+        if (categoryId != null) {
+            t.setCategoryId(validCategoryId(categoryId));
         }
         // 只有 admin 能转让 owner（转让=改为单一题主；多题主走 /topic/setOwners）
         if (StringUtils.isNotBlank(ownerId) && Role.fromUserRole(me.getUserRole()) == Role.SUPER_MANAGER

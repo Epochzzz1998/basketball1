@@ -100,6 +100,10 @@ public class DreamNews extends Model<DreamNews> implements Serializable {
     @TableField("DRAFT")
     private String draft;
 
+    /** 帖子类别 id：对应所属专题 POST_CATEGORIES 里的一项；空=未分类 */
+    @TableField("CATEGORY_ID")
+    private String categoryId;
+
     /** 最后编辑时间（null=从未编辑过）+ 编辑者 id（超管可改他人帖，需留痕） */
     @TableField("LAST_EDIT_TIME")
     private java.util.Date lastEditTime;

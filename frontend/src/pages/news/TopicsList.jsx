@@ -1,14 +1,16 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button, Card, Col, Empty, Popconfirm, Row, Spin, Tag, message } from 'antd'
 import {
-  DeleteOutlined, EditOutlined, EyeInvisibleOutlined, LockOutlined, PlusOutlined, PushpinFilled, PushpinOutlined,
-  RightOutlined, TeamOutlined, UnlockOutlined,
+  AppstoreOutlined, DeleteOutlined, EditOutlined, EyeInvisibleOutlined, LockOutlined, PlusOutlined, PushpinFilled,
+  PushpinOutlined, RightOutlined, TeamOutlined, UnlockOutlined,
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { topicApi } from '../../api/topic'
 import { useAuth } from '../../auth/AuthContext'
 import TopicEditModal from '../../components/TopicEditModal'
 import TopicApplyButton from '../../components/TopicApplyButton'
+import CategoryManageModal from '../../components/CategoryManageModal'
+import CategoryFilter from '../../components/CategoryFilter'
 import useIsMobile from '../../hooks/useIsMobile'
 
 /**
@@ -28,6 +30,9 @@ export default function TopicsList() {
   const [topics, setTopics] = useState(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [editTopic, setEditTopic] = useState(null)
+  const [cats, setCats] = useState([])       // 全站专题类别（超管配）
+  const [catOpen, setCatOpen] = useState(false)
+  const [cat, setCat] = useState('all')      // 当前筛选：all / 类别 id / '' = 未分类
 
   const load = useCallback(() => {
     setTopics(null)
@@ -35,7 +40,30 @@ export default function TopicsList() {
       .then((r) => setTopics(Array.isArray(r) ? r : []))
       .catch(() => setTopics([]))
   }, [])
-  useEffect(() => { load() }, [load])
+  const loadCats = useCallback(() => {
+    topicApi.categoryList().then((r) => setCats(Array.isArray(r) ? r : [])).catch(() => setCats([]))
+  }, [])
+  useEffect(() => { load(); loadCats() }, [load, loadCats])
+
+  // 筛选器只列**真的有专题挂着**的类别：配了但没人用的类别摆在那儿只会点出一片空
+  const catOptions = useMemo(() => {
+    if (!topics?.length) return []
+    const count = (id) => topics.filter((t) => (t.categoryId || '') === id).length
+    const used = cats.filter((c) => count(c.categoryId) > 0)
+    const none = count('')
+    // 一个类别都没用上就别出这排按钮了（等于只有「全部」，纯占地方）
+    if (!used.length) return []
+    return [
+      { value: 'all', label: '全部', count: topics.length },
+      ...used.map((c) => ({ value: c.categoryId, label: c.name, count: count(c.categoryId) })),
+      ...(none ? [{ value: '', label: '未分类', count: none }] : []),
+    ]
+  }, [topics, cats])
+
+  const shown = useMemo(() => {
+    if (!topics) return null
+    return cat === 'all' ? topics : topics.filter((t) => (t.categoryId || '') === cat)
+  }, [topics, cat])
 
   const enter = (t) => {
     if (t.locked) return message.info('该专题为私密专题，你没有浏览权限')
@@ -73,6 +101,11 @@ export default function TopicsList() {
             <div style={{ opacity: 0.88, marginTop: 6, fontSize: 13 }}>见你所见，想你所想</div>
           </div>
           {/* 人人可建（默认允许，超管可按用户关闭；每人限 5 个，后端校验） */}
+          {user?.isSuperManager && (
+            <Button size="large" icon={<AppstoreOutlined />} onClick={() => setCatOpen(true)} style={{ fontWeight: 600 }}>
+              管理类别
+            </Button>
+          )}
           {user && (
             <Button size="large" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)} style={{ fontWeight: 600 }}>
               新建专题
@@ -81,11 +114,13 @@ export default function TopicsList() {
         </div>
       </div>
 
-      {topics === null ? (
+      <CategoryFilter options={catOptions} value={cat} onChange={setCat} />
+
+      {shown === null ? (
         <div style={{ textAlign: 'center', padding: 60 }}><Spin size="large" /></div>
-      ) : topics.length ? (
+      ) : shown.length ? (
         <Row gutter={[16, 16]}>
-          {topics.map((t) => {
+          {shown.map((t) => {
             const priv = t.visibility === 'private'
             return (
               <Col key={t.topicId} xs={24} sm={12} lg={8}>
@@ -119,6 +154,7 @@ export default function TopicsList() {
                           ? <Tag icon={<LockOutlined />} color="default" style={{ marginInlineEnd: 0 }}>私密</Tag>
                           : <Tag icon={<UnlockOutlined />} color="green" style={{ marginInlineEnd: 0 }}>公开</Tag>}
                         {t.locked && <Tag color="red" style={{ marginInlineEnd: 0 }}>无浏览权</Tag>}
+                        {t.categoryName && <Tag color="volcano" style={{ marginInlineEnd: 0 }}>{t.categoryName}</Tag>}
                         {t.listed === false && <Tag icon={<EyeInvisibleOutlined />} color="orange" style={{ marginInlineEnd: 0 }}>未公开</Tag>}
                         {t.pinned && <Tag icon={<PushpinFilled />} color="volcano" style={{ marginInlineEnd: 0 }}>置顶</Tag>}
                       </div>
@@ -166,14 +202,15 @@ export default function TopicsList() {
         </Row>
       ) : (
         <Card style={{ borderRadius: 14 }}>
-          <Empty description="还没有专题">
-            {user && <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>新建专题</Button>}
+          <Empty description={cat === 'all' ? '还没有专题' : '这个类别下还没有专题'}>
+            {user && cat === 'all' && <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>新建专题</Button>}
           </Empty>
         </Card>
       )}
 
-      <TopicEditModal open={createOpen} onClose={() => setCreateOpen(false)} onSaved={load} />
-      <TopicEditModal open={!!editTopic} topic={editTopic} onClose={() => setEditTopic(null)} onSaved={load} />
+      <TopicEditModal open={createOpen} categories={cats} onClose={() => setCreateOpen(false)} onSaved={load} />
+      <TopicEditModal open={!!editTopic} topic={editTopic} categories={cats} onClose={() => setEditTopic(null)} onSaved={load} />
+      <CategoryManageModal open={catOpen} onClose={() => setCatOpen(false)} onChanged={() => { loadCats(); load() }} />
     </>
   )
 }

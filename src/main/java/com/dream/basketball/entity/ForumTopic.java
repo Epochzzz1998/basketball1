@@ -79,6 +79,33 @@ public class ForumTopic extends Model<ForumTopic> implements Serializable {
     @TableField("LISTED")
     private String listed;
 
+    /** 本专题属于哪个类别（forum_category.CATEGORY_ID）；百家说首页按它筛。空=未分类。 */
+    @TableField("CATEGORY_ID")
+    private String categoryId;
+
+    /**
+     * 本专题的帖子类别（JSON 数组 [{"id","name"}]，题主自己配，与全站类别互不相干）：
+     * 发帖时选一个、帖子流里按它筛。存 id 而不是名字，改名不影响已有帖子。
+     */
+    @TableField("POST_CATEGORIES")
+    private String postCategories;
+
+    public String getCategoryId() {
+        return categoryId;
+    }
+
+    public void setCategoryId(String categoryId) {
+        this.categoryId = categoryId;
+    }
+
+    public String getPostCategories() {
+        return postCategories;
+    }
+
+    public void setPostCategories(String postCategories) {
+        this.postCategories = postCategories;
+    }
+
     public String getTopicId() {
         return topicId;
     }

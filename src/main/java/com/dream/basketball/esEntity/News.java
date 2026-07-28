@@ -77,6 +77,13 @@ public class News {
     /** 草稿 '1'/'0' — 只有作者自己看得到，发布后置 0（列表/搜索/热榜一律排除草稿） */
     private String draft;
 
+    /**
+     * 帖子类别 id：取值来自所属专题的 POST_CATEGORIES（题主自己配的那份）。
+     * 存 dream_news、读时合并，不进 ES——帖子流本来就是全量拉回前端再筛，ES 不需要认识它。
+     */
+    @org.springframework.data.annotation.Transient
+    private String categoryId;
+
     /** 最后编辑：时间 + 编辑者 id/昵称。存 dream_news（昵称读时解析），不进 ES。 */
     @org.springframework.data.annotation.Transient
     private java.util.Date lastEditTime;
