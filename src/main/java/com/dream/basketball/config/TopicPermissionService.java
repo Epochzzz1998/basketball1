@@ -190,6 +190,29 @@ public class TopicPermissionService {
     }
 
     /**
+     * 能不能进这个专题的群聊。
+     *
+     * 三道门，顺序不能反：
+     *  1. 题主开了群聊（CHAT_ENABLED='1'），没开的话谁都进不去，管理者也一样——
+     *     否则题主自己关了群聊却还看得见房间，界面上会自相矛盾；
+     *  2. 看得见这个专题（私密专题就只有成员看得见）；
+     *  3. 没有被单独禁言。这一条**默认放开**：没有成员行、或者有行但 CAN_CHAT 不是 '0'，都算能说话。
+     */
+    public boolean canChat(DreamUser user, ForumTopic t) {
+        if (user == null || t == null || !ON.equals(t.getChatEnabled())) {
+            return false;
+        }
+        if (!canView(user, t)) {
+            return false;
+        }
+        if (canManage(user, t)) {
+            return true;
+        }
+        ForumTopicMember m = member(t.getTopicId(), user);
+        return m == null || !"0".equals(m.getCanChat());
+    }
+
+    /**
      * Private topic ids this user may NOT view — used to exclude their posts from global search
      * and the home hot list so private content never leaks. Admin sees everything (empty set).
      */

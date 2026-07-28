@@ -84,6 +84,21 @@ public class ForumTopic extends Model<ForumTopic> implements Serializable {
     private String categoryId;
 
     /**
+     * 群聊开关：'1' 开 / '0' 关（默认关）。由题主决定——不默认打开是因为
+     * 打开就等于给全专题的人开了一个实时房间，这个决定该由题主主动做。
+     */
+    @TableField("CHAT_ENABLED")
+    private String chatEnabled;
+
+    public String getChatEnabled() {
+        return chatEnabled;
+    }
+
+    public void setChatEnabled(String chatEnabled) {
+        this.chatEnabled = chatEnabled;
+    }
+
+    /**
      * 本专题的帖子类别（JSON 数组 [{"id","name"}]，题主自己配，与全站类别互不相干）：
      * 发帖时选一个、帖子流里按它筛。存 id 而不是名字，改名不影响已有帖子。
      */

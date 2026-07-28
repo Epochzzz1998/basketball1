@@ -222,6 +222,9 @@ public class TopicController {
                 ? null : categoryMapper.selectById(t.getCategoryId());
         m.put("categoryName", cat == null ? null : cat.getName());
         m.put("postCategories", postCategoriesOf(t));
+        // 群聊：chatEnabled 是题主的总开关，canChat 是"我现在能不能进这个房间"
+        m.put("chatEnabled", ON.equals(t.getChatEnabled()));
+        m.put("canChat", perms.canChat(me, t));
         m.put("openPost", ON.equals(t.getOpenPost()));
         m.put("openComment", ON.equals(t.getOpenComment()));
         m.put("postCount", dreamNewsMapper.selectCount(new QueryWrapper<DreamNews>().eq("TOPIC_ID", t.getTopicId())));
@@ -449,6 +452,7 @@ public class TopicController {
         t.setOpenComment(ON.equals(openComment) ? ON : OFF);
         t.setListed("0".equals(listed) ? "0" : "1"); // 默认可见；显式传 '0' 才下架
         t.setCategoryId(validCategoryId(categoryId));
+        t.setChatEnabled(OFF); // 群聊默认关，由题主自己打开
         t.setCreateBy(SecUtil.getLoginUserIdToSession(request));
         t.setCreateTime(new Date());
         t.setSort(0);
@@ -461,7 +465,7 @@ public class TopicController {
     @PostMapping("/update")
     public Object update(String topicId, String name, String description, String visibility,
                          String openPost, String openComment, String listed, String ownerId,
-                         String categoryId, HttpServletRequest request) {
+                         String categoryId, String chatEnabled, HttpServletRequest request) {
         DreamUser me = SecUtil.getLoginUserToSession(request);
         ForumTopic t = perms.getTopic(topicId);
         if (t == null) {
@@ -491,6 +495,9 @@ public class TopicController {
         // 空串 = 显式清成「未分类」，null（没传这个参数）= 不动
         if (categoryId != null) {
             t.setCategoryId(validCategoryId(categoryId));
+        }
+        if (chatEnabled != null) {
+            t.setChatEnabled(ON.equals(chatEnabled) ? ON : OFF);
         }
         // 只有 admin 能转让 owner（转让=改为单一题主；多题主走 /topic/setOwners）
         if (StringUtils.isNotBlank(ownerId) && Role.fromUserRole(me.getUserRole()) == Role.SUPER_MANAGER
@@ -611,6 +618,8 @@ public class TopicController {
             row.put("canView", ON.equals(m.getCanView()));
             row.put("canPost", ON.equals(m.getCanPost()));
             row.put("canComment", ON.equals(m.getCanComment()));
+            // 群聊默认放开：只有显式 '0' 才是禁言，老数据（列为 null）也按放开算
+            row.put("canChat", !OFF.equals(m.getCanChat()));
             out.add(row);
         }
         return new Result<>(0, "成功", out);
@@ -620,7 +629,7 @@ public class TopicController {
     @RequiresRole(Role.USER)
     @PostMapping("/setMember")
     public Object setMember(String topicId, String userId, String canView, String canPost, String canComment,
-                            HttpServletRequest request) {
+                            String canChat, HttpServletRequest request) {
         ForumTopic t = perms.getTopic(topicId);
         if (t == null || !perms.canManage(SecUtil.getLoginUserToSession(request), t)) {
             return new Result<>(1, "无权管理该专题", null);
@@ -646,6 +655,12 @@ public class TopicController {
         m.setCanView(view ? ON : OFF);
         m.setCanPost(post ? ON : OFF);
         m.setCanComment(comment ? ON : OFF);
+        // 群聊默认放开：没传这个参数就保持原样（新行按默认 '1'），显式传 '0' 才是禁言
+        if (canChat != null) {
+            m.setCanChat(OFF.equals(canChat) ? OFF : ON);
+        } else if (m.getCanChat() == null) {
+            m.setCanChat(ON);
+        }
         if (m.getId() != null && memberMapper.selectById(m.getId()) != null) {
             memberMapper.updateById(m);
         } else {

@@ -188,6 +188,36 @@ def news_id(code, kind):
     return str(uuid.uuid5(NS, f'nba-seed-{code}-{kind}'))
 
 
+# 这 60 条统一归到专题自己的「新闻」类别下（forum_topic.POST_CATEGORIES 里的一项）。
+# id 也是推出来的固定值，重复跑不会重复建类别。
+CATEGORY_ID = str(uuid.uuid5(NS, 'nba-post-category-news'))
+CATEGORY_NAME = '新闻'
+
+
+def ensure_category():
+    """返回这批帖子该用的类别 id。
+
+    **先按名字找**：题主可能已经在界面上建过「新闻」了，那就用他那个 id，
+    不能自己再建一个同名的——专题里出现两个「新闻」，筛选条上就是两个一模一样的按钮。
+    实在没有才新建一项。
+    """
+    p = subprocess.run(
+        ['docker', 'exec', '-i', 'mysql', 'mysql', '--default-character-set=utf8mb4', '-uroot',
+         '-p' + open(__file__.rsplit('/', 2)[0] + '/nba_sync/.dbpwd').read().strip(),
+         '-D', 'dream', '-N', '-B', '-e',
+         f"select ifnull(POST_CATEGORIES,'') from forum_topic where TOPIC_ID='{TOPIC_ID}';"],
+        capture_output=True, text=True)
+    raw = (p.stdout or '').strip()
+    cats = json.loads(raw) if raw.startswith('[') else []
+    for c in cats:
+        if c.get('name') == CATEGORY_NAME and c.get('id'):
+            return c['id'], False
+    cats.append({'id': CATEGORY_ID, 'name': CATEGORY_NAME})
+    run_mysql("update forum_topic set POST_CATEGORIES='{}' where TOPIC_ID='{}';".format(
+        sql_escape(json.dumps(cats, ensure_ascii=False)), TOPIC_ID))
+    return CATEGORY_ID, True
+
+
 def build():
     rows = []
     seq = {'a': 0, 'b': 0}
@@ -263,20 +293,27 @@ def main():
         print(f'... 共 {len(rows)} 条')
         return
 
+    cat_id, created = ensure_category()
+    if created:
+        print(f'已给专题加上「{CATEGORY_NAME}」帖子类别')
+    else:
+        print(f'复用专题里已有的「{CATEGORY_NAME}」类别（{cat_id}）')
+
     # MySQL：重复跑就覆盖，不会灌出两份
     values = []
     for r in rows:
         values.append(
             "('{id}','{author}','{aid}',0,0,'{content}',0,'{tags}','{date}','{title}','forum','{topic}',"
-            "'0','0',0,0,'0','0',0)".format(
+            "'0','0',0,0,'0','0',0,'{cat}')".format(
                 id=r['newsId'], author=sql_escape(AUTHOR), aid=AUTHOR_ID,
                 content=sql_escape(r['content']), tags=sql_escape(r['tags']),
-                date=r['publishDate'][:10], title=sql_escape(r['title']), topic=TOPIC_ID))
+                date=r['publishDate'][:10], title=sql_escape(r['title']), topic=TOPIC_ID,
+                cat=cat_id))
     sql = ('insert into dream_news (NEWS_ID,AUTHOR,AUTHOR_ID,BAD_NUM,COMMENT_NUM,CONTENT,GOOD_NUM,TAGS,'
-           'PUBLISH_DATE,TITLE,NEWS_CHANNEL,TOPIC_ID,TOP,ESSENCE,VIEW_COUNT,VIEWER_COUNT,LOCKED,HIDDEN,DRAFT) values '
+           'PUBLISH_DATE,TITLE,NEWS_CHANNEL,TOPIC_ID,TOP,ESSENCE,VIEW_COUNT,VIEWER_COUNT,LOCKED,HIDDEN,DRAFT,CATEGORY_ID) values '
            + ',\n'.join(values)
            + ' on duplicate key update TITLE=values(TITLE), CONTENT=values(CONTENT), TAGS=values(TAGS),'
-             ' PUBLISH_DATE=values(PUBLISH_DATE);')
+             ' PUBLISH_DATE=values(PUBLISH_DATE), CATEGORY_ID=values(CATEGORY_ID);')
     if run_mysql(sql) != 0:
         print('MySQL 写入失败，ES 不动')
         return

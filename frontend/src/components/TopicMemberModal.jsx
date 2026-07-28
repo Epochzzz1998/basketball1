@@ -156,6 +156,7 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
       await topicApi.setMember({
         topicId, userId: row.userId,
         canView: bool(next.canView), canPost: bool(next.canPost), canComment: bool(next.canComment),
+        canChat: bool(next.canChat !== false), // 默认放开，只有明确关掉才传 '0'
       })
       load()
     } catch { /* 拦截器已提示 */ }
@@ -302,6 +303,7 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
         <span style={{ width: isMobile ? 44 : 56, textAlign: 'center' }}>浏览</span>
         <span style={{ width: isMobile ? 44 : 56, textAlign: 'center' }}>发帖</span>
         <span style={{ width: isMobile ? 44 : 56, textAlign: 'center' }}>发言</span>
+        <span style={{ width: isMobile ? 44 : 56, textAlign: 'center' }}>群聊</span>
         <span style={{ width: isMobile ? 28 : 36 }} />
       </div>
 
@@ -323,6 +325,10 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
               </span>
               <span style={{ width: isMobile ? 44 : 56, textAlign: 'center' }}>
                 <Checkbox checked={row.canComment} onChange={(e) => setFlags(row, { ...row, canComment: e.target.checked })} />
+              </span>
+              {/* 群聊与前三项相反：默认是勾上的，取消勾选＝在群聊里禁言这个人 */}
+              <span style={{ width: isMobile ? 44 : 56, textAlign: 'center' }}>
+                <Checkbox checked={row.canChat !== false} onChange={(e) => setFlags(row, { ...row, canChat: e.target.checked })} />
               </span>
               <span style={{ width: isMobile ? 28 : 36, textAlign: 'center' }}>
                 <Popconfirm title="移除该成员？" onConfirm={() => remove(row.userId)} okText="移除" cancelText="取消">

@@ -37,12 +37,13 @@ export default function TopicEditModal({ open, onClose, onSaved, topic, categori
         name: topic.name, description: topic.description,
         visibility: topic.visibility, openPost: topic.openPost, openComment: topic.openComment,
         listed: topic.listed !== false, categoryId: topic.categoryId || undefined,
+        chatEnabled: !!topic.chatEnabled,
       })
       setVisibility(topic.visibility || 'public')
       setPostCats(topic.postCategories || [])
     } else {
       form.resetFields()
-      form.setFieldsValue({ visibility: 'public', openPost: false, openComment: false, listed: true })
+      form.setFieldsValue({ visibility: 'public', openPost: false, openComment: false, listed: true, chatEnabled: false })
       setVisibility('public')
       setPostCats([])
     }
@@ -84,6 +85,7 @@ export default function TopicEditModal({ open, onClose, onSaved, topic, categori
         openPost: v.visibility === 'public' && v.openPost ? '1' : '0',
         openComment: v.visibility === 'public' && v.openComment ? '1' : '0',
         categoryId: v.categoryId || '', // 空串=显式设为未分类（后端据此区分"没传"和"清空"）
+        chatEnabled: v.chatEnabled ? '1' : '0',
       }
       if (isEdit) {
         await topicApi.update({ topicId: topic.topicId, ...payload })
@@ -194,6 +196,18 @@ export default function TopicEditModal({ open, onClose, onSaved, topic, categori
               />
               <Button icon={<PlusOutlined />} onClick={addPostCat} disabled={!newCat.trim() || postCats.length >= 20}>添加</Button>
             </Space.Compact>
+          </Form.Item>
+        )}
+        {/* 群聊：默认关，题主自己决定要不要给这个专题开一个实时房间 */}
+        {isEdit && (
+          <Form.Item
+            name="chatEnabled"
+            label="群聊"
+            valuePropName="checked"
+            extra="打开后，能浏览本专题的人都可以进群聊；要单独禁某个人发言，去「成员管理」里关他的群聊开关。"
+            style={{ marginTop: 12 }}
+          >
+            <Switch checkedChildren="已开放" unCheckedChildren="未开放" />
           </Form.Item>
         )}
         <Form.Item
