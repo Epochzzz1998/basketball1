@@ -27,7 +27,18 @@ export default function TopicApplyButton({ topic, onApplied, banner, block, size
   if (!needView && !needComment && !needPost) return null // 已有全部权限，无需申请
 
   if (topic.myRequestPending) {
-    return <Tag icon={<CheckCircleOutlined />} color={banner ? 'default' : 'orange'}>申请审核中</Tag>
+    // 这是「申请加入」按钮的另一种状态，横幅上要跟按钮同一套玻璃样式，别退回灰底标签
+    return (
+      <Tag
+        icon={<CheckCircleOutlined />}
+        color={banner ? undefined : 'orange'}
+        style={banner
+          ? { background: 'rgba(255,255,255,.16)', borderColor: 'rgba(255,255,255,.42)', color: '#fff', marginInlineEnd: 0 }
+          : undefined}
+      >
+        申请审核中
+      </Tag>
+    )
   }
 
   const label = needView ? '申请加入'
@@ -51,12 +62,14 @@ export default function TopicApplyButton({ topic, onApplied, banner, block, size
   return (
     <>
       <Button
+        /* 横幅上（banner）走玻璃样式，卡片里仍是普通主按钮——白底上的实心橙才是对的 */
+        className={banner ? 'banner-btn' : undefined}
         type={banner ? 'default' : 'primary'}
         block={block}
         size={size}
         icon={<UserAddOutlined />}
         onClick={() => (user ? setOpen(true) : navigate('/login'))}
-        style={banner ? { fontWeight: 600, flexShrink: 0 } : undefined}
+        style={banner ? { flexShrink: 0 } : undefined}
       >
         {user ? label : '登录后申请'}
       </Button>

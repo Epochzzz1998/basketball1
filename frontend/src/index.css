@@ -106,6 +106,40 @@ body {
   }
 }
 
+/* 横幅上的按钮（新建专题 / 管理类别 / 订阅 / 成员管理 / 申请加入）。
+   横幅底是饱和的橙色渐变，antd 默认按钮那套白底 + 灰边 + 深色字压上去像贴纸，
+   跟周围什么都不搭。改成玻璃质感：半透明白底 + 半透明白边 + 白字，
+   和横幅上那两个装饰圆环（rgba(255,255,255,.16)）是同一套语言。
+   带 !important 是因为 antd 运行时给 .ant-btn-default:not(:disabled):hover 的规则
+   权重更高、加载更晚，不压不住（表格那几条也是同样的原因）。 */
+.banner-btn.ant-btn {
+  background: rgba(255, 255, 255, 0.14) !important;
+  border-color: rgba(255, 255, 255, 0.42) !important;
+  color: #fff !important;
+  font-weight: 600;
+  box-shadow: none;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  transition: background 0.2s, border-color 0.2s;
+}
+.banner-btn.ant-btn:hover {
+  background: rgba(255, 255, 255, 0.26) !important;
+  border-color: rgba(255, 255, 255, 0.72) !important;
+}
+.banner-btn.ant-btn:active {
+  background: rgba(255, 255, 255, 0.34) !important;
+}
+/* 已打开的状态（已订阅）：反过来做成实心白底 + 品牌色字。
+   同一个按钮的两种状态用"空心/实心"区分，比换文字更一眼看得出来 */
+.banner-btn.banner-btn-on.ant-btn {
+  background: #fff !important;
+  border-color: #fff !important;
+  color: #d4380d !important;
+}
+.banner-btn.banner-btn-on.ant-btn:hover {
+  background: rgba(255, 255, 255, 0.88) !important;
+}
+
 /* 移动端菜单（Drawer）兜底白底：主题里已经把 Layout.siderBg 改成白色，这条防的是
    Drawer 自己那层容器——它的底色来自 ProLayout 的 token，取不到时会露出后面的遮罩。 */
 .ant-pro-drawer-sider .ant-drawer-body,

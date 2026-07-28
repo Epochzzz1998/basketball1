@@ -100,14 +100,15 @@ export default function TopicsList() {
             <div style={{ fontSize: isMobile ? 18 : 23, fontWeight: 800 }}>百家说</div>
             <div style={{ opacity: 0.88, marginTop: 6, fontSize: 13 }}>见你所见，想你所想</div>
           </div>
-          {/* 人人可建（默认允许，超管可按用户关闭；每人限 5 个，后端校验） */}
+          {/* 横幅上的按钮统一走 .banner-btn（玻璃质感），别用 antd 默认那套白底灰边 */}
           {user?.isSuperManager && (
-            <Button size="large" icon={<AppstoreOutlined />} onClick={() => setCatOpen(true)} style={{ fontWeight: 600 }}>
+            <Button className="banner-btn" size={isMobile ? 'middle' : 'large'} icon={<AppstoreOutlined />} onClick={() => setCatOpen(true)}>
               管理类别
             </Button>
           )}
+          {/* 人人可建（默认允许，超管可按用户关闭；每人限 5 个，后端校验） */}
           {user && (
-            <Button size="large" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)} style={{ fontWeight: 600 }}>
+            <Button className="banner-btn" size={isMobile ? 'middle' : 'large'} icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
               新建专题
             </Button>
           )}
