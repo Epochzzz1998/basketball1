@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Epoch</string>
+    <string name="title_activity_main">Epoch</string>
+    <string name="package_name">com.dreameverything.epoch</string>
+    <string name="custom_url_scheme">com.dreameverything.epoch</string>
+</resources>
