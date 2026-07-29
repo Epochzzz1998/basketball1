@@ -12,7 +12,7 @@ import SeasonPicker from '../components/SeasonPicker'
 import TeamLogo, { TeamCell } from '../components/TeamLogo'
 import useIsMobile from '../hooks/useIsMobile'
 import useUrlState from '../hooks/useUrlState'
-import { LATEST_SEASON, NBA_TEAM_NAMES, fmtNum, playoffRecord, qualifiedBoard, teamRegion } from './players/rankConfig'
+import { LATEST_SEASON, NBA_TEAM_NAMES, fmtDelta, fmtNum, numOrNull, playoffRecord, qualifiedBoard, teamRegion } from './players/rankConfig'
 
 /**
  * 首页（P5-2 现代化改版 v2）：赛季维度的联盟总览仪表盘
@@ -178,7 +178,7 @@ function HonorsCard({ awards, poTeams, seasonNum }) {
       sub: key === 'fmvp'
         ? `季后赛 ${off(w.poPts, w.poReb, w.poAst)}`
         : key === 'mip' && w.prevPts != null && w.pts != null
-          ? `${off(w.pts, w.reb, w.ast)} · 较上季 ↑${(Number(w.pts) - Number(w.prevPts)).toFixed(1)}分`
+          ? `${off(w.pts, w.reb, w.ast)} · 较上季 ↑${fmtDelta(numOrNull(w.pts) - numOrNull(w.prevPts))}分`
           : off(w.pts, w.reb, w.ast),
     })
   }

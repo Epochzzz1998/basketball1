@@ -6,7 +6,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { playerApi } from '../../api/player'
 import { teamApi } from '../../api/team'
 import { HONOR_GROUPS } from './honorConfig'
-import { ADVANCED_STATS, NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, RANKING_STATS, fmtAdv, fmtNum, fmtPct, fmtTeamChainZh, playoffRecord, LATEST_SEASON, honorEligible, qualifiedBoard, filterByPosition } from './rankConfig'
+import { ADVANCED_STATS, LATEST_SEASON, NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, RANKING_STATS, filterByPosition, fmtAdv, fmtDelta, fmtNum, fmtPct, fmtTeamChainZh, honorEligible, numOrNull, playoffRecord, qualifiedBoard } from './rankConfig'
 import { compactColumns, rankCardFields, sumColWidth } from './statColumns'
 import { GlossaryButton, GlossaryTip } from './statGlossary'
 import PositionFilter from './PositionFilter'
@@ -203,7 +203,7 @@ function SpecialAwardCards({ seasonNum, rows }) {
             <div key="b" style={{ color: '#3f8600', fontSize: 12, fontWeight: 600 }}>
               本季 {off(w.pts, w.reb, w.ast)}
               {w.prevPts != null && w.pts != null && (
-                <span style={{ marginLeft: 6 }}>↑ +{(Number(w.pts) - Number(w.prevPts)).toFixed(1)}分</span>
+                <span style={{ marginLeft: 6 }}>↑ {fmtDelta(numOrNull(w.pts) - numOrNull(w.prevPts))}分</span>
               )}
             </div>,
           ]
@@ -369,7 +369,7 @@ function TeamsTab({ seasonNum, stage }) {
         {
           title: '胜率', dataIndex: 'winRate', width: 80,
           sorter: (a, b) => a.winRate - b.winRate,
-          render: (v) => `${(v * 100).toFixed(1)}%`,
+          render: (v) => fmtPct(v),
         },
         resultCol,
         numCol('场均得分', 'pts'), numCol('场均失分', 'ptsAllowed'), netCol,

@@ -33,11 +33,47 @@ export const seasonOptions = [
   { value: CAREER_SEASON, label: '生涯场均' },
 ]
 
+/**
+ * 全站统一的「没有数据」占位符。
+ *
+ * 用 Number.isFinite 而不是 `v == null` 来判断：`== null` 只挡得住 null 和 undefined，
+ * 挡不住 NaN 和 Infinity。而 NaN 恰恰是最常见的来源——上游只要做过一次
+ * `0/0`（比如战绩 0 胜 0 负算胜率）或者 `Number(undefined) - Number(x)`，
+ * 结果就是 NaN，然后 `.toFixed()` 老老实实吐出字符串 "NaN" 显示在表格里。
+ * 空串同理：`Number('')` 是 0，会把"没有值"显示成真实的 0。
+ */
+export const EMPTY = '-'
+
+/** 任何非有限数（null / undefined / NaN / Infinity / 空串）都当作没有数据 */
+export const numOrNull = (v) => {
+  if (v == null || v === '') return null
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+
 // 后端 BigDecimal 序列化成 20.100000 这样，统一格式化显示
-export const fmtNum = (v, d = 1) => (v == null ? '-' : Number(v).toFixed(d))
+export const fmtNum = (v, d = 1) => {
+  const n = numOrNull(v)
+  return n == null ? EMPTY : n.toFixed(d)
+}
 
 // 命中率：库里存 0.453 小数，展示统一为 45.3%
-export const fmtPct = (v, d = 1) => (v == null ? '-' : `${(Number(v) * 100).toFixed(d)}%`)
+export const fmtPct = (v, d = 1) => {
+  const n = numOrNull(v)
+  return n == null ? EMPTY : `${(n * 100).toFixed(d)}%`
+}
+
+/** 带正负号的差值（如「较上季 +2.3」）。算不出来就给占位符，不要显示 "+NaN" */
+export const fmtDelta = (v, d = 1) => {
+  const n = numOrNull(v)
+  return n == null ? EMPTY : `${n >= 0 ? '+' : ''}${n.toFixed(d)}`
+}
+
+/** 比率：分母为 0 或任一侧缺失都给占位符（0 胜 0 负不该显示 "NaN%"，也不该显示 "0.0%"） */
+export const fmtRatio = (num, den, d = 1) => {
+  const a = numOrNull(num), b = numOrNull(den)
+  return a == null || !b ? EMPTY : `${((a / b) * 100).toFixed(d)}%`
+}
 
 /**
  * 由命中/出手现算命中率。单场数据库里只存命中和出手，没存命中率，两处
@@ -46,8 +82,7 @@ export const fmtPct = (v, d = 1) => (v == null ? '-' : `${(Number(v) * 100).toFi
  * 出手为 0 或该列根本不存在（1980 年前没有三分线，整列存 NULL）都给 '-'。
  * 不写 0.0%：那会把"这场没出手"显示成"投了全不中"，是两回事。
  */
-export const fmtMadePct = (made, att, d = 1) =>
-  (Number(att) > 0 ? `${((Number(made) / Number(att)) * 100).toFixed(d)}%` : '-')
+export const fmtMadePct = (made, att, d = 1) => fmtRatio(made, att, d)
 
 /* ===== NBA 现行两套场次资格线（只挡展示、不删数据）=====
  * 数据王/场均榜：出场 ≥ 球队场次 70%（82 场赛季 = 58 场）；
@@ -406,8 +441,8 @@ export const ADV_EMPTY = '/'
 /** 高阶值的显示：小数百分比 → 45.3%；0-100 比率 → 19.6%；其余按位数。
  *  null / 空串 / 非数都归到占位符，别让 NaN 漏到界面上 */
 export const fmtAdv = (v, s) => {
-  const n = v == null || v === '' ? NaN : Number(v)
-  if (Number.isNaN(n)) return ADV_EMPTY
+  const n = numOrNull(v)
+  if (n == null) return ADV_EMPTY
   return s.pct ? fmtPct(n) : s.rate ? `${n.toFixed(1)}%` : fmtNum(n, s.digits ?? 1)
 }
 

@@ -60,10 +60,10 @@ const pwa = VitePWA({
     background_color: '#ffffff',
     theme_color: '#fa541c',
     icons: [
-      { src: '/pwa-192.png?v=2', sizes: '192x192', type: 'image/png' },
-      { src: '/pwa-512.png?v=2', sizes: '512x512', type: 'image/png' },
+      { src: '/pwa-192.png?v=3', sizes: '192x192', type: 'image/png' },
+      { src: '/pwa-512.png?v=3', sizes: '512x512', type: 'image/png' },
       // maskable 单独一张：安卓会按自己的形状去裁，用普通图会把边上的内容切掉
-      { src: '/pwa-maskable-512.png?v=2', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+      { src: '/pwa-maskable-512.png?v=3', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
   },
   // injectManifest 模式下这里只管"哪些文件进预缓存清单"，

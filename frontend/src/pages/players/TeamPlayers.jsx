@@ -7,7 +7,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import AllPlayerSeasonStats from './AllPlayerSeasonStats'
 import { teamApi } from '../../api/team'
 import { playerApi } from '../../api/player'
-import { NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, fmtNum, playoffRecord, seasonYearLabel, seasonShort, teamRegion, LATEST_SEASON } from './rankConfig'
+import { LATEST_SEASON, NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, fmtNum, fmtRatio, playoffRecord, seasonShort, seasonYearLabel, teamRegion } from './rankConfig'
 import SeasonPicker from '../../components/SeasonPicker'
 import useIsMobile from '../../hooks/useIsMobile'
 import useUrlState from '../../hooks/useUrlState'
@@ -337,7 +337,7 @@ function PlayoffHistory({ teamCode }) {
       extra={
         <Space size={8} wrap>
           <Tag color="geekblue">季后赛 ×{rows.length}</Tag>
-          <Tag color="orange">季后赛战绩 {agg.w}-{agg.l}（{agg.w + agg.l ? ((agg.w / (agg.w + agg.l)) * 100).toFixed(1) : 0}%）</Tag>
+          <Tag color="orange">季后赛战绩 {agg.w}-{agg.l}（{fmtRatio(agg.w, agg.w + agg.l)}）</Tag>
           <Tag color={PLAYOFF_TAG['首轮']}>首轮 ×{cnt('首轮')}</Tag>
           <Tag color={PLAYOFF_TAG['半决赛']}>分区半决赛 ×{cnt('半决赛')}</Tag>
           <Tag color={PLAYOFF_TAG['分区决赛']}>分区决赛 ×{cnt('分区决赛')}</Tag>
@@ -432,7 +432,7 @@ function TeamHistory({ teamCode }) {
     {
       title: '胜率', width: 70,
       sorter: (a, b) => a.wins / (a.wins + a.losses) - b.wins / (b.wins + b.losses),
-      render: (_, r) => `${((r.wins / (r.wins + r.losses)) * 100).toFixed(1)}%`,
+      render: (_, r) => fmtRatio(r.wins, Number(r.wins || 0) + Number(r.losses || 0)),
     },
     {
       title: '赛季排名', width: 136,
@@ -481,7 +481,7 @@ function TeamHistory({ teamCode }) {
       extra={
         <Space size={8} wrap>
           <Tag>队史 {rows.length} 个赛季</Tag>
-          <Tag color="orange">总战绩 {totalW}-{totalL}（{((totalW / (totalW + totalL)) * 100).toFixed(1)}%）</Tag>
+          <Tag color="orange">总战绩 {totalW}-{totalL}（{fmtRatio(totalW, totalW + totalL)}）</Tag>
           <Tag color="purple">分区第一 ×{confFirsts}</Tag>
           <Tag color="cyan">分部第一 ×{divFirsts}</Tag>
           <Tag color="geekblue">季后赛 ×{playoffs}</Tag>
