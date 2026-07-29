@@ -14,6 +14,38 @@ import TeamLogo from './TeamLogo'
  * 面板内防抖查询，结果纵向分四组（球员/新闻/资讯/用户），支持 ↑↓ + Enter 选择。
  */
 
+/**
+ * 最近搜索：只存关键词，最多 10 条，放 localStorage（换设备不同步，够用）。
+ *
+ * **只在"点了某条结果"时记录**，不在每次查询时记。查询是防抖触发的，
+ * 打字过程中「杜」「杜兰」「杜兰特」会各触发一次，全记下来历史里全是半截词。
+ * 点了结果说明这次搜索真的有用，才值得留。
+ */
+const HISTORY_KEY = 'epoch:search-history'
+const HISTORY_MAX = 10
+
+const readHistory = () => {
+  try {
+    const v = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]')
+    return Array.isArray(v) ? v.filter((s) => typeof s === 'string') : []
+  } catch {
+    return []   // 存的东西坏了就当没有，别让搜索框整个崩掉
+  }
+}
+
+const pushHistory = (kw) => {
+  const k = (kw || '').trim()
+  if (!k) return readHistory()
+  // 已存在就提到最前，不产生重复项
+  const next = [k, ...readHistory().filter((s) => s !== k)].slice(0, HISTORY_MAX)
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(next))
+  } catch {
+    // 隐私模式下 localStorage 会抛，历史丢了不影响搜索本身
+  }
+  return next
+}
+
 const dateStr = (v) => {
   if (!v) return ''
   const s = typeof v === 'string' ? v : new Date(v).toISOString()
@@ -129,6 +161,7 @@ export default function GlobalSearch({ variant = 'pill' }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [active, setActive] = useState(-1) // 键盘高亮的行下标（打平列表）
+  const [history, setHistory] = useState(readHistory)   // 最近搜索（本机 localStorage）
   const timer = useRef()
   const seq = useRef(0)
   const wrapRef = useRef(null)
@@ -200,9 +233,24 @@ export default function GlobalSearch({ variant = 'pill' }) {
 
   const pick = (row) => {
     if (!row?.to) return
+    // 记在跳转之前：reset() 会把 kw 清掉
+    setHistory(pushHistory(kw))
     navigate(row.to)
     setOpen(false)
     reset()
+  }
+
+  const close = () => { setOpen(false); reset() }
+
+  /** 点一条历史：填回输入框并立刻搜，焦点留在输入框（还能继续改） */
+  const runHistory = (k) => {
+    onChange(k)
+    inputRef.current?.focus()
+  }
+
+  const clearHistory = () => {
+    try { localStorage.removeItem(HISTORY_KEY) } catch { /* 隐私模式下会抛，忽略 */ }
+    setHistory([])
   }
 
   const onKeyDown = (e) => {
@@ -227,6 +275,34 @@ export default function GlobalSearch({ variant = 'pill' }) {
 
   // variant='bar'：移动端顶栏那条占满宽度的搜索框
   const isBar = variant === 'bar'
+
+  /**
+   * 关键词为空时显示的内容：有历史就列历史，没有就给一句提示。
+   * 弹窗版和移动端下拉版共用。
+   */
+  const historyPanel = history.length ? (
+    <div style={{ padding: '4px 4px 8px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', padding: '6px 8px 8px' }}>
+        <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: '#999', letterSpacing: 1 }}>最近搜索</span>
+        <a onClick={clearHistory} style={{ fontSize: 12, color: '#bbb' }}>清空</a>
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '0 8px' }}>
+        {history.map((k) => (
+          <Tag
+            key={k}
+            onClick={() => runHistory(k)}
+            style={{ margin: 0, cursor: 'pointer', borderRadius: 14, padding: '3px 12px', fontSize: 13, background: '#f5f5f5', border: '1px solid #eee' }}
+          >
+            {k}
+          </Tag>
+        ))}
+      </div>
+    </div>
+  ) : (
+    <div style={{ textAlign: 'center', color: '#bbb', padding: '28px 0', fontSize: 13 }}>
+      输入关键词搜索帖子、球员、资讯、用户
+    </div>
+  )
 
   /** 结果列表。弹窗版和移动端下拉版共用同一份渲染 */
   const resultList = (
@@ -270,7 +346,6 @@ export default function GlobalSearch({ variant = 'pill' }) {
    * 而不是相对定位——顶栏本身是 fixed 的，跟着它做相对定位会被内容区的层叠上下文困住。
    */
   if (isBar) {
-    const close = () => { setOpen(false); reset(); inputRef.current?.blur() }
     return (
       <>
         <Input
@@ -278,40 +353,50 @@ export default function GlobalSearch({ variant = 'pill' }) {
           value={kw}
           onChange={(e) => onChange(e.target.value)}
           onFocus={() => setOpen(true)}
+          /**
+           * **收起面板靠失焦，不靠点遮罩。**
+           *
+           * 第一版只在遮罩上挂了 onClick，结果面板关不掉：遮罩的 z-index 压在顶栏下面，
+           * 点顶栏那一条根本碰不到它；点面板白框本身也没有任何处理。
+           * 失焦这条路不管点哪儿都会触发——点顶栏、点面板、点内容区、按返回键，
+           * 输入框都会失去焦点。
+           *
+           * 配合下面面板上的 onMouseDown preventDefault：不拦的话，点结果的瞬间
+           * 先失焦 → 面板卸载 → click 落空，表现就是"点了没反应"。
+           */
+          onBlur={close}
           onKeyDown={onKeyDown}
           placeholder="搜索帖子 / 球员 / 用户"
           prefix={<SearchOutlined style={{ color: '#aaa' }} />}
-          // 移动端点右上角的 × 只想清空文字、不想收起面板，所以自己控制 allowClear 的行为
+          // 点右上角的 × 只清空文字、不收起面板，所以自己接管 allowClear 的图标
           allowClear={{ clearIcon: <CloseOutlined style={{ color: '#bbb' }} onClick={() => onChange('')} /> }}
           style={{ height: 34, borderRadius: 17, background: '#f5f5f5' }}
         />
         {open && (
           <>
-            {/* 点空白处收起。z-index 压在顶栏（150）下面，所以顶栏和输入框始终可点 */}
+            {/* 遮罩只负责压暗背景。关闭由输入框失焦完成——点这里会让输入框失焦，
+                所以不需要再挂 onClick */}
             <div
-              onClick={close}
               style={{
                 position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 149,
                 top: 'var(--mobile-topbar-h, 50px)', background: 'rgba(0,0,0,.32)',
               }}
             />
             <div
+              // 见上面 onBlur 的说明：不阻止默认行为，点结果会先失焦把面板卸载掉
+              onMouseDown={(e) => e.preventDefault()}
               style={{
                 position: 'fixed', left: 0, right: 0, zIndex: 151,
                 top: 'var(--mobile-topbar-h, 50px)',
                 maxHeight: '62vh', overflowY: 'auto',
                 background: '#fff', borderTop: '1px solid #f0f0f0',
                 boxShadow: '0 8px 24px rgba(0,0,0,.12)',
-                padding: rows.length ? 8 : 0,
+                padding: 8,
                 // 惯性滚动，否则在 iOS 上滑起来是一顿一顿的
                 WebkitOverflowScrolling: 'touch',
               }}
             >
-              {!loading && !kw.trim() ? (
-                <div style={{ textAlign: 'center', color: '#bbb', padding: '28px 0', fontSize: 13 }}>
-                  输入关键词搜索帖子、球员、资讯、用户
-                </div>
-              ) : resultList}
+              {!loading && !kw.trim() ? historyPanel : resultList}
             </div>
           </>
         )}
@@ -367,11 +452,7 @@ export default function GlobalSearch({ variant = 'pill' }) {
           style={{ padding: '14px 18px', fontSize: 16, borderBottom: '1px solid #f0f0f0', borderRadius: 0 }}
         />
         <div style={{ maxHeight: 420, overflowY: 'auto', padding: rows.length ? 8 : 0 }}>
-          {!loading && !kw.trim() ? (
-            <div style={{ textAlign: 'center', color: '#bbb', padding: '32px 0', fontSize: 13 }}>
-              输入关键词，↑↓ 选择，Enter 打开，Esc 关闭
-            </div>
-          ) : resultList}
+          {!loading && !kw.trim() ? historyPanel : resultList}
         </div>
       </Modal>
     </>

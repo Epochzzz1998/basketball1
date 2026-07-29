@@ -50,8 +50,8 @@ const pwa = VitePWA({
   registerType: 'autoUpdate',
   includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
   manifest: {
-    name: 'Dream Everything',
-    short_name: 'Dream',
+    name: 'Epoch',
+    short_name: 'Epoch',
     description: '百家说论坛 · NBA 五十年数据',
     lang: 'zh-CN',
     start_url: '/',

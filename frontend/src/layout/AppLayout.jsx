@@ -220,7 +220,10 @@ export default function AppLayout() {
   // 全局返回按钮：一级页面（侧栏导航直达的根路径）不显示，其余页面统一在内容区左上角。
   // 优先走站内历史（-1 即"上一级"）；直链进入无历史时，剥路径段回落到最近的已知上级。
   const NAV_ROOTS = ['/', '/news', '/league', '/players', '/rankings', '/games', '/history', '/compare', '/official', '/messages', '/schedule', '/bbq/wage', '/bbq/ledger', '/bbq/burning', '/bbq/members', '/bbq/skewers', '/login', '/register', '/403', '/admin/players', '/admin/users']
-  const showBack = !NAV_ROOTS.includes(location.pathname)
+  // 有底部 Tab 栏的页面一律不给返回：那条栏本身就是导航，再加一个返回是重复的
+  // 干扰，而且它占的那一行在手机上很值钱。没有 Tab 栏的页面（帖子详情、群聊、
+  // NBA 分区…）才是真正需要返回的地方
+  const showBack = !NAV_ROOTS.includes(location.pathname) && !tabBar
   const goBack = () => {
     if (window.history.state && window.history.state.idx > 0) {
       navigate(-1)
@@ -239,7 +242,7 @@ export default function AppLayout() {
       layout="mix"
       fixedHeader
       fixSiderbar
-      title="Dream Everything"
+      title="Epoch"
       logo={false}
       /* 移动端不用 ProLayout 那条顶栏（标题 + 刷新 + 搜索胶囊 + 头像下拉挤成一排），
          换成自己画的「☰ + 长条搜索框」。头像那一摊搬进了「我」页。

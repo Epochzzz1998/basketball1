@@ -87,16 +87,20 @@ function PostCard({ post, topicOwnerIds, categoryName }) {
       to={post.draft === '1' ? `/news/edit/${post.newsId}` : `/news/${post.newsId}`}
       className="post-card"
       style={{
-        display: 'flex', gap: 14, alignItems: 'flex-start', color: 'inherit',
-        background: '#fff', border: '1px solid #f0f0f0', borderRadius: 14, padding: '16px 18px',
+        // 手机上左右内边距和间距都收紧：正文区实测只有 116px 宽（屏 390 减掉
+        // 页面内边距、栅格间距、卡片内边距、头像、封面图），两行摘要放不下几个字，
+        // 卡片因此又窄又矮。竖直方向反而加大，让卡片本身更"有分量"
+        display: 'flex', gap: isMobile ? 10 : 14, alignItems: 'flex-start', color: 'inherit',
+        background: '#fff', border: '1px solid #f0f0f0', borderRadius: 14,
+        padding: isMobile ? '18px 14px' : '16px 18px',
         transition: 'all .2s',
       }}
     >
       <span onClick={toProfile} style={{ cursor: toProfile ? 'pointer' : undefined, flexShrink: 0 }}>
         {post.authorAvatar ? (
-          <Avatar size={42} src={post.authorAvatar} />
+          <Avatar size={isMobile ? 38 : 42} src={post.authorAvatar} />
         ) : (
-          <Avatar size={42} style={{ background: avatarColor(post.author), fontWeight: 700 }}>
+          <Avatar size={isMobile ? 38 : 42} style={{ background: avatarColor(post.author), fontWeight: 700 }}>
             {String(post.author || '?').slice(0, 1).toUpperCase()}
           </Avatar>
         )}
@@ -122,7 +126,7 @@ function PostCard({ post, topicOwnerIds, categoryName }) {
           {post.title || '(无标题)'}
         </div>
         {excerpt && (
-          <div style={{ fontSize: 13, color: '#8c8c8c', marginTop: 5, lineHeight: 1.65, ...clamp(2) }}>
+          <div style={{ fontSize: 13.5, color: '#8c8c8c', marginTop: 6, lineHeight: 1.7, ...clamp(isMobile ? 3 : 2) }}>
             {excerpt}
           </div>
         )}
@@ -139,7 +143,7 @@ function PostCard({ post, topicOwnerIds, categoryName }) {
         <img
           src={cover}
           alt=""
-          style={{ width: 128, height: 88, objectFit: 'cover', borderRadius: 10, flexShrink: 0, background: '#f5f5f5' }}
+          style={{ width: isMobile ? 100 : 128, height: isMobile ? 92 : 88, objectFit: 'cover', borderRadius: 10, flexShrink: 0, background: '#f5f5f5' }}
         />
       )}
     </Link>
@@ -402,7 +406,10 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied, n
            右栏那些「发帖 / 热帖」对着一张联盟看板毫无意义，而这些页面本身要宽度 */
         renderNbaSection()
       ) : (
-      <Row gutter={[16, 16]}>
+      /* 手机是单列，栅格的水平间距（每列左右各 8px）纯属浪费，只保留竖直间距。
+         注意这里是表达式位置，只能用 JS 块注释——写成 {/* *\/} 会被当成对象字面量，
+         构建直接报 "`,` or `)` expected" */
+      <Row gutter={isMobile ? [0, 16] : [16, 16]}>
         <Col xs={24} lg={17}>
           {/* 第一层：搜索 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
