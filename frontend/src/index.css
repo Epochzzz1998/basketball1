@@ -33,6 +33,24 @@ body {
   cursor: default;
 }
 
+/* 下拉浮层内部滚动到头之后，别把手势传给页面（scroll chaining）。
+
+   现象：球员逐场数据里选赛季，下拉列表滑到底再继续滑，**整个页面跟着滚**，
+   下拉框还挂在原来的位置，看着像页面坏了。
+
+   `overscroll-behavior: contain` 的意思正是「滚到边界就停在这儿，不要冒泡给祖先」。
+   挂在 .rc-virtual-list-holder 上——它是 antd v5 里 Select/TreeSelect/Cascader 下拉
+   真正带 overflow 的那一层（antd 自己的 ant-* 类名是运行时拼的，CSS 里写死不保险，
+   而 rc-virtual-list 的 prefixCls 是库内写死的默认值）。
+   后面几个是日期选择器等非虚拟列表的浮层，一并兜住。 */
+.rc-virtual-list-holder,
+.ant-select-dropdown,
+.ant-picker-dropdown,
+.ant-dropdown-menu,
+.ant-cascader-menu {
+  overscroll-behavior: contain;
+}
+
 /* ============================================================
    移动端全局适配（<768px）。这里集中处理"每个页面都受益"的共性问题，
    页面内的大字号/间距等个性化缩放走各页的 useIsMobile()（内联样式 CSS 盖不动）。
