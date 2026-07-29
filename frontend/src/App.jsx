@@ -31,6 +31,7 @@ import TopicChatPage from './pages/news/TopicChatPage'
 import NewsDetail from './pages/news/NewsDetail'
 import NewsEdit from './pages/news/NewsEdit'
 import MyMessages from './pages/user/MyMessages'
+import Mine from './pages/user/Mine'
 import Messages from './pages/user/Messages'
 import Schedule from './pages/schedule/Schedule'
 import BbqWage from './pages/bbq/BbqWage'
@@ -111,6 +112,9 @@ export default function App() {
         <Route path="users/:userId" element={<UserProfile />} />
 
         {/* 需登录 */}
+        {/* 「我」：移动端底部第四个 tab。不加 ProtectedRoute —— 未登录进来要看到
+            「登录后这里是你的消息、订阅和设置」的引导，而不是被踢去登录页 */}
+        <Route path="mine" element={<Mine />} />
         <Route path="me" element={<ProtectedRoute><MyMessages /></ProtectedRoute>} />
         <Route path="messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
         <Route path="schedule" element={<ProtectedRoute><Schedule /></ProtectedRoute>} />

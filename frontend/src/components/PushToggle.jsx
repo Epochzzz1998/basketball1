@@ -34,7 +34,7 @@ const toB64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)))
  *
  * - **必须由用户点击触发。** 页面加载时自动申请会被浏览器直接拒掉。
  */
-export default function PushToggle() {
+export default function PushToggle({ compact = false }) {
   const [supported, setSupported] = useState(true)
   const [serverKey, setServerKey] = useState(null)   // null=还没问到，''=服务端没开
   const [on, setOn] = useState(false)
@@ -117,6 +117,28 @@ export default function PushToggle() {
   if (!supported || serverKey === '') return null       // 浏览器不支持、或服务端没配密钥
   if (serverKey === null) return null                   // 还没问到，先不闪
 
+  const testBtn = on && (
+    <Button
+      size="small"
+      type="link"
+      style={{ paddingInline: 4 }}
+      onClick={() => pushApi.test().then((n) => message.success(`已送达 ${n} 台设备`)).catch(() => {})}
+    >
+      测试
+    </Button>
+  )
+
+  // compact：只给开关本体。用在「我」页的设置行里——那一行外面已经有图标和「手机推送」
+  // 四个字了，再自带一套就是重复
+  if (compact) {
+    return (
+      <Space size={0}>
+        {testBtn}
+        <Switch size="small" checked={on} loading={busy} onChange={toggle} />
+      </Space>
+    )
+  }
+
   return (
     <Space size={8}>
       <Tooltip title={isIos && !standalone ? 'iPhone 需要先添加到主屏幕' : '有人@你、回复你、指派日程时，手机会收到通知'}>
@@ -126,17 +148,7 @@ export default function PushToggle() {
           <Switch size="small" checked={on} loading={busy} onChange={toggle} />
         </Space>
       </Tooltip>
-      {/* 失败时后端返回 code=1，http 拦截器会把真实原因弹出来并 reject，
-          所以这里只管成功那一支。n 是**送达成功的台数**，不是设备总数 */}
-      {on && (
-        <Button
-          size="small"
-          type="link"
-          onClick={() => pushApi.test().then((n) => message.success(`已送达 ${n} 台设备`)).catch(() => {})}
-        >
-          发一条测试
-        </Button>
-      )}
+      {testBtn}
     </Space>
   )
 }

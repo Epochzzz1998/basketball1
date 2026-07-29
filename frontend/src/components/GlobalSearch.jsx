@@ -117,7 +117,7 @@ function flatten(d, kw, canData, dn) {
   return out
 }
 
-export default function GlobalSearch() {
+export default function GlobalSearch({ variant = 'pill' }) {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
   const { user, dn, canUse } = useAuth()
@@ -225,9 +225,12 @@ export default function GlobalSearch() {
     borderRadius: 4, padding: '0 6px', lineHeight: '18px', fontFamily: 'monospace',
   }
 
+  // variant='bar'：移动端顶栏那条占满宽度的搜索框。面板逻辑完全共用，只有触发器长得不同
+  const isBar = variant === 'bar'
+
   return (
     <>
-      {/* 触发胶囊：自绘，hover 只描边变色 */}
+      {/* 触发器：自绘，hover 只描边变色 */}
       <div
         ref={wrapRef}
         role="button"
@@ -235,16 +238,23 @@ export default function GlobalSearch() {
         onMouseEnter={() => setHoverTrigger(true)}
         onMouseLeave={() => setHoverTrigger(false)}
         style={{
-          display: 'flex', alignItems: 'center', justifyContent: isMobile ? 'center' : 'flex-start',
-          gap: 8, height: 32, padding: isMobile ? 0 : '0 6px 0 12px',
-          border: `1px solid ${hoverTrigger ? '#fa541c' : '#e8e8e8'}`, borderRadius: 16,
-          background: '#fff', color: '#999', fontSize: 13, cursor: 'pointer',
-          transition: 'border-color .2s', userSelect: 'none', width: isMobile ? 32 : 220,
+          display: 'flex', alignItems: 'center',
+          justifyContent: isBar ? 'flex-start' : isMobile ? 'center' : 'flex-start',
+          gap: 8, height: isBar ? 34 : 32,
+          padding: isBar ? '0 12px' : isMobile ? 0 : '0 6px 0 12px',
+          border: `1px solid ${hoverTrigger ? '#fa541c' : '#e8e8e8'}`,
+          borderRadius: isBar ? 17 : 16,
+          background: isBar ? '#f5f5f5' : '#fff',
+          color: '#999', fontSize: 13, cursor: 'pointer',
+          transition: 'border-color .2s', userSelect: 'none',
+          width: isBar ? '100%' : isMobile ? 32 : 220,
+          minWidth: 0,
         }}
       >
-        <SearchOutlined style={{ color: hoverTrigger ? '#fa541c' : '#aaa', transition: 'color .2s' }} />
-        {!isMobile && <span style={{ flex: 1 }}>搜索…</span>}
-        {!isMobile && <span style={kbd}>/</span>}
+        <SearchOutlined style={{ color: hoverTrigger ? '#fa541c' : '#aaa', transition: 'color .2s', flexShrink: 0 }} />
+        {isBar && <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>搜索帖子 / 球员 / 用户</span>}
+        {!isBar && !isMobile && <span style={{ flex: 1 }}>搜索…</span>}
+        {!isBar && !isMobile && <span style={kbd}>/</span>}
       </div>
 
       <Modal

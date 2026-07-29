@@ -12,6 +12,7 @@ import {
   MessageOutlined,
   ReloadOutlined,
   DatabaseOutlined,
+  MenuOutlined,
   TagsOutlined,
   LogoutOutlined,
   NotificationOutlined,
@@ -31,6 +32,8 @@ import { connectPmSocket, disconnectPmSocket } from '../realtime/pmSocket'
 import AnnouncementBar from '../components/AnnouncementBar'
 import AnnouncementEditModal from '../components/AnnouncementEditModal'
 import useIsMobile from '../hooks/useIsMobile'
+import MobileTabBar, { TAB_BAR_HEIGHT } from './MobileTabBar'
+import { showTabBar } from './mobileNav'
 
 /**
  * 整体外壳（P5-3 美化）：ProLayout 的 mix 布局 = 顶栏品牌 + 可折叠侧栏菜单，
@@ -198,6 +201,9 @@ export default function AppLayout() {
     navigate('/login')
   }
 
+  // 移动端底部 Tab 栏：显示规则在 mobileNav.showTabBar（已按全部路由验证过）
+  const tabBar = isMobile && showTabBar(location.pathname, location.search)
+
   // 全局返回按钮：一级页面（侧栏导航直达的根路径）不显示，其余页面统一在内容区左上角。
   // 优先走站内历史（-1 即"上一级"）；直链进入无历史时，剥路径段回落到最近的已知上级。
   const NAV_ROOTS = ['/', '/news', '/league', '/players', '/rankings', '/games', '/history', '/compare', '/official', '/messages', '/schedule', '/bbq/wage', '/bbq/ledger', '/bbq/burning', '/bbq/members', '/bbq/skewers', '/login', '/register', '/403', '/admin/players', '/admin/users']
@@ -222,6 +228,11 @@ export default function AppLayout() {
       fixSiderbar
       title="Dream Everything"
       logo={false}
+      /* 移动端不用 ProLayout 那条顶栏（标题 + 刷新 + 搜索胶囊 + 头像下拉挤成一排），
+         换成自己画的「☰ + 长条搜索框」。头像那一摊搬进了「我」页。
+         关掉顶栏不影响抽屉：抽屉在 SiderMenu/index.js 里由 `!collapsed` 驱动，
+         和 header 无关（源码确认，非推断）。 */
+      headerRender={isMobile ? false : undefined}
       siderWidth={216}
       /* 移动端菜单是 antd Drawer，ProLayout 默认给它 getContainer={false}（就地渲染），
          于是抽屉和遮罩都是 position:absolute、高 100vh——遮罩只盖住打开那一刻的可视区，
@@ -401,9 +412,44 @@ export default function AppLayout() {
       }}
       contentStyle={{ padding: 0 }}
     >
+      {/* ===== 移动端顶栏：☰ + 长条搜索框 ===== */}
+      {isMobile && (
+        <>
+          <div
+            style={{
+              position: 'fixed', top: 0, left: 0, right: 0, zIndex: 150,
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '8px 14px', paddingTop: 'calc(8px + env(safe-area-inset-top))',
+              background: 'rgba(255,255,255,.96)',
+              backdropFilter: 'saturate(180%) blur(12px)',
+              borderBottom: '1px solid #f0f0f0',
+            }}
+          >
+            <MenuOutlined
+              onClick={() => setCollapsed(false)}
+              style={{ fontSize: 18, color: '#555', flexShrink: 0, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+            />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <GlobalSearch variant="bar" />
+            </div>
+          </div>
+          {/* 顶栏是 fixed 的，用一个等高的占位块把内容推下去。
+              高度 = 8+34+8 内边距与搜索框，再加刘海 */}
+          <div style={{ height: 'calc(50px + env(safe-area-inset-top))' }} />
+        </>
+      )}
+
       {/* 内容区是 flex 列容器：flex 子项上 margin:auto 会把宽度压成"内容宽"再居中，
-          必须显式 width:100% 才能占满（maxWidth 只在超宽屏才生效） */}
-      <div className="app-content" style={{ padding: 20, maxWidth: 1440, margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
+          必须显式 width:100% 才能占满（maxWidth 只在超宽屏才生效）。
+          底部栏是 fixed 的，同样要留出等高的内边距，否则最后一条内容被永久盖住 */}
+      <div
+        className="app-content"
+        style={{
+          padding: isMobile ? '12px 12px 0' : 20,
+          paddingBottom: tabBar ? `calc(${TAB_BAR_HEIGHT + 12}px + env(safe-area-inset-bottom))` : (isMobile ? 12 : 20),
+          maxWidth: 1440, margin: '0 auto', width: '100%', boxSizing: 'border-box',
+        }}
+      >
         {/* 全站公告：内容区最上面（顶栏是 fixed 的，摆到它上面会互相压）。
             游客也能看到——公告本来就是发给所有人的 */}
         <AnnouncementBar />
@@ -420,6 +466,9 @@ export default function AppLayout() {
       {user?.isSuperManager && (
         <AnnouncementEditModal open={announceOpen} onClose={() => setAnnounceOpen(false)} />
       )}
+      {/* 底部 Tab 栏。显示规则见 mobileNav.showTabBar —— 沉浸式页面（群聊、私信会话）、
+          详情/编辑页、NBA 数据页都不出现 */}
+      {tabBar && <MobileTabBar pmUnread={pmUnread} meUnread={unread} />}
     </ProLayout>
   )
 }

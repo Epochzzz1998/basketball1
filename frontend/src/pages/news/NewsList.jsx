@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Avatar, Badge, Button, Card, Col, Empty, Input, Pagination, Row, Segmented, Tag } from 'antd'
 import {
   ClockCircleOutlined, CrownOutlined, EditOutlined, EyeInvisibleOutlined, FireOutlined, LikeOutlined, LockOutlined,
-  MessageOutlined, RightOutlined, SearchOutlined, SettingOutlined, StarFilled,
+  MessageOutlined, PlusOutlined, RightOutlined, SearchOutlined, SettingOutlined, StarFilled,
   StarOutlined, UnlockOutlined,
 } from '@ant-design/icons'
 import { Link, useNavigate } from 'react-router-dom'
@@ -10,6 +10,8 @@ import dayjs from 'dayjs'
 import { newsApi } from '../../api/news'
 import { topicApi } from '../../api/topic'
 import { useAuth } from '../../auth/AuthContext'
+import usePullToRefresh from '../../hooks/usePullToRefresh'
+import PullRefreshIndicator from '../../components/PullRefreshIndicator'
 import TopicMemberModal from '../../components/TopicMemberModal'
 import TopicEditModal from '../../components/TopicEditModal'
 import TopicApplyButton from '../../components/TopicApplyButton'
@@ -17,6 +19,7 @@ import CategoryFilter from '../../components/CategoryFilter'
 import { SuperAdminBadge, TopicOwnerBadge } from '../../components/RoleBadges'
 import UserTitles from '../../components/UserTitles'
 import useIsMobile from '../../hooks/useIsMobile'
+import { TAB_BAR_HEIGHT } from '../../layout/MobileTabBar'
 import { NEWS_MODULE_ENABLED } from '../../config/modules'
 import TopicChatEntry from '../../components/TopicChatEntry'
 import NbaModuleEntry from '../../components/NbaModuleEntry'
@@ -34,6 +37,9 @@ import { sectionRenderer } from '../../components/nbaSections'
 const BRAND = '#fa541c'
 const MEDAL = ['#f5222d', '#fa8c16', '#faad14']
 const PAGE_SIZE = 8
+// 移动端每次「上拉」多放出来的条数。比桌面翻页多给一些：手机上滑一屏很快，
+// 给 8 条会一直在加载
+const MOBILE_PAGE = 12
 
 const coverOf = (html) => /<img[^>]+src=["']([^"']+)["']/i.exec(html || '')?.[1] || null
 const textOf = (html) =>
@@ -203,6 +209,7 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied, n
   // 视图：最新 / 最热 / 精华 / 只看题主（后两个是过滤，题主仅专题模式有）
   const [view, setView] = useState('最新')
   const [page, setPage] = useState(1)
+  const [shown, setShown] = useState(MOBILE_PAGE) // 移动端已展开的条数（上拉加载）
   const [memberOpen, setMemberOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false) // 专题设置弹窗（横幅上那个小铅笔）
   const [cats, setCats] = useState([])            // 全站专题类别，供弹窗里的下拉用
@@ -216,17 +223,28 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied, n
     [postCats],
   )
 
-  useEffect(() => {
-    let alive = true
-    setRows(null); setKw(''); setView('最新'); setPage(1); setCat('all')
+  // 拉列表。后端是 ES 全量返回（page/limit 不生效），所以这一次请求就是全部数据，
+  // 之后的搜索/排序/分页都在前端做——移动端的「上拉加载更多」因此不发请求，只是把切片放大
+  const fetchRows = useCallback(() => {
     const params = isTopic
       ? { page: 1, limit: 9999, newsChannel: 'forum', topicId }
       : { page: 1, limit: 9999, newsChannel: channel }
-    newsApi.listNews(params)
-      .then((r) => { if (alive) setRows(r.records || []) })
-      .catch(() => { if (alive) setRows([]) })
-    return () => { alive = false }
+    return newsApi.listNews(params)
+      .then((r) => setRows(r.records || []))
+      .catch(() => setRows([]))
   }, [channel, isTopic, topicId])
+
+  useEffect(() => {
+    setRows(null); setKw(''); setView('最新'); setPage(1); setCat('all'); setShown(MOBILE_PAGE)
+    fetchRows()
+  }, [fetchRows])
+
+  // 下拉刷新（仅移动端）：重新拉一次列表，并把已展开的条数收回第一屏
+  const onRefresh = useCallback(async () => {
+    await fetchRows()
+    setShown(MOBILE_PAGE)
+  }, [fetchRows])
+  const { pull, refreshing, threshold } = usePullToRefresh(onRefresh, isMobile)
 
   const filtered = useMemo(() => {
     if (rows === null) return null
@@ -262,7 +280,23 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied, n
     ]
   }, [isTopic, postCats, rows])
 
-  const paged = filtered?.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  // 桌面端翻页器；移动端换成"越滑越多"的切片，两者取的是同一份 filtered
+  const paged = isMobile ? filtered?.slice(0, shown) : filtered?.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const hasMore = isMobile && (filtered?.length ?? 0) > shown
+
+  // 上拉加载更多：数据本来就全在内存里（见 fetchRows 的说明），所以这里不发请求，
+  // 只是把切片放大。用 IntersectionObserver 而不是监听 scroll —— 后者要自己算
+  // 元素位置、还会在每一帧触发；前者由浏览器在元素真的进入视口时才回调一次。
+  const sentinelRef = useRef(null)
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el || !hasMore || typeof IntersectionObserver === 'undefined') return undefined
+    const io = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) setShown((n) => n + MOBILE_PAGE)
+    }, { rootMargin: '200px' })   // 提前 200px 就开始加载，滑到底时内容已经在了
+    io.observe(el)
+    return () => io.disconnect()
+  }, [hasMore])
 
   const canPost = isTopic ? !!topic.canPost : official ? user?.isManagerOrOver : true
   const goPost = () => {
@@ -284,6 +318,10 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied, n
         .post-card:hover { border-color: #ffbb96; box-shadow: 0 6px 18px rgba(250,84,28,.10); transform: translateY(-2px); }
         .post-card:hover .post-title { color: ${BRAND}; }
       `}</style>
+
+      {/* 下拉刷新的指示条。放在最上面、横幅之前——它要把整页往下推，
+          压在横幅上的话就成了"盖住"而不是"下拉" */}
+      <PullRefreshIndicator pull={pull} refreshing={refreshing} threshold={threshold} />
 
       {/* 横幅：官方新闻=权威蓝；专题=品牌橙 + 名称/简介/可见性 + 返回专题列表 + 成员管理 */}
       <div
@@ -420,7 +458,15 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied, n
             </Card>
           )}
 
-          {(filtered?.length ?? 0) > PAGE_SIZE && (
+          {/* 移动端：上拉加载。哨兵进视口就多放一批（数据已在内存，不发请求）。
+              到底了给一句话收尾——没有的话人会一直往下拽，以为还在加载 */}
+          {isMobile ? (
+            paged?.length ? (
+              <div ref={sentinelRef} style={{ padding: '18px 0 4px', textAlign: 'center', fontSize: 12, color: '#bbb' }}>
+                {hasMore ? '加载中…' : `没有更多了 · 共 ${filtered.length} 篇`}
+              </div>
+            ) : null
+          ) : (filtered?.length ?? 0) > PAGE_SIZE && (
             <div style={{ display: 'flex', justifyContent: 'center', marginTop: 18 }}>
               <Pagination
                 current={page}
@@ -474,37 +520,29 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied, n
       </Row>
       )}
 
-      {/* 移动端：发帖按钮固定在屏幕底部（新用户不用翻到页尾找入口）；占位块防止最后的内容被盖住。PC 端不变。
-          选中了 NBA 分区就不出——那几页是数据看板，底下压一个"发帖"既没处发（帖子发到讨论区去了，
-          不在你正看的这一页），还盖住内容。回讨论区自然就回来了。
-          PC 端不受影响：那边的发帖引导在右栏，而 NBA 分区本来就不渲染右栏 */}
+      {/* 移动端发帖：右下角悬浮圆钮。
+          原来是一条通栏按钮压在屏幕最底下，现在那个位置归底部 Tab 栏了，两条叠着会互相盖。
+          改成悬浮钮之后占地小得多，滑动时也不挡内容。
+
+          bottom 留出 Tab 栏的高度再加一截（TAB_BAR_HEIGHT + 20），所以它落在 Tab 栏**上方**，
+          不贴屏幕底边——贴底的话拇指去够 Tab 栏很容易误触到它。
+          Tab 栏不显示的页面（NBA 分区）这个钮也一起不出：那几页是数据看板，没有"发到哪儿"可言。 */}
       {isMobile && canPost && !renderNbaSection && (
-        <>
-          <div style={{ height: 68 }} />
-          <div
-            style={{
-              position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 100,
-              padding: '10px 16px calc(10px + env(safe-area-inset-bottom))',
-              background: 'linear-gradient(transparent, rgba(255,255,255,.94) 45%)',
-              pointerEvents: 'none',
-            }}
-          >
-            <Button
-              type="primary"
-              block
-              size="large"
-              icon={<EditOutlined />}
-              onClick={goPost}
-              style={{
-                pointerEvents: 'auto', borderRadius: 999, fontWeight: 600, height: 44,
-                boxShadow: official ? '0 4px 16px rgba(47,84,235,.35)' : '0 4px 16px rgba(250,84,28,.35)',
-                ...(official ? { background: '#2f54eb', borderColor: '#2f54eb' } : {}),
-              }}
-            >
-              {official ? '发布新闻' : user ? '发帖' : '登录后发帖'}
-            </Button>
-          </div>
-        </>
+        <div
+          onClick={goPost}
+          title={official ? '发布新闻' : user ? '发帖' : '登录后发帖'}
+          style={{
+            position: 'fixed', right: 18, zIndex: 190,
+            bottom: `calc(${TAB_BAR_HEIGHT + 20}px + env(safe-area-inset-bottom))`,
+            width: 52, height: 52, borderRadius: 26,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: official ? '#2f54eb' : BRAND, color: '#fff', fontSize: 22,
+            boxShadow: official ? '0 6px 18px rgba(47,84,235,.4)' : '0 6px 18px rgba(250,84,28,.4)',
+            cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+          }}
+        >
+          <PlusOutlined />
+        </div>
       )}
 
       {isTopic && topic.canManage && (
