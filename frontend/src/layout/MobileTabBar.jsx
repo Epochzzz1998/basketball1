@@ -51,7 +51,10 @@ export default function MobileTabBar({ pmUnread = 0, meUnread = 0 }) {
         return (
           <div
             key={t.key}
-            onClick={() => navigate(t.path)}
+            /* replace 而不是 push：Tab 之间来回点不该在历史里堆一串，
+               否则从二级页面返回时要先退回一堆 Tab 切换记录才出得去。
+               和左右滑手势保持一致（见 useAppSwipe） */
+            onClick={() => navigate(t.path, { replace: true })}
             style={{
               flex: 1, display: 'flex', flexDirection: 'column',
               alignItems: 'center', justifyContent: 'center', gap: 2,

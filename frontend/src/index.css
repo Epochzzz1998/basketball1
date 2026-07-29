@@ -299,3 +299,11 @@ body {
 .nba-tabs::-webkit-scrollbar { display: none; }
 /* Segmented 在滚动容器里默认会被压缩换行，钉死不换行才能真的横向滑 */
 .nba-tabs .ant-segmented-group { flex-wrap: nowrap; }
+
+/* 群聊页钉死在可视视口上时，标题栏要自己让开状态栏。
+   套壳 App 的 WebView 铺满整屏（网页版走 Safari 独立模式，系统会把内容排在状态栏
+   下面，所以这个问题在网页上看不出来）。
+   用类而不是内联样式：antd 卡片标题栏的内边距来自它自己的类，内联够不着。 */
+.chat-head-safe.ant-card-head {
+  padding-top: env(safe-area-inset-top);
+}

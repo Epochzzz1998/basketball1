@@ -555,7 +555,13 @@ export default function Messages() {
             'linear-gradient(180deg, #fbfbfc 0%, #f1f2f5 100%)',
           ].join(','),
           backgroundSize: '100% 100%, 100% 100%, 22px 22px, 100% 100%',
-          // 移动端进聊天窗：固定成贴合可视视口的全屏层，随软键盘收缩，整页不滚动、会话头不跑
+          // 移动端进聊天窗：固定成贴合可视视口的全屏层，随软键盘收缩，整页不滚动、会话头不跑。
+          //
+          // **套壳 App 里必须自己躲开状态栏**：网页版走的是 Safari 独立模式，
+          // 系统会把内容排在状态栏下面（阶段 0 选了保守的 status-bar-style: default），
+          // 所以 top:0 一直没问题；而 Capacitor 的 WebView 是铺满整屏、盖住状态栏的，
+          // 同一份 CSS 就把会话头顶到时间和信号图标上去了。
+          // 层本身仍然铺满（白底延伸到状态栏后面才好看），由下面会话头的 padding 让开。
           ...(isMobile && peerId && vp.h != null
             ? { position: 'fixed', left: 0, top: vp.top, width: '100%', height: vp.h, zIndex: 1000 }
             : {}),
@@ -569,7 +575,13 @@ export default function Messages() {
         ) : (
           <>
             {/* 会话头 */}
-            <div style={{ padding: '13px 16px', background: '#fff', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', gap: 11, boxShadow: '0 1px 4px rgba(0,0,0,.03)', zIndex: 1 }}>
+            <div style={{
+              padding: '13px 16px', background: '#fff', borderBottom: '1px solid #f0f0f0',
+              display: 'flex', alignItems: 'center', gap: 11, boxShadow: '0 1px 4px rgba(0,0,0,.03)', zIndex: 1,
+              // 键盘弹起时可视视口整体上移（vp.top>0），那时状态栏已经不在这一层上方了，
+              // 再让一次就会多出一条空白
+              paddingTop: isMobile && vp.top === 0 ? 'calc(13px + env(safe-area-inset-top))' : 13,
+            }}>
               {isMobile && (
                 <ArrowLeftOutlined onClick={() => openConv(null)} style={{ fontSize: 18, color: '#555', cursor: 'pointer', flexShrink: 0 }} />
               )}

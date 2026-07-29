@@ -18,15 +18,16 @@ class EpochViewController: CAPBridgeViewController {
         super.viewDidLoad()
 
         /**
-         * 从屏幕左边缘右滑返回。
+         * **刻意关掉** WebView 自带的前进/后退手势。
          *
-         * iOS 用户对这个手势的预期是肌肉记忆级的——**没有它，App 会被觉得"不像 iOS 应用"**，
-         * 而且这个站有很多层级（专题 → 帖子 → 用户主页），全靠点左上角那个返回钮很累。
+         * 它走的是历史栈，语义是"上一次去过的地址"；而 App 的左右滑该是：
+         * 在 Tab 首页之间横滑切 Tab、在二级页面从左边缘滑回**上一级**。
+         * 两者从第一步就不一样——站在百家说首页往左滑，历史栈会把你带去某个不相干的页面，
+         * 而正确的行为是滑不动（左边没有 Tab 了）。
          *
-         * 对 SPA 也有效：react-router 的 pushState 会进 WKWebView 的历史栈，
-         * 所以这个手势退的就是站内上一页，和点返回钮等价。
+         * 所以手势改由前端按语义实现（`layout/useAppSwipe.js`），这里关掉原生的免得两套打架。
          */
-        webView?.allowsBackForwardNavigationGestures = true
+        webView?.allowsBackForwardNavigationGestures = false
 
         /**
          * 关掉长按链接弹出的预览浮层。
