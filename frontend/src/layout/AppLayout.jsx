@@ -27,6 +27,7 @@ import { userInformationApi } from '../api/userInformation'
 import { pmApi } from '../api/pm'
 import { topicApi } from '../api/topic'
 import { connectPmSocket, disconnectPmSocket } from '../realtime/pmSocket'
+import { setupNativePush, teardownNativePush } from '../realtime/nativePush'
 import AnnouncementBar from '../components/AnnouncementBar'
 import BackButton from '../components/BackButton'
 import { NAV_ROOTS, hasOwnBack } from '../components/backNav'
@@ -118,6 +119,19 @@ export default function AppLayout() {
     if (user) connectPmSocket()
     else disconnectPmSocket()
     return () => disconnectPmSocket()
+  }, [user])
+
+  /**
+   * 套壳 App 的原生推送（FCM）也跟随登录态。网页端 `isNative` 为假，这两个函数直接返回。
+   *
+   * **必须等登录之后**：令牌是"这台设备"的，后端存的是"这个人的这台设备"，
+   * 没登录就拿到令牌也不知道记给谁。
+   *
+   * **登出必须注销**：不然下一个在这台手机上登录的人会收到上一个人的通知。
+   */
+  useEffect(() => {
+    if (user) setupNativePush()
+    else teardownNativePush()
   }, [user])
 
   // 功能模块被禁用的用户，若深链进入该模块的页面（菜单已隐藏，这里兜底），重定向回首页。

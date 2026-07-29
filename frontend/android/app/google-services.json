@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "635188888871",
+    "project_id": "epoch-15fcb",
+    "storage_bucket": "epoch-15fcb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:635188888871:android:ecd3798de9530970621502",
+        "android_client_info": {
+          "package_name": "com.dreameverything.epoch"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDyZXXuK5UbRSGCQHKgiVW890x5ePGe3cE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -92,6 +92,10 @@ public class WebPushSender {
     @Autowired
     private PushSubscriptionMapper subMapper;
 
+    /** 套壳 App 那条传输路。没配 Firebase 凭据时它自己就是空操作，这里不用判断 */
+    @Autowired
+    private FcmSender fcm;
+
     private WebPushService push;
 
     /**
@@ -137,16 +141,33 @@ public class WebPushSender {
 
     /**
      * 消息落库之后调这里。**不抛异常、不阻塞**——推送失败绝不能影响发帖/评论本身。
+     *
+     * <p>两条传输路一起发：<b>Web Push</b>（网页 / 装到主屏的 PWA）和
+     * <b>FCM</b>（套壳 App）。判断"哪些事件值得推"的规则（{@link #PUSHABLE}）只有这一份，
+     * 两条路共用——这正是当初插队先做 Web Push 的理由：通知管线里最容易出 bug 的部分
+     * （推什么、点开跳哪、失效订阅怎么清）先用便宜的方式踩完，换传输层时原样复用。
      */
     public void notifyAsync(UserInformation info) {
-        if (push == null || info == null || !PUSHABLE.contains(info.getMsgType())) {
+        if (info == null || !PUSHABLE.contains(info.getMsgType())) {
             return;
         }
-        // 载荷在这里就拼好：异步任务跑起来时业务对象可能已经被改过
-        String payload = payloadOf(info);
         String receiverId = info.getReceiverId();
+        // 载荷在这里就拼好：异步任务跑起来时业务对象可能已经被改过
+        final String payload = push == null ? null : payloadOf(info);
+        // FCM 要的是**渲染好的**标题正文（App 关着时由系统直接弹，来不及让 JS 算），
+        // 所以这里就算好；规则见 NotificationText 类头的说明
+        final String title = fcm.isEnabled() ? NotificationText.titleOf(info) : null;
+        final String body = fcm.isEnabled() ? NotificationText.bodyOf(info) : null;
+        final String url = fcm.isEnabled() ? NotificationText.linkOf(info) : null;
         try {
-            pool.execute(() -> sendToUser(receiverId, payload));
+            pool.execute(() -> {
+                if (payload != null) {
+                    sendToUser(receiverId, payload);
+                }
+                if (title != null) {
+                    fcm.sendToUser(receiverId, title, body, url);
+                }
+            });
         } catch (RuntimeException e) {
             log.warn("Push queue rejected a message for {}", receiverId, e);
         }
@@ -183,18 +204,33 @@ public class WebPushSender {
      * msgId 里放**发信人 id**，前端据此深链到 /messages?peerId=xxx 直接打开那个会话。
      */
     public void notifyPmAsync(String receiverId, String senderId, String senderName, String content) {
-        if (push == null || StringUtils.isBlank(receiverId)) {
+        if (StringUtils.isBlank(receiverId)) {
             return;
         }
+        String who = StringUtils.defaultIfBlank(senderName, "有人");
+        // 纯附件的私信 content 是空串，通知里给个说得通的占位，别显示成空白
+        String text = StringUtils.defaultIfBlank(content, "[附件]");
+
         JSONObject o = new JSONObject();
         o.put("msgType", "pm");
         o.put("msgId", senderId);
-        o.put("operatorName", StringUtils.defaultIfBlank(senderName, "有人"));
-        // 纯附件的私信 content 是空串，通知里给个说得通的占位，别显示成空白
-        o.put("contentMsg", StringUtils.defaultIfBlank(content, "[附件]"));
-        String payload = o.toJSONString();
+        o.put("operatorName", who);
+        o.put("contentMsg", text);
+        final String payload = push == null ? null : o.toJSONString();
+
+        final boolean toFcm = fcm.isEnabled();
+        final String title = who + " 给你发了一条私信";
+        final String body = NotificationText.stripHtml(text);
+        final String url = "/messages?peerId=" + senderId;
         try {
-            pool.execute(() -> sendToUser(receiverId, payload));
+            pool.execute(() -> {
+                if (payload != null) {
+                    sendToUser(receiverId, payload);
+                }
+                if (toFcm) {
+                    fcm.sendToUser(receiverId, title, body, url);
+                }
+            });
         } catch (RuntimeException e) {
             log.warn("Push queue rejected a PM for {}", receiverId, e);
         }
@@ -209,13 +245,17 @@ public class WebPushSender {
      * 用 msgType=test，前端 service worker 认这个类型，点开就回消息列表。
      */
     public int sendTest(String userId) {
-        if (push == null) {
-            return 0;
+        int ok = 0;
+        if (push != null) {
+            JSONObject o = new JSONObject();
+            o.put("msgType", "test");
+            o.put("operatorName", "测试");
+            ok += sendToUser(userId, o.toJSONString());
         }
-        JSONObject o = new JSONObject();
-        o.put("msgType", "test");
-        o.put("operatorName", "测试");
-        return sendToUser(userId, o.toJSONString());
+        // 两条路都试：诊断入口就该把两边的实际结果加在一起报，
+        // 只报一边会让"App 收得到、网页收不到"这类问题看上去像全好
+        ok += fcm.sendToUser(userId, "测试 推送已经通了", "收到这条就说明整条链路是通的", "/me");
+        return ok;
     }
 
     /** 返回成功送出的台数。 */

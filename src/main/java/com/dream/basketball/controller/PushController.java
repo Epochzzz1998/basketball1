@@ -4,7 +4,9 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.dream.basketball.config.RequiresRole;
 import com.dream.basketball.config.Role;
 import com.dream.basketball.entity.DreamUser;
+import com.dream.basketball.entity.PushDevice;
 import com.dream.basketball.entity.PushSubscription;
+import com.dream.basketball.mapper.PushDeviceMapper;
 import com.dream.basketball.mapper.PushSubscriptionMapper;
 import com.dream.basketball.service.WebPushSender;
 import com.dream.basketball.common.Result;
@@ -37,6 +39,9 @@ public class PushController {
 
     @Autowired
     private PushSubscriptionMapper subMapper;
+
+    @Autowired
+    private PushDeviceMapper deviceMapper;
 
     /**
      * 前端 subscribe() 需要的 applicationServerKey（VAPID 公钥）。
@@ -90,6 +95,46 @@ public class PushController {
     }
 
     /**
+     * 登记一台**套壳 App** 的设备（FCM）。
+     *
+     * <p>和上面那个 subscribe 分开，因为两条传输路存的东西不是一回事：
+     * Web Push 存 endpoint + 两把加密密钥（载荷要我们自己加密），FCM 只存一个注册令牌。
+     *
+     * <p>按 token 覆盖：FCM 会主动轮换令牌，同一台设备拿到新令牌后再登记一次，
+     * 旧的那条由发送时的 404 清理（见 FcmSender），这里再兜一道防重复。
+     */
+    @RequiresRole(Role.USER)
+    @PostMapping("/registerDevice")
+    public Object registerDevice(String token, String platform, HttpServletRequest request) {
+        DreamUser me = SecUtil.getLoginUserToSession(request);
+        if (StringUtils.isBlank(token)) {
+            return new Result<>(1, "缺少设备令牌", null);
+        }
+        deviceMapper.delete(new QueryWrapper<PushDevice>().eq("TOKEN", token));
+        PushDevice d = new PushDevice();
+        d.setDeviceId(UUID.randomUUID().toString());
+        d.setUserId(me.getUserId());
+        d.setToken(token);
+        d.setPlatform(StringUtils.defaultIfBlank(platform, "android"));
+        d.setCreateTime(new Date());
+        deviceMapper.insert(d);
+        return new Result<>(0, "已开启推送", null);
+    }
+
+    /** 注销一台 App 设备（登出时调）。按令牌删，不影响这个人的其它设备。 */
+    @RequiresRole(Role.USER)
+    @PostMapping("/unregisterDevice")
+    public Object unregisterDevice(String token, HttpServletRequest request) {
+        DreamUser me = SecUtil.getLoginUserToSession(request);
+        if (StringUtils.isBlank(token)) {
+            return new Result<>(1, "缺少设备令牌", null);
+        }
+        deviceMapper.delete(new QueryWrapper<PushDevice>()
+                .eq("USER_ID", me.getUserId()).eq("TOKEN", token));
+        return new Result<>(0, "已关闭推送", null);
+    }
+
+    /**
      * 注销一台设备。
      *
      * 按 endpoint 删而不是按人删：关掉手机上的推送不该把桌面浏览器的也关了。
@@ -117,8 +162,13 @@ public class PushController {
     @PostMapping("/test")
     public Object test(HttpServletRequest request) {
         DreamUser me = SecUtil.getLoginUserToSession(request);
+        // **两条路都要数**。只数 Web Push 订阅的话，一个只装了套壳 App 的人
+        // 会被这里挡在门外——明明设备登记着，却被告知"还没有已登记的设备"。
+        // （这就是加 FCM 时漏掉的一处：发送端加了，守卫忘了跟着改）
         long devices = subMapper.selectCount(
-                new QueryWrapper<PushSubscription>().eq("USER_ID", me.getUserId()));
+                new QueryWrapper<PushSubscription>().eq("USER_ID", me.getUserId()))
+                + deviceMapper.selectCount(
+                new QueryWrapper<PushDevice>().eq("USER_ID", me.getUserId()));
         int ok = sender.sendTest(me.getUserId());
         // 报**成功数**而不是设备数。第一版报的是设备数，于是两台设备全都发失败时
         // 界面照样弹「已发往 2 台设备」，把唯一的线索盖掉了，只能去翻服务器日志

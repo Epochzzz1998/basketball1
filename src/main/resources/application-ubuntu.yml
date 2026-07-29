@@ -110,6 +110,12 @@ push:
     private-key: ${VAPID_PRIVATE_KEY:}
     subject: mailto:bliuzzz1016@gmail.com
 
+# 套壳 App 的推送（FCM）。整个服务账号 JSON base64 之后放进 .env 的一行里——
+# 私钥是多行 PEM，直接写会被换行折断；挂文件进容器又要改 docker-compose 多一处易忘的东西。
+# 没配就自动禁用（同 VAPID），本地和测试环境不会因为少一个密钥起不来。
+fcm:
+  service-account-b64: ${FCM_SERVICE_ACCOUNT_B64:}
+
 # Log to a file as well as stdout.
 #
 # Container stdout goes to Docker's json-file log, which is destroyed when the

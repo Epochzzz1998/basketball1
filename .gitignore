@@ -62,3 +62,6 @@ tools/nba_sync/rs_game_logs_*.sql
 tools/nba_sync/rs_index_cache/
 tools/nba_sync/rs_games_cache/
 tools/nba_sync/rs_crawl.log
+
+# FCM 服务账号密钥：等价于服务器身份，绝不进版本库
+/secrets/
