@@ -460,9 +460,10 @@ export default function TopicChatPage() {
       }}
       /* 套壳 App 的 WebView 铺满整屏、盖住状态栏（网页版走 Safari 独立模式，系统会排在
          状态栏下面，所以一直没暴露）。卡片本身仍然铺满，由标题栏让开安全区。
-         键盘弹起时 vp.top>0，那时状态栏已不在这一层上方，不能再让第二次。
-         写在 head 里是因为 antd 的标题栏内边距来自它自己的类，内联样式够不着 */
-      classNames={pinned && vp.top === 0 ? { header: 'chat-head-safe' } : undefined}
+         **键盘弹起时也要让**：`top: vp.top` 是把这一层对齐到可视视口顶部，也就是物理 y=0，
+         而状态栏永远在物理屏幕最顶上，页面滚不滚都一样。
+         写在类里是因为 antd 的标题栏内边距来自它自己的类，内联样式够不着 */
+      classNames={pinned ? { header: 'chat-head-safe' } : undefined}
       styles={{ body: { padding: 0, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } }}
       title={
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>

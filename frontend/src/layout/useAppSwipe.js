@@ -43,15 +43,15 @@ const MAX_MS = 800
 /** 二级页面的返回手势必须从这个宽度内起手（和 iOS 自己的边缘手势一个量级） */
 const EDGE = 30
 
-/** 手指落点是否在一个真的能横向滚的容器里 */
-const inHorizontalScroller = (el) => {
+/** 手指落点所在的横向滚动容器；没有则返回 null */
+const horizontalScrollerAt = (el) => {
   for (let n = el; n && n !== document.body; n = n.parentElement) {
     if (n.scrollWidth > n.clientWidth + 4) {
       const ox = getComputedStyle(n).overflowX
-      if (ox === 'auto' || ox === 'scroll') return true
+      if (ox === 'auto' || ox === 'scroll') return n
     }
   }
-  return false
+  return null
 }
 
 export default function useAppSwipe(enabled) {
@@ -77,9 +77,13 @@ export default function useAppSwipe(enabled) {
     const onStart = (e) => {
       if (e.touches.length !== 1) { start.current = null; return }
       const t = e.touches[0]
-      start.current = inHorizontalScroller(e.target)
-        ? null
-        : { x: t.clientX, y: t.clientY, at: Date.now() }
+      // 记下落点所在的横向滚动容器（可能为 null）。**不在这里直接放弃**——
+      // 两条规则对它的态度不一样，见 onEnd
+      const sc = horizontalScrollerAt(e.target)
+      start.current = {
+        x: t.clientX, y: t.clientY, at: Date.now(),
+        scroller: sc, scrollLeft: sc ? sc.scrollLeft : 0,
+      }
     }
 
     const onEnd = (e) => {
@@ -96,7 +100,10 @@ export default function useAppSwipe(enabled) {
       const idx = TABS.findIndex((tab) => tab.path === pathname)
 
       if (idx >= 0) {
-        // 规则 1：Tab 首页之间横滑。手指往左 = 去右边那个 Tab
+        // 规则 1：Tab 首页之间横滑。落在横向滚动容器里就整个让开——
+        // "滑动类别筛选条"不该变成"切换 Tab"
+        if (s.scroller) return
+        // 手指往左 = 去右边那个 Tab
         const next = dx < 0 ? idx + 1 : idx - 1
         if (next < 0 || next >= TABS.length) return   // 到头了，不动
         // replace 而不是 push：Tab 之间来回切不该在历史里堆一串，
@@ -106,7 +113,18 @@ export default function useAppSwipe(enabled) {
       }
 
       // 规则 2：二级页面，从左边缘往右滑 = 返回
-      if (dx > 0 && s.x <= EDGE) back()
+      if (dx <= 0 || s.x > EDGE) return
+      /**
+       * 落在横向滚动容器里时，**只有它已经滑到最左边才让返回接管**。
+       *
+       * 这一条是被 NBA 宽表逼出来的：那些表格从屏幕最左边开始画，手指想返回必然落在表上。
+       * 原来的写法是"在横向容器里就一律放弃"，于是出现了一个死角——
+       * 表格已经在最左端（右滑滚不动），返回手势又被让掉，**右滑什么都不会发生**。
+       *
+       * 判据用起手时记下的 scrollLeft，而不是松手时再读：手势过程中表格可能已经被滚过了。
+       */
+      if (s.scroller && s.scrollLeft > 0) return
+      back()
     }
 
     // passive：全程不 preventDefault，纵向滚动和下拉刷新一点不受影响

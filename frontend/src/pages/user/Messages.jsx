@@ -578,9 +578,11 @@ export default function Messages() {
             <div style={{
               padding: '13px 16px', background: '#fff', borderBottom: '1px solid #f0f0f0',
               display: 'flex', alignItems: 'center', gap: 11, boxShadow: '0 1px 4px rgba(0,0,0,.03)', zIndex: 1,
-              // 键盘弹起时可视视口整体上移（vp.top>0），那时状态栏已经不在这一层上方了，
-              // 再让一次就会多出一条空白
-              paddingTop: isMobile && vp.top === 0 ? 'calc(13px + env(safe-area-inset-top))' : 13,
+              // **键盘弹起时也要让**。曾经写成「vp.top>0 就不让」，理由是"可视视口上移了，
+              // 状态栏不在这一层上方"——那是错的：状态栏永远在物理屏幕最顶上，页面滚不滚它都在。
+              // 而 `top: vp.top` 的作用恰恰是把这一层的上边缘对齐到可视视口顶部，
+              // 也就是物理 y=0，所以任何时候它都压在状态栏下面。
+              paddingTop: isMobile ? 'calc(13px + env(safe-area-inset-top))' : 13,
             }}>
               {isMobile && (
                 <ArrowLeftOutlined onClick={() => openConv(null)} style={{ fontSize: 18, color: '#555', cursor: 'pointer', flexShrink: 0 }} />
