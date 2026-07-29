@@ -39,6 +39,7 @@ import java.util.Map;
  * Auth: the WS handshake is a plain HTTP request carrying the session cookie, so we read the
  * login state from the HttpSession — unauthenticated handshakes are rejected outright, and the
  * logged-in userId becomes the STOMP session Principal (that's what routes /user/... destinations).
+ * 阶段 1 起还接受 `?access_token=`：套壳 App 没有 Cookie，而握手请求按协议带不了自定义头。
  */
 @Configuration
 @EnableWebSocketMessageBroker
@@ -47,17 +48,40 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     /** handshake attribute key carrying the authenticated userId into determineUser() */
     private static final String WS_USER_ID = "WS_USER_ID";
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private TokenStore tokenStore;
+
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns("*")
                 .addInterceptors(new HandshakeInterceptor() {
+                    /**
+                     * 握手时认人。两条路：session（网页）和令牌（App）。
+                     *
+                     * <b>令牌只能走查询参数，不能走请求头</b>——WebSocket 的握手是一个
+                     * 由浏览器发起的、协议规定死的 HTTP Upgrade 请求，
+                     * `WebSocket` API 压根没有设置自定义请求头的地方（SockJS 的
+                     * XHR 回退也一样）。这是协议层面的限制，不是这里偷懒。
+                     *
+                     * 代价是令牌会出现在访问日志的 URL 里。所以这条路**只在这儿开**，
+                     * 普通接口一律走 Authorization 头。
+                     *
+                     * 认不出来仍然直接拒绝握手（和原来一样）：WebSocket 不像 HTTP 接口
+                     * 有"匿名也能看公开内容"这回事，连上来就是要收推送的，
+                     * 不知道你是谁就没有任何东西可推。
+                     */
                     @Override
                     public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response,
                                                    WebSocketHandler wsHandler, Map<String, Object> attributes) {
                         if (request instanceof ServletServerHttpRequest) {
-                            HttpSession session = ((ServletServerHttpRequest) request).getServletRequest().getSession(false);
+                            javax.servlet.http.HttpServletRequest req =
+                                    ((ServletServerHttpRequest) request).getServletRequest();
+                            HttpSession session = req.getSession(false);
                             String userId = SecUtil.getLoginUserId(session);
+                            if (StringUtils.isBlank(userId)) {
+                                userId = tokenStore.resolve(TokenAuthFilter.extract(req));
+                            }
                             if (StringUtils.isNotBlank(userId)) {
                                 attributes.put(WS_USER_ID, userId);
                                 return true;

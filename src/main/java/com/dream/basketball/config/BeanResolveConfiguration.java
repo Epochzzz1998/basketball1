@@ -30,10 +30,34 @@ public class BeanResolveConfiguration implements WebMvcConfigurer {
         registry.addInterceptor(new AuthInterceptor(userMapper)).addPathPatterns("/**");
     }
 
+    /**
+     * 套壳 App 的 WebView 源。iOS 上是 {@code capacitor://localhost}，
+     * 安卓上是 {@code http://localhost}（Capacitor 默认；也有配成 {@code ionic://} 的老项目）。
+     * 这三个是<b>固定字面量</b>，不是通配，所以放开它们不会扩大攻击面。
+     */
+    private static final String[] NATIVE_ORIGINS = {
+        "capacitor://localhost", "ionic://localhost", "http://localhost",
+    };
+
+    /**
+     * CORS。
+     *
+     * <p>从 {@code allowedOrigins} 换成 {@code allowedOriginPatterns}，原因是
+     * Spring 5.3 起，{@code allowCredentials(true)} 和 {@code allowedOrigins} 里出现
+     * 通配符是<b>互斥</b>的（会直接抛异常拒绝启动）。虽然这里加的三个是精确串，
+     * 但 pattern 版本对二者都放行，以后要加 {@code https://*.dream-everything.com}
+     * 这种也不用再改一次结构。
+     *
+     * <p>{@code allowCredentials(true)} 保留：网页端还是靠 Cookie。
+     * App 端不需要它（Bearer 头不算 credentials），留着也不影响。
+     */
     @Override
     public void addCorsMappings(CorsRegistry registry) {
+        String[] origins = new String[allowedOrigins.length + NATIVE_ORIGINS.length];
+        System.arraycopy(allowedOrigins, 0, origins, 0, allowedOrigins.length);
+        System.arraycopy(NATIVE_ORIGINS, 0, origins, allowedOrigins.length, NATIVE_ORIGINS.length);
         registry.addMapping("/**")
-                .allowedOrigins(allowedOrigins)
+                .allowedOriginPatterns(origins)
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true)

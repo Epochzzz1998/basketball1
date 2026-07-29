@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { message } from 'antd'
+import { getToken } from '../auth/token'
 
 /**
  * 全局唯一的 axios 实例——所有接口请求都走它。
@@ -11,6 +12,24 @@ const http = axios.create({
   baseURL: '',
   withCredentials: true,
   timeout: 15000,
+})
+
+/**
+ * 请求拦截器：有令牌就带上 `Authorization: Bearer`（阶段 1 · Token 认证）。
+ *
+ * **网页端这里恒为空**——只有套壳 App 登录时才会向后端索要令牌（见 auth/token.js）。
+ * 所以不用判断运行环境："有没有存过令牌"本身就是判据。
+ *
+ * 后端 TokenAuthFilter 的顺序是 Cookie 优先、令牌兜底，所以万一两者同时存在
+ * （比如在浏览器里手工塞过一个），行为仍然是可预期的。
+ */
+http.interceptors.request.use((config) => {
+  const t = getToken()
+  if (t) {
+    config.headers = config.headers || {}
+    config.headers.Authorization = `Bearer ${t}`
+  }
+  return config
 })
 
 /**

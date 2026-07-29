@@ -39,21 +39,46 @@ public class UserController extends BaseUtils {
     @Autowired
     private UserService userService;
     @Autowired
+    private com.dream.basketball.config.TokenStore tokenStore;
+    @Autowired
+    private com.dream.basketball.config.CaptchaStore captchaStore;
+    @Autowired
     private com.dream.basketball.mapper.BbqStaffMapper bbqStaffMapper;
     @Autowired
     private com.dream.basketball.mapper.ForumTopicMapper topicMapper;
 
     /**
      * 登录：先校验单次验证码（P2-2），再核对账号/密码（BCrypt，旧 MD5 透明升级，P2-3）。
+     *
+     * <p><b>阶段 1 加了两件事，都是"加一条路"而不是"换一条路"：</b>
+     *
+     * <p>① <b>验证码支持两种关联方式</b>。带了 {@code captchaId} 就走 Redis（新，
+     * 不依赖 Cookie，App 和网页通用），没带就走原来的 session（旧）。
+     * 保留旧路是为了老前端缓存还在的人也能登录，以及新路万一有问题时能只回滚前端。
+     *
+     * <p>② <b>{@code wantToken=1} 时额外签发一个令牌</b>。不主动发是有意的：
+     * 令牌存在客户端的 JS 能读到的地方（localStorage），而浏览器现在用的 Cookie 是
+     * httpOnly 的，XSS 偷不走。给网页端无端发一个令牌等于凭空降低它的安全性。
+     * 只有拿不到 Cookie 的客户端（套壳 App）才需要它。
      */
     @PostMapping("/login")
     public Object login(DreamUserDto dreamUserDto, HttpServletRequest request) {
         // P2-2: 验证码强制校验，单次消费
         String inputCode = request.getParameter("code");
-        Object sessionCaptcha = request.getSession().getAttribute("captcha");
-        request.getSession().removeAttribute("captcha");
-        if (sessionCaptcha == null || StringUtils.isBlank(inputCode)
-                || !StringUtils.equalsIgnoreCase(inputCode.trim(), sessionCaptcha.toString())) {
+        String captchaId = request.getParameter("captchaId");
+        String answer;
+        if (StringUtils.isNotBlank(captchaId)) {
+            answer = captchaStore.consume(captchaId);       // 新：Redis，取出即删
+        } else {
+            javax.servlet.http.HttpSession s = request.getSession(false);
+            Object v = s == null ? null : s.getAttribute("captcha");
+            if (s != null) {
+                s.removeAttribute("captcha");
+            }
+            answer = v == null ? null : v.toString();       // 旧：session
+        }
+        if (answer == null || StringUtils.isBlank(inputCode)
+                || !StringUtils.equalsIgnoreCase(inputCode.trim(), answer)) {
             return handlerResultJson(false, "验证码错误！");
         }
         List<DreamUserDto> users = userService.findAllUsers(dreamUserDto);
@@ -84,6 +109,12 @@ public class UserController extends BaseUtils {
         dreamUser.setLastLoginTime(now);
         SecUtil.setLoginUserIdToSession(request, dreamUser);
         SecUtil.setLoginUserToSession(request, dreamUser);
+        // 拿不到 Cookie 的客户端（套壳 App）显式索要令牌；网页端不要，继续用 httpOnly Cookie
+        if ("1".equals(request.getParameter("wantToken"))) {
+            Map<String, Object> data = new HashMap<>();
+            data.put("token", tokenStore.issue(dreamUser.getUserId()));
+            return new Result<>(0, "登录成功！", data);
+        }
         return handlerResultJson(true, "登录成功！");
     }
 
@@ -173,6 +204,9 @@ public class UserController extends BaseUtils {
     @RequiresRole(Role.USER)
     @PostMapping("/loginOut")
     public Object loginOut(HttpServletRequest request) {
+        // 令牌登录的客户端：登出必须把令牌真的作废掉。
+        // 只清客户端存的那份是不够的——那串东西如果被抄走过，服务端这边还认它
+        tokenStore.revoke(com.dream.basketball.config.TokenAuthFilter.extract(request));
         SecUtil.logout4Session(request);
         return handlerResultJson(true, "已登出");
     }
@@ -373,7 +407,34 @@ public class UserController extends BaseUtils {
         return handlerResultJson(true, "已保存");
     }
 
-    /** 验证码图片（前端以 <img src> 加载；答案存 session 供 /login 校验，不再打印到控制台） */
+    /**
+     * 验证码（JSON 版）：{@code {captchaId, image}}，答案存 Redis 两分钟、用完即删。
+     *
+     * <p><b>为什么要新开一个而不是改老的</b>：老的 {@code /user/captcha} 直接把 gif 字节流
+     * 写进响应，前端拿 {@code <img src>} 加载——而 {@code <img>} 标签发不出
+     * {@code Authorization} 头，也读不到响应体里的 {@code captchaId}。
+     * 要把 id 交给前端，就只能改成 JSON + 图片内嵌成 data URI。
+     *
+     * <p>图片 base64 之后体积涨约 33%（一张 130×48 的 gif 大概 2KB → 2.7KB），
+     * 换来的是少一次请求、且不依赖 Cookie。这个交换在登录页上非常划算。
+     *
+     * <p>老接口保留：老前端缓存还在的人照样能登录，新路真出问题也能只回滚前端。
+     */
+    @GetMapping("/captchaJson")
+    public Object captchaJson() throws Exception {   // setFont 会抛 FontFormatException，和老接口同样处理
+        SpecCaptcha specCaptcha = new SpecCaptcha(130, 48, 4);
+        specCaptcha.setFont(Captcha.FONT_1);
+        specCaptcha.setCharType(Captcha.TYPE_ONLY_NUMBER);
+        java.io.ByteArrayOutputStream buf = new java.io.ByteArrayOutputStream();
+        specCaptcha.out(buf);
+        Map<String, Object> data = new HashMap<>();
+        data.put("captchaId", captchaStore.save(specCaptcha.text().toLowerCase()));
+        data.put("image", "data:image/gif;base64,"
+                + java.util.Base64.getEncoder().encodeToString(buf.toByteArray()));
+        return new Result<>(0, "成功", data);
+    }
+
+    /** 验证码图片（旧版，答案存 session）。新前端走 /captchaJson，这个留给老缓存兜底 */
     @GetMapping("/captcha")
     public void captcha(HttpServletRequest request, HttpServletResponse response) throws Exception {
         response.setHeader("Pragma", "No-cache");

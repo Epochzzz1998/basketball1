@@ -1,4 +1,5 @@
 import { Client } from '@stomp/stompjs'
+import { getToken } from '../auth/token'
 
 /**
  * 全站唯一的一条 STOMP 连接，两种用途共用：
@@ -34,8 +35,19 @@ function subscribeAll() {
 export function connectPmSocket() {
   if (client?.active) return
   const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
+  /**
+   * 有令牌就挂在查询串上（阶段 1 · Token 认证）。
+   *
+   * **为什么不能像普通接口那样放请求头**：WebSocket 握手是浏览器按协议自己发出去的
+   * HTTP Upgrade 请求，`WebSocket` 这个 API 根本没有设置自定义请求头的地方。
+   * 这是协议层面的限制，绕不过去，所以后端在握手那一处额外认 `?access_token=`。
+   *
+   * 网页端 `getToken()` 恒为空，URL 和以前一模一样，走的还是 Cookie。
+   */
+  const t = getToken()
+  const url = `${proto}://${window.location.host}/ws${t ? `?access_token=${encodeURIComponent(t)}` : ''}`
   client = new Client({
-    brokerURL: `${proto}://${window.location.host}/ws`,
+    brokerURL: url,
     reconnectDelay: 5000,
     onConnect: () => {
       client.subscribe('/user/queue/pm', (frame) => {
