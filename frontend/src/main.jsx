@@ -12,6 +12,7 @@ import './index.css'
 import App from './App.jsx'
 import { AuthProvider } from './auth/AuthContext'
 import { themeConfig } from './theme'
+import setupPwaUpdate from './pwaUpdate'
 
 /**
  * 应用入口，自外向内包了三层"环境"：
@@ -19,6 +20,10 @@ import { themeConfig } from './theme'
  * - BrowserRouter：前端路由（基于浏览器 History）。
  * - AuthProvider：全局登录态（启动即拉 /user/current）。
  */
+// 装到主屏的 PWA 切后台是冻结不是关闭，不会重新触发 load，
+// 所以要主动在回到前台时查更新、并在新版本接管后重载（见 pwaUpdate.js）
+setupPwaUpdate()
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ConfigProvider locale={zhCN} theme={themeConfig}>
