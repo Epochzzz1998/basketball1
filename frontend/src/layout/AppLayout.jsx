@@ -29,7 +29,7 @@ import { topicApi } from '../api/topic'
 import { connectPmSocket, disconnectPmSocket } from '../realtime/pmSocket'
 import AnnouncementBar from '../components/AnnouncementBar'
 import BackButton from '../components/BackButton'
-import { NAV_ROOTS } from '../components/backNav'
+import { NAV_ROOTS, hasOwnBack } from '../components/backNav'
 import ErrorBoundary from '../components/ErrorBoundary'
 import AnnouncementEditModal from '../components/AnnouncementEditModal'
 import useIsMobile from '../hooks/useIsMobile'
@@ -224,9 +224,10 @@ export default function AppLayout() {
 
   // 全局返回按钮：一级页面（NAV_ROOTS，见 components/BackButton）不显示，其余页面统一在内容区左上角。
   // 有底部 Tab 栏的页面一律不给返回：那条栏本身就是导航，再加一个返回是重复的
-  // 干扰，而且它占的那一行在手机上很值钱。没有 Tab 栏的页面（帖子详情、群聊、
-  // NBA 分区…）才是真正需要返回的地方
-  const showBack = !NAV_ROOTS.includes(location.pathname) && !tabBar
+  // 干扰，而且它占的那一行在手机上很值钱。没有 Tab 栏的页面（帖子详情、群聊…）
+  // 才是真正需要返回的地方。
+  // hasOwnBack 那批是专题页——返回画在横幅的背景图里，全局这个再出来就成了两个
+  const showBack = !NAV_ROOTS.includes(location.pathname) && !tabBar && !hasOwnBack(location.pathname)
 
   return (
     <ProLayout

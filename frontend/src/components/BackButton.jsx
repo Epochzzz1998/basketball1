@@ -29,13 +29,16 @@ const SKIN = {
     boxShadow: 'none',
   },
   overlay: {
-    // 毛玻璃 + 一圈淡白描边：图亮时靠暗底衬出箭头，图暗时靠描边勾出轮廓，两头都不会消失
-    background: 'rgba(0,0,0,.34)',
+    // 半透明黑底 + 一圈淡白描边：图亮时靠暗底衬出箭头，图暗时靠描边勾出轮廓，两头都不会消失。
+    //
+    // 原来这里还加了 `backdrop-filter: blur()`。去掉了：在一个 32px 的小圆上它几乎看不出效果，
+    // 而 backdrop-filter 在 iOS WebKit 上和「圆角 + overflow:hidden 的祖先」一起用是有名的
+    // 合成雷区（页面切换后整屏不重绘，滑一下才出来）。不值得为这点视觉冒险，
+    // 底色从 .34 加到 .38 补回一点对比度。
+    background: 'rgba(0,0,0,.38)',
     color: '#fff',
     border: '1px solid rgba(255,255,255,.3)',
     boxShadow: '0 2px 8px rgba(0,0,0,.18)',
-    backdropFilter: 'saturate(160%) blur(8px)',
-    WebkitBackdropFilter: 'saturate(160%) blur(8px)',
   },
 }
 

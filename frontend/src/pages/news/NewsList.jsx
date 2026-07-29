@@ -337,8 +337,9 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied, n
         style={{
           position: 'relative', overflow: 'hidden', borderRadius: 16, color: '#fff',
           padding: isMobile ? '16px 14px' : '24px 28px', marginBottom: 16,
-          // 有背景图时给一个下限高度：一张 3:1 的横图被压到 80px 高就什么都看不出来了
-          minHeight: bannerUrl ? (isMobile ? 132 : 178) : undefined,
+          // 有背景图时给一个下限高度。第一版给的 132/178 太矮，用户反馈「有点小」——
+          // 一张 3:1 的横图在那个高度下只看得见中间一条，认不出画的是什么
+          minHeight: bannerUrl ? (isMobile ? 176 : 240) : undefined,
           // 有背景图时整块做成"返回在最上、标题贴底"的布局（参照贴吧那种吧头）：
           // 列方向 + justify-content:flex-end 把内容压到底，返回钮再用 margin-bottom:auto
           // 把自己顶回最上面（auto 外边距吃掉全部剩余空间，优先级高于 justify-content）。
@@ -455,13 +456,14 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied, n
         <Col xs={24} lg={17}>
           {/* 第一层：搜索 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
+            {/* 圆角/高度/底色与顶栏的全局搜索框一致（34 / 17 / #f5f5f5），见 TopicsList 同款 */}
             <Input
               allowClear
-              prefix={<SearchOutlined style={{ color: '#bbb' }} />}
+              prefix={<SearchOutlined style={{ color: '#aaa' }} />}
               placeholder="搜索标题 / 作者 / 标签"
               value={kw}
               onChange={(e) => { setKw(e.target.value); setPage(1) }}
-              style={{ maxWidth: 260, borderRadius: 10 }}
+              style={{ maxWidth: 260, height: 34, borderRadius: 17, background: '#f5f5f5' }}
             />
             {/* 篇数紧跟搜索框：它说明的是"搜出来多少"，离搜索框越近越好读（与百家说首页一致） */}
             {filtered != null && <span style={{ fontSize: 13, color: '#999', whiteSpace: 'nowrap' }}>{filtered.length} 篇</span>}

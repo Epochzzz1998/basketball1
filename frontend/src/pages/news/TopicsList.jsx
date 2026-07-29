@@ -154,13 +154,15 @@ export default function TopicsList() {
 
       {/* 搜索 + 类别筛选：与专题内帖子流的工具条同一套外观 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
+        {/* 圆角/高度/底色与顶栏的全局搜索框保持一致（34 / 17 / #f5f5f5）——
+            同一个动作在站里长成两种样子没有道理 */}
         <Input
           allowClear
-          prefix={<SearchOutlined style={{ color: '#bbb' }} />}
+          prefix={<SearchOutlined style={{ color: '#aaa' }} />}
           placeholder="搜索专题名 / 简介 / 类别"
           value={kw}
           onChange={(e) => setKw(e.target.value)}
-          style={{ maxWidth: 260, borderRadius: 10 }}
+          style={{ maxWidth: 260, height: 34, borderRadius: 17, background: '#f5f5f5' }}
         />
         {/* 数量紧跟搜索框，专题页里的「x 篇」同理 */}
         {shown != null && <span style={{ fontSize: 13, color: '#999', whiteSpace: 'nowrap' }}>{shown.length} 个专题</span>}
@@ -195,29 +197,34 @@ export default function TopicsList() {
                 )}
                 <Card
                   className="topic-card"
-                  /* 卡片改成 flex 列：封面条 + 卡体上下排。
-                     原来卡体是 height:100%，加了封面之后那就是"整张卡的高度"，会撑出去；
-                     换成 flex:1 让它吃掉封面剩下的高度才对 */
-                  style={{ borderRadius: 14, height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', cursor: t.locked ? 'default' : 'pointer', opacity: t.locked ? 0.85 : 1 }}
-                  styles={{ body: { padding: '18px 20px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 } }}
-                  /* 封面：题主设了背景图就铺图，没设就铺品牌渐变（跟专题页横幅同一套）。
-                     没图的也给一条，是为了同一行里的卡片高度一致——只给有图的加，
-                     其余卡片会被拉高留一块空白，反而更难看 */
-                  cover={(
-                    <div
-                      style={{
-                        position: 'relative', height: 76, overflow: 'hidden',
-                        background: t.banner
-                          ? `url(${t.banner}) center/cover no-repeat`
-                          : 'linear-gradient(120deg, #fa541c 0%, #d4380d 60%, #ad2102 100%)',
-                      }}
-                    >
-                      {!t.banner && <div style={ring(120, { top: -56, right: 40 })} />}
-                      {!t.banner && <div style={ring(76, { bottom: -34, right: 130 })} />}
-                    </div>
-                  )}
+                  style={{ borderRadius: 14, height: '100%', overflow: 'hidden', cursor: t.locked ? 'default' : 'pointer', opacity: t.locked ? 0.85 : 1 }}
+                  styles={{ body: { padding: '18px 20px', display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' } }}
                   onClick={() => enter(t)}
                 >
+                  {/* 背景图铺满整张卡片，并且**只在这儿虚化**（专题页里的那张要看清，不虚）。
+                      两层：
+                       ① 图层——`inset:-16` 往外撑一圈。blur 会把边缘算成半透明，
+                         不撑出去的话四边会露出一道浅色的糊边，卡片的 overflow:hidden 正好裁掉；
+                       ② 白色蒙版——图什么颜色都可能，卡片上的字是深色的，
+                         不铺一层就得改成白字，那样没图的卡片和有图的卡片会长成两种东西。
+                         0.74 是能看出是什么图、又不影响读字的位置。
+                      用 `filter: blur()` 画在自己的图层上，不用 `backdrop-filter`——
+                      后者在 iOS 上和「圆角 + overflow:hidden 的祖先」一起用是有名的合成雷区。 */}
+                  {t.banner && (
+                    <>
+                      <div
+                        aria-hidden
+                        style={{
+                          position: 'absolute', inset: -16, zIndex: 0,
+                          background: `url(${t.banner}) center/cover no-repeat`,
+                          filter: 'blur(10px)',
+                        }}
+                      />
+                      <div style={{ position: 'absolute', inset: 0, zIndex: 0, background: 'rgba(255,255,255,.74)' }} />
+                    </>
+                  )}
+                  {/* 内容整体抬到蒙版之上；原来卡体自己是 flex 列，现在那份职责搬到这一层 */}
+                  <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 17, fontWeight: 800, ...clamp(1) }}>{t.name}</div>
@@ -284,6 +291,7 @@ export default function TopicsList() {
                     ) : (
                       <span style={{ color: BRAND, fontWeight: 600 }}>进入 <RightOutlined style={{ fontSize: 10 }} /></span>
                     )}
+                  </div>
                   </div>
                 </Card>
                 </div>
