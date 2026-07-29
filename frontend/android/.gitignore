@@ -99,3 +99,8 @@ app/src/main/assets/public
 app/src/main/assets/capacitor.config.json
 app/src/main/assets/capacitor.plugins.json
 app/src/main/res/xml/config.xml
+
+# 正式签名的密钥库与密码：绝不进版本库。
+# 丢了就再也没法给这个 App 发更新（安卓不允许换签名覆盖安装），务必单独备份。
+epoch-release.keystore
+keystore.properties

@@ -1,5 +1,21 @@
 apply plugin: 'com.android.application'
 
+/**
+ * 正式签名。密码不进版本库——放在 keystore.properties（已 gitignore），
+ * 和数据库密码同样的处理方式。
+ *
+ * 为什么一开始就要做而不是先发 debug 包：**安装包的签名换了，等于换了一个 App**，
+ * 安卓不允许覆盖安装，所有人都得先卸载。debug 包用的是自动生成的 debug 密钥，
+ * 先发它、以后再换正式签名，第一次升级就会卡住每一个人。
+ *
+ * 文件缺失时不报错，只是不配签名——这样别人 clone 下来也能编 debug 包。
+ */
+def keystorePropsFile = rootProject.file("keystore.properties")
+def keystoreProps = new Properties()
+if (keystorePropsFile.exists()) {
+    keystoreProps.load(new FileInputStream(keystorePropsFile))
+}
+
 android {
     namespace = "com.dreameverything.epoch"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,8 +32,22 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (keystoreProps['storeFile']) {
+                storeFile rootProject.file(keystoreProps['storeFile'])
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
+            // 没有密钥库时不挂签名配置，让 assembleRelease 至少还能产出未签名包
+            if (keystoreProps['storeFile']) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
