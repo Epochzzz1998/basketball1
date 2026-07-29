@@ -78,6 +78,12 @@ const pwa = VitePWA({
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), pwa],
+  build: {
+    // 生成 source map，用来把线上压缩后的 `index-xxx.js:行:列` 反查回原始文件行号。
+    // **不随 jar 部署**：打包脚本会把 static 里的 .map 删掉，所以不会暴露源码，
+    // 本地 frontend/dist/assets/*.map 留着做反查即可。
+    sourcemap: true,
+  },
   server: {
     host: '0.0.0.0',
     port: 5173,

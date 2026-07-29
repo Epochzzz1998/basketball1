@@ -29,6 +29,7 @@ import { pmApi } from '../api/pm'
 import { topicApi } from '../api/topic'
 import { connectPmSocket, disconnectPmSocket } from '../realtime/pmSocket'
 import AnnouncementBar from '../components/AnnouncementBar'
+import ErrorBoundary from '../components/ErrorBoundary'
 import AnnouncementEditModal from '../components/AnnouncementEditModal'
 import useIsMobile from '../hooks/useIsMobile'
 import MobileTabBar, { TAB_BAR_HEIGHT, TOP_BAR_HEIGHT } from './MobileTabBar'
@@ -483,7 +484,12 @@ export default function AppLayout() {
             <ArrowLeftOutlined /> 返回
           </a>
         )}
-        <Outlet />
+        {/* 自己的错误边界要比 ProLayout 内部那个更靠近页面，才会先捕获。
+            它显示 error.stack，配合 source map 能反查到原始行号；ProLayout 自带的
+            只显示一句 message，压缩后完全定位不到 */}
+        <ErrorBoundary key={location.pathname}>
+          <Outlet />
+        </ErrorBoundary>
       </div>
       {user?.isSuperManager && (
         <AnnouncementEditModal open={announceOpen} onClose={() => setAnnounceOpen(false)} />
