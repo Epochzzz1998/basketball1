@@ -37,9 +37,28 @@ BR2CODE = {'CHH': 'CHA', 'WSB': 'WAS', 'VAN': 'MEM', 'SEA': 'OKC', 'NJN': 'BKN',
            'PHW': 'GSW', 'SFW': 'GSW', 'MNL': 'LAL', 'SYR': 'PHI', 'ROC': 'SAC', 'CIN': 'SAC', 'KCO': 'SAC', 'TRI': 'ATL', 'MLH': 'ATL', 'STL': 'ATL', 'FTW': 'DET', 'CHP': 'WAS', 'CHZ': 'WAS', 'BAL': 'WAS', 'CAP': 'WAS', 'SDR': 'HOU'}
 
 
+# NFD 折不掉的拉丁字母。NFD 的原理是把「基字母 + 组合符」拆开再丢掉组合符，
+# 而下面这些是**独立码位**，压根没有分解形式，NFD 对它们完全无效。
+#
+# 这不是理论问题：B-R 写 "Ömer Aşık"，名单里存的是 "Omer Asik"。
+# Ö 和 ş 都能折（Ö→O+分音符、ş→s+下加符），**土耳其无点 ı(U+0131) 折不掉**，
+# 于是 'omer asık' 永远等不到 'omer asik' —— 2011-2013 三个赛季 230 条数据
+# 就卡在这一个字符上，而且不报错，只是静静地变成 unresolved。
+UNDECOMPOSABLE = str.maketrans({
+    'ı': 'i', 'İ': 'i',              # 土耳其（Ömer Aşık、Ersan İlyasova）
+    'ø': 'o', 'Ø': 'o',              # 挪威 / 丹麦
+    'đ': 'd', 'Đ': 'd',              # 塞尔维亚 / 克罗地亚（Đorđe）
+    'ł': 'l', 'Ł': 'l',              # 波兰
+    'ð': 'd', 'Ð': 'd', 'þ': 'th', 'Þ': 'th',   # 冰岛
+    'ß': 'ss', 'æ': 'ae', 'Æ': 'ae', 'œ': 'oe', 'Œ': 'oe',
+    'ħ': 'h', 'ŧ': 't', 'ŋ': 'n', 'ƶ': 'z',
+})
+
+
 def norm(s):
     s = unicodedata.normalize('NFD', s)
     s = ''.join(c for c in s if not unicodedata.combining(c))
+    s = s.translate(UNDECOMPOSABLE)   # NFD 之后还剩的那批，见上面的说明
     s = s.lower().replace('.', '').replace("'", '').replace('-', ' ').replace('*', '')
     return re.sub(r'\s+', ' ', s).strip()
 
