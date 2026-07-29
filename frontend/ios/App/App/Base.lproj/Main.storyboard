@@ -11,7 +11,8 @@
         <!--Bridge View Controller-->
         <scene sceneID="tne-QT-ifu">
             <objects>
-                <viewController id="BYZ-38-t0r" customClass="CAPBridgeViewController" customModule="Capacitor" sceneMemberID="viewController"/>
+                <!-- 换成自己的子类：要开左滑返回、关长按预览，这两个 Capacitor 没有配置项 -->
+                <viewController id="BYZ-38-t0r" customClass="EpochViewController" customModule="App" customModuleProvider="target" sceneMemberID="viewController"/>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="dkx-z0-nzr" sceneMemberID="firstResponder"/>
             </objects>
         </scene>
