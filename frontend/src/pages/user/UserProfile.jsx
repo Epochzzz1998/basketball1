@@ -512,6 +512,7 @@ export default function UserProfile() {
           )
           const pmSelect = (
             <Select
+              virtual={false}
               size="small"
               value={user.pmPolicy === 'following' ? 'following' : 'all'}
               style={{ width: 138 }}

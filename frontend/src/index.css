@@ -33,16 +33,26 @@ body {
   cursor: default;
 }
 
-/* 下拉浮层内部滚动到头之后，别把手势传给页面（scroll chaining）。
+/* 下拉浮层的滚动不要带着页面跑。
 
-   现象：球员逐场数据里选赛季，下拉列表滑到底再继续滑，**整个页面跟着滚**，
-   下拉框还挂在原来的位置，看着像页面坏了。
+   现象：球员逐场数据里选赛季，滑动下拉列表时**整个页面跟着动**，而且不是滑到底
+   才发生，滑动过程中随时可能。
 
-   `overscroll-behavior: contain` 的意思正是「滚到边界就停在这儿，不要冒泡给祖先」。
-   挂在 .rc-virtual-list-holder 上——它是 antd v5 里 Select/TreeSelect/Cascader 下拉
-   真正带 overflow 的那一层（antd 自己的 ant-* 类名是运行时拼的，CSS 里写死不保险，
-   而 rc-virtual-list 的 prefixCls 是库内写死的默认值）。
-   后面几个是日期选择器等非虚拟列表的浮层，一并兜住。 */
+   根因不是普通的 scroll chaining，而是 **antd 的 Select 下拉默认开虚拟滚动**，
+   而 rc-virtual-list 在虚拟模式下**关掉了原生滚动、自己模拟**：
+
+     List.js:483  componentStyle = { maxHeight, overflowY: 'auto' }
+     List.js:486  if (useVirtual) componentStyle.overflowY = 'hidden'   ← 没有原生滚动
+     List.js:362  useMobileTouchMove(useVirtual, ref, (…) => {
+     List.js:395    if (useVirtual && !atTop && !atBottom) { …; return true }   → preventDefault
+                    return false            ← 它一旦判定"处理不了"，手势就漏给页面
+
+   所以 overscroll-behavior 对它完全无效——那是给原生滚动用的，而这里压根没有原生滚动。
+   真正的修法是给每个 Select 加 `virtual={false}`（antd 的 SelectConfig 不支持全局配，
+   只能逐个加；本站选项最多几十项，关掉虚拟化没有性能代价）。
+
+   关掉之后 holder 退回 `overflow-y: auto` 的原生滚动，下面这条才开始起作用，
+   挡住"滑到边界后继续传给祖先"这一层。 */
 .rc-virtual-list-holder,
 .ant-select-dropdown,
 .ant-picker-dropdown,

@@ -113,6 +113,7 @@ export default function GameLogTable({ playerId, seasonType, seasons }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
         <span style={{ color: '#999', fontSize: 13 }}>赛季</span>
         <Select
+          virtual={false}
           value={season}
           onChange={setSeason}
           style={{ width: isMobile ? 168 : 210 }}

@@ -386,7 +386,7 @@ function TeamsTab({ seasonNum, stage }) {
       <div style={{ padding: '14px 20px' }}> {/* 卡体已无内边距，这行自己撑开 */}
         <Space size="middle" wrap>
           范围：
-          <Select value={scope} onChange={setScope} options={SCOPES} style={{ width: 140 }} />
+          <Select virtual={false} value={scope} onChange={setScope} options={SCOPES} style={{ width: 140 }} />
           <Badge
             status="processing"
             text={<span style={{ color: '#888', fontSize: 12 }}>

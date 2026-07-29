@@ -162,6 +162,7 @@ export default function BbqMembers() {
           只能添加<b>关注你</b>的用户。让对方先到你的主页点关注，这里就能选到 TA。
         </div>
         <Select
+          virtual={false}
           style={{ width: '100%' }}
           placeholder="选择要添加的人"
           value={picked}

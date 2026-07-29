@@ -313,6 +313,7 @@ export default function BbqWage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 13, color: '#666', fontWeight: 600, flexShrink: 0 }}>筛选店员</span>
           <Select
+            virtual={false}
             mode="multiple"
             allowClear
             style={{ flex: 1, minWidth: 200 }}
@@ -459,6 +460,7 @@ export default function BbqWage() {
           <div>
             <div style={{ fontSize: 13, color: '#666', marginBottom: 6 }}>店员</div>
             <Select
+              virtual={false}
               style={{ width: '100%' }}
               placeholder={staff.some((s) => s.role !== 'manager') ? '选择店员' : '还没有店员，先到「成员管理」添加'}
               value={fUser}
@@ -547,6 +549,7 @@ export default function BbqWage() {
                 {fLines.map((l) => (
                   <div key={l.key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <Select
+                      virtual={false}
                       style={{ flex: 1, minWidth: 0 }}
                       placeholder="选串"
                       value={l.typeId}

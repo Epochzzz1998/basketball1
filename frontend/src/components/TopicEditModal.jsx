@@ -125,6 +125,7 @@ export default function TopicEditModal({ open, onClose, onSaved, topic, categori
         {!isEdit && isSuper && (
           <Form.Item name="ownerId" label="专题 owner（负责管理成员权限）" rules={[{ required: true, message: '请指定一个 owner' }]}>
             <Select
+              virtual={false}
               showSearch
               filterOption={false}
               placeholder="搜索用户指定为 owner"
@@ -146,6 +147,7 @@ export default function TopicEditModal({ open, onClose, onSaved, topic, categori
         {categories.length > 0 && (
           <Form.Item name="categoryId" label="专题类别" extra="决定这个专题出现在百家说首页哪个筛选按钮下">
             <Select
+              virtual={false}
               allowClear
               placeholder="不选=未分类"
               options={categories.map((c) => ({ value: c.categoryId, label: c.name }))}

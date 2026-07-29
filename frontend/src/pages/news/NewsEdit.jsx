@@ -200,6 +200,7 @@ export default function NewsEdit() {
           {postCats.length > 0 && (
             <Form.Item name="categoryId" label="类别" tooltip="本专题的分类，读者可以按它筛帖子">
               <Select
+                virtual={false}
                 allowClear
                 placeholder="不选=未分类"
                 style={{ width: isMobile ? 160 : 180 }}
@@ -214,6 +215,7 @@ export default function NewsEdit() {
             style={{ flex: 1, minWidth: isMobile ? '100%' : 320 }}
           >
             <Select
+              virtual={false}
               mode="tags"
               allowClear
               placeholder="输入标签回车添加，可自定义（如 讨论、公告、求助）"

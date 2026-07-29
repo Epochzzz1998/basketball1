@@ -185,6 +185,7 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
             ))}
           </div>
           <Select
+            virtual={false}
             showSearch
             filterOption={false}
             value={null}
@@ -226,6 +227,7 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
           </div>
           {subOwners.length < 3 && (
             <Select
+              virtual={false}
               showSearch
               filterOption={false}
               value={null}
@@ -278,6 +280,7 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
 
       <div style={{ marginBottom: 14 }}>
         <Select
+          virtual={false}
           showSearch
           filterOption={false}
           value={null}

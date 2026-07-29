@@ -605,6 +605,7 @@ export default function Schedule() {
                 )}
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <Select
+                    virtual={false}
                     allowClear
                     placeholder="类型"
                     value={category}
@@ -643,6 +644,7 @@ export default function Schedule() {
                   )}
                 </div>
                 <Select
+                  virtual={false}
                   allowClear
                   placeholder="负责人(可选)"
                   value={assignee}
