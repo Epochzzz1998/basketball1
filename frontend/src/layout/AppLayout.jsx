@@ -35,6 +35,7 @@ import AnnouncementEditModal from '../components/AnnouncementEditModal'
 import useIsMobile from '../hooks/useIsMobile'
 import MobileTabBar, { TAB_BAR_HEIGHT, TOP_BAR_HEIGHT } from './MobileTabBar'
 import { showTabBar, showTopBar } from './mobileNav'
+import useNavigationPaint from './useNavigationPaint'
 
 /**
  * 整体外壳（P5-3 美化）：ProLayout 的 mix 布局 = 顶栏品牌 + 可折叠侧栏菜单，
@@ -50,6 +51,9 @@ export default function AppLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const isMobile = useIsMobile()
+  // 换页后的滚动位置与重绘（见 useNavigationPaint 里的长注释：
+  // 前进回顶部是修正，换页后的 1px 轻推是补丁）
+  useNavigationPaint(isMobile)
   const [unread, setUnread] = useState(0)
   const [pmUnread, setPmUnread] = useState(0)
   // 受控折叠：移动端默认收起（抽屉关闭）；点菜单项后主动收回抽屉（ProLayout 默认不收）
