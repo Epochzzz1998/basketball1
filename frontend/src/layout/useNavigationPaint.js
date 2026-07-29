@@ -2,85 +2,126 @@ import { useEffect } from 'react'
 import { useLocation, useNavigationType } from 'react-router-dom'
 
 /**
- * 换页之后的滚动位置与重绘。
+ * 换页时的滚动位置——自己接管，不交给浏览器。
  *
- * ## 起因
+ * ## 症状与最后那条决定性的线索
  *
- * iOS 上出现过好几次：**从一页退回上一页，内容不画出来，一片空白，手指划一下才全部出现。**
- * 先是在百家说首页（退出专题后），后来在联盟排行（点进球员再退回）——后者页面上
- * 一张图都没有，所以和背景图无关，是**后退导航本身**的问题。
+ * iOS 上反复出现：从一页进另一页、再退回来，**内容位置留着但画不出来，一片空白，
+ * 手指划一下才全部出现**。先后在百家说首页（退出专题后）和联盟排行（点进球员再退回）
+ * 都遇到过，后者页面上一张图都没有——所以和背景图、和合成层都无关。
  *
- * 症状的关键在于**位置是留着的**：下面的内容没有往上顶，只是那一块没画。
- * 也就是布局算对了、绘制没跟上——WebKit 的分块光栅化没有重新画那几块。
+ * 真正把变量隔离出来的是用户的这句话：
  *
- * ## 这里做两件事
+ * > 「点最上面的得分榜的球员，点出来没问题，但是点下面的榜单的球员，就会有空白」
  *
- * ### 1. 前进时回到顶部（真正的修正，不是补丁）
+ * 上面的榜不用滚，`scrollY = 0`；下面的榜要滚下去，`scrollY > 0`。
+ * **唯一的差别就是后退时要不要恢复一个非零的滚动位置。**
  *
- * `<BrowserRouter>` 不管滚动位置，所以以前是这样的：在排行榜滑到很下面，点进球员页，
- * **新页面直接从中间开始**；球员页比排行榜短的话，浏览器又会把滚动位置夹回该页的最大值。
- * 一来一回，每一页的滚动位置都被别的页面牵着走。
+ * ## 为什么浏览器自己恢复会出事
  *
- * 进入一个新页面本来就该从头看，所以 PUSH 一律回到 0。
- * **后退（POP）不动**——退回去要保留原来看到哪儿，那是浏览器自己在做的事。
- * 只盯 `pathname`：查询串变化（选赛季、翻日期，走的都是 replace）不该把人弹回顶部。
+ * 后退这一刻，页面会被 React 整个重画，而数据是**异步**来的：
  *
- * ### 2. 换页后轻推一下，逼它重画（补丁，且明说是补丁）
+ * ```
+ * 后退 → 组件重新挂载（loading，页面很矮）→ 浏览器在这时恢复到 1800
+ *                                              ↑ 文档根本没那么高，被夹掉
+ *      → 接口回来，列表撑开，页面变高
+ *                                              ↑ 浏览器已经恢复过了，不会再来一次
+ * ```
  *
- * 用户自己发现"划一下就正常"——那就用代码做同样的事：滚动 1px 再滚回来。
- * 1px 看不出来，但足以让 WebKit 重新光栅化可视区。
+ * 于是滚动位置和文档高度对不上，WebKit 那一批分块光栅化的结果也跟着不一致——
+ * 表现就是"位置留着但没画"。用户随便划一下，重新光栅化，内容就出来了。
  *
- * 只在**内容高度真的变了**之后推（数据到货、列表撑开），因为空白正是"先画了一次，
- * 内容才到"造成的。用 ResizeObserver 盯着，且只盯换页后的 3 秒——
- * 常驻监听会在每次展开/收起时都触发一下，不值得。
+ * ## 改法：等内容到齐了再定位
  *
- * **人一碰屏幕就停手**：用户自己滑动本来就会重绘，这时候再去 scrollTo 会打断
- * iOS 的惯性滚动，手感很糟。
+ * 1. `history.scrollRestoration = 'manual'`，把恢复权从浏览器手里拿过来；
+ * 2. 自己按**历史条目**记滚动位置（`location.key` 每条历史一个，后退回去还是原来那个）；
+ * 3. 后退时**不立刻跳**，用 rAF 盯着文档高度，等它真的够高了再 `scrollTo`——
+ *    这一下是真正的滚动，顺带也把该重绘的重绘了。
  *
- * > 这一段是补丁。真正的原因还没在真机上定位到（本地没有 iOS 环境），
- * > 一旦查清是哪个元素没重绘，应该回来把它删掉。
+ * 前进/跳转则一律回到顶部：`<BrowserRouter>` 从来不管滚动，
+ * 以前在排行榜滑到很下面点进球员页，新页面是**从中间开始**的。
+ *
+ * 只在移动端接管：桌面端浏览器自己恢复得好好的，没必要动。
  */
+
+/** 历史条目 → 滚动位置。上限只是防止长会话里无限增长，正常几十条足够 */
+const positions = new Map()
+const MAX_KEPT = 50
+
+const remember = (key, y) => {
+  if (!key) return
+  positions.delete(key)          // 删了再塞，让 Map 的插入顺序等于最近使用顺序
+  positions.set(key, y)
+  while (positions.size > MAX_KEPT) {
+    positions.delete(positions.keys().next().value)
+  }
+}
+
+/** 文档现在最多能滚到哪儿 */
+const maxScroll = () =>
+  Math.max(0, document.documentElement.scrollHeight - window.innerHeight)
+
 export default function useNavigationPaint(enabled) {
   const location = useLocation()
   const navType = useNavigationType()
+  const key = location.key
 
-  // ① 前进/跳转时回到顶部；后退保留浏览器恢复的位置
+  // 把恢复权拿过来。组件卸载/切到桌面端时还回去
   useEffect(() => {
-    if (navType === 'POP') return
-    window.scrollTo(0, 0)
-  }, [location.pathname, navType])
+    if (!enabled || !('scrollRestoration' in window.history)) return undefined
+    const prev = window.history.scrollRestoration
+    window.history.scrollRestoration = 'manual'
+    return () => { window.history.scrollRestoration = prev }
+  }, [enabled])
 
-  // ② 换页后的重绘轻推
+  // 记录当前这条历史条目滚到哪儿了
   useEffect(() => {
-    if (!enabled || typeof ResizeObserver === 'undefined') return undefined
+    if (!enabled) return undefined
+    const onScroll = () => remember(key, window.scrollY)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      remember(key, window.scrollY)   // 离开前再存一次，防止最后一次滚动没赶上
+    }
+  }, [key, enabled])
 
-    let alive = true
-    const nudge = () => {
-      if (!alive) return
-      const y = window.scrollY
-      window.scrollTo(0, y + 1)
-      requestAnimationFrame(() => { if (alive) window.scrollTo(0, y) })
+  // 换页之后定位
+  useEffect(() => {
+    if (!enabled) return undefined
+
+    // 前进/跳转：新页面从头看。后退：回到离开时的位置
+    const target = navType === 'POP' ? (positions.get(key) ?? 0) : 0
+    if (target <= 0) {
+      window.scrollTo(0, 0)
+      return undefined
     }
 
-    let lastH = document.documentElement.scrollHeight
-    const ro = new ResizeObserver(() => {
-      const h = document.documentElement.scrollHeight
-      if (h === lastH) return   // 高度没变就不是"内容到货"，别瞎推
-      lastH = h
-      nudge()
-    })
-    ro.observe(document.body)
+    /**
+     * 内容是异步来的，直接 scrollTo 会被夹到当前文档高度——那正是这个 bug 的成因。
+     * 所以盯着文档高度，够了再跳；2 秒还不够就按当前能滚到的最大值落地
+     * （接口挂了、或者这一页本来就变短了，总不能一直等下去）。
+     */
+    let stopped = false
+    let raf = 0
+    const deadline = performance.now() + 2000
+    const tick = () => {
+      if (stopped) return
+      if (maxScroll() >= target || performance.now() > deadline) {
+        window.scrollTo(0, Math.min(target, maxScroll()))
+        stopped = true
+        return
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
 
-    const stop = () => { alive = false; ro.disconnect() }
-    // 人开始碰屏幕就交还控制权：他自己滑动就会重绘，我们再插手只会打断惯性滚动
+    // 人一碰屏幕就收手：他自己滑动就已经到了想看的地方，这时再跳会很突兀，
+    // 而且会打断 iOS 的惯性滚动
+    const stop = () => { stopped = true; cancelAnimationFrame(raf) }
     window.addEventListener('touchstart', stop, { once: true, passive: true })
-    const timer = setTimeout(stop, 3000)   // 换页后 3 秒之外的高度变化与这次导航无关
-
     return () => {
-      clearTimeout(timer)
       window.removeEventListener('touchstart', stop)
       stop()
     }
-    // location.key 每次导航都变（含同一路径的重复进入），正是"这一次导航"的标识
-  }, [location.key, enabled])
+  }, [key, navType, enabled])
 }
