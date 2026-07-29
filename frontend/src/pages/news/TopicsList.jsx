@@ -177,6 +177,9 @@ export default function TopicsList() {
         <Row gutter={[16, 16]}>
           {shown.map((t) => {
             const priv = t.visibility === 'private'
+            // 有背景图的卡片整张是深色底，卡上所有文字都要跟着翻成浅色
+            const art = !!t.banner
+            const shadow = art ? '0 1px 6px rgba(0,0,0,.55)' : undefined
             return (
               <Col key={t.topicId} xs={24} sm={12} lg={8}>
                 {/* 新活动红点（公开或已订阅的专题）：自绘角标压在卡片左上角边缘 */}
@@ -201,33 +204,35 @@ export default function TopicsList() {
                   styles={{ body: { padding: '18px 20px', display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' } }}
                   onClick={() => enter(t)}
                 >
-                  {/* 背景图铺满整张卡片，并且**只在这儿虚化**（专题页里的那张要看清，不虚）。
-                      两层：
-                       ① 图层——`inset:-16` 往外撑一圈。blur 会把边缘算成半透明，
-                         不撑出去的话四边会露出一道浅色的糊边，卡片的 overflow:hidden 正好裁掉；
-                       ② 白色蒙版——图什么颜色都可能，卡片上的字是深色的，
-                         不铺一层就得改成白字，那样没图的卡片和有图的卡片会长成两种东西。
-                         0.74 是能看出是什么图、又不影响读字的位置。
-                      用 `filter: blur()` 画在自己的图层上，不用 `backdrop-filter`——
-                      后者在 iOS 上和「圆角 + overflow:hidden 的祖先」一起用是有名的合成雷区。 */}
-                  {t.banner && (
+                  {/* 背景图铺满整张卡片，**原图不做任何模糊**——第一版虚化了，
+                      用户的评价是「糊成一片，丑得要死」，确实：画本身就看不清了，
+                      那还不如不放。
+                      代价是要自己解决"字压在照片上读不读得出来"。做法和专题页横幅同一套：
+                      图上面盖一层上下深、中间浅的黑色渐变，卡上的文字全部翻成浅色 + 描边阴影。
+                      上下重是因为字就在上下两头（标题在顶、参与人数那行贴底），
+                      中间留浅一点，画面主体才露得出来。 */}
+                  {art && (
                     <>
                       <div
                         aria-hidden
                         style={{
-                          position: 'absolute', inset: -16, zIndex: 0,
+                          position: 'absolute', inset: 0, zIndex: 0,
                           background: `url(${t.banner}) center/cover no-repeat`,
-                          filter: 'blur(10px)',
                         }}
                       />
-                      <div style={{ position: 'absolute', inset: 0, zIndex: 0, background: 'rgba(255,255,255,.74)' }} />
+                      <div
+                        style={{
+                          position: 'absolute', inset: 0, zIndex: 0,
+                          background: 'linear-gradient(180deg, rgba(0,0,0,.58) 0%, rgba(0,0,0,.28) 42%, rgba(0,0,0,.74) 100%)',
+                        }}
+                      />
                     </>
                   )}
                   {/* 内容整体抬到蒙版之上；原来卡体自己是 flex 列，现在那份职责搬到这一层 */}
                   <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 17, fontWeight: 800, ...clamp(1) }}>{t.name}</div>
+                      <div style={{ fontSize: 17, fontWeight: 800, color: art ? '#fff' : undefined, textShadow: shadow, ...clamp(1) }}>{t.name}</div>
                       <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         {priv
                           ? <Tag icon={<LockOutlined />} color="default" style={{ marginInlineEnd: 0 }}>私密</Tag>
@@ -242,28 +247,28 @@ export default function TopicsList() {
                     {(user || t.canManage) && (
                       <span onClick={(e) => e.stopPropagation()} style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
                         {user && (t.pinned
-                          ? <PushpinFilled title="取消置顶" style={{ color: BRAND, cursor: 'pointer' }} onClick={() => togglePin(t)} />
-                          : <PushpinOutlined title="置顶" style={{ color: '#bbb', cursor: 'pointer' }} onClick={() => togglePin(t)} />)}
-                        {t.canManage && <EditOutlined style={{ color: '#999', cursor: 'pointer' }} onClick={() => setEditTopic(t)} />}
+                          ? <PushpinFilled title="取消置顶" style={{ color: art ? '#ffa940' : BRAND, cursor: 'pointer', filter: art ? 'drop-shadow(0 1px 3px rgba(0,0,0,.6))' : undefined }} onClick={() => togglePin(t)} />
+                          : <PushpinOutlined title="置顶" style={{ color: art ? 'rgba(255,255,255,.88)' : '#bbb', cursor: 'pointer', filter: art ? 'drop-shadow(0 1px 3px rgba(0,0,0,.6))' : undefined }} onClick={() => togglePin(t)} />)}
+                        {t.canManage && <EditOutlined style={{ color: art ? 'rgba(255,255,255,.88)' : '#999', cursor: 'pointer', filter: art ? 'drop-shadow(0 1px 3px rgba(0,0,0,.6))' : undefined }} onClick={() => setEditTopic(t)} />}
                         {t.canManage && user?.isSuperManager && (
                           <Popconfirm title="删除该专题？" description="专题下有帖子时无法删除" onConfirm={() => del(t)} okText="删除" cancelText="取消">
-                            <DeleteOutlined style={{ color: '#bbb', cursor: 'pointer' }} />
+                            <DeleteOutlined style={{ color: art ? 'rgba(255,255,255,.88)' : '#bbb', cursor: 'pointer', filter: art ? 'drop-shadow(0 1px 3px rgba(0,0,0,.6))' : undefined }} />
                           </Popconfirm>
                         )}
                       </span>
                     )}
                   </div>
 
-                  <div style={{ fontSize: 13, color: '#8c8c8c', margin: '10px 0 14px', minHeight: 38, lineHeight: 1.6, ...clamp(2) }}>
+                  <div style={{ fontSize: 13, color: art ? 'rgba(255,255,255,.9)' : '#8c8c8c', textShadow: shadow, margin: '10px 0 14px', minHeight: 38, lineHeight: 1.6, ...clamp(2) }}>
                     {t.description || '暂无简介'}
                   </div>
 
-                  <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', fontSize: 12, color: '#999', minHeight: 32 }}>
+                  <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', fontSize: 12, color: art ? 'rgba(255,255,255,.9)' : '#999', textShadow: shadow, minHeight: 32 }}>
                     {/* 原来这儿写的是题主名——谁开的版跟"值不值得点进去"没什么关系，
                         换成参与人数（发过帖或留过言的去重人数），图标不变 */}
                     <TeamOutlined style={{ marginRight: 5 }} />
                     <span style={{ whiteSpace: 'nowrap' }}>{t.participantCount ?? 0} 人正在讨论</span>
-                    <span style={{ margin: '0 8px', color: '#ddd' }}>·</span>
+                    <span style={{ margin: '0 8px', color: art ? 'rgba(255,255,255,.5)' : '#ddd' }}>·</span>
                     <span>{t.postCount ?? 0} 帖</span>
                     {/* 群聊未读：和左上角那个红点分开——那个是新帖/新评论，这个是群聊，
                         位置和图标都不同才分得清。点它直接进群聊，省得"进专题→再点群聊"两步 */}
@@ -289,7 +294,7 @@ export default function TopicsList() {
                         <TopicApplyButton topic={t} onApplied={load} size="small" />
                       </span>
                     ) : (
-                      <span style={{ color: BRAND, fontWeight: 600 }}>进入 <RightOutlined style={{ fontSize: 10 }} /></span>
+                      <span style={{ color: art ? '#ffc069' : BRAND, fontWeight: 600, textShadow: shadow }}>进入 <RightOutlined style={{ fontSize: 10 }} /></span>
                     )}
                   </div>
                   </div>

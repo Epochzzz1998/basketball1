@@ -477,8 +477,11 @@ export default function AppLayout() {
         {showBack && <BackButton label={isMobile ? undefined : '返回'} style={{ marginBottom: 10 }} />}
         {/* 自己的错误边界要比 ProLayout 内部那个更靠近页面，才会先捕获。
             它显示 error.stack，配合 source map 能反查到原始行号；ProLayout 自带的
-            只显示一句 message，压缩后完全定位不到 */}
-        <ErrorBoundary key={location.pathname}>
+            只显示一句 message，压缩后完全定位不到。
+
+            用 resetKey 不用 key：key 会让整棵子树在每次路由变化时重建，
+            而有些页面（NBA 分区）只想换内容区、不想被整个重来。见 ErrorBoundary 里的说明 */}
+        <ErrorBoundary resetKey={location.pathname}>
           <Outlet />
         </ErrorBoundary>
       </div>

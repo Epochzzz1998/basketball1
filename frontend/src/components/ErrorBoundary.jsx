@@ -24,11 +24,29 @@ const { Paragraph } = Typography
 export default class ErrorBoundary extends Component {
   constructor(props) {
     super(props)
-    this.state = { error: null, stack: '' }
+    this.state = { error: null, stack: '', resetKey: props.resetKey }
   }
 
   static getDerivedStateFromError(error) {
     return { error }
+  }
+
+  /**
+   * 换了一页就把错误状态清掉。
+   *
+   * **为什么不是给这个组件挂 `key={pathname}`。** 那样确实能重置，但代价是
+   * 每次路由变化整棵子树都被卸载重建——包括那些"地址变了、页面其实没变"的场景。
+   * NBA 分区就是典型：`/news/topic/x/nba/league` → `.../nba/players` 只是换了内容区，
+   * 横幅和标签条本该原地不动，结果整个专题页被重建，重新拉一次 `/topic/get`、
+   * 闪一下满屏的 loading——**看起来就像整页刷新了一次**。
+   *
+   * 改成比对 resetKey：地址变了就清错误，但 children 不换 key，该保留的组件继续活着。
+   */
+  static getDerivedStateFromProps(props, state) {
+    if (props.resetKey !== state.resetKey) {
+      return { error: null, stack: '', resetKey: props.resetKey }
+    }
+    return null
   }
 
   componentDidCatch(error, info) {
