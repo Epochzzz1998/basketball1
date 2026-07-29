@@ -39,8 +39,8 @@ export default function MobileTabBar({ pmUnread = 0, meUnread = 0 }) {
         height: TAB_BAR_HEIGHT,
         paddingBottom: 'env(safe-area-inset-bottom)',
         boxSizing: 'content-box',
-        background: 'rgba(255,255,255,.96)',
-        backdropFilter: 'saturate(180%) blur(12px)',
+        // 不透明白底，不用 backdrop-filter（理由见 AppLayout 顶栏那处的注释）
+        background: '#fff',
         borderTop: '1px solid #f0f0f0',
       }}
     >

@@ -429,8 +429,11 @@ export default function AppLayout() {
               position: 'fixed', top: 0, left: 0, right: 0, zIndex: 150,
               display: 'flex', alignItems: 'center', gap: 10,
               padding: '8px 14px', paddingTop: 'calc(8px + env(safe-area-inset-top))',
-              background: 'rgba(255,255,255,.96)',
-              backdropFilter: 'saturate(180%) blur(12px)',
+              // 不透明白底，**不用 backdrop-filter**：毛玻璃在 96% 不透明度下本来就几乎看不出来，
+              // 而 backdrop-filter 会把这条固定栏提成独立合成层、并且每帧都要采样它背后的内容。
+              // iOS 上「换页之后大片内容不重绘、滑一下才出来」是这类属性的经典症状，
+              // 为了一点看不见的效果冒这个险不划算（tab 栏、搜索页那条同理）
+              background: '#fff',
               borderBottom: '1px solid #f0f0f0',
             }}
           >

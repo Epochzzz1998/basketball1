@@ -118,9 +118,8 @@ export default function SearchPage() {
         ...(isMobile
           ? {
               position: 'fixed', top: 0, left: 0, right: 0, zIndex: 150,
-              background: 'rgba(255,255,255,.96)',
-              backdropFilter: 'saturate(180%) blur(12px)',
-              WebkitBackdropFilter: 'saturate(180%) blur(12px)',
+              // 不透明白底，不用 backdrop-filter（理由见 AppLayout 顶栏那处的注释）
+              background: '#fff',
               borderBottom: '1px solid #f0f0f0',
             }
           : {}),

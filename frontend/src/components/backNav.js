@@ -28,6 +28,9 @@ export const NAV_ROOTS = [
 const SELF_BACK = [
   /^\/news\/topic\/[^/]+$/,              // 专题帖子流
   /^\/news\/topic\/[^/]+\/nba\/[^/]+$/,  // 专题里的 NBA 分区（数据统计那几页）
+  // 帖子详情：返回画进了顶部那张卡里（NewsDetail），单独占一行只是白白空出一截。
+  // `(?!new$)` 排除 /news/new（发帖页），它没有自己的返回
+  /^\/news\/(?!new$)[^/]+$/,
 ]
 
 export const hasOwnBack = (pathname) => SELF_BACK.some((re) => re.test(pathname))

@@ -356,11 +356,17 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied, n
         {bannerUrl && (
           <>
             {/* 背景图单独一层，而不是写成容器的 background：这样上面还能再叠一层压暗的渐变。
-                照片的亮度完全不可控，白字直接压上去有一半概率读不出来 */}
-            <div
+                照片的亮度完全不可控，白字直接压上去有一半概率读不出来。
+                用 `<img decoding="async">` 而不是 CSS background——解码能离开主线程，
+                不会因为一张图没解完就把整层的绘制拖住（见 TopicsList 里的同款注释） */}
+            <img
+              src={bannerUrl}
+              alt=""
+              aria-hidden
+              decoding="async"
               style={{
                 position: 'absolute', inset: 0,
-                background: `url(${bannerUrl}) center/cover no-repeat`,
+                width: '100%', height: '100%', objectFit: 'cover', display: 'block',
               }}
             />
             <div
@@ -375,10 +381,15 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied, n
         {!bannerUrl && <div style={ring(190, { top: -80, right: 120 })} />}
         {!bannerUrl && <div style={ring(120, { bottom: -50, right: 300 })} />}
         {/* 返回：贴在横幅左上角。有背景图时它是唯一能落脚的地方，
-            所以用 overlay 皮肤（半透明黑底 + 白描边），亮图暗图上都看得见 */}
+            所以用 overlay 皮肤（半透明黑底 + 白描边），亮图暗图上都看得见。
+
+            **直接回百家说，不走浏览器历史。** 专题里可以在讨论区和几个 NBA 分区之间来回点，
+            每一次都是一条历史；照 -1 退的话要一步步倒回去才出得来。
+            这一格的语义是"离开这个专题"，那就应该一步到位。 */}
         {isTopic && (
           <BackButton
             variant="overlay"
+            onClick={() => navigate('/news')}
             style={{
               position: 'relative', alignSelf: 'flex-start',
               marginBottom: bannerUrl ? 'auto' : 10,

@@ -569,7 +569,9 @@ public class TopicController {
         }
         String folderKey = "topic-banner-" + topicId;
         com.dream.basketball.utils.FileUtils.deleteUploadFolder(uploadPath, folderKey);
-        String url = com.dream.basketball.utils.FileUtils.upload(file, uploadPath, folderKey);
+        // 背景图走 20MB 的那档（相机原图很容易超 10MB；浏览器上传前已经压到 1600px 长边，
+        // 真正落盘的仍然是几百 KB，放宽的只是"什么样的原图会被直接拒掉"）
+        String url = com.dream.basketball.utils.FileUtils.uploadBanner(file, uploadPath, folderKey);
         t.setBanner(url);
         topicMapper.updateById(t);
         Map<String, Object> data = new HashMap<>();

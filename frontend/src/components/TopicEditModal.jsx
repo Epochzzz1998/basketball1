@@ -144,7 +144,7 @@ export default function TopicEditModal({ open, onClose, onSaved, topic, categori
             要 topicId 才能上传，所以只在编辑时出现（和帖子类别同理）。
             预览按 3:1 画——和专题页横幅的比例一致，选图的时候就能看出会被裁掉哪儿 */}
         {isEdit && (
-          <Form.Item label="背景图" extra="建议 1200×400 左右的横图，jpg/png/webp ≤ 10MB。留空则用默认的橙色渐变">
+          <Form.Item label="背景图" extra="建议 1200×400 左右的横图，jpg/png/webp ≤ 20MB（上传前会自动压到长边 1600）。留空则用默认的橙色渐变">
             <div
               style={{
                 position: 'relative', width: '100%', aspectRatio: '3 / 1', borderRadius: 12,
@@ -172,8 +172,10 @@ export default function TopicEditModal({ open, onClose, onSaved, topic, categori
                 maxCount={1}
                 showUploadList={false}
                 beforeUpload={(file) => {
-                  if (file.size > 10 * 1024 * 1024) {
-                    message.error('图片不能超过 10MB')
+                  // 20MB：背景图多半是相机原图或壁纸，10MB 很容易顶到。
+                  // 服务端 FileUtils.uploadBanner 也是这个数（Spring 的 multipart 上限 30MB，够）
+                  if (file.size > 20 * 1024 * 1024) {
+                    message.error('图片不能超过 20MB')
                     return Upload.LIST_IGNORE
                   }
                   if (bannerPreview) URL.revokeObjectURL(bannerPreview)

@@ -213,11 +213,20 @@ export default function TopicsList() {
                       中间留浅一点，画面主体才露得出来。 */}
                   {art && (
                     <>
-                      <div
+                      {/* 用 `<img>` 而不是 CSS 的 `background-image`。
+                          差别在于 `<img>` 走的是浏览器的图片管线：`decoding="async"` 能让解码
+                          离开主线程，图片没准备好时先画别的、好了再补上。
+                          写成 background 的话，这张图是所属图层绘制的一部分——解码慢就把整层拖住，
+                          在 iOS 上表现为一片区域迟迟不出来。
+                          `loading="lazy"` 没加：首屏的卡片本来就该立刻出图 */}
+                      <img
+                        src={t.banner}
+                        alt=""
                         aria-hidden
+                        decoding="async"
                         style={{
                           position: 'absolute', inset: 0, zIndex: 0,
-                          background: `url(${t.banner}) center/cover no-repeat`,
+                          width: '100%', height: '100%', objectFit: 'cover', display: 'block',
                         }}
                       />
                       <div
@@ -246,13 +255,15 @@ export default function TopicsList() {
                     {/* 置顶（人人可用，各管各的）+ admin/owner 的编辑、admin 的删除 */}
                     {(user || t.canManage) && (
                       <span onClick={(e) => e.stopPropagation()} style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
+                        {/* 图标不加 drop-shadow：`filter` 会让元素单独成一个合成层，
+                            而卡片顶部那截渐变已经压到 .58，白图标本来就看得清 */}
                         {user && (t.pinned
-                          ? <PushpinFilled title="取消置顶" style={{ color: art ? '#ffa940' : BRAND, cursor: 'pointer', filter: art ? 'drop-shadow(0 1px 3px rgba(0,0,0,.6))' : undefined }} onClick={() => togglePin(t)} />
-                          : <PushpinOutlined title="置顶" style={{ color: art ? 'rgba(255,255,255,.88)' : '#bbb', cursor: 'pointer', filter: art ? 'drop-shadow(0 1px 3px rgba(0,0,0,.6))' : undefined }} onClick={() => togglePin(t)} />)}
-                        {t.canManage && <EditOutlined style={{ color: art ? 'rgba(255,255,255,.88)' : '#999', cursor: 'pointer', filter: art ? 'drop-shadow(0 1px 3px rgba(0,0,0,.6))' : undefined }} onClick={() => setEditTopic(t)} />}
+                          ? <PushpinFilled title="取消置顶" style={{ color: art ? '#ffa940' : BRAND, cursor: 'pointer' }} onClick={() => togglePin(t)} />
+                          : <PushpinOutlined title="置顶" style={{ color: art ? '#fff' : '#bbb', cursor: 'pointer' }} onClick={() => togglePin(t)} />)}
+                        {t.canManage && <EditOutlined style={{ color: art ? '#fff' : '#999', cursor: 'pointer' }} onClick={() => setEditTopic(t)} />}
                         {t.canManage && user?.isSuperManager && (
                           <Popconfirm title="删除该专题？" description="专题下有帖子时无法删除" onConfirm={() => del(t)} okText="删除" cancelText="取消">
-                            <DeleteOutlined style={{ color: art ? 'rgba(255,255,255,.88)' : '#bbb', cursor: 'pointer', filter: art ? 'drop-shadow(0 1px 3px rgba(0,0,0,.6))' : undefined }} />
+                            <DeleteOutlined style={{ color: art ? '#fff' : '#bbb', cursor: 'pointer' }} />
                           </Popconfirm>
                         )}
                       </span>

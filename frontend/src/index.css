@@ -152,8 +152,10 @@ body {
   color: #fff !important;
   font-weight: 600;
   box-shadow: none;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  /* 这里原来还有 `backdrop-filter: blur(4px)`。去掉了：底色只有 14% 白，
+     背后透出来的东西本来就几乎看不清，那点模糊完全是白给的；
+     而每一个 backdrop-filter 元素都会被提成独立合成层、每帧采样它背后的内容。
+     百家说横幅上就挂着三四个这样的按钮，正好落在「换页后大片不重绘」那块区域里。 */
   transition: background 0.2s, border-color 0.2s;
 }
 .banner-btn.ant-btn:hover {

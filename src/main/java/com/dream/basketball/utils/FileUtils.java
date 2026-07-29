@@ -33,6 +33,7 @@ public class FileUtils {
     private static final Set<String> ALLOWED_DOC_EXTENSIONS = new HashSet<>(Arrays.asList(
             "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "csv", "md", "zip", "rar", "7z"));
     private static final long MAX_FILE_SIZE = 10L * 1024 * 1024; // 10MB (images)
+    private static final long MAX_BANNER_SIZE = 20L * 1024 * 1024; // 20MB (topic banners — full-bleed wallpapers)
     private static final long MAX_ATTACHMENT_SIZE = 30L * 1024 * 1024; // 30MB (comment files)
 
     /** URL prefix that ImgConfigurer maps to the upload dir (e.g. /picImg/). */
@@ -61,6 +62,17 @@ public class FileUtils {
      */
     public static String upload(MultipartFile file, String uploadPath, String folderKey) throws IOException {
         return store(file, uploadPath, folderKey, ALLOWED_EXTENSIONS, MAX_FILE_SIZE, "仅允许图片 " + ALLOWED_EXTENSIONS);
+    }
+
+    /**
+     * Store a wallpaper-sized image (topic banners). Same whitelist and hardening as
+     * {@link #upload}, only the cap differs: banners come straight off a phone camera roll,
+     * where 10MB is easy to exceed, and the browser shrinks them to 1600px before upload
+     * anyway — so what actually lands on disk is a few hundred KB either way. Raising the
+     * cap only changes which files get rejected outright.
+     */
+    public static String uploadBanner(MultipartFile file, String uploadPath, String folderKey) throws IOException {
+        return store(file, uploadPath, folderKey, ALLOWED_EXTENSIONS, MAX_BANNER_SIZE, "仅允许图片 " + ALLOWED_EXTENSIONS);
     }
 
     /**

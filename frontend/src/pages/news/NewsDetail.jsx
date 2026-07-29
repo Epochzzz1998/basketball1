@@ -9,6 +9,8 @@ import { ratingApi } from '../../api/rating'
 import { pollApi } from '../../api/poll'
 import { topicApi } from '../../api/topic'
 import { useAuth } from '../../auth/AuthContext'
+import BackButton from '../../components/BackButton'
+import { useGoBack } from '../../components/backNav'
 import CommentSection from '../../components/CommentSection'
 import RatingCard from '../../components/RatingCard'
 import PollCard from '../../components/PollCard'
@@ -128,6 +130,7 @@ export default function NewsDetail() {
   // 从"我的消息"深链进来时带 userInformationId，请求详情即顺便标记该消息已读
   const userInformationId = searchParams.get('userInformationId') || undefined
   const navigate = useNavigate()
+  const goBack = useGoBack() // 返回画在顶部卡片里（见下面的说明），所以这一页要自己拿这个动作
   const { user, dn } = useAuth() // dn：我给谁备注过，全站显示的就是备注名
   const isMobile = useIsMobile()
   const [news, setNews] = useState(null)
@@ -336,6 +339,14 @@ export default function NewsDetail() {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {/* 返回画进这张卡里。原来它单独占一行摆在卡片上方，那一行除了一个圆钮什么都没有，
+              手机上白白空掉一截。
+              stopPropagation 是必须的：整张卡是"点进专题"的按钮，不拦住就会一路冒泡过去 */}
+          <BackButton
+            variant="overlay"
+            size={28}
+            onClick={(e) => { e.stopPropagation(); goBack() }}
+          />
           <span style={{ fontSize: isMobile ? 15 : 17, fontWeight: 800 }}>{topic.name}</span>
           {topic.visibility === 'private'
             ? <Tag icon={<LockOutlined />} style={{ marginInlineEnd: 0 }}>私密</Tag>
@@ -355,8 +366,11 @@ export default function NewsDetail() {
             {news ? (
               <>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
+                  {/* 没有专题卡的帖子（官方新闻、无专题帖）返回落在这一行的最左边——
+                      总之要在卡片内部，不能再单独占一行 */}
+                  {!topic && <BackButton size={28} onClick={goBack} />}
                   <span style={{ flex: 1 }} />
-                  {/* 编辑：作者本人或 manager+（后端 save 同款校验）。低调文字链接（全局返回按钮在外层布局） */}
+                  {/* 编辑：作者本人或 manager+（后端 save 同款校验）。低调文字链接 */}
                   {user && (user.userId === news.authorId || user.isManagerOrOver) && (
                     <a
                       onClick={() => navigate(`/news/edit/${newsId}`)}
@@ -536,7 +550,12 @@ export default function NewsDetail() {
                 />
               </>
             ) : (
-              <Empty description="资讯不存在或已删除" />
+              /* 帖子不存在时也要给返回：这一页的返回画在正文卡里，
+                 走到这个分支就意味着正文卡不渲染——不补一个，人就被困在这儿了 */
+              <>
+                <BackButton size={28} onClick={goBack} />
+                <Empty description="资讯不存在或已删除" style={{ marginTop: 8 }} />
+              </>
             )}
           </Skeleton>
         </Card>
