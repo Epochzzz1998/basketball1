@@ -2,8 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" href="/favicon.ico" sizes="any" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" href="/favicon.ico?v=2" sizes="any" />
+    <!-- 图标 URL 带版本号：public/ 下的文件名不带内容哈希，换了图但路径不变的话，
+         Cloudflare（给静态资源 4 小时缓存）、Safari 的图标缓存、以及 service worker 的
+         预缓存都会继续吐旧的那份。换图时把 v 加一，所有缓存层才会认成新资源。 -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2" />
     <!-- interactive-widget=resizes-content：安卓/Chrome 上软键盘弹出时把视口本身缩小（而不是遮住内容），
          配合 dvh/visualViewport 让页面自适应、不被顶着滚。iOS 不支持该项、无害，靠 visualViewport 兜底。 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content, viewport-fit=cover" />

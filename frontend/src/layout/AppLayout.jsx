@@ -12,7 +12,6 @@ import {
   MessageOutlined,
   ReloadOutlined,
   DatabaseOutlined,
-  MenuOutlined,
   TagsOutlined,
   LogoutOutlined,
   NotificationOutlined,
@@ -441,10 +440,10 @@ export default function AppLayout() {
               borderBottom: '1px solid #f0f0f0',
             }}
           >
-            <MenuOutlined
-              onClick={() => setCollapsed(false)}
-              style={{ fontSize: 18, color: '#555', flexShrink: 0, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-            />
+            {/* 汉堡菜单去掉了：它打开的抽屉里那些入口（新闻、耿阿姨烤串、球员/用户管理、
+                订阅的专题）现在全在「我」页里，四个底部 Tab 覆盖其余部分。
+                两个入口指同一批东西只会让人犹豫点哪个，而且顶栏这一行在手机上很值钱——
+                去掉之后搜索框能占满整条。 */}
             <div style={{ flex: 1, minWidth: 0 }}>
               <GlobalSearch variant="bar" />
             </div>
