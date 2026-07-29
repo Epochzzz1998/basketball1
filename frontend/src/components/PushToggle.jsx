@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Button, Space, Switch, Tooltip, Typography, message } from 'antd'
+import { Space, Switch, Tooltip, Typography, message } from 'antd'
 import { BellOutlined } from '@ant-design/icons'
 import { pushApi } from '../api/push'
 
@@ -87,7 +87,7 @@ export default function PushToggle({ compact = false }) {
       auth: json.keys?.auth || toB64(sub.getKey('auth')),
     })
     setOn(true)
-    message.success('已开启，试试下面的「发一条测试」')
+    message.success('已开启手机推送')
   }
 
   const disable = async () => {
@@ -117,26 +117,11 @@ export default function PushToggle({ compact = false }) {
   if (!supported || serverKey === '') return null       // 浏览器不支持、或服务端没配密钥
   if (serverKey === null) return null                   // 还没问到，先不闪
 
-  const testBtn = on && (
-    <Button
-      size="small"
-      type="link"
-      style={{ paddingInline: 4 }}
-      onClick={() => pushApi.test().then((n) => message.success(`已送达 ${n} 台设备`)).catch(() => {})}
-    >
-      测试
-    </Button>
-  )
 
   // compact：只给开关本体。用在「我」页的设置行里——那一行外面已经有图标和「手机推送」
   // 四个字了，再自带一套就是重复
   if (compact) {
-    return (
-      <Space size={0}>
-        {testBtn}
-        <Switch size="small" checked={on} loading={busy} onChange={toggle} />
-      </Space>
-    )
+    return <Switch size="small" checked={on} loading={busy} onChange={toggle} />
   }
 
   return (
@@ -148,7 +133,6 @@ export default function PushToggle({ compact = false }) {
           <Switch size="small" checked={on} loading={busy} onChange={toggle} />
         </Space>
       </Tooltip>
-      {testBtn}
     </Space>
   )
 }

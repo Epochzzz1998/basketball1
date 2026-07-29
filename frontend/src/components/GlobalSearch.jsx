@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Empty, Input, Modal, Spin, Tag } from 'antd'
-import { EnterOutlined, FileTextOutlined, FolderOpenOutlined, LockOutlined, ReadOutlined, SearchOutlined, UserOutlined } from '@ant-design/icons'
+import { CloseOutlined, EnterOutlined, FileTextOutlined, FolderOpenOutlined, LockOutlined, ReadOutlined, SearchOutlined, UserOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { searchApi } from '../api/search'
 import { useAuth } from '../auth/AuthContext'
@@ -225,8 +225,99 @@ export default function GlobalSearch({ variant = 'pill' }) {
     borderRadius: 4, padding: '0 6px', lineHeight: '18px', fontFamily: 'monospace',
   }
 
-  // variant='bar'：移动端顶栏那条占满宽度的搜索框。面板逻辑完全共用，只有触发器长得不同
+  // variant='bar'：移动端顶栏那条占满宽度的搜索框
   const isBar = variant === 'bar'
+
+  /** 结果列表。弹窗版和移动端下拉版共用同一份渲染 */
+  const resultList = (
+    <>
+      {loading && <div style={{ textAlign: 'center', padding: 32 }}><Spin /></div>}
+      {!loading && kw.trim() && !itemIdx.length && (
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="未找到相关内容" style={{ padding: 24 }} />
+      )}
+      {!loading && rows.map((r, i) =>
+        r.kind === 'group' ? (
+          <div key={r.key} style={{ padding: '10px 12px 4px', fontSize: 12, fontWeight: 600, color: '#fa541c', letterSpacing: 1 }}>
+            {r.label}
+          </div>
+        ) : (
+          <div
+            key={r.key}
+            onClick={() => pick(r)}
+            onMouseEnter={() => setActive(i)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px',
+              borderRadius: 8, cursor: 'pointer', fontSize: 14,
+              background: active === i ? '#fff2ea' : 'transparent',
+            }}
+          >
+            <span style={{ flex: 1, minWidth: 0 }}>{r.node}</span>
+            {active === i && <EnterOutlined style={{ color: '#fa541c' }} />}
+          </div>
+        ),
+      )}
+    </>
+  )
+
+  /**
+   * 移动端：**不弹窗**，顶栏那条就是真正的输入框。
+   *
+   * 原来点一下弹一个居中小窗，在手机上有两个问题：多了一次"等动画"的等待，
+   * 而且窗口顶部离键盘很远，视线要来回跳。改成就地聚焦之后，点一下键盘直接起来，
+   * 结果从顶栏底下垂下来，眼睛不用移动。
+   *
+   * 结果面板用 fixed 定位挂在顶栏正下方（高度读 --mobile-topbar-h，AppLayout 写入），
+   * 而不是相对定位——顶栏本身是 fixed 的，跟着它做相对定位会被内容区的层叠上下文困住。
+   */
+  if (isBar) {
+    const close = () => { setOpen(false); reset(); inputRef.current?.blur() }
+    return (
+      <>
+        <Input
+          ref={inputRef}
+          value={kw}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={() => setOpen(true)}
+          onKeyDown={onKeyDown}
+          placeholder="搜索帖子 / 球员 / 用户"
+          prefix={<SearchOutlined style={{ color: '#aaa' }} />}
+          // 移动端点右上角的 × 只想清空文字、不想收起面板，所以自己控制 allowClear 的行为
+          allowClear={{ clearIcon: <CloseOutlined style={{ color: '#bbb' }} onClick={() => onChange('')} /> }}
+          style={{ height: 34, borderRadius: 17, background: '#f5f5f5' }}
+        />
+        {open && (
+          <>
+            {/* 点空白处收起。z-index 压在顶栏（150）下面，所以顶栏和输入框始终可点 */}
+            <div
+              onClick={close}
+              style={{
+                position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 149,
+                top: 'var(--mobile-topbar-h, 50px)', background: 'rgba(0,0,0,.32)',
+              }}
+            />
+            <div
+              style={{
+                position: 'fixed', left: 0, right: 0, zIndex: 151,
+                top: 'var(--mobile-topbar-h, 50px)',
+                maxHeight: '62vh', overflowY: 'auto',
+                background: '#fff', borderTop: '1px solid #f0f0f0',
+                boxShadow: '0 8px 24px rgba(0,0,0,.12)',
+                padding: rows.length ? 8 : 0,
+                // 惯性滚动，否则在 iOS 上滑起来是一顿一顿的
+                WebkitOverflowScrolling: 'touch',
+              }}
+            >
+              {!loading && !kw.trim() ? (
+                <div style={{ textAlign: 'center', color: '#bbb', padding: '28px 0', fontSize: 13 }}>
+                  输入关键词搜索帖子、球员、资讯、用户
+                </div>
+              ) : resultList}
+            </div>
+          </>
+        )}
+      </>
+    )
+  }
 
   return (
     <>
@@ -238,23 +329,16 @@ export default function GlobalSearch({ variant = 'pill' }) {
         onMouseEnter={() => setHoverTrigger(true)}
         onMouseLeave={() => setHoverTrigger(false)}
         style={{
-          display: 'flex', alignItems: 'center',
-          justifyContent: isBar ? 'flex-start' : isMobile ? 'center' : 'flex-start',
-          gap: 8, height: isBar ? 34 : 32,
-          padding: isBar ? '0 12px' : isMobile ? 0 : '0 6px 0 12px',
-          border: `1px solid ${hoverTrigger ? '#fa541c' : '#e8e8e8'}`,
-          borderRadius: isBar ? 17 : 16,
-          background: isBar ? '#f5f5f5' : '#fff',
-          color: '#999', fontSize: 13, cursor: 'pointer',
-          transition: 'border-color .2s', userSelect: 'none',
-          width: isBar ? '100%' : isMobile ? 32 : 220,
-          minWidth: 0,
+          display: 'flex', alignItems: 'center', justifyContent: isMobile ? 'center' : 'flex-start',
+          gap: 8, height: 32, padding: isMobile ? 0 : '0 6px 0 12px',
+          border: `1px solid ${hoverTrigger ? '#fa541c' : '#e8e8e8'}`, borderRadius: 16,
+          background: '#fff', color: '#999', fontSize: 13, cursor: 'pointer',
+          transition: 'border-color .2s', userSelect: 'none', width: isMobile ? 32 : 220,
         }}
       >
-        <SearchOutlined style={{ color: hoverTrigger ? '#fa541c' : '#aaa', transition: 'color .2s', flexShrink: 0 }} />
-        {isBar && <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>搜索帖子 / 球员 / 用户</span>}
-        {!isBar && !isMobile && <span style={{ flex: 1 }}>搜索…</span>}
-        {!isBar && !isMobile && <span style={kbd}>/</span>}
+        <SearchOutlined style={{ color: hoverTrigger ? '#fa541c' : '#aaa', transition: 'color .2s' }} />
+        {!isMobile && <span style={{ flex: 1 }}>搜索…</span>}
+        {!isMobile && <span style={kbd}>/</span>}
       </div>
 
       <Modal
@@ -283,38 +367,11 @@ export default function GlobalSearch({ variant = 'pill' }) {
           style={{ padding: '14px 18px', fontSize: 16, borderBottom: '1px solid #f0f0f0', borderRadius: 0 }}
         />
         <div style={{ maxHeight: 420, overflowY: 'auto', padding: rows.length ? 8 : 0 }}>
-          {loading && (
-            <div style={{ textAlign: 'center', padding: 32 }}><Spin /></div>
-          )}
-          {!loading && !kw.trim() && (
+          {!loading && !kw.trim() ? (
             <div style={{ textAlign: 'center', color: '#bbb', padding: '32px 0', fontSize: 13 }}>
               输入关键词，↑↓ 选择，Enter 打开，Esc 关闭
             </div>
-          )}
-          {!loading && kw.trim() && !itemIdx.length && (
-            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="未找到相关内容" style={{ padding: 24 }} />
-          )}
-          {!loading && rows.map((r, i) =>
-            r.kind === 'group' ? (
-              <div key={r.key} style={{ padding: '10px 12px 4px', fontSize: 12, fontWeight: 600, color: '#fa541c', letterSpacing: 1 }}>
-                {r.label}
-              </div>
-            ) : (
-              <div
-                key={r.key}
-                onClick={() => pick(r)}
-                onMouseEnter={() => setActive(i)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px',
-                  borderRadius: 8, cursor: 'pointer', fontSize: 14,
-                  background: active === i ? '#fff2ea' : 'transparent',
-                }}
-              >
-                <span style={{ flex: 1, minWidth: 0 }}>{r.node}</span>
-                {active === i && <EnterOutlined style={{ color: '#fa541c' }} />}
-              </div>
-            ),
-          )}
+          ) : resultList}
         </div>
       </Modal>
     </>

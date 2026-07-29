@@ -38,9 +38,15 @@ body {
    页面内的大字号/间距等个性化缩放走各页的 useIsMobile()（内联样式 CSS 盖不动）。
    ============================================================ */
 @media (max-width: 767px) {
-  /* 内容区收窄内边距，把宽度让给卡片与表格（AppLayout 的外层容器） */
+  /* 内容区收窄内边距，把宽度让给卡片与表格（AppLayout 的外层容器）。
+     只写四边里的三边：底部由 AppLayout 内联控制，因为它要按「这一页有没有底部
+     Tab 栏」变化。
+     原来这里是 `padding: 12px !important` 的简写，而**样式表里的 !important 打得过内联样式**，
+     于是把 AppLayout 给底部留的那块空间整个抹掉了，最后一条内容被 Tab 栏永久盖住。 */
   .app-content {
-    padding: 12px !important;
+    padding-top: 12px !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
   }
 
   /* 卡片内边距略收（未显式设 body padding 的卡片） */

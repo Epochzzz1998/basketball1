@@ -32,7 +32,7 @@ import { connectPmSocket, disconnectPmSocket } from '../realtime/pmSocket'
 import AnnouncementBar from '../components/AnnouncementBar'
 import AnnouncementEditModal from '../components/AnnouncementEditModal'
 import useIsMobile from '../hooks/useIsMobile'
-import MobileTabBar, { TAB_BAR_HEIGHT } from './MobileTabBar'
+import MobileTabBar, { TAB_BAR_HEIGHT, TOP_BAR_HEIGHT } from './MobileTabBar'
 import { showTabBar } from './mobileNav'
 
 /**
@@ -203,6 +203,19 @@ export default function AppLayout() {
 
   // 移动端底部 Tab 栏：显示规则在 mobileNav.showTabBar（已按全部路由验证过）
   const tabBar = isMobile && showTabBar(location.pathname, location.search)
+
+  /**
+   * 把两个固定栏的高度写成 CSS 变量，供样式表使用（如私信页的 .pm-body 要算 100dvh 减去它们）。
+   *
+   * **JS 常量是唯一来源。** 在 CSS 里再抄一份数字，改高度时必然漏掉一处——
+   * 而且漏的那处只在特定页面的特定屏幕尺寸下才看得出来。
+   * 没有 Tab 栏的页面把变量置 0，样式表那边就不用再判断一次。
+   */
+  useEffect(() => {
+    const root = document.documentElement
+    root.style.setProperty('--mobile-topbar-h', isMobile ? `calc(${TOP_BAR_HEIGHT}px + env(safe-area-inset-top))` : '0px')
+    root.style.setProperty('--mobile-tabbar-h', tabBar ? `calc(${TAB_BAR_HEIGHT}px + env(safe-area-inset-bottom))` : '0px')
+  }, [isMobile, tabBar])
 
   // 全局返回按钮：一级页面（侧栏导航直达的根路径）不显示，其余页面统一在内容区左上角。
   // 优先走站内历史（-1 即"上一级"）；直链进入无历史时，剥路径段回落到最近的已知上级。
@@ -412,7 +425,7 @@ export default function AppLayout() {
       }}
       contentStyle={{ padding: 0 }}
     >
-      {/* ===== 移动端顶栏：☰ + 长条搜索框 ===== */}
+      {/* ===== 移动端顶栏：☰ + 搜索框 + 刷新 ===== */}
       {isMobile && (
         <>
           <div
@@ -432,10 +445,17 @@ export default function AppLayout() {
             <div style={{ flex: 1, minWidth: 0 }}>
               <GlobalSearch variant="bar" />
             </div>
+            {/* 整页刷新。和列表页的下拉刷新不冲突：那个只重拉当前列表的数据，
+                这个是整个应用重新加载——换了版本、或者页面状态乱了的时候用 */}
+            <ReloadOutlined
+              onClick={() => window.location.reload()}
+              title="刷新页面"
+              style={{ fontSize: 17, color: '#888', flexShrink: 0, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+            />
           </div>
           {/* 顶栏是 fixed 的，用一个等高的占位块把内容推下去。
               高度 = 8+34+8 内边距与搜索框，再加刘海 */}
-          <div style={{ height: 'calc(50px + env(safe-area-inset-top))' }} />
+          <div style={{ height: `calc(${TOP_BAR_HEIGHT}px + env(safe-area-inset-top))` }} />
         </>
       )}
 

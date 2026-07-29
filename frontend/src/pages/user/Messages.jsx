@@ -497,9 +497,17 @@ export default function Messages() {
         .pm-msg:hover .pm-recall { opacity: 1; }
         .pm-scroll::-webkit-scrollbar { width: 6px; }
         .pm-scroll::-webkit-scrollbar-thumb { background: rgba(0,0,0,.12); border-radius: 3px; }
-        /* 移动端用 dvh(动态视口高度,排除浏览器地址栏/工具栏)让卡片正好填满可视区,输入框不被顶出屏幕、无右侧滚动;不支持 dvh 的退回 vh */
+        /* 移动端用 dvh（动态视口高度，排除浏览器地址栏/工具栏）让卡片正好填满可视区，
+           输入框不被顶出屏幕、无右侧滚动；不支持 dvh 的退回 vh。
+
+           减去的两个变量由 AppLayout 按当前页面写入（见那里的 useEffect）：顶栏一直在，
+           底部 Tab 栏只在会话列表出现——进了某个会话它就藏了，变量自动变成 0。
+           **不要在这里写死数字**：栏高改了这边不会跟着变，而且只有特定屏幕才看得出来。 */
         @media (max-width: 767px) {
-          .pm-body { height: calc(100vh - 80px) !important; height: calc(100dvh - 80px) !important; }
+          .pm-body {
+            height: calc(100vh - var(--mobile-topbar-h, 0px) - var(--mobile-tabbar-h, 0px) - 24px) !important;
+            height: calc(100dvh - var(--mobile-topbar-h, 0px) - var(--mobile-tabbar-h, 0px) - 24px) !important;
+          }
         }
       `}</style>
 

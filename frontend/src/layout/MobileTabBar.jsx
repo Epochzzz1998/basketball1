@@ -21,6 +21,9 @@ const BRAND = '#fa541c'
  */
 export const TAB_BAR_HEIGHT = 52
 
+/** 移动端顶栏高度：上下各 8 的内边距 + 34 高的搜索框。刘海另算（见 AppLayout 的占位块）。 */
+export const TOP_BAR_HEIGHT = 50
+
 export default function MobileTabBar({ pmUnread = 0, meUnread = 0 }) {
   const navigate = useNavigate()
   const location = useLocation()
