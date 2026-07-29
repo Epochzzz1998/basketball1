@@ -66,6 +66,10 @@ public class TopicController {
     @Autowired
     private com.dream.basketball.config.UserPermService userPerms;
 
+    /** 图片落盘目录（与头像/插图共用同一个根，见 FileUtils / ImgConfigurer） */
+    @org.springframework.beans.factory.annotation.Value("${picPath.uploadPath:}")
+    private String uploadPath;
+
     // ===== 列表 / 详情（公开，登录可选） =====
 
     /** 专题列表：全部专题 + 当前用户的权限位；无权浏览的私密专题带 locked=true（仍显示名字/简介）。 */
@@ -244,6 +248,7 @@ public class TopicController {
         m.put("canEditSubOwners", me != null && (Role.fromUserRole(me.getUserRole()) == Role.SUPER_MANAGER || perms.isOwner(me, t)));
         m.put("visibility", t.getVisibility());
         m.put("listed", !"0".equals(t.getListed())); // 是否在百家说露出（默认 true）
+        m.put("banner", t.getBanner()); // 背景图；空=前端用默认橙色渐变
         // 专题类别（全站一份，超管配）+ 本专题的帖子类别（题主配）
         m.put("categoryId", t.getCategoryId());
         com.dream.basketball.entity.ForumCategory cat = StringUtils.isBlank(t.getCategoryId())
@@ -493,7 +498,7 @@ public class TopicController {
     @PostMapping("/update")
     public Object update(String topicId, String name, String description, String visibility,
                          String openPost, String openComment, String listed, String ownerId,
-                         String categoryId, String chatEnabled, HttpServletRequest request) {
+                         String categoryId, String chatEnabled, String banner, HttpServletRequest request) {
         DreamUser me = SecUtil.getLoginUserToSession(request);
         ForumTopic t = perms.getTopic(topicId);
         if (t == null) {
@@ -527,6 +532,13 @@ public class TopicController {
         if (chatEnabled != null) {
             t.setChatEnabled(ON.equals(chatEnabled) ? ON : OFF);
         }
+        // 空串 = 明确要求"去掉背景图"，null（没传）= 不动。
+        // 只接受本站上传出来的相对路径：允许填任意 URL 的话，这块会变成一个
+        // 谁都能改的外链图片位（防盗链、被换成别的内容、顺带泄露访问者 IP）
+        if (banner != null) {
+            String b = banner.trim();
+            t.setBanner(b.isEmpty() ? null : (b.startsWith("/picImg/") ? b : t.getBanner()));
+        }
         // 只有 admin 能转让 owner（转让=改为单一题主；多题主走 /topic/setOwners）
         if (StringUtils.isNotBlank(ownerId) && Role.fromUserRole(me.getUserRole()) == Role.SUPER_MANAGER
                 && userMapper.selectById(ownerId) != null) {
@@ -535,6 +547,34 @@ public class TopicController {
         }
         topicMapper.updateById(t);
         return new Result<>(0, "已保存", null);
+    }
+
+    /**
+     * 上传专题背景图（题主 / 管理员）。
+     *
+     * 每个专题一个文件夹、上传前先清空——背景图只有"当前这一张"有意义，
+     * 留着旧的既占盘又永远不会有人去清。
+     * 落库的是相对路径，所以换域名、上 CDN 都不用动数据。
+     */
+    @PostMapping("/uploadBanner")
+    public Object uploadBanner(org.springframework.web.multipart.MultipartFile file, String topicId,
+                               HttpServletRequest request) throws java.io.IOException {
+        DreamUser me = SecUtil.getLoginUserToSession(request);
+        ForumTopic t = perms.getTopic(topicId);
+        if (t == null) {
+            return new Result<>(1, "专题不存在", null);
+        }
+        if (!perms.canManage(me, t)) {
+            return new Result<>(1, "无权管理该专题", null);
+        }
+        String folderKey = "topic-banner-" + topicId;
+        com.dream.basketball.utils.FileUtils.deleteUploadFolder(uploadPath, folderKey);
+        String url = com.dream.basketball.utils.FileUtils.upload(file, uploadPath, folderKey);
+        t.setBanner(url);
+        topicMapper.updateById(t);
+        Map<String, Object> data = new HashMap<>();
+        data.put("url", url);
+        return new Result<>(0, "背景图已更新", data);
     }
 
     /**

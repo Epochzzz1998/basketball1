@@ -10,6 +10,7 @@ import dayjs from 'dayjs'
 import { newsApi } from '../../api/news'
 import { topicApi } from '../../api/topic'
 import { useAuth } from '../../auth/AuthContext'
+import BackButton from '../../components/BackButton'
 import usePullToRefresh from '../../hooks/usePullToRefresh'
 import PullRefreshIndicator from '../../components/PullRefreshIndicator'
 import TopicMemberModal from '../../components/TopicMemberModal'
@@ -313,6 +314,9 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied, n
     border: '2px solid rgba(255,255,255,.16)', ...pos,
   })
 
+  // 专题背景图（题主在专题设置里传）。官方新闻没有这一说，永远走蓝色渐变
+  const bannerUrl = isTopic ? topic.banner : null
+
   // 认不出来的分区（手打错、老链接）当作没选，退回帖子流
   const renderNbaSection = nbaSection ? sectionRenderer(nbaSection) : null
 
@@ -327,24 +331,62 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied, n
           压在横幅上的话就成了"盖住"而不是"下拉" */}
       <PullRefreshIndicator pull={pull} refreshing={refreshing} threshold={threshold} />
 
-      {/* 横幅：官方新闻=权威蓝；专题=品牌橙 + 名称/简介/可见性 + 返回专题列表 + 成员管理 */}
+      {/* 横幅：官方新闻=权威蓝；专题=题主设的背景图，没设就退回品牌橙渐变。
+          + 名称/简介/可见性 + 返回 + 成员管理 */}
       <div
         style={{
           position: 'relative', overflow: 'hidden', borderRadius: 16, color: '#fff',
           padding: isMobile ? '16px 14px' : '24px 28px', marginBottom: 16,
+          // 有背景图时给一个下限高度：一张 3:1 的横图被压到 80px 高就什么都看不出来了
+          minHeight: bannerUrl ? (isMobile ? 132 : 178) : undefined,
+          // 有背景图时整块做成"返回在最上、标题贴底"的布局（参照贴吧那种吧头）：
+          // 列方向 + justify-content:flex-end 把内容压到底，返回钮再用 margin-bottom:auto
+          // 把自己顶回最上面（auto 外边距吃掉全部剩余空间，优先级高于 justify-content）。
+          // gap 保证内容超过 minHeight 时两者也不会贴在一起
+          display: bannerUrl ? 'flex' : undefined,
+          flexDirection: bannerUrl ? 'column' : undefined,
+          justifyContent: bannerUrl ? 'flex-end' : undefined,
+          gap: bannerUrl ? 10 : undefined,
           background: official
             ? 'linear-gradient(120deg, #1d39c4 0%, #2f54eb 60%, #597ef7 100%)'
             : 'linear-gradient(120deg, #fa541c 0%, #d4380d 60%, #ad2102 100%)',
         }}
       >
-        <div style={ring(190, { top: -80, right: 120 })} />
-        <div style={ring(120, { bottom: -50, right: 300 })} />
+        {bannerUrl && (
+          <>
+            {/* 背景图单独一层，而不是写成容器的 background：这样上面还能再叠一层压暗的渐变。
+                照片的亮度完全不可控，白字直接压上去有一半概率读不出来 */}
+            <div
+              style={{
+                position: 'absolute', inset: 0,
+                background: `url(${bannerUrl}) center/cover no-repeat`,
+              }}
+            />
+            <div
+              style={{
+                position: 'absolute', inset: 0,
+                background: 'linear-gradient(180deg, rgba(0,0,0,.34) 0%, rgba(0,0,0,.12) 42%, rgba(0,0,0,.62) 100%)',
+              }}
+            />
+          </>
+        )}
+        {/* 装饰圆环只在纯色渐变上出现——压在照片上就是两道莫名其妙的白圈 */}
+        {!bannerUrl && <div style={ring(190, { top: -80, right: 120 })} />}
+        {!bannerUrl && <div style={ring(120, { bottom: -50, right: 300 })} />}
+        {/* 返回：贴在横幅左上角。有背景图时它是唯一能落脚的地方，
+            所以用 overlay 皮肤（半透明黑底 + 白描边），亮图暗图上都看得见 */}
+        {isTopic && (
+          <BackButton
+            variant="overlay"
+            style={{
+              position: 'relative', alignSelf: 'flex-start',
+              marginBottom: bannerUrl ? 'auto' : 10,
+            }}
+          />
+        )}
         <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            {isTopic && (
-              <Link to="/news" style={{ color: 'rgba(255,255,255,.85)', fontSize: 12 }}>‹ 全部专题</Link>
-            )}
-            <div style={{ fontSize: isMobile ? 18 : 23, fontWeight: 800, marginTop: isTopic ? 4 : 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ fontSize: isMobile ? 18 : 23, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8, textShadow: bannerUrl ? '0 1px 6px rgba(0,0,0,.45)' : undefined }}>
               {isTopic ? topic.name : official ? '官方新闻' : '百家说'}
               {isTopic && (topic.visibility === 'private'
                 ? <Tag icon={<LockOutlined />} style={{ marginInlineEnd: 0 }}>私密</Tag>
@@ -362,7 +404,7 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied, n
                 />
               )}
             </div>
-            <div style={{ opacity: 0.88, marginTop: 6, fontSize: 13, maxWidth: 620 }}>
+            <div style={{ opacity: 0.88, marginTop: 6, fontSize: 13, maxWidth: 620, textShadow: bannerUrl ? '0 1px 6px rgba(0,0,0,.45)' : undefined }}>
               {isTopic ? (topic.description || '按专题组织的讨论区') : official ? '权威发布 · 人人可评' : '见你所见，想你所想'}
             </div>
           </div>

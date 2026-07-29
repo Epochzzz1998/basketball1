@@ -25,6 +25,13 @@ export const topicApi = {
   setPostCategories: (topicId, categories) =>
     http.post('/topic/setPostCategories', form({ topicId, categories: JSON.stringify(categories) })),
   update: (payload) => http.post('/topic/update', form(payload)),
+  // 专题背景图（题主/管理员）：上传即落库，返回 {url}。清空走 update({banner:''})
+  uploadBanner: (topicId, file) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('topicId', topicId)
+    return http.post('/topic/uploadBanner', fd)
+  },
   // 设置题主（可多个，超管专用）：ownerIds 为逗号分隔的用户 id
   setOwners: (topicId, ownerIds) => http.post('/topic/setOwners', form({ topicId, ownerIds })),
   // 设置小题主（题主/超管，最多 3 人）：subOwnerIds 为逗号分隔的用户 id，空串=清空

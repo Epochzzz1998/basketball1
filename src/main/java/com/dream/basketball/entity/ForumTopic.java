@@ -84,6 +84,22 @@ public class ForumTopic extends Model<ForumTopic> implements Serializable {
     private String categoryId;
 
     /**
+     * 专题背景图（/picImg/topic-banner-{id}/xxx.jpg）。空=用默认的橙色渐变。
+     * 专题页顶部整块铺它，百家说列表的卡片顶部也铺一条——同一个专题在两个地方长得一样，
+     * 人才认得出来"这就是刚才那个"。
+     */
+    @TableField("BANNER")
+    private String banner;
+
+    public String getBanner() {
+        return banner;
+    }
+
+    public void setBanner(String banner) {
+        this.banner = banner;
+    }
+
+    /**
      * 群聊开关：'1' 开 / '0' 关（默认关）。由题主决定——不默认打开是因为
      * 打开就等于给全专题的人开了一个实时房间，这个决定该由题主主动做。
      */

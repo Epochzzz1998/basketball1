@@ -54,6 +54,9 @@ public class SearchController {
     @Autowired
     private com.dream.basketball.mapper.PlayerMapper playerMapper;
 
+    @Autowired
+    private com.dream.basketball.config.UserPermService userPerms;
+
     private static final int GROUP_LIMIT = 6;
 
     @GetMapping("/global")
@@ -180,6 +183,85 @@ public class SearchController {
         data.put("users", users);
 
         return new Result<>(0, "成功", data);
+    }
+
+    /**
+     * 热帖榜（公开）：全站论坛帖按热度取前 N，给整页搜索的落地内容用
+     * （还没输入关键词时，总得有点东西可看）。
+     *
+     * <p>热度口径与右栏热榜完全一致：{@code 点赞×2 + 评论×3}。抄一份系数很容易两边跑偏，
+     * 但这里是 SQL 排序、那边是前端 sort，天然没法共用一个函数——所以两处都写了注释互相指认。
+     *
+     * <p><b>可见范围</b>：这是一个「跨专题的公开展示位」，沿用首页热榜那条既定规则——
+     * 私密专题与已下架（LISTED='0'）专题的帖子对<b>所有人</b>都不出现，包括题主和超管本人。
+     * 比"按本人权限过滤"更严，好处是这块位置的内容对谁都一样，不会因为看的人不同而泄露
+     * "某个私密专题里有一篇很火的帖"这件事本身。隐藏帖与草稿同样排除。
+     */
+    @GetMapping("/hotPosts")
+    public Result<List<Map<String, Object>>> hotPosts(Integer limit, javax.servlet.http.HttpServletRequest request) {
+        int n = limit == null || limit < 1 ? 10 : Math.min(limit, 30);
+        List<Map<String, Object>> out = new ArrayList<>();
+
+        DreamUser me = com.dream.basketball.utils.SecUtil.getLoginUserToSession(request);
+        // 被限制浏览的用户：论坛内容一条都不给
+        if (me != null && !userPerms.canBrowse(me.getUserId())) {
+            return new Result<>(0, "成功", out);
+        }
+        DreamUser meFresh = me == null ? null : userMapper.selectById(me.getUserId());
+        boolean isSuper = meFresh != null
+                && com.dream.basketball.config.Role.fromUserRole(meFresh.getUserRole()) == com.dream.basketball.config.Role.SUPER_MANAGER;
+        // 百家说被关掉的用户看不到热帖榜（和 /global 里 featForum 的判断同一套）
+        if (!(meFresh == null || isSuper || !"0".equals(meFresh.getFeatForum()))) {
+            return new Result<>(0, "成功", out);
+        }
+
+        java.util.Set<String> exclude = topicPerms.privateTopicIds();
+        exclude.addAll(topicPerms.unlistedTopicIds());
+
+        QueryWrapper<com.dream.basketball.entity.DreamNews> qw =
+                new QueryWrapper<com.dream.basketball.entity.DreamNews>()
+                        .eq("NEWS_CHANNEL", NEWS_CHANNEL_FORUM)
+                        // HIDDEN / DRAFT 老数据可能是 NULL，只写 <>'1' 会把 NULL 行一起筛掉（NULL 比较结果是 NULL）
+                        .and(w -> w.isNull("HIDDEN").or().ne("HIDDEN", "1"))
+                        .and(w -> w.isNull("DRAFT").or().ne("DRAFT", "1"));
+        if (!exclude.isEmpty()) {
+            qw.and(w -> w.isNull("TOPIC_ID").or().notIn("TOPIC_ID", exclude));
+        }
+        // 排序表达式不能走 orderByDesc（它按列名处理），只能整段拼在 last 里。
+        // n 是 int，拼进去没有注入面。
+        //
+        // 最后那道 NEWS_ID 不是凑数的：PUBLISH_DATE 是 **date** 不是 datetime，
+        // 同一天发的帖子在前两个条件上完全打平（实测有 30 篇同日、热度都是 0）。
+        // 不给一个稳定的兜底，同一份榜单每次刷新的顺序都可能不一样。
+        qw.last("order by (ifnull(GOOD_NUM,0)*2 + ifnull(COMMENT_NUM,0)*3) desc, PUBLISH_DATE desc, NEWS_ID desc limit " + n);
+        List<com.dream.basketball.entity.DreamNews> rows = dreamNewsMapper.selectList(qw);
+
+        // 专题名一把查完再分发：榜单最多 30 条，逐条 selectById 就是 30 次往返
+        java.util.Set<String> tids = new java.util.HashSet<>();
+        for (com.dream.basketball.entity.DreamNews r : rows) {
+            if (StringUtils.isNotBlank(r.getTopicId())) {
+                tids.add(r.getTopicId());
+            }
+        }
+        Map<String, String> topicName = new HashMap<>();
+        if (!tids.isEmpty()) {
+            for (com.dream.basketball.entity.ForumTopic t : forumTopicMapper.selectList(
+                    new QueryWrapper<com.dream.basketball.entity.ForumTopic>().in("TOPIC_ID", tids))) {
+                topicName.put(t.getTopicId(), t.getName());
+            }
+        }
+        for (com.dream.basketball.entity.DreamNews r : rows) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("newsId", r.getNewsId());
+            m.put("title", r.getTitle());
+            m.put("author", r.getAuthor());
+            m.put("goodNum", r.getGoodNum() == null ? 0 : r.getGoodNum());
+            m.put("commentNum", r.getCommentNum() == null ? 0 : r.getCommentNum());
+            m.put("topicId", r.getTopicId());
+            m.put("topicName", topicName.get(r.getTopicId()));
+            out.add(m);
+        }
+        return new Result<>(0, "成功", out);
     }
 
     /**

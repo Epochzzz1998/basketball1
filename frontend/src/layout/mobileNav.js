@@ -30,6 +30,7 @@ export const TABS = [
  * 新闻、耿阿姨烤串、管理页、个人主页）：在这些页面之间横跳正是底部栏的用处。
  */
 const HIDE_PATTERNS = [
+  /^\/search$/,                          // 整页搜索（自带返回，且键盘一起来底部栏就会被顶飞）
   /^\/news\/new$/,                       // 发帖
   /^\/news\/edit\//,                     // 编辑帖子
   /^\/news\/topic\/[^/]+\/chat$/,        // 专题群聊（沉浸式）
@@ -58,6 +59,15 @@ export const showTabBar = (pathname, search = '') => {
   }
   return !HIDE_PATTERNS.some((re) => re.test(pathname))
 }
+
+/**
+ * 这一页要不要显示 App 顶栏（搜索框 + 刷新）。
+ *
+ * 目前只有 `/search` 不显示：那一页顶上就是一条真的搜索框，
+ * 上面再压一条假的（点了跳回本页）纯属自娱自乐。
+ * 搜索页自己画的那条和这条**等高**，所以收起来之后位置是接得上的。
+ */
+export const showTopBar = (pathname) => pathname !== '/search'
 
 /**
  * 当前该高亮哪个 tab；都不匹配返回 null（比如在耿阿姨烤串里，底部栏显示但没有一个是选中的）。

@@ -24,6 +24,7 @@ import DailyGames from './pages/games/DailyGames'
 import GameDetail from './pages/games/GameDetail'
 import PlayerManage from './pages/players/PlayerManage'
 import PlayerStatsManage from './pages/players/PlayerStatsManage'
+import SearchPage from './pages/search/SearchPage'
 import NewsList from './pages/news/NewsList'
 import TopicsList from './pages/news/TopicsList'
 import TopicPosts from './pages/news/TopicPosts'
@@ -91,6 +92,9 @@ export default function App() {
           <Route path="rankings/alltime/:field" element={<AllTimeBoard />} />
           <Route path="rankings/:field" element={<RankingDetail />} />
         </Route>
+
+        {/* 整页搜索：顶栏那条搜索框点下去就到这儿。公开——游客也能搜（结果按登录态过滤） */}
+        <Route path="search" element={<SearchPage />} />
 
         {/* 公开浏览 */}
         {/* 官方新闻整站关闭中（config/modules.js）：直连也进不去，直接弹回首页 */}

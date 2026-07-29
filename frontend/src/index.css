@@ -174,6 +174,17 @@ body {
   background: rgba(255, 255, 255, 0.88) !important;
 }
 
+/* 返回按钮（components/BackButton.jsx）的按下反馈。
+   手机没有 hover，只有"按下去"这一刻能给反馈，所以做在 :active 上：
+   底色加深一档 + 轻微缩小，手指离开就弹回。桌面端顺带给一个 hover。
+   写在样式表而不是内联，是因为内联样式没法表达伪类。 */
+.back-btn:active > span:first-child {
+  transform: scale(0.92);
+}
+.back-btn:hover > span:first-child {
+  filter: brightness(0.95);
+}
+
 /* 移动端菜单（Drawer）兜底白底：主题里已经把 Layout.siderBg 改成白色，这条防的是
    Drawer 自己那层容器——它的底色来自 ProLayout 的 token，取不到时会露出后面的遮罩。 */
 .ant-pro-drawer-sider .ant-drawer-body,

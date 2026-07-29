@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { ProLayout } from '@ant-design/pro-components'
 import { Avatar, Badge, Button, Dropdown } from 'antd'
 import {
-  ArrowLeftOutlined,
   BarChartOutlined,
   BellOutlined,
   CalendarOutlined,
@@ -29,11 +28,13 @@ import { pmApi } from '../api/pm'
 import { topicApi } from '../api/topic'
 import { connectPmSocket, disconnectPmSocket } from '../realtime/pmSocket'
 import AnnouncementBar from '../components/AnnouncementBar'
+import BackButton from '../components/BackButton'
+import { NAV_ROOTS } from '../components/backNav'
 import ErrorBoundary from '../components/ErrorBoundary'
 import AnnouncementEditModal from '../components/AnnouncementEditModal'
 import useIsMobile from '../hooks/useIsMobile'
 import MobileTabBar, { TAB_BAR_HEIGHT, TOP_BAR_HEIGHT } from './MobileTabBar'
-import { showTabBar } from './mobileNav'
+import { showTabBar, showTopBar } from './mobileNav'
 
 /**
  * 整体外壳（P5-3 美化）：ProLayout 的 mix 布局 = 顶栏品牌 + 可折叠侧栏菜单，
@@ -203,6 +204,8 @@ export default function AppLayout() {
 
   // 移动端底部 Tab 栏：显示规则在 mobileNav.showTabBar（已按全部路由验证过）
   const tabBar = isMobile && showTabBar(location.pathname, location.search)
+  // 顶栏：只有整页搜索那一页收起来（那页自己有一条等高的真搜索框）
+  const topBar = isMobile && showTopBar(location.pathname)
 
   /**
    * 把两个固定栏的高度写成 CSS 变量，供样式表使用（如私信页的 .pm-body 要算 100dvh 减去它们）。
@@ -213,29 +216,17 @@ export default function AppLayout() {
    */
   useEffect(() => {
     const root = document.documentElement
+    // 这个变量的含义是「顶部那条固定栏有多高」，不是「App 顶栏在不在」——
+    // 搜索页把 App 顶栏换成了自己那条等高的，高度没变，所以按 isMobile 判断
     root.style.setProperty('--mobile-topbar-h', isMobile ? `calc(${TOP_BAR_HEIGHT}px + env(safe-area-inset-top))` : '0px')
     root.style.setProperty('--mobile-tabbar-h', tabBar ? `calc(${TAB_BAR_HEIGHT}px + env(safe-area-inset-bottom))` : '0px')
   }, [isMobile, tabBar])
 
-  // 全局返回按钮：一级页面（侧栏导航直达的根路径）不显示，其余页面统一在内容区左上角。
-  // 优先走站内历史（-1 即"上一级"）；直链进入无历史时，剥路径段回落到最近的已知上级。
-  const NAV_ROOTS = ['/', '/news', '/league', '/players', '/rankings', '/games', '/history', '/compare', '/official', '/messages', '/schedule', '/bbq/wage', '/bbq/ledger', '/bbq/burning', '/bbq/members', '/bbq/skewers', '/login', '/register', '/403', '/admin/players', '/admin/users']
+  // 全局返回按钮：一级页面（NAV_ROOTS，见 components/BackButton）不显示，其余页面统一在内容区左上角。
   // 有底部 Tab 栏的页面一律不给返回：那条栏本身就是导航，再加一个返回是重复的
   // 干扰，而且它占的那一行在手机上很值钱。没有 Tab 栏的页面（帖子详情、群聊、
   // NBA 分区…）才是真正需要返回的地方
   const showBack = !NAV_ROOTS.includes(location.pathname) && !tabBar
-  const goBack = () => {
-    if (window.history.state && window.history.state.idx > 0) {
-      navigate(-1)
-      return
-    }
-    let p = location.pathname
-    while (p.length > 1) {
-      p = p.replace(/\/[^/]*$/, '') || '/'
-      if (NAV_ROOTS.includes(p)) break
-    }
-    navigate(p || '/', { replace: true })
-  }
 
   return (
     <ProLayout
@@ -428,9 +419,10 @@ export default function AppLayout() {
       }}
       contentStyle={{ padding: 0 }}
     >
-      {/* ===== 移动端顶栏：☰ + 搜索框 + 刷新 ===== */}
+      {/* ===== 移动端顶栏：搜索框 + 刷新 ===== */}
       {isMobile && (
         <>
+          {topBar && (
           <div
             style={{
               position: 'fixed', top: 0, left: 0, right: 0, zIndex: 150,
@@ -456,8 +448,12 @@ export default function AppLayout() {
               style={{ fontSize: 17, color: '#888', flexShrink: 0, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
             />
           </div>
+          )}
           {/* 顶栏是 fixed 的，用一个等高的占位块把内容推下去。
-              高度 = 8+34+8 内边距与搜索框，再加刘海 */}
+              高度 = 8+34+8 内边距与搜索框，再加刘海。
+
+              **占位块在搜索页也要留**：那一页把 App 顶栏换成了自己那条等高的固定栏，
+              占位块要是跟着一起没了，公告条会被压在栏底下（它渲染在内容区最上面）。 */}
           <div style={{ height: `calc(${TOP_BAR_HEIGHT}px + env(safe-area-inset-top))` }} />
         </>
       )}
@@ -476,14 +472,8 @@ export default function AppLayout() {
         {/* 全站公告：内容区最上面（顶栏是 fixed 的，摆到它上面会互相压）。
             游客也能看到——公告本来就是发给所有人的 */}
         <AnnouncementBar />
-        {showBack && (
-          <a
-            onClick={goBack}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#666', fontSize: 13, marginBottom: 10, cursor: 'pointer', userSelect: 'none' }}
-          >
-            <ArrowLeftOutlined /> 返回
-          </a>
-        )}
+        {/* 手机上只留一个圆钮（那一行很值钱），桌面端把「返回」二字带上 */}
+        {showBack && <BackButton label={isMobile ? undefined : '返回'} style={{ marginBottom: 10 }} />}
         {/* 自己的错误边界要比 ProLayout 内部那个更靠近页面，才会先捕获。
             它显示 error.stack，配合 source map 能反查到原始行号；ProLayout 自带的
             只显示一句 message，压缩后完全定位不到 */}

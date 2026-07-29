@@ -195,8 +195,27 @@ export default function TopicsList() {
                 )}
                 <Card
                   className="topic-card"
-                  style={{ borderRadius: 14, height: '100%', cursor: t.locked ? 'default' : 'pointer', opacity: t.locked ? 0.85 : 1 }}
-                  styles={{ body: { padding: '18px 20px', display: 'flex', flexDirection: 'column', height: '100%' } }}
+                  /* 卡片改成 flex 列：封面条 + 卡体上下排。
+                     原来卡体是 height:100%，加了封面之后那就是"整张卡的高度"，会撑出去；
+                     换成 flex:1 让它吃掉封面剩下的高度才对 */
+                  style={{ borderRadius: 14, height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', cursor: t.locked ? 'default' : 'pointer', opacity: t.locked ? 0.85 : 1 }}
+                  styles={{ body: { padding: '18px 20px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 } }}
+                  /* 封面：题主设了背景图就铺图，没设就铺品牌渐变（跟专题页横幅同一套）。
+                     没图的也给一条，是为了同一行里的卡片高度一致——只给有图的加，
+                     其余卡片会被拉高留一块空白，反而更难看 */
+                  cover={(
+                    <div
+                      style={{
+                        position: 'relative', height: 76, overflow: 'hidden',
+                        background: t.banner
+                          ? `url(${t.banner}) center/cover no-repeat`
+                          : 'linear-gradient(120deg, #fa541c 0%, #d4380d 60%, #ad2102 100%)',
+                      }}
+                    >
+                      {!t.banner && <div style={ring(120, { top: -56, right: 40 })} />}
+                      {!t.banner && <div style={ring(76, { bottom: -34, right: 130 })} />}
+                    </div>
+                  )}
                   onClick={() => enter(t)}
                 >
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>

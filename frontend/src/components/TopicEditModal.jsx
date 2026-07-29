@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { Avatar, Button, Checkbox, Form, Input, Modal, Radio, Select, Space, Switch, Tag, message } from 'antd'
-import { PlusOutlined } from '@ant-design/icons'
+import { Avatar, Button, Checkbox, Form, Input, Modal, Radio, Select, Space, Switch, Tag, Upload, message } from 'antd'
+import { DeleteOutlined, PictureOutlined, PlusOutlined } from '@ant-design/icons'
+import { compressImage } from '../utils/image'
 import { topicApi } from '../api/topic'
 import { searchApi } from '../api/search'
 import { useAuth } from '../auth/AuthContext'
@@ -28,6 +29,11 @@ export default function TopicEditModal({ open, onClose, onSaved, topic, categori
   const [saving, setSaving] = useState(false)
   const [postCats, setPostCats] = useState([]) // 本专题的帖子类别 [{id,name}]（题主配）
   const [newCat, setNewCat] = useState('')
+  // 背景图：banner 是已落库的地址（'' 表示"这次要清掉"），bannerFile 是还没上传的新图。
+  // 两者互斥——选了新图就以新图为准，点了移除就把 banner 置 ''
+  const [banner, setBanner] = useState(null)
+  const [bannerFile, setBannerFile] = useState(null)
+  const [bannerPreview, setBannerPreview] = useState(null)
   const timer = useRef()
 
   useEffect(() => {
@@ -41,14 +47,19 @@ export default function TopicEditModal({ open, onClose, onSaved, topic, categori
       })
       setVisibility(topic.visibility || 'public')
       setPostCats(topic.postCategories || [])
+      setBanner(topic.banner || null)
     } else {
       form.resetFields()
       form.setFieldsValue({ visibility: 'public', openPost: false, openComment: false, listed: true, chatEnabled: false })
       setVisibility('public')
       setPostCats([])
+      setBanner(null)
     }
     setNewCat('')
     setOpts([])
+    // 每次打开都把上一次没提交的选图丢掉，并释放它的 blob（不释放就一直占着内存）
+    setBannerFile(null)
+    setBannerPreview((old) => { if (old) URL.revokeObjectURL(old); return null })
   }, [open, isEdit, topic, form])
 
   // 帖子类别：本地先编好，跟专题设置一起提交（一次弹窗、一次保存，不搞两套按钮）。
@@ -88,6 +99,13 @@ export default function TopicEditModal({ open, onClose, onSaved, topic, categori
         chatEnabled: v.chatEnabled ? '1' : '0',
       }
       if (isEdit) {
+        // 背景图先传：uploadBanner 自己就落库了，所以随后的 update 不带 banner 参数
+        // （后端见 null 就不动这一列）。只有"点了移除且没选新图"才显式传空串
+        if (bannerFile) {
+          await topicApi.uploadBanner(topic.topicId, await compressImage(bannerFile))
+        } else if (banner === '') {
+          payload.banner = ''
+        }
         await topicApi.update({ topicId: topic.topicId, ...payload })
         // 帖子类别是另一个接口（整份覆盖），跟着一起提交
         await topicApi.setPostCategories(topic.topicId, postCats)
@@ -122,6 +140,66 @@ export default function TopicEditModal({ open, onClose, onSaved, topic, categori
         <Form.Item name="description" label="简介">
           <Input.TextArea placeholder="一句话介绍这个专题" maxLength={200} autoSize={{ minRows: 2, maxRows: 4 }} />
         </Form.Item>
+        {/* 背景图：专题页顶部整块铺它，百家说的卡片顶部也铺一条。
+            要 topicId 才能上传，所以只在编辑时出现（和帖子类别同理）。
+            预览按 3:1 画——和专题页横幅的比例一致，选图的时候就能看出会被裁掉哪儿 */}
+        {isEdit && (
+          <Form.Item label="背景图" extra="建议 1200×400 左右的横图，jpg/png/webp ≤ 10MB。留空则用默认的橙色渐变">
+            <div
+              style={{
+                position: 'relative', width: '100%', aspectRatio: '3 / 1', borderRadius: 12,
+                overflow: 'hidden', background: bannerPreview || (banner && banner !== '')
+                  ? '#f5f5f5'
+                  : 'linear-gradient(120deg, #fa541c 0%, #d4380d 60%, #ad2102 100%)',
+                border: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              {(bannerPreview || (banner && banner !== '')) ? (
+                <img
+                  src={bannerPreview || banner}
+                  alt=""
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                />
+              ) : (
+                <span style={{ color: 'rgba(255,255,255,.85)', fontSize: 13 }}>
+                  <PictureOutlined style={{ marginRight: 6 }} />还没有背景图
+                </span>
+              )}
+            </div>
+            <Space style={{ marginTop: 10 }}>
+              <Upload
+                accept="image/*"
+                maxCount={1}
+                showUploadList={false}
+                beforeUpload={(file) => {
+                  if (file.size > 10 * 1024 * 1024) {
+                    message.error('图片不能超过 10MB')
+                    return Upload.LIST_IGNORE
+                  }
+                  if (bannerPreview) URL.revokeObjectURL(bannerPreview)
+                  setBannerFile(file)
+                  setBannerPreview(URL.createObjectURL(file))
+                  return false // 不自动上传，点"保存"才提交
+                }}
+              >
+                <Button icon={<PictureOutlined />}>{banner || bannerPreview ? '换一张' : '选择图片'}</Button>
+              </Upload>
+              {(bannerPreview || (banner && banner !== '')) && (
+                <Button
+                  icon={<DeleteOutlined />}
+                  onClick={() => {
+                    if (bannerPreview) URL.revokeObjectURL(bannerPreview)
+                    setBannerPreview(null)
+                    setBannerFile(null)
+                    setBanner('') // '' = 保存时显式清空（null 会被后端当成"没传"）
+                  }}
+                >
+                  移除
+                </Button>
+              )}
+            </Space>
+          </Form.Item>
+        )}
         {!isEdit && isSuper && (
           <Form.Item name="ownerId" label="专题 owner（负责管理成员权限）" rules={[{ required: true, message: '请指定一个 owner' }]}>
             <Select
