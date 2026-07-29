@@ -109,3 +109,22 @@ push:
     public-key: ${VAPID_PUBLIC_KEY:}
     private-key: ${VAPID_PRIVATE_KEY:}
     subject: mailto:bliuzzz1016@gmail.com
+
+# Log to a file as well as stdout.
+#
+# Container stdout goes to Docker's json-file log, which is destroyed when the
+# container is recreated -- and every deploy recreates it. So the log of anything
+# that went wrong before the last deploy is gone, which is exactly when you want it.
+# The file lives on a bind mount (./logs on the host), so it outlives deploys.
+#
+# Rotation is capped so this cannot fill the disk: 20MB per file, 14 files kept,
+# 500MB total.
+logging:
+  file:
+    name: /app/logs/dream-app.log
+  logback:
+    rollingpolicy:
+      max-file-size: 20MB
+      max-history: 14
+      total-size-cap: 500MB
+
