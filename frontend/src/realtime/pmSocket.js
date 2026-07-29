@@ -1,5 +1,6 @@
 import { Client } from '@stomp/stompjs'
 import { getToken } from '../auth/token'
+import { API_BASE } from '../config/origin'
 
 /**
  * 全站唯一的一条 STOMP 连接，两种用途共用：
@@ -34,7 +35,11 @@ function subscribeAll() {
 
 export function connectPmSocket() {
   if (client?.active) return
-  const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
+  // 套壳时页面的源是 capacitor://localhost，window.location.host 拿到的是 "localhost"，
+  // 照它拼出来的地址连不上任何东西。所以有 API_BASE 就以它为准（见 config/origin.js）
+  const base = API_BASE
+    ? API_BASE.replace(/^http/, 'ws')
+    : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`
   /**
    * 有令牌就挂在查询串上（阶段 1 · Token 认证）。
    *
@@ -45,7 +50,7 @@ export function connectPmSocket() {
    * 网页端 `getToken()` 恒为空，URL 和以前一模一样，走的还是 Cookie。
    */
   const t = getToken()
-  const url = `${proto}://${window.location.host}/ws${t ? `?access_token=${encodeURIComponent(t)}` : ''}`
+  const url = `${base}/ws${t ? `?access_token=${encodeURIComponent(t)}` : ''}`
   client = new Client({
     brokerURL: url,
     reconnectDelay: 5000,

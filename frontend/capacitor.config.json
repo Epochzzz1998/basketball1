@@ -1,0 +1,13 @@
+{
+  "appId": "com.dreameverything.epoch",
+  "appName": "Epoch",
+  "webDir": "dist",
+  "ios": {
+    "contentInset": "always",
+    "limitsNavigationsToAppBoundDomains": false
+  },
+  "server": {
+    "androidScheme": "http",
+    "iosScheme": "capacitor"
+  }
+}

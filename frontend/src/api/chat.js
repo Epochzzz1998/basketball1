@@ -1,4 +1,6 @@
 import http from './http'
+import { API_BASE } from '../config/origin'
+import { getToken } from '../auth/token'
 
 /**
  * 专题群聊接口（都要登录）。
@@ -31,11 +33,17 @@ export const chatApi = {
   purge: (topicId, from, to) => http.post('/chat/purge', form({ topicId, from, to })),
   // 各专题群聊占用（仅超管）
   usage: () => http.get('/chat/usage'),
-  // 导出是直接下载，不走 axios（要的是浏览器保存文件，不是拿到响应体）；不传日期=全量
+  // 导出是直接下载，不走 axios（要的是浏览器保存文件，不是拿到响应体）；不传日期=全量。
+  //
+  // 这是**唯一一个手工拼后端地址**的地方，所以要自己带上 API_BASE（套壳时页面的源不是站点）
+  // 和令牌。它靠 window.open 打开，是一次浏览器导航——导航发不出 Authorization 头，
+  // 所以只能用 ?access_token=（后端 TokenAuthFilter 认这个退路，见阶段 1 文档 §7）。
   exportUrl: (topicId, from, to) => {
     const q = new URLSearchParams({ topicId })
     if (from) q.set('from', from)
     if (to) q.set('to', to)
-    return `/chat/export?${q.toString()}`
+    const t = getToken()
+    if (t) q.set('access_token', t)
+    return `${API_BASE}/chat/export?${q.toString()}`
   },
 }

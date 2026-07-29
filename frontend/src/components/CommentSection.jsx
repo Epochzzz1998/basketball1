@@ -11,6 +11,7 @@ import PollCard from './PollCard'
 import { SuperAdminBadge, TopicOwnerBadge, OpBadge } from './RoleBadges'
 import UserTitles from './UserTitles'
 import useIsMobile from '../hooks/useIsMobile'
+import { assetUrl } from '../config/origin'
 
 const fmt = (v) => (v ? dayjs(v).format('YYYY-MM-DD HH:mm') : '')
 
@@ -86,6 +87,9 @@ function CommentAttachments({ attachmentsJson }) {
   let atts = []
   try { atts = JSON.parse(attachmentsJson || '[]') } catch { atts = [] }
   atts = atts.filter((a) => a && typeof a.url === 'string' && /^(https?:\/\/|\/)/.test(a.url))
+    // 附件地址藏在 JSON **字符串**里，axios 那层的统一补全够不着它（那里只走已解析的对象），
+    // 所以在解析出来之后单独补一次（网页端 assetUrl 是恒等函数）
+    .map((a) => ({ ...a, url: assetUrl(a.url) }))
   if (!atts.length) return null
   const images = atts.filter((a) => a.type === 'image')
   const files = atts.filter((a) => a.type !== 'image')

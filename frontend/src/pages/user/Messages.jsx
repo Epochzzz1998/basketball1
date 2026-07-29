@@ -11,6 +11,7 @@ import EmojiPicker from '../../components/EmojiPicker'
 import UserTitles from '../../components/UserTitles'
 import { SuperAdminBadge } from '../../components/RoleBadges'
 import { humanSize } from '../../components/CommentComposer'
+import { assetUrl } from '../../config/origin'
 
 // 附件：图片走 image/*，文件走常见文档白名单；单条最多 9 个
 const FILE_ACCEPT = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.md,.zip,.rar,.7z'
@@ -79,6 +80,8 @@ function MessageAttachments({ attachmentsJson, mine }) {
   let atts = []
   try { atts = JSON.parse(attachmentsJson || '[]') } catch { atts = [] }
   atts = atts.filter((a) => a && typeof a.url === 'string' && /^(https?:\/\/|\/)/.test(a.url))
+    // 同 CommentSection：附件地址在 JSON 字符串里，响应拦截器够不着
+    .map((a) => ({ ...a, url: assetUrl(a.url) }))
   if (!atts.length) return null
   const images = atts.filter((a) => a.type === 'image')
   const files = atts.filter((a) => a.type !== 'image')

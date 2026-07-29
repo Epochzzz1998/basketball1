@@ -23,15 +23,17 @@
  * （WebView 的 localStorage 在系统清理存储时可能被抹掉，Preferences 走的是原生 KV）。
  */
 
+import { isNative } from '../config/origin'
+
 const KEY = 'epoch:token'
 
 /**
  * 当前是不是跑在套壳 App 里。
  *
- * Capacitor 会往 window 上挂一个全局对象，`isNativePlatform()` 在 iOS/安卓返回 true、
- * 在浏览器里返回 false。用可选链是因为现在这个对象压根不存在。
+ * 判据统一在 `config/origin.js`（构建期 `VITE_NATIVE` 优先、运行时 `window.Capacitor` 兜底）——
+ * 那里还要用同一个判断决定接口地址和图片地址，两处各判一次迟早会分叉。
  */
-export const isNativeApp = () => !!window.Capacitor?.isNativePlatform?.()
+export const isNativeApp = () => isNative
 
 export const getToken = () => {
   try {

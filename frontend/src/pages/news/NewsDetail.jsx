@@ -9,6 +9,7 @@ import { ratingApi } from '../../api/rating'
 import { pollApi } from '../../api/poll'
 import { topicApi } from '../../api/topic'
 import { useAuth } from '../../auth/AuthContext'
+import { absolutizeHtml } from '../../config/origin'
 import BackButton from '../../components/BackButton'
 import { useGoBack } from '../../components/backNav'
 import CommentSection from '../../components/CommentSection'
@@ -146,7 +147,9 @@ export default function NewsDetail() {
   // 正文是用户发帖的 HTML（不可信），先 DOMPurify 净化防存储型 XSS；
   // 再走一趟 DOM 把 @ 球员标出来——kind 藏在 data-info 的 JSON 里，CSS 选择器读不到
   const contentHtml = useMemo(
-    () => markPlayerMentions(DOMPurify.sanitize(news?.content || '')),
+    // absolutizeHtml：正文里的 <img src="/picImg/..."> 是发帖时存进去的相对路径，
+    // 套壳后页面的源不是站点，这些图会全部裂掉（网页端这一步是空操作）
+    () => markPlayerMentions(absolutizeHtml(DOMPurify.sanitize(news?.content || ''))),
     [news?.content],
   )
 

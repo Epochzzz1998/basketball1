@@ -13,6 +13,7 @@ import App from './App.jsx'
 import { AuthProvider } from './auth/AuthContext'
 import { themeConfig } from './theme'
 import setupPwaUpdate from './pwaUpdate'
+import { isNative } from './config/origin'
 
 /**
  * 应用入口，自外向内包了三层"环境"：
@@ -21,8 +22,10 @@ import setupPwaUpdate from './pwaUpdate'
  * - AuthProvider：全局登录态（启动即拉 /user/current）。
  */
 // 装到主屏的 PWA 切后台是冻结不是关闭，不会重新触发 load，
-// 所以要主动在回到前台时查更新、并在新版本接管后重载（见 pwaUpdate.js）
-setupPwaUpdate()
+// 所以要主动在回到前台时查更新、并在新版本接管后重载（见 pwaUpdate.js）。
+// 套壳版不走这条：那边压根没注册 service worker（见 vite.config.js 的说明），
+// 更新靠发版而不是靠 SW 拉新
+if (!isNative) setupPwaUpdate()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

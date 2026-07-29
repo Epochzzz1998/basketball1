@@ -1,15 +1,19 @@
 import axios from 'axios'
 import { message } from 'antd'
 import { getToken } from '../auth/token'
+import { API_BASE, absolutizeData } from '../config/origin'
 
 /**
  * 全局唯一的 axios 实例——所有接口请求都走它。
- * - baseURL 留空：走相对路径，由 Vite 开发代理转发到后端（见 vite.config.js）。
+ * - baseURL：网页端是空串（相对路径，由 Vite 开发代理转发到后端，见 vite.config.js）；
+ *   套壳 App 里是站点全地址，因为那时页面的源是 capacitor://localhost，
+ *   相对路径会打到 App 包自己身上（见 config/origin.js）。
  * - withCredentials: true：关键！让浏览器带上 Session Cookie(JSESSIONID)，
  *   否则后端不知道"你是谁"，受保护接口一律 401。
+ *   App 端不靠它（走 Bearer 头），留着不影响。
  */
 const http = axios.create({
-  baseURL: '',
+  baseURL: API_BASE,
   withCredentials: true,
   timeout: 15000,
 })
@@ -44,7 +48,10 @@ http.interceptors.response.use(
       return body
     }
     if (body.code === 0) {
-      return body.data // 成功：直接把内层 data 交给调用方
+      // 套壳时把响应里所有 /picImg/... 补成全地址（网页端这一步是空操作）。
+      // 放在这里而不是逐个页面改：上传文件的地址散落在头像、专题背景、球员照片、
+      // 帖子封面…十几个字段里，逐个改必然漏，而且以后新加字段还会再漏一次
+      return absolutizeData(body.data) // 成功：直接把内层 data 交给调用方
     }
     // 业务失败：统一弹错，并 reject 让调用方能 catch
     message.error(body.msg || '请求失败')

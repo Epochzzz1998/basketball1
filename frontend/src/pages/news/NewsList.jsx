@@ -11,6 +11,7 @@ import { newsApi } from '../../api/news'
 import { topicApi } from '../../api/topic'
 import { useAuth } from '../../auth/AuthContext'
 import BackButton from '../../components/BackButton'
+import { assetUrl } from '../../config/origin'
 import usePullToRefresh from '../../hooks/usePullToRefresh'
 import PullRefreshIndicator from '../../components/PullRefreshIndicator'
 import TopicMemberModal from '../../components/TopicMemberModal'
@@ -42,7 +43,9 @@ const PAGE_SIZE = 8
 // 给 8 条会一直在加载
 const MOBILE_PAGE = 12
 
-const coverOf = (html) => /<img[^>]+src=["']([^"']+)["']/i.exec(html || '')?.[1] || null
+// 封面图是从正文 HTML 里抠出来的第一张图，抠出来的是相对路径 —— 套壳后要补全
+// （assetUrl 在网页端是恒等函数）
+const coverOf = (html) => assetUrl(/<img[^>]+src=["']([^"']+)["']/i.exec(html || '')?.[1] || null)
 const textOf = (html) =>
   (html || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim()
 const clamp = (n) => ({

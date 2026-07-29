@@ -75,9 +75,23 @@ const pwa = VitePWA({
   devOptions: { enabled: false },
 })
 
+/**
+ * 套壳版**不要 service worker**。
+ *
+ * 三个理由，每一个单独都够：
+ *  1. **重复**：App 包里已经带着全部静态资源了，SW 再预缓存一份等于占两份空间；
+ *  2. **打架**：SW 的导航兜底会拦所有整页导航去喂 index.html，而 App 里的页面本来就是本地的；
+ *  3. **未必能注册**：service worker 要求安全上下文，`capacitor://localhost` 不在
+ *     浏览器的白名单里，注册多半直接失败——留着只会在控制台刷错。
+ *
+ * 更新机制也换人了：网页版靠 SW 拉新版（见 pwaUpdate.js），App 版走 App Store 发版
+ * （或者以后接 Capacitor 的热更新）。
+ */
+const NATIVE = process.env.VITE_NATIVE === '1'
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), pwa],
+  plugins: NATIVE ? [react()] : [react(), pwa],
   build: {
     // 生成 source map，用来把线上压缩后的 `index-xxx.js:行:列` 反查回原始文件行号。
     // **不随 jar 部署**：打包脚本会把 static 里的 .map 删掉，所以不会暴露源码，
