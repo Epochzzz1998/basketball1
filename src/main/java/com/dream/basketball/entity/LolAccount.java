@@ -60,6 +60,28 @@ public class LolAccount extends Model<LolAccount> implements Serializable {
     @TableField("BACKFILLED")
     private String backfilled;
 
+    /** 当前段位 IRON…CHALLENGER。只给**已绑定成员**存——路人的段位要逐个 PUUID 查，
+     * 而库里两百多场对局里的不重复路人有两千多个，填满要花掉大量配额去换一堆没人关心的名字 */
+    @TableField("TIER")
+    private String tier;
+
+    /** I/II/III/IV。大师以上没有小段，这里是 null */
+    @TableField("RANK_DIV")
+    private String rankDiv;
+
+    @TableField("LEAGUE_POINT")
+    private Integer leaguePoint;
+
+    @TableField("RANK_WINS")
+    private Integer rankWins;
+
+    @TableField("RANK_LOSSES")
+    private Integer rankLosses;
+
+    /** 上次刷新段位的时刻。调度器据此判断要不要再查，避免每轮都白打一次请求 */
+    @TableField("RANK_UPDATED")
+    private Date rankUpdated;
+
     @TableField("BIND_TIME")
     private Date bindTime;
 
@@ -167,4 +189,51 @@ public class LolAccount extends Model<LolAccount> implements Serializable {
         this.lastError = lastError;
     }
 
+    public String getTier() {
+        return tier;
+    }
+
+    public void setTier(String tier) {
+        this.tier = tier;
+    }
+
+    public String getRankDiv() {
+        return rankDiv;
+    }
+
+    public void setRankDiv(String rankDiv) {
+        this.rankDiv = rankDiv;
+    }
+
+    public Integer getLeaguePoint() {
+        return leaguePoint;
+    }
+
+    public void setLeaguePoint(Integer leaguePoint) {
+        this.leaguePoint = leaguePoint;
+    }
+
+    public Integer getRankWins() {
+        return rankWins;
+    }
+
+    public void setRankWins(Integer rankWins) {
+        this.rankWins = rankWins;
+    }
+
+    public Integer getRankLosses() {
+        return rankLosses;
+    }
+
+    public void setRankLosses(Integer rankLosses) {
+        this.rankLosses = rankLosses;
+    }
+
+    public Date getRankUpdated() {
+        return rankUpdated;
+    }
+
+    public void setRankUpdated(Date rankUpdated) {
+        this.rankUpdated = rankUpdated;
+    }
 }

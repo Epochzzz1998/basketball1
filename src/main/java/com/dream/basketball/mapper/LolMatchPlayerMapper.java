@@ -31,7 +31,7 @@ import java.util.Map;
 public interface LolMatchPlayerMapper extends BaseMapper<LolMatchPlayer> {
 
     /**
-     * 战绩流：最近的对局，每场带上其中的自己人。
+     * 战绩流：一段时间内的对局，每场带上其中的自己人。
      *
      * <p>返回的是「一场 × 一个人」的扁平行，同一场会出现多行，由调用方按 MATCH_ID 合并。
      * 不在 SQL 里聚合是因为一场里各人的英雄、KDA、位置都要分别展示，
@@ -39,6 +39,16 @@ public interface LolMatchPlayerMapper extends BaseMapper<LolMatchPlayer> {
      *
      * <p>重开局这里**不过滤**：榜单要排除它，但战绩流该如实显示——
      * 「昨晚有两把重开」本身就是想知道的信息。
+     *
+     * <h3>为什么统一用 since/until 区间，而不是「天数」或「某一天」两套</h3>
+     * 选某一天 = {@code [当天 00:00, 次日 00:00)}，选最近 N 天 = {@code [now-N, 很远的将来)}。
+     * 两种筛选是同一个形状，写成一个区间就不用为「日期模式」再复制一条几乎一样的 SQL。
+     *
+     * <h3>玩家搜索：站内昵称和游戏 ID 都认</h3>
+     * 用 {@code exists} 而不是把过滤条件直接加在 join 上：直接加的话，
+     * 命中的那一场**只会剩下匹配的那一个人**，而我们要的是「这一场完整地留下」——
+     * 搜某个人是为了看他打的那些局，包括同场的队友是谁。
+     * 空串表示不筛（同 queueId 用 0，理由见类注释）。
      */
     @Select("select m.MATCH_ID matchId, m.QUEUE_ID queueId, m.GAME_START gameStart, "
             + "       m.GAME_DURATION gameDuration, m.END_RESULT endResult, "
@@ -49,9 +59,35 @@ public interface LolMatchPlayerMapper extends BaseMapper<LolMatchPlayer> {
             + "from lol_match m "
             + "join lol_match_player p on p.MATCH_ID = m.MATCH_ID "
             + "left join dream_user u on u.USER_ID = p.USER_ID "
-            + "where m.GAME_START >= #{since} "
+            + "where m.GAME_START >= #{since} and m.GAME_START < #{until} "
+            + "  and (#{queueId} = 0 or m.QUEUE_ID = #{queueId}) "
+            + "  and (#{player} = '' or exists ( "
+            + "        select 1 from lol_match_player p2 "
+            + "        left join dream_user u2 on u2.USER_ID = p2.USER_ID "
+            + "        left join lol_account a2 on a2.PUUID = p2.PUUID "
+            + "        where p2.MATCH_ID = m.MATCH_ID "
+            + "          and (u2.USER_NICKNAME like concat('%', #{player}, '%') "
+            + "            or a2.GAME_NAME like concat('%', #{player}, '%')) )) "
             + "order by m.GAME_START desc, m.MATCH_ID, p.TEAM_ID, p.PUUID")
-    List<Map<String, Object>> feed(@Param("since") Date since);
+    List<Map<String, Object>> feed(@Param("since") Date since,
+                                   @Param("until") Date until,
+                                   @Param("queueId") int queueId,
+                                   @Param("player") String player);
+
+    /**
+     * 某个月里哪几天有对局，给日历上的标注用。
+     *
+     * <p>只回日期字符串，不回场次——日历格子上就是标个底色，多带的数据在网络上白走一趟。
+     */
+    @Select("select distinct date_format(GAME_START, '%Y-%m-%d') from lol_match "
+            + "where GAME_START >= #{since} and GAME_START < #{until} order by 1")
+    List<String> matchDates(@Param("since") Date since, @Param("until") Date until);
+
+    /** 搜索用的候选名单：站内昵称 + 绑定的游戏 ID。前端拿它做输入提示 */
+    @Select("select distinct u.USER_NICKNAME nickname, a.GAME_NAME gameName, a.TAG_LINE tagLine "
+            + "from lol_account a left join dream_user u on u.USER_ID = a.USER_ID "
+            + "where a.ENABLED = '1' order by u.USER_NICKNAME")
+    List<Map<String, Object>> searchOptions();
 
     /**
      * 个人榜：按站内用户聚合。
@@ -127,4 +163,66 @@ public interface LolMatchPlayerMapper extends BaseMapper<LolMatchPlayer> {
             + "  group by p.MATCH_ID, p.TEAM_ID "
             + ") t")
     Map<String, Object> summary(@Param("since") Date since);
+
+    /**
+     * 一个人的英雄池：各英雄打了几把、赢了几把、平均 KDA。
+     *
+     * <p>这是资料卡里最有意思的一块——「他到底玩什么」和「玩什么最强」
+     * 是队友之间真正会讨论的事，而这两个问题各自的答案常常不一样。
+     */
+    @Select("select p.CHAMPION_NAME championName, count(*) games, "
+            + "       sum(case when p.WIN = '1' then 1 else 0 end) wins, "
+            + "       round(avg(p.KDA), 2) avgKda, "
+            + "       round(avg(p.DMG_SHARE), 4) avgDmgShare "
+            + "from lol_match_player p join lol_match m on m.MATCH_ID = p.MATCH_ID "
+            + "where p.USER_ID = #{userId} and p.EARLY_SURR = '0' "
+            + "  and (m.END_RESULT is null or m.END_RESULT = 'GameComplete') "
+            + "  and m.GAME_START >= #{since} "
+            + "group by p.CHAMPION_NAME order by games desc, wins desc limit 12")
+    List<Map<String, Object>> championPool(@Param("userId") String userId, @Param("since") Date since);
+
+    /** 一个人的位置分布。空的 TEAM_POSITION 归到「其它」，大乱斗没有分路 */
+    @Select("select ifnull(nullif(p.TEAM_POSITION, ''), 'OTHER') pos, count(*) games, "
+            + "       sum(case when p.WIN = '1' then 1 else 0 end) wins "
+            + "from lol_match_player p join lol_match m on m.MATCH_ID = p.MATCH_ID "
+            + "where p.USER_ID = #{userId} and p.EARLY_SURR = '0' "
+            + "  and (m.END_RESULT is null or m.END_RESULT = 'GameComplete') "
+            + "  and m.GAME_START >= #{since} "
+            + "group by pos order by games desc")
+    List<Map<String, Object>> positionMix(@Param("userId") String userId, @Param("since") Date since);
+
+    /**
+     * 一个人的汇总。**不复用 leaderboard 的那一条**：那条带最低场次门槛，
+     * 而资料卡是点进来看具体某个人的，哪怕他只打过两把也该显示——
+     * 门槛存在的意义是「别让 1 场 100% 的人霸榜」，对单人视图没有这个问题。
+     */
+    @Select("select count(*) games, "
+            + "       sum(case when p.WIN = '1' then 1 else 0 end) wins, "
+            + "       round(avg(p.KDA), 2) avgKda, "
+            + "       sum(p.KILLS) kills, sum(p.DEATHS) deaths, sum(p.ASSISTS) assists, "
+            + "       round(avg(p.KILL_PART), 4) avgKillPart, "
+            + "       round(avg(p.DMG_SHARE), 4) avgDmgShare, "
+            + "       round(avg(p.VISION), 1) avgVision, "
+            + "       round(avg(p.CS / greatest(p.TIME_PLAYED / 60, 1)), 1) csPerMin, "
+            + "       round(avg(p.DMG_CHAMP), 0) avgDmg, "
+            + "       max(p.KILLS) maxKills "
+            + "from lol_match_player p join lol_match m on m.MATCH_ID = p.MATCH_ID "
+            + "where p.USER_ID = #{userId} and p.EARLY_SURR = '0' "
+            + "  and (m.END_RESULT is null or m.END_RESULT = 'GameComplete') "
+            + "  and m.GAME_START >= #{since}")
+    Map<String, Object> playerSummary(@Param("userId") String userId, @Param("since") Date since);
+
+    /** 这个人最常一起打的队友。资料卡上比全站组合榜更贴身 */
+    @Select("select b.USER_ID userId, ub.USER_NICKNAME nickname, count(*) games, "
+            + "       sum(case when a.WIN = '1' then 1 else 0 end) wins "
+            + "from lol_match_player a "
+            + "join lol_match_player b on b.MATCH_ID = a.MATCH_ID and b.TEAM_ID = a.TEAM_ID "
+            + "     and b.USER_ID <> a.USER_ID "
+            + "join lol_match m on m.MATCH_ID = a.MATCH_ID "
+            + "left join dream_user ub on ub.USER_ID = b.USER_ID "
+            + "where a.USER_ID = #{userId} and a.EARLY_SURR = '0' "
+            + "  and (m.END_RESULT is null or m.END_RESULT = 'GameComplete') "
+            + "  and m.GAME_START >= #{since} "
+            + "group by b.USER_ID, ub.USER_NICKNAME order by games desc limit 8")
+    List<Map<String, Object>> mates(@Param("userId") String userId, @Param("since") Date since);
 }

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Button, DatePicker, Tooltip } from 'antd'
+import { Button, Tooltip } from 'antd'
 import { LeftOutlined, RightOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { playerApi } from '../../api/player'
 import useIsMobile from '../../hooks/useIsMobile'
+import DateMarkPicker from '../../components/DateMarkPicker'
 
 /**
  * 比赛日翻页器：`‹  6月13日 周六  ›`
@@ -16,8 +17,12 @@ import useIsMobile from '../../hooks/useIsMobile'
  *     每月第一个和最后一个比赛日的箭头会莫名其妙点不动 —— 这正是上一版的毛病。
  *
  * 中间那块日期本身可点，展开小日历直接挑；有比赛的日子标成橙底，免得一天天点过去试。
+ *
+ * 标注交给 DateMarkPicker：它按**面板显示中的月份**取，而不是按选中日期的月份。
+ * 这两者不是一回事——在日历里翻月并不改变选中日期，早先按后者取，
+ * 于是翻到别的月份一片空白，点了某一天标注才冒出来。
  */
-export default function GameDayNav({ date, onChange, days }) {
+export default function GameDayNav({ date, onChange }) {
   const isMobile = useIsMobile()
   const [adj, setAdj] = useState({ prev: null, next: null })
   const [open, setOpen] = useState(false)
@@ -69,26 +74,13 @@ export default function GameDayNav({ date, onChange, days }) {
         {d.format(isMobile ? 'M 月 D 日' : 'YYYY 年 M 月 D 日')}
         <span style={{ color: '#bbb', fontWeight: 400, marginLeft: 6 }}>{'日一二三四五六'[d.day()]}</span>
         {/* 真正的日历藏在文字底下：DatePicker 换不掉自己的输入框，缩成零尺寸只当弹层锚点 */}
-        <DatePicker
+        <DateMarkPicker
           open={open}
           onOpenChange={setOpen}
-          value={d}
-          allowClear={false}
-          inputReadOnly
-          onChange={(v) => { setOpen(false); if (v) onChange(v.format('YYYY-MM-DD')) }}
+          value={date}
+          onChange={(v) => { setOpen(false); onChange(v) }}
+          loadMonth={(month) => playerApi.gameDates(month)}
           style={{ position: 'absolute', left: 0, bottom: 0, width: 0, height: 0, padding: 0, border: 'none', visibility: 'hidden' }}
-          cellRender={(current, info) => {
-            if (info.type !== 'date') return info.originNode
-            const has = days?.has(current.format('YYYY-MM-DD'))
-            return (
-              <div className="ant-picker-cell-inner" style={has
-                ? { background: '#fff1e6', color: '#d4380d', fontWeight: 700, borderRadius: 4 }
-                : undefined}
-              >
-                {current.date()}
-              </div>
-            )
-          }}
         />
       </a>
       {arrow(1)}

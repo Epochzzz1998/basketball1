@@ -22,8 +22,19 @@ export const lolApi = {
   bind: (riotId) => http.post('/lol/bind', form({ riotId })),
   unbind: (accountId) => http.post('/lol/unbind', form({ accountId })),
 
-  /** 战绩流：每场带上这一场里的自己人 */
-  feed: (days) => http.get('/lol/feed', { params: { days } }),
+  /**
+   * 战绩流：每场带上这一场里的自己人。
+   *
+   * `date` 给了就只看那一天，后端会忽略 `days`——「看某一天」和「看最近 N 天」
+   * 同时生效只会互相削。`player` 是模糊搜索，站内昵称和游戏 ID 任一命中即可。
+   */
+  feed: (params) => http.get('/lol/feed', { params }),
+  /** 某个月里哪几天有对局，给日历标注用 */
+  dates: (month) => http.get('/lol/dates', { params: { month } }),
+  /** 搜索框的候选：站内昵称 + 已绑定的游戏 ID */
+  searchOptions: () => http.get('/lol/searchOptions'),
+  /** 一个人的资料卡：汇总 + 英雄池 + 位置 + 队友 + 绑定的号与段位，一次给全 */
+  player: (userId, days) => http.get('/lol/player', { params: { userId, days } }),
   /** 个人榜 + 概览。queueId 传 0 或省略 = 全部队列 */
   board: (params) => http.get('/lol/board', { params }),
   /** 开黑组合榜 */
@@ -80,8 +91,3 @@ export const POSITION_LABEL = {
   TOP: '上路', JUNGLE: '打野', MIDDLE: '中路', BOTTOM: '下路', UTILITY: '辅助',
 }
 
-/** 秒 → `12:34` */
-export const mmss = (sec) => {
-  const s = Math.max(0, Math.round(sec || 0))
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
-}

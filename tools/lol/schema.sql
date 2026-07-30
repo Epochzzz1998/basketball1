@@ -71,3 +71,17 @@ CREATE TABLE IF NOT EXISTS `lol_match_player` (
   KEY `idx_lmp_puuid` (`PUUID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
   COMMENT='对局里的已绑定用户。只存自己人：那 5 个路人查不出价值，需要时从 lol_match.RAW_GZ 里取';
+
+-- ── 2026-07-30 追加：段位
+--
+-- 只给**已绑定的成员**存段位，不给对局里那五个路人存。
+-- 路人的段位要靠 league-v4 逐个 PUUID 去查，而库里 200 多场对局里的不重复路人有两千多个，
+-- 按限流每轮补十个也要跑二十小时——花掉大量配额去填一堆没人关心的名字。
+-- 成员只有几个人，每小时刷一遍的代价可以忽略。
+ALTER TABLE `lol_account`
+  ADD COLUMN `TIER`         varchar(16)  DEFAULT NULL COMMENT 'IRON…CHALLENGER；未定级为 null' AFTER `BACKFILLED`,
+  ADD COLUMN `RANK_DIV`     varchar(8)   DEFAULT NULL COMMENT 'I/II/III/IV；大师以上没有小段' AFTER `TIER`,
+  ADD COLUMN `LEAGUE_POINT` int          DEFAULT NULL AFTER `RANK_DIV`,
+  ADD COLUMN `RANK_WINS`    int          DEFAULT NULL AFTER `LEAGUE_POINT`,
+  ADD COLUMN `RANK_LOSSES`  int          DEFAULT NULL AFTER `RANK_WINS`,
+  ADD COLUMN `RANK_UPDATED` datetime     DEFAULT NULL COMMENT '上次刷新时刻；调度器据此决定要不要再查' AFTER `RANK_LOSSES`;

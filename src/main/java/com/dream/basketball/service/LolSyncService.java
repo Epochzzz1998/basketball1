@@ -75,6 +75,10 @@ public class LolSyncService {
     private static final int BACKFILL_SIZE = 100;
     /** 常规轮询每次看最近几场。一个人两次轮询之间打不完 5 局，留足冗余 */
     private static final int POLL_SIZE = 5;
+    /** 一轮花在回填上的时间上限。够补一两个人，又不至于让下一轮的轮询迟到太久 */
+    private static final long BACKFILL_BUDGET_MS = 3 * 60 * 1000L;
+    /** 段位多久刷一次。段位变化是以天计的，一小时足够及时 */
+    private static final long RANK_TTL_MS = 60 * 60 * 1000L;
 
     @Autowired
     private RiotApiClient riot;
@@ -143,11 +147,19 @@ public class LolSyncService {
     // ───────────────────────────────────────────── 抓取
 
     /**
-     * 跑一轮：先把没回填过的账号补历史，再对所有账号看最近几场。
+     * 跑一轮。顺序是**先轮询、再刷段位、最后回填**，三步各有理由。
      *
-     * <p>回填放在轮询前面，而且**一轮只补一个账号**：回填是几百次请求、十几分钟的事，
-     * 一次补完所有人会让新对局十几分钟内都进不来。分摊到每一轮，
-     * 既不会饿死常规轮询，20 个人也就二十来轮补完。
+     * <h3>轮询排在最前</h3>
+     * 每个账号 1 次请求，二十个人也才二十次。放在最前面保证**每一轮都会把新对局收进来**，
+     * 不会因为这一轮正好在补某人的历史就让所有人的新对局迟到。
+     *
+     * <h3>回填按 BIND_TIME 先到先得，而且有时间预算</h3>
+     * 早先这里既没排序也只补一个：`selectList` 不带 ORDER BY 时返回的是**主键（随机 UUID）顺序**，
+     * 于是每轮挑中的是「UUID 最小的那个待回填账号」，和谁先绑的毫无关系。
+     * 实测过一次：16:12 绑的账号连输两轮，被 16:20 才绑的账号插了队——
+     * 而只要新人不断加入，UUID 排在后面的可能**一直排不上队**。
+     * 现在按绑定时间排，先绑先补；再配一个时间预算，一轮能补几个就补几个，
+     * 二十个人不必等上一百分钟。
      */
     public SyncReport runOnce() {
         SyncReport r = new SyncReport();
@@ -156,7 +168,7 @@ public class LolSyncService {
             return r;
         }
         List<LolAccount> accounts = accountMapper.selectList(
-                new QueryWrapper<LolAccount>().eq("ENABLED", "1"));
+                new QueryWrapper<LolAccount>().eq("ENABLED", "1").orderByAsc("BIND_TIME"));
         if (accounts.isEmpty()) {
             return r;
         }
@@ -167,18 +179,65 @@ public class LolSyncService {
             puuidToUser.put(a.getPuuid(), a.getUserId());
         }
 
+        // 1) 轮询已经回填过的账号
         for (LolAccount a : accounts) {
-            if (!"1".equals(a.getBackfilled())) {
-                r.backfilled += syncAccount(a, bound, puuidToUser, BACKFILL_SIZE, r);
-                a.setBackfilled("1");
-                accountMapper.updateById(a);
-                return r;                            // 这一轮只补一个人，把时间还给常规轮询
+            if ("1".equals(a.getBackfilled())) {
+                r.polled += syncAccount(a, bound, puuidToUser, POLL_SIZE, r);
             }
         }
+
+        // 2) 段位（只刷过期的；一小时一次，几个人的量可以忽略）
         for (LolAccount a : accounts) {
-            r.polled += syncAccount(a, bound, puuidToUser, POLL_SIZE, r);
+            if (a.getRankUpdated() == null
+                    || System.currentTimeMillis() - a.getRankUpdated().getTime() > RANK_TTL_MS) {
+                refreshRank(a, r);
+            }
+        }
+
+        // 3) 回填，先绑先补，用完预算就留到下一轮
+        long deadline = System.currentTimeMillis() + BACKFILL_BUDGET_MS;
+        for (LolAccount a : accounts) {
+            if ("1".equals(a.getBackfilled())) {
+                continue;
+            }
+            if (System.currentTimeMillis() > deadline) {
+                break;
+            }
+            r.backfilled += syncAccount(a, bound, puuidToUser, BACKFILL_SIZE, r);
+            a.setBackfilled("1");
+            accountMapper.updateById(a);
+            r.backfilledAccounts++;
         }
         return r;
+    }
+
+    /** 刷一个账号的当前段位。取单双排那条；没打排位就留空 */
+    private void refreshRank(LolAccount a, SyncReport r) {
+        try {
+            JSONArray arr = riot.leagueEntries(a.getPlatform(), a.getPuuid());
+            JSONObject solo = null;
+            for (int i = 0; arr != null && i < arr.size(); i++) {
+                JSONObject e = arr.getJSONObject(i);
+                if ("RANKED_SOLO_5x5".equals(e.getString("queueType"))) {
+                    solo = e;
+                    break;
+                }
+            }
+            // 没找到单双排就退回第一条（灵活组排）——总比不显示强
+            if (solo == null && arr != null && !arr.isEmpty()) {
+                solo = arr.getJSONObject(0);
+            }
+            a.setTier(solo == null ? null : solo.getString("tier"));
+            a.setRankDiv(solo == null ? null : solo.getString("rank"));
+            a.setLeaguePoint(solo == null ? null : solo.getInteger("leaguePoints"));
+            a.setRankWins(solo == null ? null : solo.getInteger("wins"));
+            a.setRankLosses(solo == null ? null : solo.getInteger("losses"));
+            // 时间戳无论查到没查到都要更新，否则未定级的账号每轮都会再查一次
+            a.setRankUpdated(new Date());
+            accountMapper.updateById(a);
+        } catch (RiotApiClient.RiotException e) {
+            noteError(a, e, r);
+        }
     }
 
     /** 拉一个账号的最近 n 场并入库，返回新增的对局数 */
@@ -330,11 +389,11 @@ public class LolSyncService {
      * <p>这是当初坚持存原始 JSON 的第三个回报（前两个是「加新指标不用重抓」和
      * 「晚绑定的人不用重拉」）：详情页要的是**十个人**的数据，而 {@code lol_match_player}
      * 按设计只存自己人。真去 Riot 补那五个路人的话，每打开一次详情就是一次 API 调用，
-     * 二十个人随手点几下就能把 100 次/2 分钟的配额吃光——这正是这个模块最初
-     * 「查询绝不碰 Riot」那条原则要避免的事。
+     * 二十个人随手点几下就能把 100 次/2 分钟的配额吃光。
      *
-     * <p>返回按队伍分组，并标出哪几个是站内成员：一场里自己人和路人混着，
-     * 不标的话得靠昵称去认，而游戏 ID 和站内昵称常常对不上。
+     * <p>返回的字段刻意给足：各种率（参团、伤害占比、承伤占比、伤害转化）、伤害构成、
+     * 对线期数据、视野细分、目标参与、多杀。这些**全都躺在原文里、一分钱不多花**，
+     * 前端要不要显示是另一回事——反过来「想看时才发现没存」是补不回来的。
      */
     public Map<String, Object> matchDetail(String matchId) {
         LolMatch m = matchMapper.selectById(matchId);
@@ -350,9 +409,11 @@ public class LolSyncService {
             return null;
         }
 
-        // PUUID → 站内昵称。只查一次，避免在循环里逐个查库
+        // PUUID → 绑定记录。一次查全，避免在十个人的循环里逐个查库
+        Map<String, LolAccount> acctByPuuid = new HashMap<>();
         Map<String, String> nickByPuuid = new HashMap<>();
         for (LolAccount a : accountMapper.selectList(null)) {
+            acctByPuuid.put(a.getPuuid(), a);
             DreamUser u = userMapper.selectById(a.getUserId());
             nickByPuuid.put(a.getPuuid(), u == null ? a.getGameName() : u.getUserNickname());
         }
@@ -376,13 +437,13 @@ public class LolSyncService {
             team.put("win", Boolean.TRUE.equals(t.getBoolean("win")) ? "1" : "0");
             JSONObject obj = t.getJSONObject("objectives");
             Map<String, Object> objectives = new HashMap<>();
-            for (String k : new String[]{"baron", "dragon", "tower", "inhibitor", "riftHerald"}) {
+            for (String k : new String[]{"baron", "dragon", "tower", "inhibitor", "riftHerald", "champion"}) {
                 JSONObject o = obj == null ? null : obj.getJSONObject(k);
                 objectives.put(k, o == null ? 0 : intOf(o, "kills"));
             }
             team.put("objectives", objectives);
 
-            int tk = 0, td = 0, ta = 0, tg = 0;
+            int tk = 0, td = 0, ta = 0, tg = 0, tdmg = 0;
             List<Map<String, Object>> players = new ArrayList<>();
             for (int j = 0; parts != null && j < parts.size(); j++) {
                 JSONObject p = parts.getJSONObject(j);
@@ -393,34 +454,14 @@ public class LolSyncService {
                 td += intOf(p, "deaths");
                 ta += intOf(p, "assists");
                 tg += intOf(p, "goldEarned");
-                Map<String, Object> row = new HashMap<>();
-                String puuid = p.getString("puuid");
-                row.put("puuid", puuid);
-                // riotIdGameName 在很老的对局里可能缺，退回 summonerName
-                String gn = p.getString("riotIdGameName");
-                row.put("riotId", StringUtils.isBlank(gn)
-                        ? StringUtils.defaultString(p.getString("summonerName"), "?")
-                        : gn + "#" + StringUtils.defaultString(p.getString("riotIdTagline")));
-                row.put("nickname", nickByPuuid.get(puuid));   // null = 不是站内成员
-                row.put("championName", p.getString("championName"));
-                row.put("champLevel", intOf(p, "champLevel"));
-                row.put("teamPosition", p.getString("teamPosition"));
-                row.put("kills", intOf(p, "kills"));
-                row.put("deaths", intOf(p, "deaths"));
-                row.put("assists", intOf(p, "assists"));
-                row.put("cs", intOf(p, "totalMinionsKilled") + intOf(p, "neutralMinionsKilled"));
-                row.put("gold", intOf(p, "goldEarned"));
-                row.put("dmgChamp", intOf(p, "totalDamageDealtToChampions"));
-                row.put("dmgTaken", intOf(p, "totalDamageTaken"));
-                row.put("vision", intOf(p, "visionScore"));
-                row.put("wards", intOf(p, "wardsPlaced"));
-                row.put("deadTime", intOf(p, "totalTimeSpentDead"));
-                players.add(row);
+                tdmg += intOf(p, "totalDamageDealtToChampions");
+                players.add(detailRow(p, nickByPuuid, acctByPuuid));
             }
             team.put("kills", tk);
             team.put("deaths", td);
             team.put("assists", ta);
             team.put("gold", tg);
+            team.put("dmgChamp", tdmg);
             team.put("players", players);
             teams.add(team);
         }
@@ -428,7 +469,128 @@ public class LolSyncService {
         return out;
     }
 
+    /**
+     * 详情里的一行。
+     *
+     * <p><b>各种「率」优先用 Riot 自己算好的</b>（{@code challenges} 里那一批）：
+     * 参团率的分母是本队总击杀、伤害占比的分母是本队总输出，自己算要先把队伍聚合一遍，
+     * 而且边界情况（0 击杀的队伍）要自己处理。用现成的既省事又和游戏内显示一致。
+     *
+     * <p>只有「伤害转化」是自己算的——每 1 金币打出多少对英雄伤害，Riot 没这个字段，
+     * 但它是判断一个人「经济吃得值不值」的常用指标。
+     */
+    private Map<String, Object> detailRow(JSONObject p, Map<String, String> nickByPuuid,
+                                          Map<String, LolAccount> acctByPuuid) {
+        JSONObject ch = p.getJSONObject("challenges");
+        Map<String, Object> row = new HashMap<>();
+        String puuid = p.getString("puuid");
+        row.put("puuid", puuid);
+        // riotIdGameName 在很老的对局里可能缺，退回 summonerName
+        String gn = p.getString("riotIdGameName");
+        row.put("riotId", StringUtils.isBlank(gn)
+                ? StringUtils.defaultString(p.getString("summonerName"), "?")
+                : gn + "#" + StringUtils.defaultString(p.getString("riotIdTagline")));
+        row.put("nickname", nickByPuuid.get(puuid));   // null = 不是站内成员
+        LolAccount acct = acctByPuuid.get(puuid);
+        if (acct != null && StringUtils.isNotBlank(acct.getTier())) {
+            // 注意这是**当前**段位，不是打这场时的段位——对局数据里没有段位，
+            // league-v4 也只给当前值。界面上要写清楚，免得被当成历史战力
+            row.put("tier", acct.getTier());
+            row.put("rankDiv", acct.getRankDiv());
+            row.put("leaguePoint", acct.getLeaguePoint());
+        }
+
+        row.put("championName", p.getString("championName"));
+        row.put("championId", p.getInteger("championId"));
+        row.put("champLevel", intOf(p, "champLevel"));
+        row.put("teamPosition", p.getString("teamPosition"));
+        row.put("spell1", intOf(p, "summoner1Id"));
+        row.put("spell2", intOf(p, "summoner2Id"));
+        List<Integer> items = new ArrayList<>();
+        for (int k = 0; k <= 6; k++) {
+            items.add(intOf(p, "item" + k));
+        }
+        row.put("items", items);
+
+        row.put("kills", intOf(p, "kills"));
+        row.put("deaths", intOf(p, "deaths"));
+        row.put("assists", intOf(p, "assists"));
+        row.put("cs", intOf(p, "totalMinionsKilled") + intOf(p, "neutralMinionsKilled"));
+        row.put("gold", intOf(p, "goldEarned"));
+        row.put("dmgChamp", intOf(p, "totalDamageDealtToChampions"));
+        row.put("dmgTaken", intOf(p, "totalDamageTaken"));
+        row.put("vision", intOf(p, "visionScore"));
+        row.put("timePlayed", intOf(p, "timePlayed"));
+        row.put("deadTime", intOf(p, "totalTimeSpentDead"));
+
+        // 伤害构成
+        row.put("dmgPhysical", intOf(p, "physicalDamageDealtToChampions"));
+        row.put("dmgMagic", intOf(p, "magicDamageDealtToChampions"));
+        row.put("dmgTrue", intOf(p, "trueDamageDealtToChampions"));
+        row.put("dmgObjective", intOf(p, "damageDealtToObjectives"));
+        row.put("dmgTurret", intOf(p, "damageDealtToTurrets"));
+
+        // 各种率（Riot 算好的）
+        row.put("kda", dbl(ch, "kda"));
+        row.put("killPart", dbl(ch, "killParticipation"));
+        row.put("dmgShare", dbl(ch, "teamDamagePercentage"));
+        row.put("takenShare", dbl(ch, "damageTakenOnTeamPercentage"));
+        row.put("dpm", dbl(ch, "damagePerMinute"));
+        row.put("gpm", dbl(ch, "goldPerMinute"));
+        row.put("vpm", dbl(ch, "visionScorePerMinute"));
+        // 伤害转化：每 1 金币打出多少对英雄伤害。Riot 没这个字段，但它最能说明
+        // 「这些经济吃得值不值」——同样 12k 经济，打出 25k 和打出 8k 是两回事
+        int gold = intOf(p, "goldEarned");
+        row.put("dmgPerGold", gold > 0
+                ? Math.round(intOf(p, "totalDamageDealtToChampions") * 1000.0 / gold) / 1000.0
+                : null);
+
+        // 战斗
+        row.put("doubleKills", intOf(p, "doubleKills"));
+        row.put("tripleKills", intOf(p, "tripleKills"));
+        row.put("quadraKills", intOf(p, "quadraKills"));
+        row.put("pentaKills", intOf(p, "pentaKills"));
+        row.put("killingSpree", intOf(p, "largestKillingSpree"));
+        row.put("firstBlood", Boolean.TRUE.equals(p.getBoolean("firstBloodKill")) ? "1" : "0");
+        row.put("soloKills", intOf2(ch, "soloKills"));
+        row.put("immobilizations", intOf2(ch, "enemyChampionImmobilizations"));
+
+        // 对线期
+        row.put("cs10", intOf2(ch, "laneMinionsFirst10Minutes"));
+        row.put("levelLead", intOf2(ch, "maxLevelLeadLaneOpponent"));
+
+        // 视野细分
+        row.put("wardsPlaced", intOf(p, "wardsPlaced"));
+        row.put("wardsKilled", intOf(p, "wardsKilled"));
+        row.put("controlWards", intOf(p, "detectorWardsPlaced"));
+
+        // 目标参与
+        row.put("turretTakedowns", intOf(p, "turretTakedowns"));
+        row.put("dragonTakedowns", intOf2(ch, "dragonTakedowns"));
+        row.put("baronTakedowns", intOf2(ch, "baronTakedowns"));
+        row.put("turretPlates", intOf2(ch, "turretPlatesTaken"));
+
+        // 辅助向
+        row.put("healTeam", intOf(p, "totalHealsOnTeammates"));
+        row.put("shieldTeam", intOf(p, "totalDamageShieldedOnTeammates"));
+        return row;
+    }
+
     // ───────────────────────────────────────────── 小工具
+
+    /** challenges 里的整数。这个子对象在极老的对局里可能整个不存在 */
+    private static int intOf2(JSONObject o, String k) {
+        return o == null ? 0 : intOf(o, k);
+    }
+
+    /** challenges 里的小数。缺就给 null，让前端显示「—」而不是一个假的 0 */
+    private static Double dbl(JSONObject o, String k) {
+        if (o == null) {
+            return null;
+        }
+        java.math.BigDecimal v = o.getBigDecimal(k);
+        return v == null ? null : Math.round(v.doubleValue() * 10000.0) / 10000.0;
+    }
 
     private static int intOf(JSONObject o, String k) {
         Integer v = o.getInteger(k);
@@ -474,12 +636,18 @@ public class LolSyncService {
     /** 一轮同步的结果。给手动触发的接口用，也给日志用 */
     public static class SyncReport {
         public int backfilled;
+        /** 这一轮补完了几个账号。backfilled 数的是对局数，重绑时那个会是 0（全命中已有数据） */
+        public int backfilledAccounts;
         public int polled;
         public String skipped;
         public List<String> errors = new ArrayList<>();
 
         public int getBackfilled() {
             return backfilled;
+        }
+
+        public int getBackfilledAccounts() {
+            return backfilledAccounts;
         }
 
         public int getPolled() {

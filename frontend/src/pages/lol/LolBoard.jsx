@@ -4,6 +4,7 @@ import { DAYS_OPTIONS, QUEUE_OPTIONS, lolApi } from '../../api/lol'
 import useIsMobile from '../../hooks/useIsMobile'
 import useUrlState from '../../hooks/useUrlState'
 import LolUserAvatar from './LolUserAvatar'
+import LolPlayerCard from './LolPlayerCard'
 import { pct, rateColor } from './lolFormat'
 
 /**
@@ -26,6 +27,8 @@ export default function LolBoard() {
   const [queueId, setQueueId] = useUrlState('queue', 0, true)
   const [board, setBoard] = useState(null)
   const [duo, setDuo] = useState(null)
+  // 点开的那个人。同战绩流的详情弹层：局部 state，不走路由
+  const [openUser, setOpenUser] = useState(null)
 
   useEffect(() => {
     let alive = true
@@ -86,7 +89,7 @@ export default function LolBoard() {
             scroll={{ x: 'max-content' }}
             dataSource={board.rows || []}
             locale={{ emptyText: <Empty description={`还没有人满 ${board?.minGames ?? 5} 场`} image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
-            columns={personColumns(isMobile)}
+            columns={personColumns(isMobile, setOpenUser)}
           />
         )}
       </Card>
@@ -136,6 +139,13 @@ export default function LolBoard() {
           />
         )}
       </Card>
+
+      <LolPlayerCard
+        userId={openUser}
+        days={days}
+        open={!!openUser}
+        onClose={() => setOpenUser(null)}
+      />
     </>
   )
 }
@@ -156,16 +166,21 @@ function Stat({ label, value }) {
  * 在这一页尤其难受（左右滑手势在数据页是关掉的，只能用手指推表格本身）。
  * 参团率、伤害占比这些留给桌面端。
  */
-function personColumns(isMobile) {
+function personColumns(isMobile, onOpen) {
   const base = [
     {
       title: '玩家',
       key: 'who',
       fixed: isMobile ? undefined : 'left',
       render: (_, r) => (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+        // 整块可点：进这个人的资料卡（英雄池、位置、常一起打的人）
+        <span
+          role="button"
+          onClick={() => onOpen(r.userId)}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+        >
           <LolUserAvatar name={r.nickname} src={r.avatar} size={24} />
-          <span style={{ fontWeight: 600 }}>{r.nickname || '（未知）'}</span>
+          <span style={{ fontWeight: 600, color: '#fa541c' }}>{r.nickname || '（未知）'}</span>
         </span>
       ),
     },

@@ -4,9 +4,11 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.dream.basketball.common.Result;
 import com.dream.basketball.config.RequiresRole;
 import com.dream.basketball.config.Role;
+import com.dream.basketball.entity.DreamUser;
 import com.dream.basketball.entity.LolAccount;
 import com.dream.basketball.mapper.LolAccountMapper;
 import com.dream.basketball.mapper.LolMatchPlayerMapper;
+import com.dream.basketball.mapper.UserMapper;
 import com.dream.basketball.service.LolSyncService;
 import com.dream.basketball.service.RiotApiClient;
 import com.dream.basketball.utils.SecUtil;
@@ -52,6 +54,8 @@ public class LolController {
     private LolAccountMapper accountMapper;
     @Autowired
     private LolMatchPlayerMapper playerMapper;
+    @Autowired
+    private UserMapper userMapper;
 
     // ───────────────────────────────────────────── 绑定
 
@@ -112,11 +116,30 @@ public class LolController {
      *
      * <p>合并放在 Java 而不是 SQL：一场里各人的英雄、KDA、位置都要分别展示，
      * 在 SQL 里拼成字符串再拆回来只是把解析工作换个地方做。
+     *
+     * @param date   指定某一天（yyyy-MM-dd）。给了就忽略 days——「看这一天」和
+     *               「看最近 N 天」是两种意图，同时生效只会互相削
+     * @param player 站内昵称或游戏 ID，模糊匹配，任一命中即可
      */
     @RequiresRole(Role.USER)
     @GetMapping("/feed")
-    public Object feed(Integer days) {
-        List<Map<String, Object>> rows = playerMapper.feed(since(days));
+    public Object feed(Integer days, String date, Integer queueId, String player) {
+        Date since;
+        Date until;
+        if (StringUtils.isNotBlank(date)) {
+            Calendar c = dayStart(date);
+            if (c == null) {
+                return new Result<>(1, "日期格式不对，要 yyyy-MM-dd", null);
+            }
+            since = c.getTime();
+            c.add(Calendar.DAY_OF_YEAR, 1);
+            until = c.getTime();
+        } else {
+            since = since(days);
+            until = FAR_FUTURE;
+        }
+        List<Map<String, Object>> rows = playerMapper.feed(
+                since, until, q(queueId), StringUtils.defaultString(player).trim());
         Map<String, Map<String, Object>> byMatch = new LinkedHashMap<>();
         for (Map<String, Object> row : rows) {
             String id = String.valueOf(row.get("matchId"));
@@ -143,6 +166,32 @@ public class LolController {
             ps.add(p);
         }
         return new Result<>(0, "成功", new ArrayList<>(byMatch.values()));
+    }
+
+    /**
+     * 某个月里哪几天有对局，给日历标注用。
+     *
+     * <p>按**显示中的月份**取，而不是按选中日期所在的月——两者不是一回事，
+     * 在日历里翻月并不会改变选中日期。NBA 的每日赛场早先就是按选中日期取的，
+     * 结果翻到别的月份一片空白，点了某一天才突然冒出标注。
+     */
+    @RequiresRole(Role.USER)
+    @GetMapping("/dates")
+    public Object dates(String month) {
+        Calendar c = dayStart(StringUtils.defaultString(month) + "-01");
+        if (c == null) {
+            return new Result<>(1, "月份格式不对，要 yyyy-MM", null);
+        }
+        Date from = c.getTime();
+        c.add(Calendar.MONTH, 1);
+        return new Result<>(0, "成功", playerMapper.matchDates(from, c.getTime()));
+    }
+
+    /** 搜索框的候选：站内昵称 + 已绑定的游戏 ID */
+    @RequiresRole(Role.USER)
+    @GetMapping("/searchOptions")
+    public Object searchOptions() {
+        return new Result<>(0, "成功", playerMapper.searchOptions());
     }
 
     /**
@@ -191,6 +240,41 @@ public class LolController {
     }
 
     /**
+     * 一个人的资料卡：汇总、英雄池、位置分布、常一起打的队友、绑定的账号与段位。
+     *
+     * <p>一次请求把这几块一起给：它们都是同一个人同一个时间窗的数据，
+     * 拆成四个接口只会让页面上出现四个各自转圈的方块。
+     *
+     * <p><b>不带最低场次门槛</b>——门槛是为了「别让 1 场 100% 的人霸榜」，
+     * 而这里是点进来看具体某个人的，只打过两把也该如实显示。
+     */
+    @RequiresRole(Role.USER)
+    @GetMapping("/player")
+    public Object player(String userId, Integer days) {
+        if (StringUtils.isBlank(userId)) {
+            return new Result<>(1, "缺少用户", null);
+        }
+        Date from = since(days);
+        Map<String, Object> data = new HashMap<>();
+        data.put("summary", playerMapper.playerSummary(userId, from));
+        data.put("champions", playerMapper.championPool(userId, from));
+        data.put("positions", playerMapper.positionMix(userId, from));
+        data.put("mates", playerMapper.mates(userId, from));
+        // 绑定的号（含段位）。一个人可能有小号，段位按各号分别显示——合并没有意义
+        data.put("accounts", accountMapper.selectList(
+                new QueryWrapper<LolAccount>().eq("USER_ID", userId).orderByAsc("BIND_TIME")));
+        DreamUser u = userMapper.selectById(userId);
+        if (u != null) {
+            Map<String, Object> who = new HashMap<>();
+            who.put("userId", u.getUserId());
+            who.put("nickname", u.getUserNickname());
+            who.put("avatar", u.getAvatar());
+            data.put("user", who);
+        }
+        return new Result<>(0, "成功", data);
+    }
+
+    /**
      * 手动跑一轮同步。
      *
      * <p>留这个接口是因为定时任务的周期是分钟级，而**验证一次改动**不该等那么久。
@@ -203,6 +287,22 @@ public class LolController {
     }
 
     // ───────────────────────────────────────────── 参数兜底
+
+    /** 「不设上界」用一个远期时间表示，好让 SQL 永远是同一个区间形状 */
+    private static final Date FAR_FUTURE = new Date(4102444800000L);   // 2100-01-01
+
+    /** yyyy-MM-dd → 当天零点。格式不对返回 null，由调用方翻译成人话 */
+    private static Calendar dayStart(String date) {
+        java.text.SimpleDateFormat f = new java.text.SimpleDateFormat("yyyy-MM-dd");
+        f.setLenient(false);
+        try {
+            Calendar c = Calendar.getInstance();
+            c.setTime(f.parse(date));
+            return c;
+        } catch (java.text.ParseException e) {
+            return null;
+        }
+    }
 
     private static Date since(Integer days) {
         Calendar c = Calendar.getInstance();

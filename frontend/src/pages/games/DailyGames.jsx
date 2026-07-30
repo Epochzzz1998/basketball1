@@ -25,7 +25,6 @@ export default function DailyGames() {
   const [params, setParams] = useSearchParams()
   const [date, setDate] = useState(params.get('date') || null)
   const [rows, setRows] = useState(null)
-  const [days, setDays] = useState(null)
 
   // 没带日期时先问后端最后一场比赛是哪天
   useEffect(() => {
@@ -52,16 +51,9 @@ export default function DailyGames() {
     return () => { alive = false }
   }, [date])
 
-  // 当月哪几天有比赛，换月才重拉
-  const month = date ? date.slice(0, 7) : null
-  useEffect(() => {
-    if (!month) return
-    let alive = true
-    playerApi.gameDates(month)
-      .then((r) => { if (alive) setDays(new Set(r || [])) })
-      .catch(() => { if (alive) setDays(new Set()) })
-    return () => { alive = false }
-  }, [month])
+  // 「当月哪几天有比赛」不在这里拉了：那要按**日历面板显示中的月份**取，
+  // 而这里只知道选中日期。按选中日期取的话，翻月时标注不会更新（曾经的 bug）。
+  // 现在由 GameDayNav 里的 DateMarkPicker 自己管，它才听得到翻页事件。
 
   if (!date) return <Spin style={{ display: 'block', margin: '80px auto' }} size="large" />
 
@@ -74,7 +66,7 @@ export default function DailyGames() {
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <span style={{ fontWeight: 800, fontSize: isMobile ? 18 : 20 }}>每日赛场</span>
-          <GameDayNav date={date} onChange={setDate} days={days} />
+          <GameDayNav date={date} onChange={setDate} />
           <span style={{ color: '#999', fontSize: 13, marginLeft: 'auto' }}>
             {rows === null ? '…' : `${rows.length} 场`}
           </span>

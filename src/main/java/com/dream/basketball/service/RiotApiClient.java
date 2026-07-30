@@ -119,6 +119,18 @@ public class RiotApiClient {
         return get(region, "/lol/match/v5/matches/" + enc(matchId));
     }
 
+    /**
+     * 一个账号的排位信息（每种排位队列一条）。
+     *
+     * <p><b>用平台主机</b>（oc1），不是 match-v5 那个区域主机（sea）——同一把 key 三种路由，
+     * 这是最容易写错的地方，而写错报的是 403 不是 404（见类注释）。
+     *
+     * <p>段位**不在对局数据里**，只能单独查，而且拿到的是「当前」段位而非当时的段位。
+     */
+    public JSONArray leagueEntries(String platform, String puuid) {
+        return JSON.parseArray(get(platform, "/lol/league/v4/entries/by-puuid/" + enc(puuid)));
+    }
+
     // ───────────────────────────────────────────── 底层
 
     private String get(String host, String path) {
