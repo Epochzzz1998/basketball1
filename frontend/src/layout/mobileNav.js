@@ -78,6 +78,23 @@ export const showTabBar = (pathname, search = '') => {
 }
 
 /**
+ * 「现在正站在第几个 Tab 的首页上」——不是就返回 -1。
+ *
+ * **必须连查询串一起看**，这是唯一容易漏掉的地方：私信会话的地址是
+ * `/messages?peerId=xxx`，`pathname` 仍然是 `/messages`。只比 pathname 的话，
+ * 聊天页会被当成「私信 Tab 的首页」，在里面横滑就变成了切 Tab。
+ *
+ * 底部栏的显隐（`showTabBar`）早就正确处理了这一点，但左右滑手势当初是另写的一份判断，
+ * 两处对「什么算 Tab 首页」的理解就此分叉。抽成这一个函数之后它们不可能再对不上。
+ */
+export const tabIndexOf = (pathname, search = '') => {
+  if (!showTabBar(pathname, search)) {
+    return -1
+  }
+  return TABS.findIndex((t) => t.path === pathname)
+}
+
+/**
  * 这一页要不要显示 App 顶栏（搜索框 + 刷新）。
  *
  * 目前只有 `/search` 不显示：那一页顶上就是一条真的搜索框，

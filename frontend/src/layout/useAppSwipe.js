@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { TABS, isDataPage } from './mobileNav'
+import { TABS, isDataPage, tabIndexOf } from './mobileNav'
 import { useGoBack } from '../components/backNav'
 
 /**
@@ -27,9 +27,11 @@ import { useGoBack } from '../components/backNav'
  *    手势和表格的滑动天然打架。曾经试过"表格滑到最左端才让返回接管"，判定本身是对的，
  *    但**手感很卡**：每一次横滑都要先松手才知道刚才那一下是滚表格还是返回。
  *    在一个本来就要横滑的页面上勉强塞一个横滑手势，不如干脆不做。
- * 1. **正好站在某个 Tab 的首页**（`/news` `/schedule` `/messages` `/mine`）——
- *    横滑切换相邻 Tab，到头就不动。注意判断的是**路径完全相等**，
- *    专题页（`/news/topic/x`）虽然也高亮"百家说"，但它是二级页面，走规则 2。
+ * 1. **正好站在某个 Tab 的首页**——横滑切换相邻 Tab，到头就不动。
+ *    判据是 `tabIndexOf`，和底部栏的显隐**共用同一个函数**：凡是不显示底部栏的页面
+ *    就不算 Tab 首页。专题页（`/news/topic/x`）虽然也高亮"百家说"，但它是二级页面；
+ *    私信会话（`/messages?peerId=x`）路径和私信首页**一模一样**，只有查询串不同——
+ *    早先这里只比 pathname，于是在聊天里横滑会莫名其妙切到日程。
  * 2. **其它页面**——只认**从屏幕左边缘起手**的右滑，等同于点返回。
  *    限定左边缘是为了不和页面内的横向滚动抢手势。
  *
@@ -69,9 +71,10 @@ export default function useAppSwipe(enabled) {
   // **必须在 effect 里写，不能在渲染体里写**：并发模式下一次渲染可能被丢弃重来，
   // 而 ref 的修改不会跟着回滚，于是 ref 里会留下一个从没提交过的状态。
   // effect 在提交之后才跑，写进去的一定是屏幕上真实的那一份。
-  const ctx = useRef({ pathname: '', goBack, navigate })
+  const ctx = useRef({ pathname: '', search: '', goBack, navigate })
   useEffect(() => {
-    ctx.current = { pathname: location.pathname, goBack, navigate }
+    // search 也要带上：私信会话靠 ?peerId 区分，只看 pathname 会把聊天页当成 Tab 首页
+    ctx.current = { pathname: location.pathname, search: location.search, goBack, navigate }
   })
 
   useEffect(() => {
@@ -97,7 +100,7 @@ export default function useAppSwipe(enabled) {
       const dy = t.clientY - s.y
       if (Math.abs(dx) < MIN_DX || Math.abs(dx) < Math.abs(dy) * RATIO) return
 
-      const { pathname, goBack: back, navigate: nav } = ctx.current
+      const { pathname, search, goBack: back, navigate: nav } = ctx.current
 
       /**
        * NBA 数据页整个不做手势。
@@ -109,7 +112,7 @@ export default function useAppSwipe(enabled) {
        */
       if (isDataPage(pathname)) return
 
-      const idx = TABS.findIndex((tab) => tab.path === pathname)
+      const idx = tabIndexOf(pathname, search)
 
       if (idx >= 0) {
         // 规则 1：Tab 首页之间横滑。落在横向滚动容器里就整个让开——
