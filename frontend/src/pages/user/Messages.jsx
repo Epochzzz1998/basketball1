@@ -678,7 +678,8 @@ export default function Messages() {
                   maxLength={500}
                   autoSize={{ minRows: 1, maxRows: 5 }}
                   variant="filled"
-                  style={{ borderRadius: 12 }}
+                  className="pill-input"
+                  style={{ paddingRight: 12 }}
                 />
                 <Button
                   type="primary"

@@ -320,3 +320,33 @@ body {
 .chat-head-safe.ant-card-head {
   padding-top: env(safe-area-inset-top);
 }
+
+/* 全局提示（message / notification）要让开刘海。
+   antd 把它们钉在视口顶部 8px 处，套壳 App 里那正好是状态栏和刘海的位置，
+   「已保存」这类提示会被整条盖掉——而它恰恰是那种一闪而过、错过就没了的信息。
+
+   用 margin-top 而不是改 top：top 是 antd 自己算的（还受 message.config 影响），
+   跟它抢会在版本升级时坏掉；margin 只是在它算好的位置上再往下推，互不干涉。
+
+   偏移量取 --mobile-topbar-h（顶栏高度 + 安全区，由 AppLayout 写入）而不是只取安全区，
+   这样提示落在搜索框**下面**而不是压着它。桌面端这个变量是 0，行为一点不变；
+   变量还没写入时（首帧）回落到纯安全区，至少不会被刘海挡。 */
+.ant-message,
+.ant-notification-topRight,
+.ant-notification-top {
+  margin-top: var(--mobile-topbar-h, env(safe-area-inset-top));
+}
+
+/* 聊天输入框：和顶部全局搜索框同一套长相（高 34 / 圆角 17 / #f5f5f5 底）。
+   那个搜索框是内联样式写的（GlobalSearch.jsx、SearchPage.jsx），
+   这里做成类是因为「输入框要和搜索框一致」已经被要求过两次，
+   再往第三个文件复制一份数字，迟早会有一处改漏。
+
+   圆角 17 = 单行时高度的一半，正好是胶囊；输入框长高之后角度不变，
+   看起来就是个圆角盒子——聊天类应用普遍是这个处理。 */
+.pill-input.ant-input,
+.pill-input .ant-input {
+  border-radius: 17px;
+  background: #f5f5f5;
+  padding-left: 14px;
+}

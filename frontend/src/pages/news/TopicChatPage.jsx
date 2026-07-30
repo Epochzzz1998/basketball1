@@ -696,10 +696,16 @@ export default function TopicChatPage() {
               onChange={(e) => onTextChange(e.target.value)}
               onKeyDown={onKeyDown}
               onPaste={onPaste}
-              placeholder="说点什么…（@ 提到人，回车发送，Shift+回车换行）"
+              // 提示语只留最短的一句。原来那句把用法全写在里面（@ 提到人、回车发送、
+              // Shift+回车换行），一行装不下就折成两行，把输入区顶掉一大截——
+              // 而这三条试一次就会了，不值得每次打字都占着两行位置
+              placeholder="说点什么…"
               maxLength={500}
-              autoSize={{ minRows: 2, maxRows: 5 }}
-              style={{ paddingRight: 82, paddingBottom: 10 }}
+              // minRows 从 2 改成 1 才是「只占一行」的关键：它是**最小**高度，
+              // 写 2 的话盒子恒定两行高，提示语再短也一样
+              autoSize={{ minRows: 1, maxRows: 5 }}
+              className="pill-input"
+              style={{ paddingRight: 82, paddingBottom: 6 }}
             />
             <Button
               type="primary"
@@ -708,7 +714,8 @@ export default function TopicChatPage() {
               loading={sending}
               disabled={!text.trim()}
               onClick={() => send()}
-              style={{ position: 'absolute', right: 8, bottom: 8, borderRadius: 8 }}
+              // bottom 跟着输入框缩到一行调小：24px 高的按钮配 bottom 8 会顶出 34px 的盒子
+              style={{ position: 'absolute', right: 8, bottom: 5, borderRadius: 14 }}
             >
               发送
             </Button>
