@@ -34,6 +34,15 @@ import { k, mmss, num1, pct, rate, rateColor, tierColor, tierText } from './lolF
  *
  * 从账号榜点进来时会带 `initialPuuid`，那就直接勾它——榜上那一行就是那个号的数据，
  * 点开却看到另一个号的统计，对不上。
+ *
+ * ## 位置也是开关，但和账号开关有两点不同
+ *
+ * 账号至少要勾一个，位置**可以一个都不勾**——那就是「全部位置」，也是默认状态。
+ * 区别在于账号是「这个人是谁」（不选就没有主语），位置是「看他哪一路」（不选＝不限）。
+ *
+ * 而且位置只筛**英雄池和战绩**，上面那排汇总数字和位置分布本身都不跟着变：
+ * 位置分布跟着筛的话，点一次「中路」其余位置就全消失，再也点不回来；
+ * 汇总留作基准——「他中路 62%」要和「他整体 54%」并排才读得出意思。
  */
 /**
  * 默认勾哪个号：**最后一场对局最近的那一个**。
@@ -58,6 +67,7 @@ export default function LolPlayerCard({ userId, initialPuuid, days, open, onClos
   const [data, setData] = useState(null)
   const [accounts, setAccounts] = useState([])     // 这个人所有的号（第一次拿到后固定）
   const [picked, setPicked] = useState([])         // 勾中的 PUUID
+  const [poses, setPoses] = useState([])           // 勾中的位置；空 = 全部
   const [tab, setTab] = useState('champions')
   // 点某个英雄 → 只看这个英雄的对局。放在这一层而不是 Body 里：
   // 切页签时它要留着（从英雄池点进来，落到战绩页仍然带着筛选）
@@ -69,6 +79,7 @@ export default function LolPlayerCard({ userId, initialPuuid, days, open, onClos
   useEffect(() => {
     setAccounts([])
     setPicked([])
+    setPoses([])
     setTab('champions')
     setChamp(null)
   }, [userId, initialPuuid])
@@ -78,12 +89,14 @@ export default function LolPlayerCard({ userId, initialPuuid, days, open, onClos
     () => (picked.length && picked.length < accounts.length ? picked.join(',') : ''),
     [picked, accounts.length],
   )
+  // 一个都不勾 = 不限位置，正好也是空串
+  const posParam = useMemo(() => poses.join(','), [poses])
 
   useEffect(() => {
     if (!open || !userId) return undefined
     let alive = true
     setData(null)
-    lolApi.player(userId, days, puuidsParam)
+    lolApi.player(userId, days, puuidsParam, posParam)
       .then((d) => {
         if (!alive) return
         setData(d || false)
@@ -100,7 +113,7 @@ export default function LolPlayerCard({ userId, initialPuuid, days, open, onClos
       })
       .catch(() => alive && setData(false))
     return () => { alive = false }
-  }, [open, userId, days, puuidsParam])   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, userId, days, puuidsParam, posParam])   // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggle = (puuid) => {
     setPicked((prev) => {
@@ -110,6 +123,17 @@ export default function LolPlayerCard({ userId, initialPuuid, days, open, onClos
       }
       return [...prev, puuid]
     })
+  }
+
+  /**
+   * 位置开关。和账号开关不同，**可以全部取消**——那就是「不限位置」。
+   *
+   * 顺手清掉英雄筛选：那个英雄多半不在新选的位置上，留着的话战绩是空的，
+   * 而屏幕上同时挂着「只看 X」和「这个筛选下没有对局」，看着像坏了。
+   */
+  const togglePos = (pos) => {
+    setChamp(null)
+    setPoses((prev) => (prev.includes(pos) ? prev.filter((x) => x !== pos) : [...prev, pos]))
   }
 
   const who = data && data.user
@@ -172,6 +196,8 @@ export default function LolPlayerCard({ userId, initialPuuid, days, open, onClos
               setTab={setTab}
               champ={champ}
               setChamp={setChamp}
+              poses={poses}
+              togglePos={togglePos}
               onOpenMatch={setOpenMatch}
             />
           )}
@@ -202,7 +228,7 @@ export default function LolPlayerCard({ userId, initialPuuid, days, open, onClos
   )
 }
 
-function Body({ d, isMobile, tab, setTab, champ, setChamp, onOpenMatch }) {
+function Body({ d, isMobile, tab, setTab, champ, setChamp, poses, togglePos, onOpenMatch }) {
   const s = d.summary || {}
   const games = Number(s.games || 0)
   if (!games) {
@@ -230,15 +256,38 @@ function Body({ d, isMobile, tab, setTab, champ, setChamp, onOpenMatch }) {
         <Stat label="总助攻" value={s.assists ?? 0} />
       </div>
 
-      <Section title="位置分布">
-        <Space size={10} wrap>
-          {(d.positions || []).map((p) => (
-            <span key={p.pos} style={{ fontSize: 13 }}>
-              <span style={{ color: '#666' }}>{POSITION_LABEL[p.pos] || '其它'}</span>
-              <span style={{ fontWeight: 700, marginLeft: 5 }}>{p.games}</span>
-              <span style={{ color: '#bbb', marginLeft: 4 }}>{pct(p.wins, p.games)}</span>
-            </span>
-          ))}
+      {/* 位置是开关：点一个只看那一路，可多选，全不选＝不限。
+          这一排的数字**不跟着筛**——它是全景，也是点下去之前的判断依据 */}
+      <Section title={
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span>位置分布</span>
+          <span style={{ fontWeight: 400, color: '#ccc', fontSize: 11 }}>
+            {poses.length ? '再点一次取消' : '点位置可筛英雄池和战绩'}
+          </span>
+        </span>
+      }>
+        <Space size={8} wrap>
+          {(d.positions || []).map((p) => {
+            const on = poses.includes(p.pos)
+            return (
+              <Tag
+                key={p.pos}
+                onClick={() => togglePos(p.pos)}
+                style={{
+                  padding: '3px 9px', margin: 0, cursor: 'pointer', fontSize: 13,
+                  borderColor: on ? '#fa541c' : undefined,
+                  background: on ? '#fff2e8' : '#fafafa',
+                  // 有选中项时才把没选的压暗——一个都没选是「全都算」，
+                  // 那时整排压暗会让人以为什么都没生效
+                  opacity: poses.length && !on ? 0.5 : 1,
+                }}
+              >
+                <span style={{ color: on ? '#fa541c' : '#666' }}>{POSITION_LABEL[p.pos] || '其它'}</span>
+                <span style={{ fontWeight: 700, marginLeft: 5 }}>{p.games}</span>
+                <span style={{ color: '#bbb', marginLeft: 4 }}>{pct(p.wins, p.games)}</span>
+              </Tag>
+            )
+          })}
         </Space>
       </Section>
 
@@ -257,6 +306,19 @@ function Body({ d, isMobile, tab, setTab, champ, setChamp, onOpenMatch }) {
                   { value: 'matches', label: `战绩 (${shown.length})` },
                 ]}
               />
+              {/* 位置筛选的开关在上面那排，但那排可能已经滚出视野了。
+                  这里再挂一个可关闭的标签，好知道「为什么只剩这么几行」 */}
+              {poses.map((p) => (
+                <Tag
+                  key={p}
+                  closable
+                  onClose={() => togglePos(p)}
+                  color="volcano"
+                  style={{ margin: 0 }}
+                >
+                  {POSITION_LABEL[p] || '其它'}
+                </Tag>
+              ))}
               {champ && (
                 <Tag
                   closable
@@ -315,6 +377,7 @@ function ChampionTable({ rows, active, onPick }) {
       scroll={{ x: 'max-content' }}
       dataSource={rows}
       style={{ marginBottom: 14 }}
+      locale={{ emptyText: '这个位置下没有对局' }}
       onRow={(r) => ({ onClick: () => onPick(r.championName), style: { cursor: 'pointer' } })}
       rowClassName={(r) => (r.championName === active ? 'lol-mine' : '')}
       columns={[

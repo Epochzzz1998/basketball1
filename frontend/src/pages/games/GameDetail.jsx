@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ProTable } from '@ant-design/pro-components'
-import { Button, Card, Empty, Spin, Tag } from 'antd'
+import { Button, Card, Empty, Segmented, Spin, Tag } from 'antd'
 import dayjs from 'dayjs'
 import { playerApi } from '../../api/player'
 import TeamLogo, { HomeAwayTag, TeamNames } from '../../components/TeamLogo'
 import useIsMobile from '../../hooks/useIsMobile'
+import useUrlState from '../../hooks/useUrlState'
 import { compactColumns, sumColWidth } from '../players/statColumns'
 import { fmtMadePct, fmtPair, seasonYearLabel } from '../players/rankConfig'
+import GameRating from './GameRating'
+import { groupByKind, KIND_LABEL, reasonText } from './absence'
 
 const BRAND = '#fa541c'
 const ROUND_LABEL = { 1: '首轮', 2: '半决赛', 3: '分区决赛', 4: '总决赛' }
@@ -22,16 +25,27 @@ const periodLabel = (p, maxPeriod) => {
 // "出手 0 该显示什么"上分道扬镳
 
 /**
- * 单场详情：每节得分 + 两队合计 + 两队球员数据。
+ * 单场详情：每节得分 + 两队合计 + 两队球员数据，另一个页签是赛后评分。
  *
  * 每节得分是**一节一行**存的（`game_period_score`），不是四个固定的季度列——加时赛不止四节，
  * 定死四列会把加时的分默默丢掉。所以这里的列是按实际拿到的节数现算的。
+ *
+ * ## 比分牌不进页签
+ *
+ * 「谁赢了、多少分」是两个页签共同的前提：看数据要它，打分更要它。
+ * 收进页签的话，切到评分那边就得靠记忆。所以它留在上面，页签只切下半部分。
+ *
+ * ## 页签写进 URL
+ *
+ * 和站里其它数据页一套做法（`useUrlState`）：点进某个球员再返回时，
+ * 回到的是刚才那个页签，而不是默认的「数据」。
  */
 export default function GameDetail() {
   const { gameId } = useParams()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
   const [data, setData] = useState(undefined)
+  const [tab, setTab] = useUrlState('tab', 'stats')
 
   useEffect(() => {
     let alive = true
@@ -129,17 +143,40 @@ export default function GameDetail() {
         )}
       </Card>
 
-      {order.map((team) => (
-        <TeamBox
-          key={team}
-          team={team}
-          isHome={team === homeTeam}
-          players={data.players?.[team] || []}
-          totals={data.totals?.[team]}
-          isMobile={isMobile}
-          onPlayer={(id) => id && navigate(`/players/${id}`)}
-        />
-      ))}
+      <Segmented
+        value={tab}
+        onChange={setTab}
+        block={isMobile}
+        options={[{ value: 'stats', label: '数据' }, { value: 'rating', label: '评分' }]}
+        style={{ marginBottom: 14 }}
+      />
+
+      {tab === 'stats'
+        ? order.map((team) => (
+          <TeamBox
+            key={team}
+            team={team}
+            isHome={team === homeTeam}
+            players={data.players?.[team] || []}
+            absent={data.absent?.[team] || []}
+            totals={data.totals?.[team]}
+            isMobile={isMobile}
+            onPlayer={(id) => id && navigate(`/players/${id}`)}
+          />
+        ))
+        : (
+          <GameRating
+            gameId={gameId}
+            teams={order.map((team) => ({
+              team,
+              isHome: team === homeTeam,
+              rows: data.players?.[team] || [],
+              absent: data.absent?.[team] || [],
+            }))}
+            isMobile={isMobile}
+            onPlayer={(id) => id && navigate(`/players/${id}`)}
+          />
+        )}
     </>
   )
 }
@@ -161,8 +198,14 @@ function Side({ team, score, win, isHome, isMobile }) {
   )
 }
 
-/** 一支球队的 box score。合计行钉在表底，就是 B-R 的 Team Totals 那一行 */
-function TeamBox({ team, isHome, players, totals, isMobile, onPlayer }) {
+/**
+ * 一支球队的 box score。合计行钉在表底，就是 B-R 的 Team Totals 那一行。
+ *
+ * 未出场的人**不进表格**，另起一行列在下面：表格的每一列都是统计数据，
+ * 而他们一格数据都没有。硬塞进去就是一整行破折号，既占地方又会让「场次」这类
+ * 一眼扫的判断出错。放在下面既说清了大名单，又不干扰上面那张表。
+ */
+function TeamBox({ team, isHome, players, absent, totals, isMobile, onPlayer }) {
   const cols = [
     {
       title: '球员', dataIndex: 'playerName', width: 108, fixed: 'left',
@@ -229,6 +272,39 @@ function TeamBox({ team, isHome, players, totals, isMobile, onPlayer }) {
         scroll={{ x: sumColWidth(shown) }}
         rowClassName={(r) => (r.totalRow ? 'game-total-row' : '')}
       />
+      <AbsentList rows={absent} onPlayer={onPlayer} />
     </Card>
+  )
+}
+
+/**
+ * 大名单里没上场的人。整块在没有数据时消失，不留一句「无」——
+ * 2000 年以前的比赛 B-R 根本没登这两份名单，每张老比赛的卡片下面
+ * 挂一行「未出场：无」是在陈述一件不存在的事。
+ */
+function AbsentList({ rows, onPlayer }) {
+  const groups = groupByKind(rows)
+  if (!groups.length) return null
+  return (
+    <div style={{ marginTop: 10, fontSize: 12, lineHeight: 1.9 }}>
+      {groups.map(([kind, list]) => (
+        <div key={kind}>
+          <span style={{ color: '#bbb', marginRight: 8 }}>{KIND_LABEL[kind]}</span>
+          {list.map((r, i) => (
+            <span key={r.playerId}>
+              {i > 0 && <span style={{ color: '#eee' }}> · </span>}
+              <a onClick={() => onPlayer?.(r.playerId)} style={{ color: '#999' }}>
+                {r.playerName || r.nameEn || '-'}
+              </a>
+              {/* DNP 的原因才有信息量（教练决定 / 禁赛 / 不随队）；
+                  未激活那一组 B-R 压根不给原因，写出来只会是重复的「未激活」 */}
+              {kind === 'DNP' && reasonText(r.reason) && reasonText(r.reason) !== '未上场' && (
+                <span style={{ color: '#ddd' }}>（{reasonText(r.reason)}）</span>
+              )}
+            </span>
+          ))}
+        </div>
+      ))}
+    </div>
   )
 }

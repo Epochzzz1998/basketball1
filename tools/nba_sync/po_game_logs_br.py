@@ -53,7 +53,18 @@ STAT_KEYS = ('mp', 'fg', 'fga', 'fg3', 'fg3a', 'ft', 'fta',
              'orb', 'drb', 'trb', 'ast', 'stl', 'blk', 'tov', 'pf', 'pts')
 
 
-def fetch_html(url, retries=3):
+def fetch_html(url, retries=6):
+    """Six attempts, not three.
+
+    A 429 from B-R is not a one-off — once the limiter trips it usually stays tripped for
+    a few windows, so three tries (two 90s waits) can run out while the block is still on.
+    The callers all `continue` on failure, which means a burst of 429s silently drops
+    games from the cache and the season looks complete when it is not. Extra attempts are
+    nearly free (they only happen when something is already wrong) and they buy ~7 minutes
+    of backoff, which has been enough every time.
+
+    404 still raises immediately: a box score that does not exist will not start existing.
+    """
     for attempt in range(retries):
         try:
             req = urllib.request.Request(url, headers=sync.UA)
@@ -105,7 +116,9 @@ def parse_box_table(page, br_code):
             continue
         mp = mmss(cells.get('mp'))
         if mp is None:
-            continue                        # DNP / inactive rows carry a reason, not minutes
+            # DNP rows carry a reason, not minutes. They belong to the game-night roster,
+            # not to the box score — parse_absences() picks them up off the same page.
+            continue
         row = {'slug': a.group(1), 'name': a.group(2).strip(), 'starter': 1 if starter else 0}
         for k in STAT_KEYS:
             if k == 'mp':
@@ -124,6 +137,66 @@ def parse_box_table(page, br_code):
         if t and cell_text(t.group(1)).isdigit():
             total = int(cell_text(t.group(1)))
     return players, total
+
+
+def parse_absences(page):
+    """-> {br_code: [{slug, name, kind, reason}]} — who was on the game-night roster but
+    never took the floor.
+
+    B-R keeps these two groups in two different places, and they mean different things:
+
+      DNP       a row inside box-{CODE}-game-basic that has a `reason` cell where the
+                minutes would be. These players dressed and sat ("Did Not Play -
+                Coach's Decision", "Player Suspended", …).
+      INACTIVE  a standalone `Inactive:` block near the foot of the page, listing each
+                team's unavailable players (injured, not dressed). It carries no reason
+                text at all — the fact of being listed IS the information.
+
+    Both are wanted: "who was available tonight" is the question, and the answer is the
+    union. Kept separate by KIND because "he was benched" and "he was hurt" are not the
+    same statement about a player.
+
+    Returns an empty dict rather than raising when neither is present — older box pages
+    (roughly pre-2000) carry no Inactive block, and a game where everyone played has no
+    DNP rows. Both are legitimately empty, not failures.
+
+    NOTE this is deliberately a **separate pass** over the page rather than an extra return
+    value from parse_box_table(): that function is shared with the regular-season crawler,
+    and widening its signature would break a caller for a field it does not use.
+    """
+    out = {}
+    for m in re.finditer(r'<table[^>]*id="box-([A-Z]{3})-game-basic".*?</table>', page, re.S):
+        code, table = m.group(1), m.group(0)
+        body = re.search(r'<tbody>(.*?)</tbody>', table, re.S)
+        if not body:
+            continue
+        for tr in re.findall(r'<tr[^>]*>(.*?)</tr>', body.group(1), re.S):
+            cells = dict(re.findall(r'data-stat="([^"]+)"[^>]*>(.*?)</t[dh]>', tr, re.S))
+            if 'reason' not in cells:
+                continue
+            a = re.search(r'href="/players/[a-z]/([a-z0-9]+)\.html"[^>]*>([^<]+)</a>',
+                          cells.get('player') or '')
+            if not a:
+                continue
+            out.setdefault(code, []).append({
+                'slug': a.group(1), 'name': a.group(2).strip(),
+                'kind': 'DNP', 'reason': cell_text(cells['reason'])[:60] or None,
+            })
+
+    blk = re.search(r'<strong>Inactive:&nbsp;</strong>(.*?)</div>', page, re.S)
+    if blk:
+        # One flat run of "TEAM then that team's links, TEAM then its links". Splitting on
+        # the lookahead for the next team header is what keeps each name with its own team;
+        # there is no per-team wrapper element to select instead.
+        for code, names in re.findall(
+                r'<strong>([A-Z]{3})</strong>(.*?)(?=<span><strong>[A-Z]{3}</strong>|$)',
+                blk.group(1), re.S):
+            for slug, name in re.findall(
+                    r'href="/players/[a-z]/([a-z0-9]+)\.html"[^>]*>([^<]+)</a>', names):
+                out.setdefault(code, []).append({
+                    'slug': slug, 'name': name.strip(), 'kind': 'INACTIVE', 'reason': None,
+                })
+    return out
 
 
 def parse_line_score(page):
@@ -193,11 +266,16 @@ def scrape_season(year, force=False):
                 print(f'    {href}: FAILED {e}', flush=True)
                 continue
             teams = {}
+            absent = parse_absences(page)
             for code in br_codes:
                 players, total = parse_box_table(page, code)
                 if players is None:
                     continue
-                teams[code] = {'players': players, 'score': total}
+                # Empty for pre-2000 pages, which carry neither DNP rows nor an Inactive
+                # block. Stored anyway so "we looked and there was nothing" is not
+                # confusable with "we never looked" once this is in the cache.
+                teams[code] = {'players': players, 'score': total,
+                               'absent': absent.get(code, [])}
             if len(teams) != 2:
                 print(f'    {href}: only {list(teams)} parsed', flush=True)
                 continue
@@ -269,12 +347,77 @@ COLS = ('GAME_STAT_ID, PLAYER_ID, SEASON_NUM, SEASON_TYPE, ROUND, GAME_ID, GAME_
 
 n = lambda v: 'NULL' if v is None else str(v)
 
+ABSENCE_TABLE = 'game_absence'
+ABSENCE_COLS = 'GAME_ID, PLAYER_ID, TEAM, KIND, REASON'
+
+
+def resolve_pid(name, slug, pool, slug_ids):
+    """A B-R name/slug -> our PLAYER_ID, or None when nothing matches confidently.
+
+    Four attempts in falling order of confidence:
+      1. the name as written,
+      2. the name with a generational suffix stripped (Jr. / III),
+      3. the B-R slug, which is an identity we cached once — not a guess,
+      4. first initial + surname.
+
+    Step 4 is only defensible because `pool` is **one team in one season**. League-wide,
+    "J. Williams" has a dozen claimants; inside one roster it has one. load_rosters()
+    additionally drops any initial key that two players on the same roster both claim,
+    so an ambiguous match returns None instead of an arbitrary pick — an unresolved row
+    costs one missing name, a wrong one silently attributes a game to the wrong player.
+
+    Extracted so the box-score path and the absence path resolve identity **the same way**.
+    Two copies would drift, and a drifted copy shows up as "this guy is in the box score
+    but missing from the roster list", which reads like a data bug rather than a code bug.
+    """
+    k = key(name)
+    pid = pool.get(k) or pool.get(strip_suffix(k)) or slug_ids.get(slug)
+    if pid:
+        return pid
+    ik = initial_key(strip_suffix(k))
+    return pool.get(ik) if ik else None
+
+
+def absence_tuples(game_id, team_code, entries, pool, slug_ids):
+    """-> ([SQL tuple text], [names we could not resolve]).
+
+    Unresolved names are dropped, not guessed. Someone who never played a single game
+    that season may have no row in player_stats at all, so he is simply not in `pool` —
+    that is the expected tail here, not corruption."""
+    tuples, missed = [], []
+    for a in entries or ():
+        pid = resolve_pid(a['name'], a.get('slug'), pool, slug_ids)
+        if not pid:
+            missed.append(a['name'])
+            continue
+        reason = f"'{sync.esc(a['reason'])}'" if a.get('reason') else 'NULL'
+        tuples.append(f"('{sync.esc(game_id)}', '{pid}', '{sync.esc(team_code)}', "
+                      f"'{sync.esc(a['kind'])}', {reason})")
+    return tuples, missed
+
+
+def absence_stmts(tuples, chunk=500):
+    """Upsert rather than delete-then-insert.
+
+    The table has no season column, so "clear this season first" would need a join back
+    to player_game_stats. Upserting on the (GAME_ID, PLAYER_ID) primary key gets the same
+    idempotence for free: re-running a season overwrites its own rows and touches nothing
+    else, which also means a partial crawl can be resumed without a cleanup step."""
+    out = []
+    for i in range(0, len(tuples), chunk):
+        out.append(f'INSERT INTO {ABSENCE_TABLE} ({ABSENCE_COLS}) VALUES\n'
+                   + ',\n'.join(tuples[i:i + chunk])
+                   + '\nON DUPLICATE KEY UPDATE '
+                     'TEAM=VALUES(TEAM), KIND=VALUES(KIND), REASON=VALUES(REASON);')
+    return out
+
 
 def build(years, dry):
     roster = load_rosters()
     slug_ids = json.loads(IDS_CACHE.read_text()) if IDS_CACHE.exists() else {}
 
     stmts, unresolved, seasons_done = [], [], []
+    absences, absent_missed = [], []
     for year in years:
         f = GAMES_CACHE / f'{year}.json'
         if not f.exists():
@@ -291,13 +434,14 @@ def build(years, dry):
                 home = 1 if br_code == g['home'] else 0
                 win = 1 if (me['score'] or 0) > (other['score'] or 0) else 0
                 pool = roster.get((season_num, code), {})
+                # 大名单里没上场的人。`.get` 而不是 `[...]`：这个字段是后加的，
+                # 之前缓存下来的赛季没有它，那些赛季要重爬才会有
+                t, miss = absence_tuples(g['id'], code, me.get('absent'), pool, slug_ids)
+                absences += t
+                absent_missed += [(year, code, nm) for nm in miss]
                 for p in me['players']:
-                    # 全名 -> 去后缀 -> B-R slug -> 首字母+姓（最后一步只在单队单季的池子里用）
-                    k = key(p['name'])
-                    pid = pool.get(k) or pool.get(strip_suffix(k)) or slug_ids.get(p['slug'])
-                    if not pid:
-                        ik = initial_key(strip_suffix(k))
-                        pid = pool.get(ik) if ik else None
+                    # 和未出场名单**共用同一条身份链**，见 resolve_pid 的说明
+                    pid = resolve_pid(p['name'], p['slug'], pool, slug_ids)
                     if not pid:
                         unresolved.append((year, code, p['name']))
                         continue
@@ -314,12 +458,16 @@ def build(years, dry):
     print(f'rows: {len(stmts)}   seasons: {len(seasons_done)}   unresolved: {len(unresolved)}')
     for u in unresolved[:15]:
         print('   ', u)
+    print(f'absences: {len(absences)}   unresolved: {len(absent_missed)}')
+    for u in absent_missed[:10]:
+        print('   ', u)
     if not stmts:
         return
     sql = ('START TRANSACTION;\n'
            + f"DELETE FROM {TABLE} WHERE SEASON_TYPE={PLAYOFF_TYPE} "
              f"AND SEASON_NUM IN ({','.join(map(str, sorted(seasons_done)))});\n"
-           + '\n'.join(stmts) + '\nCOMMIT;\n')
+           + '\n'.join(stmts) + '\n'
+           + '\n'.join(absence_stmts(absences)) + '\nCOMMIT;\n')
     out = Path(__file__).parent / 'po_game_logs_br.sql'
     out.write_text(sql)
     print(f'SQL written: {out.name} ({len(sql) // 1024} KB)')

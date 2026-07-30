@@ -22,6 +22,7 @@ import argparse
 import concurrent.futures
 import json
 import os
+import shlex
 import subprocess
 import sys
 import time
@@ -64,7 +65,19 @@ def mysql_cmd():
             pwd = f.read_text().strip()
     if not pwd:
         sys.exit('missing DB password: set DREAM_DB_PWD or create tools/nba_sync/.dbpwd')
-    return ['docker', 'exec', '-i', 'mysql', 'mysql', '-uroot', f'-p{pwd}', '--default-character-set=utf8mb4', 'dream']
+    cmd = ['docker', 'exec', '-i', 'mysql', 'mysql', '-uroot', f'-p{pwd}',
+           '--default-character-set=utf8mb4', 'dream']
+    # The database no longer runs on the machine that runs these scripts. Set
+    # DREAM_DB_SSH to the ssh host (e.g. `dream`) and every caller reaches it there —
+    # this is the single place the whole toolchain builds its mysql invocation, so
+    # nothing else has to know where the database lives.
+    host = os.environ.get('DREAM_DB_SSH')
+    if host:
+        # ssh flattens its arguments into one line for the remote shell, so quote each
+        # one here. The password contains shell metacharacters; unquoted it would be
+        # mangled remotely while working fine locally — the worst kind of difference.
+        return ['ssh', host, ' '.join(shlex.quote(a) for a in cmd)]
+    return cmd
 
 
 def get(url, retries=3):

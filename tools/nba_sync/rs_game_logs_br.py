@@ -51,7 +51,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 import sync
 from br_backfill import BR2CODE, initial_key, key, strip_suffix
-from po_game_logs_br import (fetch_html, parse_box_table, parse_line_score,
+from po_game_logs_br import (absence_stmts, absence_tuples, fetch_html, parse_absences,
+                            parse_box_table, parse_line_score, resolve_pid,
                             GAMES_CACHE as PO_GAMES_CACHE)
 
 HERE = Path(__file__).parent
@@ -227,10 +228,15 @@ def scrape_season(year):
             # the page rather than from a schedule column keeps relocations/renames honest.
             codes = re.findall(r'id="box-([A-Z]{3})-game-basic"', page)
             teams = {}
+            # Who dressed but never played, plus who was inactive. Same reason the quarter
+            # scores are grabbed here: it is on the page already, and coming back for it
+            # later means paying for all 68,000 fetches a second time.
+            absent = parse_absences(page)
             for code in dict.fromkeys(codes):
                 players, total = parse_box_table(page, code)
                 if players is not None:
-                    teams[code] = {'players': players, 'score': total}
+                    teams[code] = {'players': players, 'score': total,
+                                   'absent': absent.get(code, [])}
             if len(teams) != 2:
                 print(f'    {g["id"]}: parsed {list(teams)}, skipped', flush=True)
                 continue
@@ -301,6 +307,7 @@ def build_season(year, roster, slug_ids, dry):
         return 0, []
     season_num = year - SEASON_BASE
     tuples, unresolved = [], []
+    absences, absent_missed = [], []
     for line in f.read_text().splitlines():
         if not line.strip():
             continue
@@ -319,15 +326,15 @@ def build_season(year, roster, slug_ids, dry):
             home = 1 if br_code == g['home'] else 0
             win = 1 if (me['score'] or 0) > (other['score'] or 0) else 0
             pool = roster.get((season_num, code), {})
+            # Who dressed but never played, plus who was inactive. `.get` because the
+            # field is newer than the cache: seasons crawled before it existed simply
+            # have no 'absent' key, and they stay empty until re-crawled.
+            t, miss = absence_tuples(g['id'], code, me.get('absent'), pool, slug_ids)
+            absences += t
+            absent_missed += [(year, code, nm) for nm in miss]
             for p in me['players']:
-                # exact name → suffix-stripped → B-R slug → first-initial + surname.
-                # The loose one goes last: it is only right because the pool is a single
-                # team in a single season.
-                k = key(p['name'])
-                pid = pool.get(k) or pool.get(strip_suffix(k)) or slug_ids.get(p['slug'])
-                if not pid:
-                    ik = initial_key(strip_suffix(k))
-                    pid = pool.get(ik) if ik else None
+                # Same identity chain as the absence list — see resolve_pid().
+                pid = resolve_pid(p['name'], p['slug'], pool, slug_ids)
                 if not pid:
                     unresolved.append((year, code, p['name']))
                     continue
@@ -347,6 +354,9 @@ def build_season(year, roster, slug_ids, dry):
     for i in range(0, len(tuples), CHUNK):
         parts.append(f'INSERT INTO {TABLE} ({COLS}) VALUES\n'
                      + ',\n'.join(tuples[i:i + CHUNK]) + ';')
+    parts += absence_stmts(absences, CHUNK)
+    if absences:
+        print(f'   {year}: {len(absences)} absences, {len(absent_missed)} unresolved', flush=True)
     parts.append('COMMIT;')
     sql = '\n'.join(parts) + '\n'
     out = HERE / f'rs_game_logs_{year}.sql'

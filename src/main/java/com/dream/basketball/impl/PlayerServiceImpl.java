@@ -155,10 +155,19 @@ public class PlayerServiceImpl extends ServiceImpl<PlayerMapper, DreamPlayer> im
             }
         }
 
+        // 大名单里没上场的人，同样按队分组。空 map 有两种成因，前端不必区分：
+        // 这场是 2000 年以前的（B-R 当年就没登这两份名单），或者这个赛季还没重爬过
+        Map<String, List<Map<String, Object>>> absent = new LinkedHashMap<>();
+        for (Map<String, Object> row : baseMapper.findGameAbsences(gameId)) {
+            absent.computeIfAbsent(String.valueOf(row.get("playerTeam")), k -> new ArrayList<>())
+                    .add(row);
+        }
+
         Map<String, Object> out = new LinkedHashMap<>(game);
         out.put("periods", periods);
         out.put("players", players);
         out.put("totals", totals);
+        out.put("absent", absent);
         return out;
     }
 

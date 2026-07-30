@@ -74,6 +74,13 @@ public interface PlayerMapper extends BaseMapper<DreamPlayer> {
     /** Line score: one row per team per period (5+ = overtime). */
     List<Map<String, Object>> findGamePeriods(@Param("gameId") String gameId);
 
+    /**
+     * Roster members who did not take the floor: DNP (dressed, benched) and INACTIVE
+     * (unavailable). Empty for games crawled before this was captured, and genuinely
+     * empty for pre-2000 box scores — B-R did not publish either list back then.
+     */
+    List<Map<String, Object>> findGameAbsences(@Param("gameId") String gameId);
+
     /** 生涯总数 + 历史排名（nba_career_totals，1947 年至今全联盟）。没匹配上则返回空。 */
     List<Map<String, Object>> findCareerTotals(@Param("playerId") String playerId);
 

@@ -254,22 +254,27 @@ public class LolController {
      * @param puuids 逗号分隔，只统计这几个绑定账号；空串 = 全部。
      *               有小号的人在资料卡上可以勾选，「大号什么水平」和「所有号加起来」
      *               是两个不同的问题，都得答得出来
+     * @param positions 逗号分隔的位置（TOP/JUNGLE/MIDDLE/BOTTOM/UTILITY/OTHER），只筛
+     *               **英雄池和战绩**；空串 = 全部。汇总、位置分布、队友这三块**不跟着筛**：
+     *               位置分布本身就是那排开关，跟着筛的话点一次就再也点不回来；
+     *               汇总留作基准——「他中路的胜率」要和「他整体的胜率」摆在一起才有意义
      */
     @RequiresRole(Role.USER)
     @GetMapping("/player")
-    public Object player(String userId, Integer days, String puuids) {
+    public Object player(String userId, Integer days, String puuids, String positions) {
         if (StringUtils.isBlank(userId)) {
             return new Result<>(1, "缺少用户", null);
         }
         Date from = since(days);
         // 空串 = 看这个人的全部号。前端至少会勾一个，但接口这一层不该假设它一定守规矩
         String pu = StringUtils.defaultString(puuids).trim();
+        String pos = StringUtils.defaultString(positions).trim();
         Map<String, Object> data = new HashMap<>();
         data.put("summary", playerMapper.playerSummary(userId, from, pu));
-        data.put("champions", playerMapper.championPool(userId, from, pu));
+        data.put("champions", playerMapper.championPool(userId, from, pu, pos));
         data.put("positions", playerMapper.positionMix(userId, from, pu));
         data.put("mates", playerMapper.mates(userId, from, pu));
-        data.put("matches", playerMapper.playerMatches(userId, from, pu));
+        data.put("matches", playerMapper.playerMatches(userId, from, pu, pos));
         // 绑定的号（含段位）。一个人可能有小号，段位按各号分别显示——合并没有意义。
         // 顺带附上每个号最后一次打的时间：资料卡要靠它决定默认勾哪个号
         List<LolAccount> accts = accountMapper.selectList(

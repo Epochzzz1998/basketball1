@@ -33,8 +33,14 @@ export const lolApi = {
   dates: (month) => http.get('/lol/dates', { params: { month } }),
   /** 搜索框的候选：站内昵称 + 已绑定的游戏 ID */
   searchOptions: () => http.get('/lol/searchOptions'),
-  /** 一个人的资料卡：汇总 + 英雄池 + 位置 + 队友 + 绑定的号与段位，一次给全 */
-  player: (userId, days, puuids) => http.get('/lol/player', { params: { userId, days, puuids } }),
+  /**
+   * 一个人的资料卡：汇总 + 英雄池 + 位置 + 队友 + 绑定的号与段位，一次给全。
+   *
+   * `puuids` 只看这几个绑定账号，`positions` 只看这几个位置（后者只筛英雄池和战绩，
+   * 汇总和位置分布不跟着变——见后端 `LolController.player` 的说明）。两者都是逗号串，空 = 不筛。
+   */
+  player: (userId, days, puuids, positions) =>
+    http.get('/lol/player', { params: { userId, days, puuids, positions } }),
   /** 个人榜 + 概览。queueId 传 0 或省略 = 全部队列 */
   board: (params) => http.get('/lol/board', { params }),
   /** 开黑组合榜 */

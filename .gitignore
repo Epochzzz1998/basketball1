@@ -65,3 +65,6 @@ tools/nba_sync/rs_crawl.log
 
 # FCM 服务账号密钥：等价于服务器身份，绝不进版本库
 /secrets/
+tools/nba_sync/.cache_backup/
+tools/nba_sync/absence_rescrape.log
+tools/nba_sync/absence_resume.log

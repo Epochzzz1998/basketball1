@@ -310,6 +310,23 @@
         order by TEAM, PERIOD
     </select>
 
+    <!-- 当场大名单里没上场的人。DNP（穿了球衣坐板凳）排在 INACTIVE（伤病/未报名）前面，
+         按 KIND 的字母序正好如此，而前者才是「本可以上但没上」，更值得先看。
+
+         not exists 那一段是防身份解析出错：爬虫把 B-R 的名字映射回站内 PLAYER_ID，
+         万一同队重名映射到了同一个人，他会既在 box score 里又在这张表里。
+         宁可少显示一行，也不要在名单里出现「他打了 32 分钟，未出场」。 -->
+    <select id="findGameAbsences" resultType="java.util.Map">
+        select a.PLAYER_ID as playerId, a.TEAM as playerTeam, a.KIND as kind, a.REASON as reason,
+               coalesce(p.PLAYER_NAME, p.NAME_EN) as playerName, p.NAME_EN as nameEn
+        from game_absence a
+        left join dream_player p on p.PLAYER_ID = a.PLAYER_ID
+        where a.GAME_ID = #{gameId}
+          and not exists (select 1 from player_game_stats g
+                          where g.GAME_ID = a.GAME_ID and g.PLAYER_ID = a.PLAYER_ID)
+        order by a.TEAM, a.KIND, playerName
+    </select>
+
 
     <!-- 生涯总数 + 历史排名。排名必须在**全表**上算：这张表覆盖 1947 年至今、含大量我们
          库里没有的球员（张伯伦、拉塞尔……），只按 player_stats 的 50 季算出来的名次是错的。

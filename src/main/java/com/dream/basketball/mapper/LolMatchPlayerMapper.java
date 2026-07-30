@@ -29,6 +29,12 @@ import java.util.Map;
  * 为一个可选过滤引入整段模板不划算。PUUID 的字符集是 base64url（字母、数字、`-`、`_`），
  * **不含逗号**，所以拼成逗号串再 {@code FIND_IN_SET} 是安全的；空串表示不筛。
  *
+ * <p>位置筛选（资料卡上点「中路」只看中路）走同一套。位置的取值是 Riot 的枚举
+ * （TOP/JUNGLE/MIDDLE/BOTTOM/UTILITY），同样不含逗号。但**比较的必须是归一后的值**：
+ * 大乱斗没有分路，{@code TEAM_POSITION} 是空串，位置分布把它显示成「其它」（OTHER），
+ * 筛选这一侧要是拿原始列去比，点「其它」就一场也筛不出来。所以两处用同一个
+ * {@code ifnull(nullif(...))} 表达式——它是这两个查询之间的契约。
+ *
  * <h2>queueId 用 0 代表「全部」而不是 null</h2>
  *
  * 注解式 SQL 里判 null 要写成 {@code <script>} 动态 SQL，为一个可选条件引入整段模板
@@ -202,6 +208,9 @@ public interface LolMatchPlayerMapper extends BaseMapper<LolMatchPlayer> {
      *
      * <p>这是资料卡里最有意思的一块——「他到底玩什么」和「玩什么最强」
      * 是队友之间真正会讨论的事，而这两个问题各自的答案常常不一样。
+     *
+     * <p>可以按位置筛：点了「打野」就只剩他打野时的英雄池。这比整体英雄池更接近
+     * 人们真正想问的「他打野能玩什么」——同一个英雄在中路和在打野是两套打法。
      */
     @Select("select p.CHAMPION_NAME championName, count(*) games, "
             + "       sum(case when p.WIN = '1' then 1 else 0 end) wins, "
@@ -212,11 +221,19 @@ public interface LolMatchPlayerMapper extends BaseMapper<LolMatchPlayer> {
             + "  and (m.END_RESULT is null or m.END_RESULT = 'GameComplete') "
             + "  and m.GAME_START >= #{since} "
             + "  and (#{puuids} = '' or find_in_set(p.PUUID, #{puuids})) "
+            + "  and (#{positions} = '' "
+            + "       or find_in_set(ifnull(nullif(p.TEAM_POSITION, ''), 'OTHER'), #{positions})) "
             + "group by p.CHAMPION_NAME order by games desc, wins desc limit 12")
     List<Map<String, Object>> championPool(@Param("userId") String userId, @Param("since") Date since,
-                                           @Param("puuids") String puuids);
+                                           @Param("puuids") String puuids,
+                                           @Param("positions") String positions);
 
-    /** 一个人的位置分布。空的 TEAM_POSITION 归到「其它」，大乱斗没有分路 */
+    /**
+     * 一个人的位置分布。空的 TEAM_POSITION 归到「其它」，大乱斗没有分路。
+     *
+     * <p><b>这一条不受位置筛选影响</b>：它就是那排开关本身。跟着筛的话，
+     * 点「中路」之后其余位置全部消失，也就再也点不回来了。
+     */
     @Select("select ifnull(nullif(p.TEAM_POSITION, ''), 'OTHER') pos, count(*) games, "
             + "       sum(case when p.WIN = '1' then 1 else 0 end) wins "
             + "from lol_match_player p join lol_match m on m.MATCH_ID = p.MATCH_ID "
@@ -319,9 +336,12 @@ public interface LolMatchPlayerMapper extends BaseMapper<LolMatchPlayer> {
             + "from lol_match_player p join lol_match m on m.MATCH_ID = p.MATCH_ID "
             + "where p.USER_ID = #{userId} and m.GAME_START >= #{since} "
             + "  and (#{puuids} = '' or find_in_set(p.PUUID, #{puuids})) "
+            + "  and (#{positions} = '' "
+            + "       or find_in_set(ifnull(nullif(p.TEAM_POSITION, ''), 'OTHER'), #{positions})) "
             + "order by m.GAME_START desc limit 60")
     List<Map<String, Object>> playerMatches(@Param("userId") String userId, @Param("since") Date since,
-                                            @Param("puuids") String puuids);
+                                            @Param("puuids") String puuids,
+                                            @Param("positions") String positions);
 
     /**
      * 这个人每个号最后一次打是什么时候。

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { AutoComplete, Button, Card, Empty, Input, Segmented, Space, Spin, Tag } from 'antd'
+import { AutoComplete, Button, Card, Empty, Input, Segmented, Select, Space, Spin, Tag } from 'antd'
 import { CalendarOutlined, CloseCircleFilled, SearchOutlined } from '@ant-design/icons'
-import { DAYS_OPTIONS, POSITION_LABEL, queueName } from '../../api/lol'
+import { DAYS_OPTIONS, POSITION_LABEL, QUEUE_OPTIONS, queueName } from '../../api/lol'
 import { lolApi } from '../../api/lol'
 import useIsMobile from '../../hooks/useIsMobile'
 import useUrlState from '../../hooks/useUrlState'
@@ -27,13 +27,20 @@ import LolMatchDetail from './LolMatchDetail'
  * ## 两种时间筛选是互斥的
  *
  * 「看某一天」和「看最近 N 天」同时生效只会互相削，所以选了日期就把时间窗收起来。
- * 玩家搜索是叠加的——它筛的是「哪些场次」，和时间范围不冲突。
+ * 玩家搜索和队列筛选都是叠加的——它们筛的是「哪些场次」，和时间范围不冲突。
+ *
+ * ## 队列筛选和榜单共用同一组选项
+ *
+ * 后端 `feed` 一直支持 `queueId`，只是这里从没传过。共用 `QUEUE_OPTIONS` 是为了
+ * 让「战绩流里的大乱斗」和「榜单里的大乱斗」永远是同一个东西——各写一份的话，
+ * 哪天加了新模式只改一处，两边就会对不上。
  */
 export default function LolFeed() {
   const isMobile = useIsMobile()
   const [days, setDays] = useUrlState('days', 30, true)
   const [date, setDate] = useUrlState('date', '')
   const [player, setPlayer] = useUrlState('player', '')
+  const [queue, setQueue] = useUrlState('queue', 0, true)
   const [rows, setRows] = useState(null)
   // 点开的那一场。用局部 state 而不是 URL：和站里其它弹层一致
   // （日程的当天详情也是这样），换成路由的话从详情返回会退出整个分区
@@ -76,12 +83,12 @@ export default function LolFeed() {
   useEffect(() => {
     let alive = true
     setRows(null)
-    // date 非空时后端会忽略 days，这里不必再判一次
-    lolApi.feed({ days, date: date || undefined, player: player || undefined })
+    // date 非空时后端会忽略 days，这里不必再判一次。queueId 用 0 表示「全部」
+    lolApi.feed({ days, date: date || undefined, player: player || undefined, queueId: queue || undefined })
       .then((d) => alive && setRows(Array.isArray(d) ? d : []))
       .catch(() => alive && setRows([]))
     return () => { alive = false }
-  }, [days, date, player])
+  }, [days, date, player, queue])
 
   const loadMonth = useCallback((month) => lolApi.dates(month), [])
 
@@ -90,6 +97,14 @@ export default function LolFeed() {
       <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
         {/* 选了具体日期就把时间窗收起来——两个同时摆着会让人以为它们能叠加 */}
         {!date && <Segmented value={days} onChange={setDays} options={DAYS_OPTIONS} />}
+
+        {/* 队列用下拉而不是像时间窗那样铺成一排：选项有五个，铺开在手机上要占掉一整行 */}
+        <Select
+          value={queue}
+          onChange={setQueue}
+          options={QUEUE_OPTIONS}
+          style={{ width: 120 }}
+        />
 
         <Button
           icon={<CalendarOutlined />}
@@ -137,12 +152,22 @@ export default function LolFeed() {
       {rows === null ? (
         <Spin style={{ display: 'block', margin: '60px auto' }} />
       ) : rows.length === 0 ? (
-        <Empty description={date || player ? '这个条件下没有对局' : '这段时间没有对局。先去「绑定账号」把 Riot ID 填上'} />
+        <Empty description={
+          // 筛了队列却空，最常见的原因是时间窗太窄而不是「没这种局」——
+          // 大乱斗就是这样：库里有 72 场，但都是去年七八月的，默认的 30 天根本够不着。
+          // 只说「没有对局」会让人以为这类数据压根没抓
+          queue && !date
+            ? `最近 ${days} 天没有${queueName(queue)}。这类局可能更早，把时间窗放大到近一年试试`
+            : date || player || queue
+              ? '这个条件下没有对局'
+              : '这段时间没有对局。先去「绑定账号」把 Riot ID 填上'}
+        />
       ) : (
         <>
           <div style={{ color: '#999', fontSize: 12, marginBottom: 8 }}>
             {rows.length} 场
             {date && ` · ${date}`}
+            {queue ? ` · ${queueName(queue)}` : ''}
             {player && ` · 含「${player}」`}
           </div>
           <Space direction="vertical" size={12} style={{ width: '100%' }}>
