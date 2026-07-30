@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Card, Empty, Segmented, Select, Space, Spin, Table, Tag } from 'antd'
+import { Card, Empty, Segmented, Select, Space, Spin, Table, Tag, Tooltip } from 'antd'
 import { DAYS_OPTIONS, QUEUE_OPTIONS, lolApi } from '../../api/lol'
 import useIsMobile from '../../hooks/useIsMobile'
 import useUrlState from '../../hooks/useUrlState'
@@ -205,8 +205,10 @@ function Stat({ label, value }) {
  * 合在一起算出来的胜率哪一边都不代表。所属用户单独一列，信息没丢，
  * 只是不再当成聚合单位。
  *
- * 手机上只留「账号 / 段位 / 场次 / 胜率 / KDA」——那块屏幕放不下九列，
- * 而横向滚动的表格在这一页尤其难受（左右滑手势在数据页是关掉的，只能推表格本身）。
+ * **手机和电脑显示同样的列。** 早先手机上砍到只剩「账号/段位/场次/胜率/KDA」，
+ * 理由是屏幕小。但这张表本来就是横向滚动的，砍列换来的不是更好读，
+ * 而是**手机上和电脑上看到的不是同一个榜**——而人们会拿这两边互相对。
+ * 唯一还按屏幕分的是首列钉不钉住：手机上钉住会吃掉本就不多的宽度。
  */
 function personColumns(isMobile, onOpen) {
   const base = [
@@ -281,15 +283,22 @@ function personColumns(isMobile, onOpen) {
         </span>
       ),
     },
-  ]
-  if (isMobile) return base
-  return [
-    ...base,
+    // 各种率手机上也照显，不再砍列——这张表本来就是横向滚动的，
+    // 砍掉之后手机上看到的和电脑上不是同一个榜，而人们会拿它们互相对
     { title: '参团率', key: 'kp', width: 84, align: 'right', render: (_, r) => percentCell(r.avgKillPart) },
     { title: '伤害占比', key: 'ds', width: 92, align: 'right', render: (_, r) => percentCell(r.avgDmgShare) },
+    { title: '承伤占比', key: 'ts', width: 92, align: 'right', render: (_, r) => percentCell(r.avgTakenShare) },
+    {
+      title: <Tooltip title="伤害转化：每 1 金币打出多少对英雄伤害">伤转</Tooltip>,
+      dataIndex: 'avgDmgPerGold',
+      width: 74,
+      align: 'right',
+      render: (v) => (v == null ? '—' : Number(v).toFixed(2)),
+    },
     { title: '场均视野', dataIndex: 'avgVision', width: 92, align: 'right' },
     { title: '每分补刀', dataIndex: 'csPerMin', width: 92, align: 'right' },
   ]
+  return base
 }
 
 const percentCell = (v) => (v == null ? '—' : `${Math.round(Number(v) * 100)}%`)

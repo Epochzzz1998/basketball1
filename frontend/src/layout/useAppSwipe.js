@@ -54,6 +54,22 @@ const MAX_MS = 800
 /** 二级页面的返回手势必须从这个宽度内起手（和 iOS 自己的边缘手势一个量级） */
 const EDGE = 30
 
+/**
+ * 手指是不是落在弹层里（Drawer / Modal，含它们的遮罩）。
+ *
+ * <p>落在弹层里就整个不做手势。两个理由，第二个是真正要命的：
+ *
+ * 1. 弹层不在路由历史里，`goBack()` 会把**它背后那一页**换掉，而弹层还开着——
+ *    等于凭空跳到了别的页面。
+ * 2. 单局详情那种弹层里就是一张横向滚动的宽表，横滑本来就是给它的。
+ *    手势和它抢，表现就是「滑不动，但背后的页面动了」。
+ *
+ * 这条在数据页整类被排除的时候不需要——那时那些页面上的弹层顺带也被挡住了。
+ * 放开数据页之后它就成了必需的。
+ */
+const inOverlay = (el) => !!(el && typeof el.closest === 'function'
+  && el.closest('.ant-drawer, .ant-modal-wrap, .ant-modal-mask, .ant-image-preview-wrap'))
+
 /** 手指落点所在的横向滚动容器；没有则返回 null */
 const horizontalScrollerAt = (el) => {
   for (let n = el; n && n !== document.body; n = n.parentElement) {
@@ -87,7 +103,9 @@ export default function useAppSwipe(enabled) {
     if (!enabled) return undefined
 
     const onStart = (e) => {
-      if (e.touches.length !== 1) { start.current = null; return }
+      // 弹层里一律不接管：判定放在**起手**这一刻，因为弹层可能在手势中途关掉，
+      // 到 touchend 再看就已经找不到它了
+      if (e.touches.length !== 1 || inOverlay(e.target)) { start.current = null; return }
       const t = e.touches[0]
       // 记下落点所在的横向滚动容器（可能为 null），两条规则都要用。
       // **连同它此刻的滚动位置一起记**：判据必须在手势开始时就定死，

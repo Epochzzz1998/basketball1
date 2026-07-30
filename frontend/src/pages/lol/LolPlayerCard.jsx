@@ -247,7 +247,10 @@ function Body({ d, isMobile, tab, setTab, champ, setChamp, poses, togglePos, onO
         <Stat label="KDA" value={num1(s.avgKda)} />
         <Stat label="参团率" value={rate(s.avgKillPart)} />
         <Stat label="伤害占比" value={rate(s.avgDmgShare)} />
+        <Stat label="承伤占比" value={rate(s.avgTakenShare)} />
+        <Stat label="伤转" value={num1(s.avgDmgPerGold)} />
         <Stat label="场均伤害" value={k(s.avgDmg)} />
+        <Stat label="场均承伤" value={k(s.avgTaken)} />
         <Stat label="每分补刀" value={num1(s.csPerMin)} />
         <Stat label="场均视野" value={num1(s.avgVision)} />
         <Stat label="单场最高击杀" value={s.maxKills ?? '—'} />
@@ -409,6 +412,7 @@ function ChampionTable({ rows, active, onPick }) {
         },
         { title: 'KDA', dataIndex: 'avgKda', width: 62, align: 'right', render: (v) => num1(v) },
         { title: '伤害占比', dataIndex: 'avgDmgShare', width: 78, align: 'right', render: (v) => rate(v) },
+        { title: '承伤占比', dataIndex: 'avgTakenShare', width: 78, align: 'right', render: (v) => rate(v) },
       ]}
     />
   )

@@ -34,7 +34,7 @@ const toB64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)))
  *
  * - **必须由用户点击触发。** 页面加载时自动申请会被浏览器直接拒掉。
  */
-export default function PushToggle({ compact = false }) {
+export default function PushToggle({ compact = false, variant }) {
   const [supported, setSupported] = useState(true)
   const [serverKey, setServerKey] = useState(null)   // null=还没问到，''=服务端没开
   const [on, setOn] = useState(false)
@@ -87,7 +87,7 @@ export default function PushToggle({ compact = false }) {
       auth: json.keys?.auth || toB64(sub.getKey('auth')),
     })
     setOn(true)
-    message.success('已开启手机推送')
+    message.success('已开启通知推送')
   }
 
   const disable = async () => {
@@ -124,12 +124,47 @@ export default function PushToggle({ compact = false }) {
     return <Switch size="small" checked={on} loading={busy} onChange={toggle} />
   }
 
+  /**
+   * icon：顶栏上的一枚铃铛，点一下开关。给桌面端用。
+   *
+   * 桌面端原来只有「我的消息」页工具条里那个开关，等于要先知道它在那儿才找得到。
+   * 而「要不要弹通知」是个随时想起来就想改的设置，它该待在一直看得见的地方。
+   *
+   * 做成按钮而不是带文字的开关，是为了和旁边的刷新钮共用同一个 32px 胶囊——
+   * 顶栏那一行很挤，多一处宽度不一样的控件就会把搜索框挤变形。
+   * 状态靠颜色说：亮橙 = 开着，灰 = 没开。
+   */
+  if (variant === 'icon') {
+    return (
+      <Tooltip title={
+        isIos && !standalone
+          ? 'iPhone 需要先把网站添加到主屏幕'
+          : on ? '浏览器通知已开启，点一下关闭' : '开启浏览器通知：有人@你、回复你、指派日程时会弹提示'
+      }>
+        <span
+          onClick={() => !busy && toggle(!on)}
+          style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 32, height: 32, flexShrink: 0, borderRadius: 16,
+            border: `1px solid ${on ? '#ffd8bf' : '#e8e8e8'}`,
+            background: on ? '#fff2e8' : '#fff',
+            color: on ? '#fa541c' : '#aaa',
+            cursor: busy ? 'default' : 'pointer', fontSize: 14, marginRight: 4,
+            opacity: busy ? 0.5 : 1,
+          }}
+        >
+          <BellOutlined />
+        </span>
+      </Tooltip>
+    )
+  }
+
   return (
     <Space size={8}>
-      <Tooltip title={isIos && !standalone ? 'iPhone 需要先添加到主屏幕' : '有人@你、回复你、指派日程时，手机会收到通知'}>
+      <Tooltip title={isIos && !standalone ? 'iPhone 需要先添加到主屏幕' : '有人@你、回复你、指派日程时会收到通知'}>
         <Space size={6}>
           <BellOutlined style={{ color: on ? '#fa541c' : '#bbb' }} />
-          <Text style={{ fontSize: 13, color: '#666' }}>手机推送</Text>
+          <Text style={{ fontSize: 13, color: '#666' }}>通知推送</Text>
           <Switch size="small" checked={on} loading={busy} onChange={toggle} />
         </Space>
       </Tooltip>

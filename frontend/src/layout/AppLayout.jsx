@@ -33,6 +33,7 @@ import BackButton from '../components/BackButton'
 import { NAV_ROOTS, hasOwnBack } from '../components/backNav'
 import ErrorBoundary from '../components/ErrorBoundary'
 import AnnouncementEditModal from '../components/AnnouncementEditModal'
+import PushToggle from '../components/PushToggle'
 import useIsMobile from '../hooks/useIsMobile'
 import MobileTabBar, { TAB_BAR_HEIGHT, TOP_BAR_HEIGHT } from './MobileTabBar'
 import { showTabBar, showTopBar } from './mobileNav'
@@ -426,6 +427,12 @@ export default function AppLayout() {
         >
           <ReloadOutlined />
         </span>,
+        // 浏览器通知开关。**只在桌面端出现**：手机上顶栏那一行本来就挤，
+        // 而且「我」页里已经有一个同样的开关了，App 端不缺入口。
+        // 桌面端原来只有「我的消息」页工具条里那一个，等于要先知道它在那儿才找得到——
+        // 而「要不要弹通知」是随时想起来就想改的设置，该待在一直看得见的地方。
+        // 没登录时不显示：订阅要绑到账号上，先登录才有意义
+        ...(!isMobile && user ? [<PushToggle key="push" variant="icon" />] : []),
         <GlobalSearch key="global-search" />,
         ...(user
           ? []
