@@ -199,15 +199,15 @@ export default function GameRating({ gameId, teams, isMobile, onPlayer }) {
 function ScorePanel({ avg, n, rows, big }) {
   const has = Number(n || 0) > 0
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: big ? 20 : 10, flexWrap: 'wrap' }}>
-      <div style={{ textAlign: 'center', minWidth: big ? 84 : 52 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: big ? 20 : 14, flexWrap: 'wrap' }}>
+      <div style={{ textAlign: 'center', minWidth: big ? 84 : 56 }}>
         <div style={{
-          fontSize: big ? 44 : 22, fontWeight: 800, lineHeight: 1.1,
+          fontSize: big ? 44 : 22, fontWeight: 800, lineHeight: 1.15,
           color: has ? scoreColor(avg) : '#ddd',
         }}>
           {has ? avg : '—'}
         </div>
-        <div style={{ color: '#999', fontSize: big ? 12 : 10, marginTop: big ? 4 : 1 }}>
+        <div style={{ color: '#999', fontSize: big ? 12 : 10, marginTop: big ? 4 : 2 }}>
           {has ? `${n} 人 · ${scoreWord(avg)}` : '还没人打分'}
         </div>
       </div>
@@ -220,16 +220,28 @@ function ScorePanel({ avg, n, rows, big }) {
  * 分数分布。五档一档一根柱，每根按自己那档的颜色。
  *
  * 没人评过时整块不画——五根灰柱子和「还没人评」说的是同一件事，画出来只是占地方。
+ *
+ * ## 容器高度必须**算全**，不能只留柱子的高度
+ *
+ * 一列不止是柱子：上面（大号）还有人数、下面还有一行档位数字。
+ * 早先容器只按柱高留了余量，最高那根一满格，整列就比容器高十来像素——
+ * 而 `align-items: flex-end` 是**底部对齐**，超出的部分往上溢，
+ * 于是柱子顶进了上面那行球员名字里。
+ * 所以这里把三段高度显式加起来，宁可写得啰嗦也别让它靠巧合不重叠。
  */
+const LABEL_H = 14        // 底下那行档位数字（10px 字 + 2px 间距）
+const COUNT_H = 13        // 大号柱顶上的人数
+
 function ScoreBars({ rows, total, big }) {
   if (!Number(total || 0)) return null
   const byScore = Object.fromEntries((rows || []).map((r) => [Number(r.score), Number(r.n)]))
   const max = Math.max(1, ...Object.values(byScore))
-  const h = big ? 56 : 26
+  const h = big ? 56 : 24
   return (
     <div style={{
-      display: 'flex', alignItems: 'flex-end', gap: big ? 6 : 3,
-      height: h + (big ? 16 : 10), flex: 1, minWidth: big ? 150 : 90, maxWidth: big ? 320 : 130,
+      display: 'flex', alignItems: 'flex-end', gap: big ? 6 : 4,
+      height: h + LABEL_H + (big ? COUNT_H : 0) + 2,
+      flex: 1, minWidth: big ? 150 : 96, maxWidth: big ? 320 : 136,
     }}>
       {Array.from({ length: MAX_SCORE - MIN_SCORE + 1 }, (_, i) => {
         const s = MIN_SCORE + i
@@ -237,7 +249,7 @@ function ScoreBars({ rows, total, big }) {
         return (
           <div key={s} style={{ flex: 1, textAlign: 'center' }} title={`${s} 分 · ${n} 人`}>
             {big && (
-              <div style={{ color: n ? '#999' : '#eee', fontSize: 10, lineHeight: '12px' }}>
+              <div style={{ color: n ? '#999' : '#eee', fontSize: 10, lineHeight: `${COUNT_H}px` }}>
                 {n || ''}
               </div>
             )}
@@ -246,7 +258,7 @@ function ScoreBars({ rows, total, big }) {
               background: n ? scoreColor(s) : '#f5f5f5',
               borderRadius: 3, minHeight: 2,
             }} />
-            <div style={{ color: '#ccc', fontSize: 10, marginTop: 2 }}>{s}</div>
+            <div style={{ color: '#ccc', fontSize: 10, lineHeight: '12px', marginTop: 2 }}>{s}</div>
           </div>
         )
       })}
@@ -331,8 +343,9 @@ function PlayerRow({
         )}
       </div>
 
-      {/* 平均分 + 分布，和上面比赛那块同一套读法，只是小一号 */}
-      <div style={{ marginBottom: 6 }}>
+      {/* 平均分 + 分布，和上面比赛那块同一套读法，只是小一号。
+          上下都留出空当：柱子是这一行里唯一有高度的东西，贴着上一行的名字看着像溢出来的 */}
+      <div style={{ margin: '10px 0 12px' }}>
         <ScorePanel avg={agg?.avgScore} n={agg?.n} rows={hist} />
       </div>
 
