@@ -23,8 +23,17 @@ android {
         applicationId "com.dreameverything.epoch"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // 版本号按打包时间生成，不手工维护。
+        //
+        // versionCode 用 yyyyMMddHH 转成整数（如 2026073014）：单调递增、
+        // 人眼可读、且远在安卓的 2100000000 上限之内。安卓硬拦的是**降级**安装，
+        // 固定成 1 虽然不至于装不上，但会失去「这人装的是哪一版」的判断能力，
+        // 而且部分厂商 ROM 的安装器确实会拒绝同版本号覆盖。
+        //
+        // 小时粒度：同一小时内重复打包会拿到相同的号。开发期用 adb 装不受影响，
+        // 分发是按天的，够用。
+        versionCode new Date().format('yyyyMMddHH').toInteger()
+        versionName new Date().format('yyyy.MM.dd')
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
