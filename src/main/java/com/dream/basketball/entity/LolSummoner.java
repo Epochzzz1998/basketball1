@@ -32,6 +32,10 @@ public class LolSummoner extends Model<LolSummoner> implements Serializable {
     @TableField("TAG_LINE")
     private String tagLine;
 
+    /** 当前 API key 下的 PUUID，只用于调接口。见 LolAccount 里的说明 */
+    @TableField("API_PUUID")
+    private String apiPuuid;
+
     @TableField("PLATFORM")
     private String platform;
 
@@ -122,5 +126,13 @@ public class LolSummoner extends Model<LolSummoner> implements Serializable {
 
     public void setLastSeen(Date lastSeen) {
         this.lastSeen = lastSeen;
+    }
+
+    public String getApiPuuid() {
+        return apiPuuid;
+    }
+
+    public void setApiPuuid(String apiPuuid) {
+        this.apiPuuid = apiPuuid;
     }
 }

@@ -96,13 +96,33 @@ public interface LolMatchPlayerMapper extends BaseMapper<LolMatchPlayer> {
     List<Map<String, Object>> searchOptions();
 
     /**
-     * 个人榜：按站内用户聚合。
+     * 账号榜：**按游戏账号（PUUID）聚合，不是按站内用户**。
      *
-     * <p>KDA 取 {@code avg(KDA)} 而不是 {@code (总K+总A)/总D}：后者会被一场爆发局带飞，
-     * 前者是「平均每局的表现」，更接近人们说「他 KDA 高」时的意思。
-     * 两个都对，但要选一个并说清楚是哪个。
+     * <h3>为什么从「按人」改成「按号」</h3>
+     * 一个人可以绑多个号，而这些号往往段位差很远——大号铂金、小号白银。
+     * 按人合并的话，两边的数据糅在一起：胜率是两个段位的加权平均，
+     * 既不代表他在铂金什么水平，也不代表他在白银什么水平，**谁都不是**。
+     * 而榜单本来就是拿来比的，比的对象必须是同一层的东西。
+     *
+     * <p>所属用户单独一列——这样「这是谁的号」这个信息没丢，
+     * 只是不再当成聚合的单位。
+     *
+     * <h3>rankScore 直接在这里算</h3>
+     * 每行本来就是一个账号，段位是它自己的属性，不必再去别处取「最高的那个号」。
+     * 折算规则：大段 × 10000 + 小段 × 100 + LP；未定级给 -10000 保证沉底。
+     * 大段和小段都必须显式列出来——字母序会把 GOLD 排到 IRON 前面、IV 排到 I 前面，正好都反。
      */
-    @Select("select p.USER_ID userId, u.USER_NICKNAME nickname, u.AVATAR avatar, "
+    @Select("select p.PUUID puuid, a.GAME_NAME gameName, a.TAG_LINE tagLine, "
+            + "       a.TIER tier, a.RANK_DIV rankDiv, a.LEAGUE_POINT leaguePoint, "
+            + "       (case a.TIER when 'IRON' then 0 when 'BRONZE' then 1 when 'SILVER' then 2 "
+            + "                    when 'GOLD' then 3 when 'PLATINUM' then 4 when 'EMERALD' then 5 "
+            + "                    when 'DIAMOND' then 6 when 'MASTER' then 7 "
+            + "                    when 'GRANDMASTER' then 8 when 'CHALLENGER' then 9 "
+            + "                    else -1 end) * 10000 "
+            + "     + (case a.RANK_DIV when 'IV' then 0 when 'III' then 1 "
+            + "                        when 'II' then 2 when 'I' then 3 else 0 end) * 100 "
+            + "     + ifnull(a.LEAGUE_POINT, 0) rankScore, "
+            + "       p.USER_ID userId, u.USER_NICKNAME ownerName, u.AVATAR ownerAvatar, "
             + "       count(*) games, "
             + "       sum(case when p.WIN = '1' then 1 else 0 end) wins, "
             + "       round(avg(p.KDA), 2) avgKda, "
@@ -113,12 +133,14 @@ public interface LolMatchPlayerMapper extends BaseMapper<LolMatchPlayer> {
             + "       round(avg(p.CS / greatest(p.TIME_PLAYED / 60, 1)), 1) csPerMin "
             + "from lol_match_player p "
             + "join lol_match m on m.MATCH_ID = p.MATCH_ID "
+            + "left join lol_account a on a.PUUID = p.PUUID "
             + "left join dream_user u on u.USER_ID = p.USER_ID "
             + "where p.EARLY_SURR = '0' "
             + "  and (m.END_RESULT is null or m.END_RESULT = 'GameComplete') "
             + "  and m.GAME_START >= #{since} "
             + "  and (#{queueId} = 0 or m.QUEUE_ID = #{queueId}) "
-            + "group by p.USER_ID, u.USER_NICKNAME, u.AVATAR "
+            + "group by p.PUUID, a.GAME_NAME, a.TAG_LINE, a.TIER, a.RANK_DIV, a.LEAGUE_POINT, "
+            + "         p.USER_ID, u.USER_NICKNAME, u.AVATAR "
             + "having count(*) >= #{minGames} "
             + "order by sum(case when p.WIN = '1' then 1 else 0 end) / count(*) desc, games desc")
     List<Map<String, Object>> leaderboard(@Param("since") Date since,
@@ -126,27 +148,32 @@ public interface LolMatchPlayerMapper extends BaseMapper<LolMatchPlayer> {
                                           @Param("minGames") int minGames);
 
     /**
-     * 开黑组合榜：两个人同一场、同一队，才算一次一起打。
+     * 开黑组合榜：**按游戏账号配对**，同一场同一队才算一次一起打。
      *
-     * <p>自连接加上 {@code a.USER_ID < b.USER_ID} 去掉镜像重复——不加的话
-     * 「甲和乙」「乙和甲」会各算一遍。
+     * <p>和账号榜同理——按人配对的话，「甲的小号 + 乙的大号」和
+     * 「甲的大号 + 乙的大号」会被算成同一对，而那其实是两种完全不同的组合。
      *
-     * <p>这是整个模块最有价值的一条查询：公共平台永远给不出「我们几个之间」的数字。
+     * <p>{@code a.PUUID < b.PUUID} 去掉镜像重复。用 PUUID 而不是 USER_ID 还顺带
+     * 解决了一件事：同一个人的两个号不可能出现在同一场里，所以不必再排除自我配对。
      */
-    @Select("select a.USER_ID u1, ua.USER_NICKNAME n1, b.USER_ID u2, ub.USER_NICKNAME n2, "
+    @Select("select a.PUUID p1, aa.GAME_NAME g1, aa.TAG_LINE t1, ua.USER_NICKNAME n1, "
+            + "       b.PUUID p2, ab.GAME_NAME g2, ab.TAG_LINE t2, ub.USER_NICKNAME n2, "
             + "       count(*) games, "
             + "       sum(case when a.WIN = '1' then 1 else 0 end) wins "
             + "from lol_match_player a "
             + "join lol_match_player b on b.MATCH_ID = a.MATCH_ID "
-            + "     and b.TEAM_ID = a.TEAM_ID and a.USER_ID < b.USER_ID "
+            + "     and b.TEAM_ID = a.TEAM_ID and a.PUUID < b.PUUID "
             + "join lol_match m on m.MATCH_ID = a.MATCH_ID "
+            + "left join lol_account aa on aa.PUUID = a.PUUID "
+            + "left join lol_account ab on ab.PUUID = b.PUUID "
             + "left join dream_user ua on ua.USER_ID = a.USER_ID "
             + "left join dream_user ub on ub.USER_ID = b.USER_ID "
             + "where a.EARLY_SURR = '0' and b.EARLY_SURR = '0' "
             + "  and (m.END_RESULT is null or m.END_RESULT = 'GameComplete') "
             + "  and m.GAME_START >= #{since} "
             + "  and (#{queueId} = 0 or m.QUEUE_ID = #{queueId}) "
-            + "group by a.USER_ID, ua.USER_NICKNAME, b.USER_ID, ub.USER_NICKNAME "
+            + "group by a.PUUID, aa.GAME_NAME, aa.TAG_LINE, ua.USER_NICKNAME, "
+            + "         b.PUUID, ab.GAME_NAME, ab.TAG_LINE, ub.USER_NICKNAME "
             + "having count(*) >= #{minGames} "
             + "order by games desc, wins desc")
     List<Map<String, Object>> duoBoard(@Param("since") Date since,

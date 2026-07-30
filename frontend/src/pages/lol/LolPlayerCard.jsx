@@ -31,6 +31,9 @@ import { k, mmss, num1, pct, rate, rateColor, tierColor, tierText } from './lolF
  * 默认不是全选，而是**最近有对局的那一个**：全选会把半年前弃用的小号混进胜率里，
  * 而人们打开资料卡想看的是「他现在什么水平」。判据用最后一场对局的时间，
  * 不能用 `LAST_SYNC`——那是我们上次去问 Riot 的时刻，每个号每轮都在变。
+ *
+ * 从账号榜点进来时会带 `initialPuuid`，那就直接勾它——榜上那一行就是那个号的数据，
+ * 点开却看到另一个号的统计，对不上。
  */
 /**
  * 默认勾哪个号：**最后一场对局最近的那一个**。
@@ -50,7 +53,7 @@ const defaultPick = (list) => {
   return [newest.puuid]
 }
 
-export default function LolPlayerCard({ userId, days, open, onClose }) {
+export default function LolPlayerCard({ userId, initialPuuid, days, open, onClose }) {
   const isMobile = useIsMobile()
   const [data, setData] = useState(null)
   const [accounts, setAccounts] = useState([])     // 这个人所有的号（第一次拿到后固定）
@@ -62,13 +65,13 @@ export default function LolPlayerCard({ userId, days, open, onClose }) {
   // 从战绩行点进单局详情。和战绩流里点卡片是同一个弹层
   const [openMatch, setOpenMatch] = useState(null)
 
-  // 换人时把勾选和页签都清掉，否则会带着上一个人的选择去查新的人
+  // 换人（或换号）时把勾选和页签都清掉，否则会带着上一次的选择去查新的
   useEffect(() => {
     setAccounts([])
     setPicked([])
     setTab('champions')
     setChamp(null)
-  }, [userId])
+  }, [userId, initialPuuid])
 
   const puuidsParam = useMemo(
     // 全选等同于不筛，传空串让后端走那条更简单的分支
@@ -87,7 +90,12 @@ export default function LolPlayerCard({ userId, days, open, onClose }) {
         // 账号列表只在第一次填：它不随勾选变化，重复设置会让勾选被自己重置掉
         if (d && d.accounts && accounts.length === 0) {
           setAccounts(d.accounts)
-          setPicked(defaultPick(d.accounts))
+          // 从账号榜点进来时带着具体是哪个号——那一行就是那个号的数据，
+          // 打开资料卡却默认显示另一个号会对不上。没带就退回「最近在玩的」
+          const wanted = initialPuuid && d.accounts.some((a) => a.puuid === initialPuuid)
+            ? [initialPuuid]
+            : defaultPick(d.accounts)
+          setPicked(wanted)
         }
       })
       .catch(() => alive && setData(false))

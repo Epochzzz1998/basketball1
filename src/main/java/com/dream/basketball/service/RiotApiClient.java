@@ -271,5 +271,17 @@ public class RiotApiClient {
         public boolean isNotFound() {
             return status == 404;
         }
+
+        /**
+         * 这个 PUUID 不是当前这把 key 发的。
+         *
+         * <p>PUUID 按 key 加密，换 key 之后旧的全部失效，报的是
+         * {@code 400 Bad Request - Exception decrypting <puuid>}。
+         * 和普通的 400（参数写错）要分开：这一种是**可以自愈的**——
+         * 拿 Riot ID 重新解析一次就能拿到当前 key 下的那一个。
+         */
+        public boolean isStalePuuid() {
+            return status == 400 && getMessage() != null && getMessage().contains("Exception decrypting");
+        }
     }
 }

@@ -27,8 +27,9 @@ export default function LolBoard() {
   const [queueId, setQueueId] = useUrlState('queue', 0, true)
   const [board, setBoard] = useState(null)
   const [duo, setDuo] = useState(null)
-  // 点开的那个人。同战绩流的详情弹层：局部 state，不走路由
-  const [openUser, setOpenUser] = useState(null)
+  // 点开的那个**账号**（榜单现在按号排，点哪一行就看哪个号）。
+  // 资料卡本身仍按人组织，所以两样都要带上：用户决定看谁，PUUID 决定默认勾哪个号
+  const [openAcct, setOpenAcct] = useState(null)
   // 排序在前端做：榜上最多二十来行，为它给后端加一套排序参数不划算，
   // 而且换排序不该再走一趟网络
   const [sortBy, setSortBy] = useUrlState('sort', 'rate')
@@ -54,7 +55,8 @@ export default function LolBoard() {
       rate: (a, b) => (b.wins / b.games) - (a.wins / a.games) || b.games - a.games,
       games: (a, b) => b.games - a.games,
       kda: (a, b) => (b.avgKda || 0) - (a.avgKda || 0),
-      // rankScore 由后端算好（大段×10000 + 小段×100 + LP）；未定级是 -10000，自然沉底
+      // rankScore 由后端按每个账号自己的段位算好（大段×10000 + 小段×100 + LP）；
+      // 未定级是 -10000，自然沉底
       rank: (a, b) => (b.rankScore ?? -99999) - (a.rankScore ?? -99999),
     }
     return rows.sort(by[sortBy] || by.rate)
@@ -99,9 +101,9 @@ export default function LolBoard() {
       )}
 
       <Card
-        title="个人榜"
+        title="账号榜"
         size="small"
-        extra={<span style={{ color: '#999', fontSize: 12 }}>点昵称看资料卡 · 满 {board?.minGames ?? 5} 场才上榜</span>}
+        extra={<span style={{ color: '#999', fontSize: 12 }}>按游戏账号排 · 点账号看资料 · 满 {board?.minGames ?? 5} 场才上榜</span>}
         style={{ borderRadius: 14, marginBottom: 14 }}
         styles={{ body: { padding: isMobile ? 0 : 8 } }}
       >
@@ -111,12 +113,12 @@ export default function LolBoard() {
           <Table
             className="stat-compact"
             size="small"
-            rowKey="userId"
+            rowKey="puuid"
             pagination={false}
             scroll={{ x: 'max-content' }}
             dataSource={sorted}
             locale={{ emptyText: <Empty description={`还没有人满 ${board?.minGames ?? 5} 场`} image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
-            columns={personColumns(isMobile, setOpenUser)}
+            columns={personColumns(isMobile, (r) => setOpenAcct({ userId: r.userId, puuid: r.puuid }))}
           />
         )}
       </Card>
@@ -134,19 +136,28 @@ export default function LolBoard() {
           <Table
             className="stat-compact"
             size="small"
-            rowKey={(r) => `${r.u1}-${r.u2}`}
+            rowKey={(r) => `${r.p1}-${r.p2}`}
             pagination={false}
             scroll={{ x: 'max-content' }}
             dataSource={duo}
             locale={{ emptyText: <Empty description="还没有够场次的固定组合" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
             columns={[
               {
+                /* 组合也按**游戏账号**配对：按人配的话，「甲的小号+乙的大号」
+                   和「甲的大号+乙的大号」会算成同一对，而那是两种完全不同的组合 */
                 title: '组合',
                 key: 'pair',
                 render: (_, r) => (
-                  <span style={{ fontWeight: 600 }}>
-                    {r.n1 || '?'} <span style={{ color: '#ccc' }}>+</span> {r.n2 || '?'}
-                  </span>
+                  <div style={{ lineHeight: 1.35, textAlign: 'left' }}>
+                    <div style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
+                      {r.g1 || '?'}
+                      <span style={{ color: '#ccc', margin: '0 5px' }}>+</span>
+                      {r.g2 || '?'}
+                    </div>
+                    <div style={{ color: '#bbb', fontSize: 11, whiteSpace: 'nowrap' }}>
+                      {r.n1 || '—'} · {r.n2 || '—'}
+                    </div>
+                  </div>
                 ),
               },
               { title: '场次', dataIndex: 'games', width: 66, align: 'right' },
@@ -168,10 +179,11 @@ export default function LolBoard() {
       </Card>
 
       <LolPlayerCard
-        userId={openUser}
+        userId={openAcct?.userId}
+        initialPuuid={openAcct?.puuid}
         days={days}
-        open={!!openUser}
-        onClose={() => setOpenUser(null)}
+        open={!!openAcct}
+        onClose={() => setOpenAcct(null)}
       />
     </>
   )
@@ -187,28 +199,44 @@ function Stat({ label, value }) {
 }
 
 /**
- * 个人榜的列。
+ * 账号榜的列。
  *
- * 手机上只留「谁 / 场次 / 胜率 / KDA」——那块屏幕放不下八列，横向滚动的表格
- * 在这一页尤其难受（左右滑手势在数据页是关掉的，只能用手指推表格本身）。
- * 参团率、伤害占比这些留给桌面端。
+ * **一行是一个游戏账号，不是一个人**——一个人的大号和小号段位常常差好几档，
+ * 合在一起算出来的胜率哪一边都不代表。所属用户单独一列，信息没丢，
+ * 只是不再当成聚合单位。
+ *
+ * 手机上只留「账号 / 段位 / 场次 / 胜率 / KDA」——那块屏幕放不下九列，
+ * 而横向滚动的表格在这一页尤其难受（左右滑手势在数据页是关掉的，只能推表格本身）。
  */
 function personColumns(isMobile, onOpen) {
   const base = [
     {
-      title: '玩家',
+      title: '账号',
       key: 'who',
       fixed: isMobile ? undefined : 'left',
+      width: 168,
       render: (_, r) => (
-        // 整块可点：进这个人的资料卡（英雄池、位置、常一起打的人）
-        <span
+        // 整块可点：进这个号的资料卡（英雄池、位置、常一起打的人）
+        <div
           role="button"
-          onClick={() => onOpen(r.userId)}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+          onClick={() => onOpen(r)}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', lineHeight: 1.35 }}
         >
-          <LolUserAvatar name={r.nickname} src={r.avatar} size={24} />
-          <span style={{ fontWeight: 600, color: '#fa541c' }}>{r.nickname || '（未知）'}</span>
-        </span>
+          <LolUserAvatar name={r.ownerName} src={r.ownerAvatar} size={24} />
+          {/* 两行左对齐到同一条竖线：游戏 ID 在上、所属用户在下。
+              表格整体是居中对齐的（.stat-compact 那条规则），这里必须显式声明 left，
+              否则两行各自按自己的宽度居中，起点参差不齐 */}
+          <div style={{ minWidth: 0, textAlign: 'left' }}>
+            <div style={{ fontWeight: 700, color: '#fa541c', whiteSpace: 'nowrap' }}>
+              {r.gameName || '（未绑定）'}
+              {r.tagLine && <span style={{ color: '#ddd', fontWeight: 400 }}>#{r.tagLine}</span>}
+            </div>
+            {/* 所属用户：这一列存在的意义就是「这号是谁的」，所以不能省 */}
+            <div style={{ color: '#bbb', fontSize: 11, whiteSpace: 'nowrap' }}>
+              {r.ownerName || '—'}
+            </div>
+          </div>
+        </div>
       ),
     },
     {
@@ -218,7 +246,7 @@ function personColumns(isMobile, onOpen) {
       render: (_, r) => (
         r.tier
           ? (
-            <span style={{ fontSize: 12, color: tierColor(r.tier), fontWeight: 700 }}>
+            <span style={{ fontSize: 12, color: tierColor(r.tier), fontWeight: 700, whiteSpace: 'nowrap' }}>
               {tierText(r.tier, r.rankDiv)}
               {r.leaguePoint != null && <span style={{ color: '#bbb', fontWeight: 400, marginLeft: 4 }}>{r.leaguePoint}LP</span>}
             </span>

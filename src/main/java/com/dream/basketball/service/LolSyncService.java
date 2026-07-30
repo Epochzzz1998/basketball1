@@ -186,17 +186,28 @@ public class LolSyncService {
         if (accounts.isEmpty()) {
             return r;
         }
+        // 一个账号可能有**多个 PUUID 别名**：本地规范身份，加上当前 key 下的那一个。
+        // 换过 key 之后，老对局的 RAW_GZ 里是旧的、新拉的是新的，两种都要认得出来。
+        //
+        // canonical 把任何别名映射回规范身份——**入库前一律归一**，
+        // 否则同一个人会在 lol_match_player 里留下两种身份，榜单把他劈成两半。
         Set<String> bound = new HashSet<>();
         Map<String, String> puuidToUser = new HashMap<>();
+        Map<String, String> canonical = new HashMap<>();
         for (LolAccount a : accounts) {
-            bound.add(a.getPuuid());
-            puuidToUser.put(a.getPuuid(), a.getUserId());
+            for (String alias : new String[]{a.getPuuid(), a.getApiPuuid()}) {
+                if (StringUtils.isNotBlank(alias)) {
+                    bound.add(alias);
+                    puuidToUser.put(alias, a.getUserId());
+                    canonical.put(alias, a.getPuuid());
+                }
+            }
         }
 
         // 1) 轮询已经回填过的账号
         for (LolAccount a : accounts) {
             if ("1".equals(a.getBackfilled())) {
-                r.polled += syncAccount(a, bound, puuidToUser, POLL_SIZE, r);
+                r.polled += syncAccount(a, bound, puuidToUser, canonical, POLL_SIZE, r);
             }
         }
 
@@ -217,7 +228,7 @@ public class LolSyncService {
             if (System.currentTimeMillis() > deadline) {
                 break;
             }
-            r.backfilled += syncAccount(a, bound, puuidToUser, BACKFILL_SIZE, r);
+            r.backfilled += syncAccount(a, bound, puuidToUser, canonical, BACKFILL_SIZE, r);
             a.setBackfilled("1");
             accountMapper.updateById(a);
             r.backfilledAccounts++;
@@ -231,10 +242,49 @@ public class LolSyncService {
         return r;
     }
 
+    /**
+     * 拿这个账号在**当前 key** 下的 PUUID，没有或已失效就重新解析一次。
+     *
+     * <p>PUUID 按 key 加密，换 key 之后库里存的全部作废（400 Exception decrypting）。
+     * 但 Riot ID 是稳定的，用它重解一次就能拿到新的——所以这件事**可以自愈**，
+     * 不需要人工迁移，也不需要在换 key 时记得做什么。
+     *
+     * @return 可用的 PUUID；解析失败返回 null（调用方跳过这个账号）
+     */
+    private String apiPuuid(LolAccount a) {
+        if (StringUtils.isNotBlank(a.getApiPuuid())) {
+            return a.getApiPuuid();
+        }
+        try {
+            JSONObject acct = riot.accountByRiotId(a.getGameName(), a.getTagLine());
+            String pu = acct.getString("puuid");
+            if (StringUtils.isBlank(pu)) {
+                return null;
+            }
+            a.setApiPuuid(pu);
+            accountMapper.updateById(a);
+            log.info("LoL 重新解析 PUUID：{}#{}", a.getGameName(), a.getTagLine());
+            return pu;
+        } catch (RiotApiClient.RiotException e) {
+            log.warn("LoL 解析 PUUID 失败 {}#{}：{}", a.getGameName(), a.getTagLine(), e.getMessage());
+            return null;
+        }
+    }
+
+    /** 接口报「这个 PUUID 不是我发的」时，清掉重来——下一轮会自动重新解析 */
+    private void invalidateApiPuuid(LolAccount a) {
+        a.setApiPuuid(null);
+        accountMapper.updateById(a);
+    }
+
     /** 刷一个账号的当前段位。取单双排那条；没打排位就留空 */
     private void refreshRank(LolAccount a, SyncReport r) {
         try {
-            JSONObject solo = pickSolo(riot.leagueEntries(a.getPlatform(), a.getPuuid()));
+            String pu = apiPuuid(a);
+            if (pu == null) {
+                return;
+            }
+            JSONObject solo = pickSolo(riot.leagueEntries(a.getPlatform(), pu));
             a.setTier(solo == null ? null : solo.getString("tier"));
             a.setRankDiv(solo == null ? null : solo.getString("rank"));
             a.setLeaguePoint(solo == null ? null : solo.getInteger("leaguePoints"));
@@ -244,24 +294,35 @@ public class LolSyncService {
             a.setRankUpdated(new Date());
             accountMapper.updateById(a);
         } catch (RiotApiClient.RiotException e) {
+            if (e.isStalePuuid()) {
+                invalidateApiPuuid(a);   // 下一轮重新解析
+            }
             noteError(a, e, r);
         }
     }
 
     /** 拉一个账号的最近 n 场并入库，返回新增的对局数 */
     private int syncAccount(LolAccount a, Set<String> bound, Map<String, String> puuidToUser,
-                            int n, SyncReport r) {
+                            Map<String, String> canonical, int n, SyncReport r) {
+        String pu = apiPuuid(a);
+        if (pu == null) {
+            return 0;
+        }
         List<String> ids;
         try {
-            ids = riot.matchIds(a.getRegion(), a.getPuuid(), null, 0, n);
+            ids = riot.matchIds(a.getRegion(), pu, null, 0, n);
         } catch (RiotApiClient.RiotException e) {
+            // 换过 key 的话库里那个 PUUID 已经作废，清掉让下一轮重新解析
+            if (e.isStalePuuid()) {
+                invalidateApiPuuid(a);
+            }
             noteError(a, e, r);
             return 0;
         }
         int added = 0;
         for (String id : ids) {
             try {
-                if (ingest(a.getRegion(), id, bound, puuidToUser)) {
+                if (ingest(a.getRegion(), id, bound, puuidToUser, canonical)) {
                     added++;
                 }
             } catch (RiotApiClient.RiotException e) {
@@ -286,7 +347,8 @@ public class LolSyncService {
      *
      * <p>见类注释：已经在库里的场次**不会再调 API**，缺的人从 RAW_GZ 里补。
      */
-    private boolean ingest(String region, String matchId, Set<String> bound, Map<String, String> puuidToUser) {
+    private boolean ingest(String region, String matchId, Set<String> bound,
+                           Map<String, String> puuidToUser, Map<String, String> canonical) {
         LolMatch existing = matchMapper.selectById(matchId);
         String raw;
         boolean fresh = false;
@@ -337,13 +399,15 @@ public class LolSyncService {
             if (puuid == null || !bound.contains(puuid)) {
                 continue;                            // 路人不存，需要时从 RAW_GZ 取
             }
+            // 归一到规范身份再存，见 runOnce 里 canonical 的说明。
             // selectCount 在本项目的 MyBatis-Plus 版本里返回 Integer，不是 Long
+            String canon = canonical.getOrDefault(puuid, puuid);
             Integer already = playerMapper.selectCount(new QueryWrapper<LolMatchPlayer>()
-                    .eq("MATCH_ID", matchId).eq("PUUID", puuid));
+                    .eq("MATCH_ID", matchId).eq("PUUID", canon));
             if (already != null && already > 0) {
                 continue;
             }
-            playerMapper.insert(toPlayerRow(matchId, puuid, puuidToUser.get(puuid), p));
+            playerMapper.insert(toPlayerRow(matchId, canon, puuidToUser.get(puuid), p));
         }
         return fresh;
     }
@@ -461,10 +525,27 @@ public class LolSyncService {
             if (su == null) {
                 continue;
             }
+            String platform = StringUtils.defaultIfBlank(su.getPlatform(), "oc1");
+            String pu = StringUtils.defaultIfBlank(su.getApiPuuid(), su.getPuuid());
             try {
-                JSONArray arr = riot.leagueEntries(
-                        StringUtils.defaultIfBlank(su.getPlatform(), "oc1"), puuid);
-                JSONObject solo = pickSolo(arr);
+                JSONObject solo;
+                try {
+                    solo = pickSolo(riot.leagueEntries(platform, pu));
+                } catch (RiotApiClient.RiotException e) {
+                    if (!e.isStalePuuid() || StringUtils.isBlank(su.getGameName())) {
+                        throw e;
+                    }
+                    // 这个 PUUID 是旧 key 发的。存下来的 Riot ID 是稳定的，
+                    // 用它重解一次就能拿到当前 key 下的那一个——所以换 key 之后
+                    // 这几千行不用人工迁移，自己会一行行修好
+                    JSONObject acct = riot.accountByRiotId(su.getGameName(), su.getTagLine());
+                    pu = acct.getString("puuid");
+                    if (StringUtils.isBlank(pu)) {
+                        throw e;
+                    }
+                    su.setApiPuuid(pu);
+                    solo = pickSolo(riot.leagueEntries(platform, pu));
+                }
                 su.setTier(solo == null ? null : solo.getString("tier"));
                 su.setRankDiv(solo == null ? null : solo.getString("rank"));
                 su.setLeaguePoint(solo == null ? null : solo.getInteger("leaguePoints"));
@@ -478,6 +559,8 @@ public class LolSyncService {
                 }
                 log.debug("LoL 补段位失败 {}: {}", puuid, e.getMessage());
             }
+            // 失败也要写时间戳：查不到段位（没打过排位）和查失败，对「要不要再查一次」
+            // 是同一个答案。不写的话这个人会永远排在待补队列最前面，把后面几千个堵死
             su.setRankUpdated(new Date());
             summonerMapper.updateById(su);
         }
@@ -524,12 +607,19 @@ public class LolSyncService {
         }
 
         // PUUID → 绑定记录。一次查全，避免在十个人的循环里逐个查库
+        // 两个 PUUID 别名都要登记：换过 key 之后，老对局的 RAW_GZ 里是旧的、
+        // 新拉的是新的，不认全的话成员在其中一半对局里会被当成路人
         Map<String, LolAccount> acctByPuuid = new HashMap<>();
         Map<String, String> nickByPuuid = new HashMap<>();
         for (LolAccount a : accountMapper.selectList(null)) {
-            acctByPuuid.put(a.getPuuid(), a);
             DreamUser u = userMapper.selectById(a.getUserId());
-            nickByPuuid.put(a.getPuuid(), u == null ? a.getGameName() : u.getUserNickname());
+            String nick = u == null ? a.getGameName() : u.getUserNickname();
+            for (String alias : new String[]{a.getPuuid(), a.getApiPuuid()}) {
+                if (StringUtils.isNotBlank(alias)) {
+                    acctByPuuid.put(alias, a);
+                    nickByPuuid.put(alias, nick);
+                }
+            }
         }
         // 路人的段位：一次把这十个人查出来，而不是在循环里逐个 selectById
         Map<String, LolSummoner> summByPuuid = new HashMap<>();

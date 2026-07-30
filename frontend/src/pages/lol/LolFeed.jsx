@@ -48,13 +48,27 @@ export default function LolFeed() {
   useEffect(() => {
     lolApi.searchOptions()
       .then((d) => {
-        // 昵称和游戏 ID 都能搜，所以两样都放进候选
-        const opts = []
+        // 昵称和游戏 ID 都能搜，所以两样都放进候选。
+        //
+        // **必须去重**：接口返回的是「每个绑定账号一行」，一个人绑了四个号
+        // 他的昵称就出现四次。而且昵称和游戏 ID 偶尔会撞名，也要合并掉。
+        //
+        // 顺带标出这一条是昵称还是游戏 ID——两种都在同一个下拉里，
+        // 不标的话看到一串名字根本分不出搜的是谁
+        const seen = new Map()
         for (const o of d || []) {
-          if (o.nickname) opts.push({ value: o.nickname })
-          if (o.gameName) opts.push({ value: o.gameName })
+          if (o.nickname && !seen.has(o.nickname)) seen.set(o.nickname, '站内昵称')
+          if (o.gameName && !seen.has(o.gameName)) seen.set(o.gameName, '游戏 ID')
         }
-        setOptions(opts)
+        setOptions([...seen].map(([value, kind]) => ({
+          value,
+          label: (
+            <span style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+              <span>{value}</span>
+              <span style={{ color: '#bbb', fontSize: 11 }}>{kind}</span>
+            </span>
+          ),
+        })))
       })
       .catch(() => {})
   }, [])
@@ -102,6 +116,7 @@ export default function LolFeed() {
           options={options}
           onChange={setDraft}
           onSelect={(v) => setPlayer(v)}
+          // label 现在是 JSX，只能按 value 过滤
           filterOption={(input, opt) => String(opt?.value || '').toLowerCase().includes(input.toLowerCase())}
           style={{ width: isMobile ? '100%' : 220 }}
         >

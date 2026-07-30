@@ -113,3 +113,20 @@ CREATE TABLE IF NOT EXISTS `lol_summoner` (
 -- 这一场的十个人有没有登记过。新入库的对局当场登记，老数据靠后台逐批补扫。
 ALTER TABLE `lol_match` ADD COLUMN `SCANNED` char(1) NOT NULL DEFAULT '0'
   COMMENT '参与者是否已登记进 lol_summoner' AFTER `END_RESULT`;
+
+-- ── 2026-07-30 追加：API_PUUID
+--
+-- **PUUID 是按 API key 加密的**：同一个 Riot ID 用两把 key 解析出来是两串完全不同的值，
+-- 拿旧 key 的 PUUID 去调新 key 的接口会得到 400 "Exception decrypting"。
+-- 换 key 那一刻，库里所有 PUUID 对新 key 全部失效——这一点在换 personal key 时实际踩到了。
+--
+-- 解法是把两个身份分开，**不迁移历史数据**：
+--   PUUID      = 本地规范身份。历史对局、榜单聚合、RAW_GZ 里的都是它，永不改动。
+--   API_PUUID  = 当前 key 下的身份，只用来调 Riot 接口；key 一换就重新解析一次。
+--
+-- 入库时把任何已知别名归一到 PUUID，所以一个账号在数据里永远只有一个身份，
+-- 榜单不会因为换 key 就把同一个人劈成两半。
+ALTER TABLE `lol_account`  ADD COLUMN `API_PUUID` varchar(100) DEFAULT NULL
+  COMMENT '当前 API key 下的 PUUID，只用于调接口；null = 待解析' AFTER `PUUID`;
+ALTER TABLE `lol_summoner` ADD COLUMN `API_PUUID` varchar(100) DEFAULT NULL
+  COMMENT '同上。路人靠存下来的 Riot ID 重新解析' AFTER `PUUID`;

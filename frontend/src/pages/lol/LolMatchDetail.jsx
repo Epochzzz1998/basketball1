@@ -151,12 +151,20 @@ const COLUMNS = [
     ),
   },
   {
+    /**
+     * 玩家。**三行各司其职，不让它们挤在一行里换行**：
+     * 昵称+位置 / 游戏 ID / 段位。
+     *
+     * 原来是两行——第二行塞了游戏 ID 和段位两样，中文段位名又长
+     * （「英勇黄铜 I 97LP」），在窄列里会从中间断开，断点还不固定，
+     * 看着像排版坏了。各自独占一行之后每行都短，宽度再窄也只是右侧留白。
+     */
     title: '玩家',
     key: 'who',
-    width: 168,
+    width: 186,
     render: (_, r) => (
-      <div style={{ lineHeight: 1.3 }}>
-        <div>
+      <div style={{ lineHeight: 1.35 }}>
+        <div style={{ whiteSpace: 'nowrap' }}>
           {/* 站内成员显示昵称并标色，路人显示游戏 ID */}
           {r.nickname
             ? <span style={{ fontWeight: 700, color: '#fa541c' }}>{r.nickname}</span>
@@ -167,24 +175,26 @@ const COLUMNS = [
             </span>
           )}
         </div>
-        <div style={{ color: '#ccc', fontSize: 11 }}>
-          {r.nickname ? r.riotId : null}
+        {/* 成员才需要这一行：路人的游戏 ID 已经在第一行了 */}
+        {r.nickname && (
+          <div style={{ color: '#ccc', fontSize: 11, whiteSpace: 'nowrap' }}>{r.riotId}</div>
+        )}
+        <div style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
           {r.tier ? (
             <Tooltip title="当前段位，不是这一场时的段位">
-              <span style={{ color: tierColor(r.tier), fontWeight: 700, marginLeft: r.nickname ? 6 : 0 }}>
+              <span style={{ color: tierColor(r.tier), fontWeight: 700 }}>
                 {tierText(r.tier, r.rankDiv)}
                 {r.leaguePoint != null && ` ${r.leaguePoint}LP`}
               </span>
             </Tooltip>
           ) : r.rankPending === '1' ? (
             /* 「还没查到」和「未定级」是两回事，不能都显示成灰字。
-               路人的段位是后台按最近出现过的顺序慢慢补的，几千个人要十几个小时，
-               这期间显示「未定级」是错的 */
+               路人的段位是后台按最近出现过的顺序慢慢补的，几千个人要十几个小时 */
             <Tooltip title="段位还在后台补，最近的对局会先补上">
-              <span style={{ color: '#ddd', marginLeft: r.nickname ? 6 : 0 }}>段位查询中</span>
+              <span style={{ color: '#ddd' }}>段位查询中</span>
             </Tooltip>
           ) : (
-            <span style={{ color: '#ddd', marginLeft: r.nickname ? 6 : 0 }}>未定级</span>
+            <span style={{ color: '#ddd' }}>未定级</span>
           )}
         </div>
       </div>

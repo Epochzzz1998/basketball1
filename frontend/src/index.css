@@ -351,9 +351,24 @@ body {
   padding-left: 14px;
 }
 
+/* 固定列（fixed: 'left'）必须是**不透明**的底色。
+   它靠 position: sticky 浮在滚动内容之上，一旦带透明度，横向滚动时
+   下面滑过去的单元格就会从它底下透出来，看着像两层页面叠在一起。
+
+   写在这里而不是依赖 antd 自带的那份：下面 .lol-mine 那条用了 !important，
+   会把 antd 给固定列的底色一起盖掉——所以两条要一起看才对。
+   不加 !important 是故意的：这样 antd 的悬停底色仍然能压过它。 */
+.stat-compact .ant-table-cell-fix-left,
+.stat-compact .ant-table-cell-fix-right {
+  background: #fff;
+}
+
 /* 单局详情里，站内成员那几行加个淡底色。
    一场十个人，自己人和路人混在一起，而游戏 ID 和站内昵称常常对不上，
-   光靠读名字认不出来——所以行本身要能一眼分出来。 */
+   光靠读名字认不出来——所以行本身要能一眼分出来。
+
+   **必须用不透明的色值**，不能写 rgba(…, .05)：这一行里也有固定列，
+   半透明会让横向滚动时内容从它底下透出来。#fff6f3 就是那个 5% 橙叠在白底上的效果。 */
 .lol-mine > td {
-  background: rgba(250, 84, 28, .05) !important;
+  background: #fff6f3 !important;
 }

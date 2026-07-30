@@ -45,6 +45,19 @@ public class LolAccount extends Model<LolAccount> implements Serializable {
     private String puuid;
 
     /** oc1 / tw2…；决定 league-v4 打哪个主机 */
+    /**
+     * 当前 API key 下的 PUUID，**只用来调 Riot 接口**。
+     *
+     * <p>PUUID 是按 key 加密的：换一把 key，同一个 Riot ID 解析出来是另一串值，
+     * 拿旧的去调新 key 的接口会 400 "Exception decrypting"。
+     * 所以身份分成两个：{@code PUUID} 是本地规范身份（历史数据、榜单聚合都用它，永不改），
+     * 这一个是「当前这把 key 认识的那个我」，key 换了就重新解析。
+     *
+     * <p>null = 还没解析过，下次要用时现解。
+     */
+    @TableField("API_PUUID")
+    private String apiPuuid;
+
     @TableField("PLATFORM")
     private String platform;
 
@@ -235,5 +248,13 @@ public class LolAccount extends Model<LolAccount> implements Serializable {
 
     public void setRankUpdated(Date rankUpdated) {
         this.rankUpdated = rankUpdated;
+    }
+
+    public String getApiPuuid() {
+        return apiPuuid;
+    }
+
+    public void setApiPuuid(String apiPuuid) {
+        this.apiPuuid = apiPuuid;
     }
 }

@@ -203,22 +203,9 @@ public class LolController {
     @RequiresRole(Role.USER)
     @GetMapping("/board")
     public Object board(Integer days, Integer queueId, Integer minGames) {
+        // 榜单现在按**游戏账号**聚合，每行自带段位——不用再去查「这个人最高的号是哪个」，
+        // 那一步（bestRanks）是按人聚合时代的产物，现在多余了
         List<Map<String, Object>> rows = playerMapper.leaderboard(since(days), q(queueId), min(minGames));
-        // 段位贴在行上，而不是在榜单 SQL 里 join：那条 SQL 已经很长，
-        // 而且段位和这个时间窗、这个队列都无关——它是账号的当前属性，不是这段时间的战绩
-        Map<String, Map<String, Object>> rankByUser = new HashMap<>();
-        for (Map<String, Object> r : playerMapper.bestRanks()) {
-            rankByUser.put(String.valueOf(r.get("userId")), r);
-        }
-        for (Map<String, Object> row : rows) {
-            Map<String, Object> rk = rankByUser.get(String.valueOf(row.get("userId")));
-            if (rk != null) {
-                row.put("tier", rk.get("tier"));
-                row.put("rankDiv", rk.get("rankDiv"));
-                row.put("leaguePoint", rk.get("leaguePoint"));
-                row.put("rankScore", rk.get("score"));
-            }
-        }
         Map<String, Object> data = new HashMap<>();
         data.put("rows", rows);
         data.put("summary", playerMapper.summary(since(days)));
