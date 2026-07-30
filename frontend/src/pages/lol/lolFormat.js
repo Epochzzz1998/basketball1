@@ -27,10 +27,17 @@ export const kdaText = (p) => `${p.kills}/${p.deaths}/${p.assists}`
 /** 胜率百分比。样本量小的时候不摆小数——那是假精度 */
 export const pct = (win, total) => (total ? `${Math.round((win / total) * 100)}%` : '—')
 
-/** 大数字缩成 `12.5k`。表格里几列并排时，五位数会把列宽撑得很难看 */
+/**
+ * 大数字缩成 `12.5k`。
+ *
+ * **阈值取 1000 而不是 10000**：一栏里 `12.5k` 和 `5461` 并排时，
+ * 两种记法混着看很乱——眼睛要先判断这是哪一种，再比大小。
+ * 统一之后 `12.5k / 5.5k / 1.1k` 一列对齐，量级一眼可比。
+ */
 export const k = (n) => {
   const v = Number(n || 0)
-  return v >= 10000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v))
+  if (v >= 1000) return `${(v / 1000).toFixed(1)}k`
+  return String(Math.round(v))
 }
 
 /** 小数比例 → 百分比。null 显示「—」而不是 0%，那是两回事 */

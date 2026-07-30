@@ -23,17 +23,29 @@ android {
         applicationId "com.dreameverything.epoch"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        // 版本号按打包时间生成，不手工维护。
-        //
-        // versionCode 用 yyyyMMddHH 转成整数（如 2026073014）：单调递增、
-        // 人眼可读、且远在安卓的 2100000000 上限之内。安卓硬拦的是**降级**安装，
+        // 版本号按打包时间生成，不手工维护。安卓硬拦的是**降级**安装；
         // 固定成 1 虽然不至于装不上，但会失去「这人装的是哪一版」的判断能力，
         // 而且部分厂商 ROM 的安装器确实会拒绝同版本号覆盖。
         //
-        // 小时粒度：同一小时内重复打包会拿到相同的号。开发期用 adb 装不受影响，
-        // 分发是按天的，够用。
-        versionCode new Date().format('yyyyMMddHH').toInteger()
-        versionName new Date().format('yyyy.MM.dd')
+        // versionCode 用「距 2020-01-01 的分钟数」。
+        //
+        // 一开始用的是 yyyyMMddHH（如 2026073014），可读性好，但**同一小时内
+        // 重复打包会撞号**——实际踩到了：一小时内出两个包，文件名一样、后一个把前一个覆盖掉，
+        // 看着像没重新打。想加到分钟就超了：yyyyMMddHHmm 有 12 位，
+        // 而安卓的上限是 2100000000（10 位）。
+        //
+        // 换成分钟计数就同时满足两头：分钟粒度、且到 6000 年才会溢出。
+        // 代价是数字本身不可读——所以可读的那份放进 versionName。
+        // 1577836800000 = 2020-01-01T00:00:00Z。用常量而不是构造 Date：
+        // Groovy 里那个废弃的 new Date(year, month, day) 在这个 Gradle 版本下返回 null。
+        //
+        // **必须写成 versionCode(...) 的显式调用形式**。写成
+        // `versionCode (expr).intValue()` 会被解析成「先调 versionCode(expr)、
+        // 再对它的返回值调 .intValue()」，而那个返回值是 null，报 "Value is null"——
+        // 错误信息完全指不到真正的原因。原来那行 `versionCode new Date().format(..).toInteger()`
+        // 没事，是因为它不以括号开头，没有这个歧义。
+        versionCode(((System.currentTimeMillis() - 1577836800000L) / 60000L).intValue())
+        versionName new Date().format('yyyy.MM.dd-HHmm')
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

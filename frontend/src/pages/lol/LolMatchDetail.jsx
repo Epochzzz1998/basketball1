@@ -282,63 +282,146 @@ const COLUMNS = [
  *
  * 这些放不进主表——横着比没有意义（谁的物理伤害更高说明不了什么），
  * 但看单个人时很有用。全是原始 JSON 里现成的，一分钱没多花。
+ *
+ * ## 为什么伤害构成用条形图而不是三个数字
+ *
+ * 物理/魔法/真实本质上是**一个比例**，而比例用数字表达要读者自己心算。
+ * 一条堆叠条一眼就能看出「这是个纯 AD」还是「混伤」——
+ * 而那正是看这一栏唯一想知道的事。
+ *
+ * ## 为什么零值要压暗
+ *
+ * 这里十几个指标里通常大半是 0（没推塔、没拿龙、不是辅助所以没治疗）。
+ * 全用一样的颜色的话，眼睛得逐行扫过去才能找到有值的那几个。
+ * 压暗之后，**非零的自己会跳出来**，这一栏才有「一眼看完」的可能。
  */
 function PlayerExtra({ p }) {
   const multi = [
-    p.pentaKills > 0 && `五杀 ${p.pentaKills}`,
-    p.quadraKills > 0 && `四杀 ${p.quadraKills}`,
-    p.tripleKills > 0 && `三杀 ${p.tripleKills}`,
-    p.doubleKills > 0 && `双杀 ${p.doubleKills}`,
+    p.pentaKills > 0 && `五杀 ×${p.pentaKills}`,
+    p.quadraKills > 0 && `四杀 ×${p.quadraKills}`,
+    p.tripleKills > 0 && `三杀 ×${p.tripleKills}`,
+    p.doubleKills > 0 && `双杀 ×${p.doubleKills}`,
   ].filter(Boolean)
 
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 26px', padding: '4px 2px', fontSize: 12 }}>
-      <Group title="伤害构成" items={[
-        ['物理', k(p.dmgPhysical)],
-        ['魔法', k(p.dmgMagic)],
-        ['真实', k(p.dmgTrue)],
-        ['对防御塔', k(p.dmgTurret)],
-        ['对野怪/目标', k(p.dmgObjective)],
-      ]} />
-      <Group title="对线期" items={[
-        ['前 10 分钟补刀', p.cs10 || 0],
-        ['等级领先对位', p.levelLead || 0],
-        ['单杀', p.soloKills || 0],
-        ['一血', p.firstBlood === '1' ? '是' : '否'],
-      ]} />
-      <Group title="视野" items={[
-        ['插眼', p.wardsPlaced || 0],
-        ['排眼', p.wardsKilled || 0],
-        ['控制守卫', p.controlWards || 0],
-      ]} />
-      <Group title="目标参与" items={[
-        ['推塔', p.turretTakedowns || 0],
-        ['镀层', p.turretPlates || 0],
-        ['小龙', p.dragonTakedowns || 0],
-        ['大龙', p.baronTakedowns || 0],
-      ]} />
-      <Group title="其它" items={[
-        ['最高连杀', p.killingSpree || 0],
-        ['控制敌人次数', p.immobilizations || 0],
-        ['治疗队友', k(p.healTeam)],
-        ['护盾队友', k(p.shieldTeam)],
-        ['阵亡时长', mmss(p.deadTime)],
-        ...(multi.length ? [['多杀', multi.join('、')]] : []),
-      ]} />
+    <div style={{
+      display: 'grid', gap: 10, padding: '2px 0',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+    }}>
+      <Panel title="伤害构成" accent="#e07b39">
+        <DamageBar p={p} />
+        <Row label="对防御塔" value={p.dmgTurret} fmt={k} />
+        <Row label="对野怪 / 目标" value={p.dmgObjective} fmt={k} />
+      </Panel>
+
+      <Panel title="对线期" accent="#4a8fe0">
+        <Row label="前 10 分钟补刀" value={p.cs10} />
+        <Row label="等级领先对位" value={p.levelLead} signed />
+        <Row label="单杀" value={p.soloKills} />
+        <Row label="一血" value={p.firstBlood === '1' ? 1 : 0} fmt={(v) => (v ? '是' : '否')} />
+      </Panel>
+
+      <Panel title="视野" accent="#7c5cd6">
+        <Row label="插眼" value={p.wardsPlaced} />
+        <Row label="排眼" value={p.wardsKilled} />
+        <Row label="控制守卫" value={p.controlWards} />
+      </Panel>
+
+      <Panel title="目标参与" accent="#d4a017">
+        <Row label="推塔" value={p.turretTakedowns} />
+        <Row label="镀层" value={p.turretPlates} />
+        <Row label="小龙" value={p.dragonTakedowns} />
+        <Row label="大龙" value={p.baronTakedowns} />
+      </Panel>
+
+      <Panel title="战斗 / 生存" accent="#d8443c">
+        <Row label="最高连杀" value={p.killingSpree} />
+        <Row label="控制敌人次数" value={p.immobilizations} />
+        <Row label="治疗队友" value={p.healTeam} fmt={k} />
+        <Row label="护盾队友" value={p.shieldTeam} fmt={k} />
+        {/* 阵亡时长永远非零，用固定色；它也是这一栏里唯一"越小越好"的数 */}
+        <Row label="阵亡时长" value={p.deadTime} fmt={mmss} always />
+        {multi.length > 0 && (
+          <div style={{ marginTop: 4, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            {multi.map((m) => <Tag key={m} color="volcano" style={{ margin: 0, fontSize: 11 }}>{m}</Tag>)}
+          </div>
+        )}
+      </Panel>
     </div>
   )
 }
 
-function Group({ title, items }) {
+/**
+ * 伤害构成的堆叠条。
+ *
+ * 分母用三段之和而不是 `dmgChamp`：后者在个别对局里会和三段的和对不上
+ * （Riot 那边的口径差异），除出来会超过 100%，条就画飞了。
+ */
+function DamageBar({ p }) {
+  const parts = [
+    { key: '物理', v: p.dmgPhysical || 0, color: '#e07b39' },
+    { key: '魔法', v: p.dmgMagic || 0, color: '#4a8fe0' },
+    { key: '真实', v: p.dmgTrue || 0, color: '#9aa4ae' },
+  ]
+  const total = parts.reduce((a, b) => a + b.v, 0)
+  if (!total) {
+    return <div style={{ color: '#ccc', fontSize: 11, padding: '2px 0 6px' }}>没有对英雄伤害</div>
+  }
   return (
-    <div>
-      <div style={{ color: '#999', fontWeight: 700, marginBottom: 2 }}>{title}</div>
-      {items.map(([label, value]) => (
-        <div key={label} style={{ display: 'flex', gap: 10, justifyContent: 'space-between', minWidth: 132 }}>
-          <span style={{ color: '#aaa' }}>{label}</span>
-          <span style={{ fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+    <div style={{ marginBottom: 6 }}>
+      <div style={{ display: 'flex', height: 8, borderRadius: 4, overflow: 'hidden', marginBottom: 5 }}>
+        {parts.map((x) => (
+          x.v > 0 && <div key={x.key} style={{ width: `${(x.v / total) * 100}%`, background: x.color }} />
+        ))}
+      </div>
+      {parts.map((x) => (
+        <div key={x.key} style={{ display: 'flex', alignItems: 'center', gap: 6, lineHeight: 1.7 }}>
+          <span style={{ width: 7, height: 7, borderRadius: 2, background: x.color, flexShrink: 0, opacity: x.v ? 1 : .25 }} />
+          <span style={{ color: x.v ? '#666' : '#ccc' }}>{x.key}</span>
+          <span style={{ marginLeft: 'auto', fontVariantNumeric: 'tabular-nums', color: x.v ? '#333' : '#ccc' }}>
+            {k(x.v)}
+          </span>
+          <span style={{ width: 34, textAlign: 'right', color: '#bbb', fontVariantNumeric: 'tabular-nums' }}>
+            {Math.round((x.v / total) * 100)}%
+          </span>
         </div>
       ))}
+    </div>
+  )
+}
+
+/** 一组指标。左边一条彩色竖线当锚点，比给每组配个图标更安静 */
+function Panel({ title, accent, children }) {
+  return (
+    <div style={{
+      background: '#fafafa', borderRadius: 8, padding: '8px 10px',
+      borderLeft: `3px solid ${accent}`,
+    }}>
+      <div style={{ fontWeight: 700, color: '#555', marginBottom: 4, fontSize: 12 }}>{title}</div>
+      {children}
+    </div>
+  )
+}
+
+/**
+ * 一行「名称 —— 值」。
+ *
+ * `value` 为 0 时整行压暗（见 PlayerExtra 的说明）；`always` 用于那些
+ * 「0 也有意义」的项（比如阵亡时长）。
+ */
+function Row({ label, value, fmt, signed, always }) {
+  const zero = !always && !value
+  const shown = fmt ? fmt(value) : (signed && value > 0 ? `+${value}` : String(value ?? 0))
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, lineHeight: 1.8 }}>
+      <span style={{ color: zero ? '#ccc' : '#888' }}>{label}</span>
+      <span style={{
+        color: zero ? '#ccc' : '#333',
+        fontWeight: zero ? 400 : 600,
+        fontVariantNumeric: 'tabular-nums',
+      }}>
+        {shown}
+      </span>
     </div>
   )
 }
