@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { message } from 'antd'
 import { getToken } from '../auth/token'
-import { API_BASE, absolutizeData } from '../config/origin'
+import { API_BASE, absolutizeData, relativizeData } from '../config/origin'
 
 /**
  * 全局唯一的 axios 实例——所有接口请求都走它。
@@ -26,6 +26,12 @@ const http = axios.create({
  *
  * 后端 TokenAuthFilter 的顺序是 Cookie 优先、令牌兜底，所以万一两者同时存在
  * （比如在浏览器里手工塞过一个），行为仍然是可预期的。
+ *
+ * 顺带把请求里的上传地址还原成根相对（`relativizeData`）。这一步和响应拦截器的
+ * `absolutizeData` 是**一对**：出去的补全成绝对地址（不然套壳里图片不显示），
+ * 回去的还原成相对（不然后端把它当外链拒掉）。少了任何一半，
+ * "先上传拿地址、再把地址交回后端"的流程就会坏——而且坏得毫无提示，
+ * 后端只会说"内容不能为空"。网页端两个函数都是空操作。
  */
 http.interceptors.request.use((config) => {
   const t = getToken()
@@ -33,6 +39,8 @@ http.interceptors.request.use((config) => {
     config.headers = config.headers || {}
     config.headers.Authorization = `Bearer ${t}`
   }
+  if (config.data !== undefined) config.data = relativizeData(config.data)
+  if (config.params !== undefined) config.params = relativizeData(config.params)
   return config
 })
 

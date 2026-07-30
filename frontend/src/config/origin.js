@@ -105,6 +105,65 @@ export const absolutizeData = (v) => {
 }
 
 /**
+ * `absolutizeData` 的反向操作：把请求里的站内上传地址还原成根相对。挂在 axios 的请求拦截器上。
+ *
+ * ## 为什么必须有这一步
+ *
+ * 补全过的地址会**原路返回给后端**，而后端只认根相对：
+ *
+ * ```
+ * 上传 → 后端返回 /picImg/pm-x/a.png
+ *      → 响应拦截器补成 https://站点/picImg/pm-x/a.png（不补图就不显示）
+ *      → 存进待发送附件，随 /pm/send 发回去
+ *      → 后端 isLocalUploadUrl() 判 startsWith("/picImg/") → 假
+ *      → 附件被当成外链整个丢掉 → "内容不能为空"
+ * ```
+ *
+ * 网页端 `API_BASE` 是空串、补全本身是空操作，所以这个坑**只在 App 里踩得到**，
+ * 而且报的错完全指错方向（说你没填内容，其实是附件被拒了）。
+ *
+ * 涉及的不止私信：发帖插图、评论附件、群聊附件、头像、专题背景图、球员照片，
+ * 凡是"先上传拿地址、再把地址交回后端"的流程都是同一个形状。所以修在请求出口，
+ * 和响应出口的 `absolutizeData` 正好对称，一次覆盖全部、包括以后新写的。
+ *
+ * ## 和 absolutizeData 不是严格镜像
+ *
+ * 补全时只认**整个值就是** `/picImg/...` 的字符串；还原时要替换**串里任何位置**的出现。
+ * 因为帖子正文是一段 HTML，地址嵌在 `<img src="…">` 里面——
+ * 在 App 里插的图，编辑器拿到的就是补全后的绝对地址，存库时必须还原回来，
+ * 否则库里会混进一批带域名的地址（换域名就全裂）。
+ */
+export const relativizeData = (v) => {
+  if (!API_BASE) return v
+  const abs = API_BASE + UPLOAD_PREFIX
+  if (typeof v === 'string') {
+    return v.includes(abs) ? v.split(abs).join(UPLOAD_PREFIX) : v
+  }
+  // 本站的 POST 大多是表单体（URLSearchParams），值就地改写
+  if (typeof URLSearchParams !== 'undefined' && v instanceof URLSearchParams) {
+    for (const k of [...v.keys()]) {
+      const cur = v.getAll(k)
+      const next = cur.map((s) => relativizeData(s))
+      if (next.some((s, i) => s !== cur[i])) {
+        v.delete(k)
+        next.forEach((s) => v.append(k, s))
+      }
+    }
+    return v
+  }
+  // FormData 里装的是文件本身，没有地址可还原；碰它反而有把 File 变成字符串的风险
+  if (typeof FormData !== 'undefined' && v instanceof FormData) return v
+  if (Array.isArray(v)) return v.map(relativizeData)
+  if (v && typeof v === 'object') {
+    // 不就地改写：请求体是调用方的对象，改了它等于偷偷动别人的 state
+    const out = {}
+    for (const k of Object.keys(v)) out[k] = relativizeData(v[k])
+    return out
+  }
+  return v
+}
+
+/**
  * 把一段 HTML 里的根相对地址整体补全。
  *
  * 用在帖子正文上：正文是用户发的富文本，里面的 `<img src="/picImg/...">`
