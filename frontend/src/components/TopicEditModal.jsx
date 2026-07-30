@@ -134,11 +134,15 @@ export default function TopicEditModal({ open, onClose, onSaved, topic, categori
       destroyOnClose
     >
       <Form form={form} layout="vertical" style={{ marginTop: 8 }}>
+        {/* 上限和后端 TopicController 的 NAME_MAX / DESC_MAX 一致。
+            原来是 40 / 200，写得下但显示不下——专题名要出现在卡片、横幅、侧栏、
+            搜索结果、面包屑里，那几处宽度固定，超了就是被省略号截掉。
+            `showCount` 让人在打字时就看见还剩几个字，而不是点了保存才被后端拒绝 */}
         <Form.Item name="name" label="专题名称" rules={[{ required: true, message: '请输入名称' }]}>
-          <Input placeholder="如：读书交流区、资源分享区" maxLength={40} showCount />
+          <Input placeholder="如：读书交流区" maxLength={15} showCount />
         </Form.Item>
         <Form.Item name="description" label="简介">
-          <Input.TextArea placeholder="一句话介绍这个专题" maxLength={200} autoSize={{ minRows: 2, maxRows: 4 }} />
+          <Input.TextArea placeholder="一句话介绍这个专题" maxLength={30} showCount autoSize={{ minRows: 2, maxRows: 4 }} />
         </Form.Item>
         {/* 背景图：专题页顶部整块铺它，百家说的卡片顶部也铺一条。
             要 topicId 才能上传，所以只在编辑时出现（和帖子类别同理）。

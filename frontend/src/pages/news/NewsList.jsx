@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Avatar, Badge, Button, Card, Col, Empty, Input, Pagination, Row, Segmented, Tag } from 'antd'
+import { Avatar, Badge, Button, Card, Col, Empty, Input, Pagination, Row, Segmented, Tag, Tooltip } from 'antd'
 import {
   ClockCircleOutlined, CrownOutlined, EditOutlined, EyeInvisibleOutlined, FireOutlined, LikeOutlined, LockOutlined,
   MessageOutlined, PlusOutlined, RightOutlined, SearchOutlined, SettingOutlined, StarFilled,
@@ -434,34 +434,44 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied, n
               {isTopic ? (topic.description || '按专题组织的讨论区') : official ? '权威发布 · 人人可评' : '见你所见，想你所想'}
             </div>
           </div>
-          {/* 订阅（已加入的成员/管理者可见）：入侧栏"订阅的专题"折叠区 */}
-          {isTopic && topic.joined && (
-            <Button
-              /* 订阅是个开关：没订=空心玻璃，订了=实心白底品牌色字，形状变化比文字变化显眼 */
-              className={`banner-btn${topic.subscribed ? ' banner-btn-on' : ''}`}
-              size={isMobile ? 'small' : 'middle'}
-              icon={topic.subscribed ? <StarFilled /> : <StarOutlined />}
-              onClick={async () => {
-                try {
-                  await topicApi.subscribe(topic.topicId)
-                  window.dispatchEvent(new Event('subs-changed'))
-                  onApplied?.()
-                } catch { /* 拦截器已提示 */ }
-              }}
-              style={{ flexShrink: 0 }}
-            >
-              {topic.subscribed ? '已订阅' : '订阅'}
-            </Button>
-          )}
-          {isTopic && (topic.canManage ? (
-            <Badge count={topic.pendingCount || 0} size="small" offset={[-4, 2]}>
-              <Button className="banner-btn" size={isMobile ? 'small' : 'middle'} icon={<SettingOutlined />} onClick={() => setMemberOpen(true)} style={{ flexShrink: 0 }}>
-                成员管理
-              </Button>
-            </Badge>
-          ) : (
+          {/* 订阅和成员管理收成图标，和标题旁的编辑图标同一套：横幅上原来并排两个
+              带文字的玻璃按钮，占掉一整块宽度，而它们都是**偶尔点一次**的动作。
+              状态仍然分得出来——订阅了是实心星星加品牌色，没订是空心白色。
+              申请加入（TopicApplyButton）保留按钮样子：那是**没进来的人唯一的入口**，
+              缩成图标就找不到了 */}
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 14, flexShrink: 0, marginTop: 2 }}>
+            {isTopic && topic.joined && (
+              <Tooltip title={topic.subscribed ? '已订阅，点一下取消' : '订阅后进侧栏「订阅的专题」'}>
+                <span
+                  onClick={async () => {
+                    try {
+                      await topicApi.subscribe(topic.topicId)
+                      window.dispatchEvent(new Event('subs-changed'))
+                      onApplied?.()
+                    } catch { /* 拦截器已提示 */ }
+                  }}
+                  style={{ cursor: 'pointer', fontSize: 17, lineHeight: 1, color: topic.subscribed ? '#ffd591' : 'rgba(255,255,255,.85)' }}
+                >
+                  {topic.subscribed ? <StarFilled /> : <StarOutlined />}
+                </span>
+              </Tooltip>
+            )}
+            {isTopic && topic.canManage && (
+              <Tooltip title="成员管理">
+                <Badge count={topic.pendingCount || 0} size="small" offset={[-2, 2]}>
+                  <span
+                    onClick={() => setMemberOpen(true)}
+                    style={{ cursor: 'pointer', fontSize: 17, lineHeight: 1, color: 'rgba(255,255,255,.85)' }}
+                  >
+                    <SettingOutlined />
+                  </span>
+                </Badge>
+              </Tooltip>
+            )}
+          </span>
+          {isTopic && !topic.canManage && (
             <TopicApplyButton topic={topic} onApplied={onApplied} banner />
-          ))}
+          )}
         </div>
       </div>
 

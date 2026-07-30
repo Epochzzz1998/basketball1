@@ -37,6 +37,36 @@ public class TopicController {
     private static final String ON = "1";
     private static final String OFF = "0";
 
+    /**
+     * 专题名和简介的长度上限。
+     *
+     * <p>限的是**字数不是字节**：`codePointCount` 和 MySQL 的 `CHAR_LENGTH` 一个口径，
+     * 而 `String.length()` 数的是 UTF-16 码元——那样一个 emoji 顶两三个字，
+     * 站里已经有名字叫 `🧗‍♀️` 的专题（4 个码点、5 个码元），按码元算会莫名其妙地更容易超。
+     *
+     * <p>为什么要限：专题名在卡片、横幅、侧栏、搜索结果、面包屑里都要显示，
+     * 而那几处的宽度是固定的。太长的名字要么被省略号截掉（等于没显示全），
+     * 要么把同一行的其它东西挤走。之前有三个课程专题叫
+     * `FIT5145 foundations of data science`（35 个字），在卡片上只看得到前半截。
+     */
+    private static final int NAME_MAX = 15;
+    private static final int DESC_MAX = 30;
+    private static final String NAME_TOO_LONG = "专题名称最多 " + NAME_MAX + " 个字";
+    private static final String DESC_TOO_LONG = "简介最多 " + DESC_MAX + " 个字";
+
+    private static boolean tooLongName(String s) {
+        return overLimit(s, NAME_MAX);
+    }
+
+    private static boolean tooLongDesc(String s) {
+        return overLimit(s, DESC_MAX);
+    }
+
+    private static boolean overLimit(String s, int max) {
+        String v = StringUtils.trimToEmpty(s);
+        return v.codePointCount(0, v.length()) > max;
+    }
+
     @Autowired
     private ForumTopicMapper topicMapper;
     @Autowired
@@ -450,6 +480,12 @@ public class TopicController {
         if (StringUtils.isBlank(name)) {
             return new Result<>(1, "专题名称不能为空", null);
         }
+        if (tooLongName(name)) {
+            return new Result<>(1, NAME_TOO_LONG, null);
+        }
+        if (tooLongDesc(description)) {
+            return new Result<>(1, DESC_TOO_LONG, null);
+        }
         DreamUser me = SecUtil.getLoginUserToSession(request);
         boolean isSuper = Role.fromUserRole(me.getUserRole()) == Role.SUPER_MANAGER;
         if (isSuper) {
@@ -508,9 +544,15 @@ public class TopicController {
             return new Result<>(1, "无权管理该专题", null);
         }
         if (StringUtils.isNotBlank(name)) {
+            if (tooLongName(name)) {
+                return new Result<>(1, NAME_TOO_LONG, null);
+            }
             t.setName(name.trim());
         }
         if (description != null) {
+            if (tooLongDesc(description)) {
+                return new Result<>(1, DESC_TOO_LONG, null);
+            }
             t.setDescription(description.trim());
         }
         if (StringUtils.isNotBlank(visibility)) {
