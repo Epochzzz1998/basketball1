@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Card, Empty, Segmented, Select, Space, Spin, Table, Tag } from 'antd'
 import { DAYS_OPTIONS, QUEUE_OPTIONS, lolApi } from '../../api/lol'
 import useIsMobile from '../../hooks/useIsMobile'
 import useUrlState from '../../hooks/useUrlState'
 import LolUserAvatar from './LolUserAvatar'
 import LolPlayerCard from './LolPlayerCard'
-import { pct, rateColor } from './lolFormat'
+import { pct, rateColor, tierColor, tierText } from './lolFormat'
 
 /**
  * 榜单：个人榜 + 开黑组合榜。
@@ -29,6 +29,9 @@ export default function LolBoard() {
   const [duo, setDuo] = useState(null)
   // 点开的那个人。同战绩流的详情弹层：局部 state，不走路由
   const [openUser, setOpenUser] = useState(null)
+  // 排序在前端做：榜上最多二十来行，为它给后端加一套排序参数不划算，
+  // 而且换排序不该再走一趟网络
+  const [sortBy, setSortBy] = useUrlState('sort', 'rate')
 
   useEffect(() => {
     let alive = true
@@ -44,6 +47,19 @@ export default function LolBoard() {
   const total = Number(summary?.totalMatches || 0)
   const premade = Number(summary?.premadeMatches || 0)
 
+  const sorted = useMemo(() => {
+    const rows = [...(board?.rows || [])]
+    const by = {
+      // 胜率相同时场次多的在前：五战四胜比两战两胜更有说服力
+      rate: (a, b) => (b.wins / b.games) - (a.wins / a.games) || b.games - a.games,
+      games: (a, b) => b.games - a.games,
+      kda: (a, b) => (b.avgKda || 0) - (a.avgKda || 0),
+      // rankScore 由后端算好（大段×10000 + 小段×100 + LP）；未定级是 -10000，自然沉底
+      rank: (a, b) => (b.rankScore ?? -99999) - (a.rankScore ?? -99999),
+    }
+    return rows.sort(by[sortBy] || by.rate)
+  }, [board, sortBy])
+
   return (
     <>
       <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -53,6 +69,17 @@ export default function LolBoard() {
           onChange={setQueueId}
           options={QUEUE_OPTIONS}
           style={{ width: 132 }}
+        />
+        <Select
+          value={sortBy}
+          onChange={setSortBy}
+          style={{ width: 118 }}
+          options={[
+            { value: 'rate', label: '按胜率' },
+            { value: 'rank', label: '按段位' },
+            { value: 'games', label: '按场次' },
+            { value: 'kda', label: '按 KDA' },
+          ]}
         />
       </div>
 
@@ -74,7 +101,7 @@ export default function LolBoard() {
       <Card
         title="个人榜"
         size="small"
-        extra={<span style={{ color: '#999', fontSize: 12 }}>满 {board?.minGames ?? 5} 场才上榜</span>}
+        extra={<span style={{ color: '#999', fontSize: 12 }}>点昵称看资料卡 · 满 {board?.minGames ?? 5} 场才上榜</span>}
         style={{ borderRadius: 14, marginBottom: 14 }}
         styles={{ body: { padding: isMobile ? 0 : 8 } }}
       >
@@ -87,7 +114,7 @@ export default function LolBoard() {
             rowKey="userId"
             pagination={false}
             scroll={{ x: 'max-content' }}
-            dataSource={board.rows || []}
+            dataSource={sorted}
             locale={{ emptyText: <Empty description={`还没有人满 ${board?.minGames ?? 5} 场`} image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
             columns={personColumns(isMobile, setOpenUser)}
           />
@@ -182,6 +209,21 @@ function personColumns(isMobile, onOpen) {
           <LolUserAvatar name={r.nickname} src={r.avatar} size={24} />
           <span style={{ fontWeight: 600, color: '#fa541c' }}>{r.nickname || '（未知）'}</span>
         </span>
+      ),
+    },
+    {
+      title: '段位',
+      key: 'tier',
+      width: 116,
+      render: (_, r) => (
+        r.tier
+          ? (
+            <span style={{ fontSize: 12, color: tierColor(r.tier), fontWeight: 700 }}>
+              {tierText(r.tier, r.rankDiv)}
+              {r.leaguePoint != null && <span style={{ color: '#bbb', fontWeight: 400, marginLeft: 4 }}>{r.leaguePoint}LP</span>}
+            </span>
+          )
+          : <span style={{ color: '#ccc', fontSize: 12 }}>未定级</span>
       ),
     },
     { title: '场次', dataIndex: 'games', width: 62, align: 'right' },

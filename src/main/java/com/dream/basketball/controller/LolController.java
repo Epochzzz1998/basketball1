@@ -203,8 +203,24 @@ public class LolController {
     @RequiresRole(Role.USER)
     @GetMapping("/board")
     public Object board(Integer days, Integer queueId, Integer minGames) {
+        List<Map<String, Object>> rows = playerMapper.leaderboard(since(days), q(queueId), min(minGames));
+        // 段位贴在行上，而不是在榜单 SQL 里 join：那条 SQL 已经很长，
+        // 而且段位和这个时间窗、这个队列都无关——它是账号的当前属性，不是这段时间的战绩
+        Map<String, Map<String, Object>> rankByUser = new HashMap<>();
+        for (Map<String, Object> r : playerMapper.bestRanks()) {
+            rankByUser.put(String.valueOf(r.get("userId")), r);
+        }
+        for (Map<String, Object> row : rows) {
+            Map<String, Object> rk = rankByUser.get(String.valueOf(row.get("userId")));
+            if (rk != null) {
+                row.put("tier", rk.get("tier"));
+                row.put("rankDiv", rk.get("rankDiv"));
+                row.put("leaguePoint", rk.get("leaguePoint"));
+                row.put("rankScore", rk.get("score"));
+            }
+        }
         Map<String, Object> data = new HashMap<>();
-        data.put("rows", playerMapper.leaderboard(since(days), q(queueId), min(minGames)));
+        data.put("rows", rows);
         data.put("summary", playerMapper.summary(since(days)));
         data.put("minGames", min(minGames));
         return new Result<>(0, "成功", data);
@@ -247,22 +263,48 @@ public class LolController {
      *
      * <p><b>不带最低场次门槛</b>——门槛是为了「别让 1 场 100% 的人霸榜」，
      * 而这里是点进来看具体某个人的，只打过两把也该如实显示。
+     *
+     * @param puuids 逗号分隔，只统计这几个绑定账号；空串 = 全部。
+     *               有小号的人在资料卡上可以勾选，「大号什么水平」和「所有号加起来」
+     *               是两个不同的问题，都得答得出来
      */
     @RequiresRole(Role.USER)
     @GetMapping("/player")
-    public Object player(String userId, Integer days) {
+    public Object player(String userId, Integer days, String puuids) {
         if (StringUtils.isBlank(userId)) {
             return new Result<>(1, "缺少用户", null);
         }
         Date from = since(days);
+        // 空串 = 看这个人的全部号。前端至少会勾一个，但接口这一层不该假设它一定守规矩
+        String pu = StringUtils.defaultString(puuids).trim();
         Map<String, Object> data = new HashMap<>();
-        data.put("summary", playerMapper.playerSummary(userId, from));
-        data.put("champions", playerMapper.championPool(userId, from));
-        data.put("positions", playerMapper.positionMix(userId, from));
-        data.put("mates", playerMapper.mates(userId, from));
-        // 绑定的号（含段位）。一个人可能有小号，段位按各号分别显示——合并没有意义
-        data.put("accounts", accountMapper.selectList(
-                new QueryWrapper<LolAccount>().eq("USER_ID", userId).orderByAsc("BIND_TIME")));
+        data.put("summary", playerMapper.playerSummary(userId, from, pu));
+        data.put("champions", playerMapper.championPool(userId, from, pu));
+        data.put("positions", playerMapper.positionMix(userId, from, pu));
+        data.put("mates", playerMapper.mates(userId, from, pu));
+        data.put("matches", playerMapper.playerMatches(userId, from, pu));
+        // 绑定的号（含段位）。一个人可能有小号，段位按各号分别显示——合并没有意义。
+        // 顺带附上每个号最后一次打的时间：资料卡要靠它决定默认勾哪个号
+        List<LolAccount> accts = accountMapper.selectList(
+                new QueryWrapper<LolAccount>().eq("USER_ID", userId).orderByAsc("BIND_TIME"));
+        Map<String, Object> lastPlayed = new HashMap<>();
+        for (Map<String, Object> r : playerMapper.lastPlayedByAccount(userId)) {
+            lastPlayed.put(String.valueOf(r.get("puuid")), r.get("lastPlayed"));
+        }
+        List<Map<String, Object>> acctOut = new ArrayList<>();
+        for (LolAccount a : accts) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("accountId", a.getAccountId());
+            m.put("puuid", a.getPuuid());
+            m.put("gameName", a.getGameName());
+            m.put("tagLine", a.getTagLine());
+            m.put("tier", a.getTier());
+            m.put("rankDiv", a.getRankDiv());
+            m.put("leaguePoint", a.getLeaguePoint());
+            m.put("lastPlayed", lastPlayed.get(a.getPuuid()));
+            acctOut.add(m);
+        }
+        data.put("accounts", acctOut);
         DreamUser u = userMapper.selectById(userId);
         if (u != null) {
             Map<String, Object> who = new HashMap<>();

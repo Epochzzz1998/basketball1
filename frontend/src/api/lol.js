@@ -34,7 +34,7 @@ export const lolApi = {
   /** 搜索框的候选：站内昵称 + 已绑定的游戏 ID */
   searchOptions: () => http.get('/lol/searchOptions'),
   /** 一个人的资料卡：汇总 + 英雄池 + 位置 + 队友 + 绑定的号与段位，一次给全 */
-  player: (userId, days) => http.get('/lol/player', { params: { userId, days } }),
+  player: (userId, days, puuids) => http.get('/lol/player', { params: { userId, days, puuids } }),
   /** 个人榜 + 概览。queueId 传 0 或省略 = 全部队列 */
   board: (params) => http.get('/lol/board', { params }),
   /** 开黑组合榜 */

@@ -23,6 +23,12 @@ import java.util.Map;
  *       几百场规模的样本里任何「率」都不稳，没有门槛的榜第一天就会失去可信度。</li>
  * </ol>
  *
+ * <h2>「只看这几个号」用逗号串 + FIND_IN_SET</h2>
+ *
+ * 资料卡允许勾选要看哪几个绑定账号。注解式 SQL 传集合要写 {@code <script>} + {@code foreach}，
+ * 为一个可选过滤引入整段模板不划算。PUUID 的字符集是 base64url（字母、数字、`-`、`_`），
+ * **不含逗号**，所以拼成逗号串再 {@code FIND_IN_SET} 是安全的；空串表示不筛。
+ *
  * <h2>queueId 用 0 代表「全部」而不是 null</h2>
  *
  * 注解式 SQL 里判 null 要写成 {@code <script>} 动态 SQL，为一个可选条件引入整段模板
@@ -178,8 +184,10 @@ public interface LolMatchPlayerMapper extends BaseMapper<LolMatchPlayer> {
             + "where p.USER_ID = #{userId} and p.EARLY_SURR = '0' "
             + "  and (m.END_RESULT is null or m.END_RESULT = 'GameComplete') "
             + "  and m.GAME_START >= #{since} "
+            + "  and (#{puuids} = '' or find_in_set(p.PUUID, #{puuids})) "
             + "group by p.CHAMPION_NAME order by games desc, wins desc limit 12")
-    List<Map<String, Object>> championPool(@Param("userId") String userId, @Param("since") Date since);
+    List<Map<String, Object>> championPool(@Param("userId") String userId, @Param("since") Date since,
+                                           @Param("puuids") String puuids);
 
     /** 一个人的位置分布。空的 TEAM_POSITION 归到「其它」，大乱斗没有分路 */
     @Select("select ifnull(nullif(p.TEAM_POSITION, ''), 'OTHER') pos, count(*) games, "
@@ -188,8 +196,10 @@ public interface LolMatchPlayerMapper extends BaseMapper<LolMatchPlayer> {
             + "where p.USER_ID = #{userId} and p.EARLY_SURR = '0' "
             + "  and (m.END_RESULT is null or m.END_RESULT = 'GameComplete') "
             + "  and m.GAME_START >= #{since} "
+            + "  and (#{puuids} = '' or find_in_set(p.PUUID, #{puuids})) "
             + "group by pos order by games desc")
-    List<Map<String, Object>> positionMix(@Param("userId") String userId, @Param("since") Date since);
+    List<Map<String, Object>> positionMix(@Param("userId") String userId, @Param("since") Date since,
+                                          @Param("puuids") String puuids);
 
     /**
      * 一个人的汇总。**不复用 leaderboard 的那一条**：那条带最低场次门槛，
@@ -209,8 +219,10 @@ public interface LolMatchPlayerMapper extends BaseMapper<LolMatchPlayer> {
             + "from lol_match_player p join lol_match m on m.MATCH_ID = p.MATCH_ID "
             + "where p.USER_ID = #{userId} and p.EARLY_SURR = '0' "
             + "  and (m.END_RESULT is null or m.END_RESULT = 'GameComplete') "
-            + "  and m.GAME_START >= #{since}")
-    Map<String, Object> playerSummary(@Param("userId") String userId, @Param("since") Date since);
+            + "  and m.GAME_START >= #{since} "
+            + "  and (#{puuids} = '' or find_in_set(p.PUUID, #{puuids}))")
+    Map<String, Object> playerSummary(@Param("userId") String userId, @Param("since") Date since,
+                                      @Param("puuids") String puuids);
 
     /** 这个人最常一起打的队友。资料卡上比全站组合榜更贴身 */
     @Select("select b.USER_ID userId, ub.USER_NICKNAME nickname, count(*) games, "
@@ -223,6 +235,75 @@ public interface LolMatchPlayerMapper extends BaseMapper<LolMatchPlayer> {
             + "where a.USER_ID = #{userId} and a.EARLY_SURR = '0' "
             + "  and (m.END_RESULT is null or m.END_RESULT = 'GameComplete') "
             + "  and m.GAME_START >= #{since} "
+            + "  and (#{puuids} = '' or find_in_set(a.PUUID, #{puuids})) "
             + "group by b.USER_ID, ub.USER_NICKNAME order by games desc limit 8")
-    List<Map<String, Object>> mates(@Param("userId") String userId, @Param("since") Date since);
+    List<Map<String, Object>> mates(@Param("userId") String userId, @Param("since") Date since,
+                                    @Param("puuids") String puuids);
+
+    /**
+     * 每个站内用户「最高的那个号」的段位。
+     *
+     * <p>一个人可以绑小号，各号段位不同，榜上只能显示一个——取**最高**的那个，
+     * 因为人们说「他什么段位」时说的就是他最强的号。
+     *
+     * <p>排序要靠一个可比的数，所以把段位折成分数：
+     * {@code 大段 × 10000 + 小段 × 100 + LP}。大段的顺序是 Riot 定的（黑铁最低、王者最高），
+     * 小段是 IV→I 递增，两者都必须显式写出来——字母序会把 GOLD 排到 IRON 前面、
+     * 把 IV 排到 I 前面，正好都反了。
+     *
+     * <p>大师以上没有小段，那一位算 0；未定级（TIER 为空）给 -1，
+     * 保证它永远排在所有已定级的后面，而不是被当成黑铁。
+     */
+    @Select("select USER_ID userId, TIER tier, RANK_DIV rankDiv, LEAGUE_POINT leaguePoint, score "
+            + "from ( "
+            + "  select USER_ID, TIER, RANK_DIV, LEAGUE_POINT, "
+            + "         (case TIER when 'IRON' then 0 when 'BRONZE' then 1 when 'SILVER' then 2 "
+            + "                    when 'GOLD' then 3 when 'PLATINUM' then 4 when 'EMERALD' then 5 "
+            + "                    when 'DIAMOND' then 6 when 'MASTER' then 7 "
+            + "                    when 'GRANDMASTER' then 8 when 'CHALLENGER' then 9 "
+            + "                    else -1 end) * 10000 "
+            + "       + (case RANK_DIV when 'IV' then 0 when 'III' then 1 "
+            + "                        when 'II' then 2 when 'I' then 3 else 0 end) * 100 "
+            + "       + ifnull(LEAGUE_POINT, 0) score, "
+            + "         row_number() over (partition by USER_ID order by "
+            + "           (case TIER when 'IRON' then 0 when 'BRONZE' then 1 when 'SILVER' then 2 "
+            + "                      when 'GOLD' then 3 when 'PLATINUM' then 4 when 'EMERALD' then 5 "
+            + "                      when 'DIAMOND' then 6 when 'MASTER' then 7 "
+            + "                      when 'GRANDMASTER' then 8 when 'CHALLENGER' then 9 "
+            + "                      else -1 end) desc, ifnull(LEAGUE_POINT, 0) desc) rn "
+            + "  from lol_account where ENABLED = '1' "
+            + ") t where rn = 1")
+    List<Map<String, Object>> bestRanks();
+
+    /**
+     * 一个人自己的对局列表，给资料卡用。
+     *
+     * <p>和战绩流不是一回事：战绩流以**对局**为单位（这一把我们上了谁），
+     * 这里以**这个人**为单位（他每一把打了什么、打成什么样）。
+     * 所以这条只回他自己那一行，不带同场的其他人。
+     */
+    @Select("select m.MATCH_ID matchId, m.QUEUE_ID queueId, m.GAME_START gameStart, "
+            + "       m.GAME_DURATION gameDuration, "
+            + "       p.CHAMPION_NAME championName, p.TEAM_POSITION teamPosition, p.WIN win, "
+            + "       p.KILLS kills, p.DEATHS deaths, p.ASSISTS assists, p.KDA kda, "
+            + "       p.CS cs, p.GOLD gold, p.DMG_CHAMP dmgChamp, p.VISION vision, "
+            + "       p.KILL_PART killPart, p.DMG_SHARE dmgShare, p.EARLY_SURR earlySurr, "
+            + "       p.TIME_PLAYED timePlayed "
+            + "from lol_match_player p join lol_match m on m.MATCH_ID = p.MATCH_ID "
+            + "where p.USER_ID = #{userId} and m.GAME_START >= #{since} "
+            + "  and (#{puuids} = '' or find_in_set(p.PUUID, #{puuids})) "
+            + "order by m.GAME_START desc limit 60")
+    List<Map<String, Object>> playerMatches(@Param("userId") String userId, @Param("since") Date since,
+                                            @Param("puuids") String puuids);
+
+    /**
+     * 这个人每个号最后一次打是什么时候。
+     *
+     * <p>资料卡默认只勾**最近在玩的那个号**。用 `LAST_SYNC` 是不行的——那是「我们上次去问 Riot 的时刻」，
+     * 每个号每轮都会更新，和这个人实际在玩哪个号毫无关系。真正的判据是最后一场对局的时间。
+     */
+    @Select("select p.PUUID puuid, max(m.GAME_START) lastPlayed "
+            + "from lol_match_player p join lol_match m on m.MATCH_ID = p.MATCH_ID "
+            + "where p.USER_ID = #{userId} group by p.PUUID")
+    List<Map<String, Object>> lastPlayedByAccount(@Param("userId") String userId);
 }

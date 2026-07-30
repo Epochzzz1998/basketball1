@@ -76,3 +76,27 @@ export const tierText = (tier, div) => {
   // 大师以上没有小段，硬拼上去是错的
   return ['MASTER', 'GRANDMASTER', 'CHALLENGER'].includes(tier) ? name : `${name} ${div || ''}`.trim()
 }
+
+/**
+ * 段位配色。
+ *
+ * 取的是游戏里那套辨识度最高的颜色——黑铁灰、黄铜棕、白银青灰、黄金金、
+ * 铂金青、翡翠绿、钻石蓝紫、大师紫、宗师红、王者橙金。
+ * 顺序本身就带信息：冷色偏低、暖色偏高，扫一眼榜就能看出层次，
+ * 不必逐个去读文字。
+ *
+ * 未定级给浅灰，明确区别于「有段位但很低」——那是两回事。
+ */
+export const TIER_COLOR = {
+  IRON: '#6e6259',
+  BRONZE: '#a5673f',
+  SILVER: '#8195a0',
+  GOLD: '#d4a017',
+  PLATINUM: '#2e9c9c',
+  EMERALD: '#17a45c',
+  DIAMOND: '#5468d4',
+  MASTER: '#9b4dca',
+  GRANDMASTER: '#d8443c',
+  CHALLENGER: '#f0a726',
+}
+export const tierColor = (tier) => TIER_COLOR[tier] || '#c8c8c8'

@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
-import { Drawer, Empty, Modal, Progress, Space, Spin, Table, Tag, Tooltip } from 'antd'
-import { POSITION_LABEL, lolApi } from '../../api/lol'
+import { useEffect, useMemo, useState } from 'react'
+import { Drawer, Empty, Modal, Progress, Segmented, Space, Spin, Table, Tag, Tooltip } from 'antd'
+import { POSITION_LABEL, queueName } from '../../api/lol'
+import { lolApi } from '../../api/lol'
 import useIsMobile from '../../hooks/useIsMobile'
 import LolUserAvatar from './LolUserAvatar'
-import { k, num1, pct, rate, rateColor, tierText } from './lolFormat'
+import LolMatchDetail from './LolMatchDetail'
+import { k, mmss, num1, pct, rate, rateColor, tierColor, tierText } from './lolFormat'
 
 /**
  * 一个人的资料卡：从榜单点昵称进来。
@@ -11,7 +13,7 @@ import { k, num1, pct, rate, rateColor, tierText } from './lolFormat'
  * ## 为什么值得单独有这一页
  *
  * 榜单回答「谁强」，资料卡回答「他是什么样的玩家」——玩什么英雄、打什么位置、
- * 和谁一起打。后面这些在榜上摆不下（一行放不了十二个英雄），
+ * 和谁一起打、每一把打成什么样。这些在榜上摆不下（一行放不了十二个英雄），
  * 但恰恰是队友之间真正会聊的内容。
  *
  * ## 这里刻意不设最低场次门槛
@@ -19,20 +21,88 @@ import { k, num1, pct, rate, rateColor, tierText } from './lolFormat'
  * 榜单要门槛，是为了「别让 1 场 100% 胜率的人霸榜」。
  * 而资料卡是**主动点进来看某个人**的，他只打过两把也该如实显示——
  * 显示一个空页面反而像坏了。
+ *
+ * ## 小号可以勾选，默认只勾「最近在玩的那个」
+ *
+ * 有小号的人，「大号什么水平」和「所有号加起来」是两个不同的问题，都得答得出来。
+ * 所以上面那排账号是可点的开关，**至少留一个**——一个都不选的话下面全空，
+ * 那不是一种有意义的状态，而是一次误操作。
+ *
+ * 默认不是全选，而是**最近有对局的那一个**：全选会把半年前弃用的小号混进胜率里，
+ * 而人们打开资料卡想看的是「他现在什么水平」。判据用最后一场对局的时间，
+ * 不能用 `LAST_SYNC`——那是我们上次去问 Riot 的时刻，每个号每轮都在变。
  */
+/**
+ * 默认勾哪个号：**最后一场对局最近的那一个**。
+ *
+ * 放在组件外是因为它不碰任何组件状态；顺带也躲开了「在声明前引用」——
+ * 原来它写在使用它的 effect 后面，运行时侥幸没事（effect 在函数体跑完之后才执行），
+ * 但那是靠时序，不是靠结构。
+ *
+ * 都没打过（刚绑还没回填）时退回第一个：总得勾一个，
+ * 一个不勾的话页面是空的，看着像坏了。
+ */
+const defaultPick = (list) => {
+  const played = list.filter((a) => a.lastPlayed)
+  if (!played.length) return list.length ? [list[0].puuid] : []
+  const newest = played.reduce((best, a) =>
+    (new Date(a.lastPlayed) > new Date(best.lastPlayed) ? a : best))
+  return [newest.puuid]
+}
+
 export default function LolPlayerCard({ userId, days, open, onClose }) {
   const isMobile = useIsMobile()
   const [data, setData] = useState(null)
+  const [accounts, setAccounts] = useState([])     // 这个人所有的号（第一次拿到后固定）
+  const [picked, setPicked] = useState([])         // 勾中的 PUUID
+  const [tab, setTab] = useState('champions')
+  // 点某个英雄 → 只看这个英雄的对局。放在这一层而不是 Body 里：
+  // 切页签时它要留着（从英雄池点进来，落到战绩页仍然带着筛选）
+  const [champ, setChamp] = useState(null)
+  // 从战绩行点进单局详情。和战绩流里点卡片是同一个弹层
+  const [openMatch, setOpenMatch] = useState(null)
+
+  // 换人时把勾选和页签都清掉，否则会带着上一个人的选择去查新的人
+  useEffect(() => {
+    setAccounts([])
+    setPicked([])
+    setTab('champions')
+    setChamp(null)
+  }, [userId])
+
+  const puuidsParam = useMemo(
+    // 全选等同于不筛，传空串让后端走那条更简单的分支
+    () => (picked.length && picked.length < accounts.length ? picked.join(',') : ''),
+    [picked, accounts.length],
+  )
 
   useEffect(() => {
     if (!open || !userId) return undefined
     let alive = true
     setData(null)
-    lolApi.player(userId, days)
-      .then((d) => alive && setData(d || false))
+    lolApi.player(userId, days, puuidsParam)
+      .then((d) => {
+        if (!alive) return
+        setData(d || false)
+        // 账号列表只在第一次填：它不随勾选变化，重复设置会让勾选被自己重置掉
+        if (d && d.accounts && accounts.length === 0) {
+          setAccounts(d.accounts)
+          setPicked(defaultPick(d.accounts))
+        }
+      })
       .catch(() => alive && setData(false))
     return () => { alive = false }
-  }, [open, userId, days])
+  }, [open, userId, days, puuidsParam])   // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggle = (puuid) => {
+    setPicked((prev) => {
+      if (prev.includes(puuid)) {
+        // 至少留一个：全不选的话下面一片空白，那是误操作不是一种视图
+        return prev.length === 1 ? prev : prev.filter((x) => x !== puuid)
+      }
+      return [...prev, puuid]
+    })
+  }
 
   const who = data && data.user
   const title = who ? (
@@ -42,25 +112,89 @@ export default function LolPlayerCard({ userId, days, open, onClose }) {
     </span>
   ) : '玩家资料'
 
-  const body = data === null
-    ? <Spin style={{ display: 'block', margin: '60px auto' }} />
-    : data === false
-      ? <Empty description="拿不到这个人的数据" />
-      : <Body d={data} isMobile={isMobile} />
+  const body = (
+    <>
+      {/* 账号开关。只有一个号时也照常显示——那时它就是一枚说明「这是谁」的标签 */}
+      {accounts.length > 0 && (
+        <Space size={8} wrap style={{ marginBottom: 12 }}>
+          {accounts.map((a) => {
+            const on = picked.includes(a.puuid)
+            return (
+              <Tag
+                key={a.accountId}
+                onClick={() => accounts.length > 1 && toggle(a.puuid)}
+                style={{
+                  padding: '3px 9px', margin: 0,
+                  cursor: accounts.length > 1 ? 'pointer' : 'default',
+                  borderColor: on ? '#fa541c' : undefined,
+                  background: on ? '#fff2e8' : '#fafafa',
+                  opacity: on ? 1 : 0.5,
+                }}
+              >
+                <b>{a.gameName}</b>
+                <span style={{ color: '#bbb' }}>#{a.tagLine}</span>
+                {a.tier && (
+                  <Tooltip title="当前段位，不是某一场时的段位">
+                    <span style={{ color: tierColor(a.tier), fontWeight: 700, marginLeft: 6 }}>
+                      {tierText(a.tier, a.rankDiv)}
+                      {a.leaguePoint != null && ` ${a.leaguePoint}LP`}
+                    </span>
+                  </Tooltip>
+                )}
+              </Tag>
+            )
+          })}
+          {accounts.length > 1 && (
+            <span style={{ color: '#ccc', fontSize: 11 }}>
+              默认只看最近在玩的号，点账号可切换 / 多选
+            </span>
+          )}
+        </Space>
+      )}
+
+      {data === null
+        ? <Spin style={{ display: 'block', margin: '60px auto' }} />
+        : data === false
+          ? <Empty description="拿不到这个人的数据" />
+          : (
+            <Body
+              d={data}
+              isMobile={isMobile}
+              tab={tab}
+              setTab={setTab}
+              champ={champ}
+              setChamp={setChamp}
+              onOpenMatch={setOpenMatch}
+            />
+          )}
+    </>
+  )
+
+  // 单局详情叠在资料卡之上。两层弹层看着重，但比「先关掉资料卡再开详情」好——
+  // 后者关掉之后回不来，而看完一局往往还要接着看下一局
+  const detail = (
+    <LolMatchDetail matchId={openMatch} open={!!openMatch} onClose={() => setOpenMatch(null)} />
+  )
 
   return isMobile ? (
-    <Drawer placement="bottom" height="88%" open={open} onClose={onClose} title={title}
-      styles={{ body: { padding: '10px 12px 16px' } }}>
-      {body}
-    </Drawer>
+    <>
+      <Drawer placement="bottom" height="90%" open={open} onClose={onClose} title={title}
+        styles={{ body: { padding: '10px 12px 16px' } }}>
+        {body}
+      </Drawer>
+      {detail}
+    </>
   ) : (
-    <Modal open={open} onCancel={onClose} footer={null} title={title} width={760}>
-      {body}
-    </Modal>
+    <>
+      <Modal open={open} onCancel={onClose} footer={null} title={title} width={860}>
+        {body}
+      </Modal>
+      {detail}
+    </>
   )
 }
 
-function Body({ d, isMobile }) {
+function Body({ d, isMobile, tab, setTab, champ, setChamp, onOpenMatch }) {
   const s = d.summary || {}
   const games = Number(s.games || 0)
   if (!games) {
@@ -70,24 +204,6 @@ function Body({ d, isMobile }) {
 
   return (
     <>
-      {/* 绑定的号 + 段位。一个人可能有小号，段位按号分别显示——合并没有意义 */}
-      <Space size={8} wrap style={{ marginBottom: 12 }}>
-        {(d.accounts || []).map((a) => (
-          <Tag key={a.accountId} style={{ padding: '3px 8px' }}>
-            <b>{a.gameName}</b>
-            <span style={{ color: '#bbb' }}>#{a.tagLine}</span>
-            {a.tier && (
-              <Tooltip title="当前段位，不是某一场时的段位">
-                <span style={{ color: '#fa541c', marginLeft: 6 }}>
-                  {tierText(a.tier, a.rankDiv)}
-                  {a.leaguePoint != null && ` ${a.leaguePoint}LP`}
-                </span>
-              </Tooltip>
-            )}
-          </Tag>
-        ))}
-      </Space>
-
       <div style={{
         display: 'grid', gap: 8, marginBottom: 14,
         gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(6, 1fr)',
@@ -118,44 +234,47 @@ function Body({ d, isMobile }) {
         </Space>
       </Section>
 
-      <Section title="英雄池">
-        <Table
-          className="stat-compact"
-          size="small"
-          rowKey="championName"
-          pagination={false}
-          scroll={{ x: 'max-content' }}
-          dataSource={d.champions || []}
-          columns={[
-            { title: '英雄', dataIndex: 'championName', width: 108,
-              render: (v) => <span style={{ fontWeight: 600 }}>{v}</span> },
-            { title: '场次', dataIndex: 'games', width: 58, align: 'right' },
-            {
-              title: '胜率',
-              key: 'rate',
-              width: 128,
-              render: (_, r) => (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <Progress
-                    percent={Math.round((r.wins / r.games) * 100)}
-                    size="small"
-                    showInfo={false}
-                    strokeColor={rateColor(r.wins / r.games)}
-                    style={{ width: 56, margin: 0 }}
-                  />
-                  <span style={{ color: rateColor(r.wins / r.games), fontWeight: 700 }}>
-                    {pct(r.wins, r.games)}
-                  </span>
-                </span>
-              ),
-            },
-            { title: 'KDA', dataIndex: 'avgKda', width: 62, align: 'right',
-              render: (v) => num1(v) },
-            { title: '伤害占比', dataIndex: 'avgDmgShare', width: 78, align: 'right',
-              render: (v) => rate(v) },
-          ]}
-        />
-      </Section>
+      {/* 英雄筛选只作用在战绩上，所以计数也要跟着变，否则页签上的数字和表里的行数对不上 */}
+      {(() => {
+        const all = d.matches || []
+        const shown = champ ? all.filter((m) => m.championName === champ) : all
+        return (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+              <Segmented
+                value={tab}
+                onChange={setTab}
+                options={[
+                  { value: 'champions', label: `英雄池 (${(d.champions || []).length})` },
+                  { value: 'matches', label: `战绩 (${shown.length})` },
+                ]}
+              />
+              {champ && (
+                <Tag
+                  closable
+                  onClose={() => setChamp(null)}
+                  color="orange"
+                  style={{ margin: 0 }}
+                >
+                  只看 {champ}
+                </Tag>
+              )}
+            </div>
+
+            {tab === 'champions'
+              ? (
+                <ChampionTable
+                  rows={d.champions || []}
+                  active={champ}
+                  // 点英雄 = 只看这个英雄的对局，并直接跳到战绩页——
+                  // 留在英雄池上的话，点了之后画面毫无变化，会以为没生效
+                  onPick={(name) => { setChamp(name === champ ? null : name); setTab('matches') }}
+                />
+              )
+              : <MatchTable rows={shown} onOpen={onOpenMatch} />}
+          </>
+        )
+      })()}
 
       <Section title="常一起打的人">
         {(d.mates || []).length === 0
@@ -175,6 +294,134 @@ function Body({ d, isMobile }) {
           )}
       </Section>
     </>
+  )
+}
+
+function ChampionTable({ rows, active, onPick }) {
+  return (
+    <Table
+      className="stat-compact"
+      size="small"
+      rowKey="championName"
+      pagination={false}
+      scroll={{ x: 'max-content' }}
+      dataSource={rows}
+      style={{ marginBottom: 14 }}
+      onRow={(r) => ({ onClick: () => onPick(r.championName), style: { cursor: 'pointer' } })}
+      rowClassName={(r) => (r.championName === active ? 'lol-mine' : '')}
+      columns={[
+        { title: '英雄', dataIndex: 'championName', width: 108,
+          render: (v) => (
+            <span style={{ fontWeight: 600, color: v === active ? '#fa541c' : undefined }}>
+              {v}
+            </span>
+          ) },
+        { title: '场次', dataIndex: 'games', width: 58, align: 'right' },
+        {
+          title: '胜率',
+          key: 'rate',
+          width: 132,
+          render: (_, r) => (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Progress
+                percent={Math.round((r.wins / r.games) * 100)}
+                size="small"
+                showInfo={false}
+                strokeColor={rateColor(r.wins / r.games)}
+                style={{ width: 56, margin: 0 }}
+              />
+              <span style={{ color: rateColor(r.wins / r.games), fontWeight: 700 }}>
+                {pct(r.wins, r.games)}
+              </span>
+            </span>
+          ),
+        },
+        { title: 'KDA', dataIndex: 'avgKda', width: 62, align: 'right', render: (v) => num1(v) },
+        { title: '伤害占比', dataIndex: 'avgDmgShare', width: 78, align: 'right', render: (v) => rate(v) },
+      ]}
+    />
+  )
+}
+
+/**
+ * 这个人自己的每一把。和战绩流不同：那里以对局为单位，这里以他为单位。
+ *
+ * 行可点，打开的是**同一个**单局详情弹层——从哪里点进去看到的应该是同一样东西。
+ */
+function MatchTable({ rows, onOpen }) {
+  return (
+    <Table
+      className="stat-compact"
+      size="small"
+      rowKey="matchId"
+      pagination={false}
+      scroll={{ x: 'max-content', y: 360 }}
+      dataSource={rows}
+      style={{ marginBottom: 14 }}
+      onRow={(r) => ({ onClick: () => onOpen(r.matchId), style: { cursor: 'pointer' } })}
+      locale={{ emptyText: '这个筛选下没有对局' }}
+      columns={[
+        {
+          title: '结果',
+          key: 'win',
+          width: 58,
+          render: (_, r) => (
+            r.earlySurr === '1'
+              ? <span style={{ color: '#999' }}>重开</span>
+              : <span style={{ color: r.win === '1' ? '#52c41a' : '#ff7875', fontWeight: 700 }}>
+                {r.win === '1' ? '胜' : '负'}
+              </span>
+          ),
+        },
+        {
+          title: '时间',
+          key: 'when',
+          width: 92,
+          render: (_, r) => {
+            const t = new Date(r.gameStart)
+            return (
+              <span style={{ color: '#999', fontSize: 12 }}>
+                {t.getMonth() + 1}/{t.getDate()} {String(t.getHours()).padStart(2, '0')}:{String(t.getMinutes()).padStart(2, '0')}
+              </span>
+            )
+          },
+        },
+        { title: '队列', dataIndex: 'queueId', width: 88, render: (v) => <span style={{ fontSize: 12 }}>{queueName(v)}</span> },
+        {
+          title: '英雄',
+          key: 'champ',
+          width: 104,
+          render: (_, r) => (
+            <span>
+              <span style={{ fontWeight: 600 }}>{r.championName}</span>
+              {r.teamPosition && (
+                <span style={{ color: '#bbb', fontSize: 11, marginLeft: 4 }}>
+                  {POSITION_LABEL[r.teamPosition] || r.teamPosition}
+                </span>
+              )}
+            </span>
+          ),
+        },
+        {
+          title: 'KDA',
+          key: 'kda',
+          width: 96,
+          align: 'right',
+          render: (_, r) => (
+            <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+              {r.kills}/{r.deaths}/{r.assists}
+              <span style={{ color: '#bbb', fontSize: 11, marginLeft: 5 }}>{num1(r.kda)}</span>
+            </span>
+          ),
+        },
+        { title: '参团', dataIndex: 'killPart', width: 58, align: 'right', render: (v) => rate(v) },
+        { title: '输出占比', dataIndex: 'dmgShare', width: 74, align: 'right', render: (v) => rate(v) },
+        { title: '补刀', dataIndex: 'cs', width: 54, align: 'right' },
+        { title: '输出', dataIndex: 'dmgChamp', width: 62, align: 'right', render: (v) => k(v) },
+        { title: '视野', dataIndex: 'vision', width: 54, align: 'right' },
+        { title: '时长', dataIndex: 'gameDuration', width: 62, align: 'right', render: (v) => mmss(v) },
+      ]}
+    />
   )
 }
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Drawer, Empty, Modal, Spin, Table, Tag, Tooltip } from 'antd'
 import { POSITION_LABEL, queueName, lolApi } from '../../api/lol'
 import useIsMobile from '../../hooks/useIsMobile'
-import { k, mmss, num1, rate, spellName, tierText } from './lolFormat'
+import { k, mmss, num1, rate, spellName, tierColor, tierText } from './lolFormat'
 
 /**
  * 单局详情：这一场**十个人**的完整数据。
@@ -171,7 +171,7 @@ const COLUMNS = [
           {r.nickname ? r.riotId : null}
           {r.tier && (
             <Tooltip title="当前段位，不是这一场时的段位">
-              <span style={{ color: '#999', marginLeft: r.nickname ? 6 : 0 }}>
+              <span style={{ color: tierColor(r.tier), fontWeight: 700, marginLeft: r.nickname ? 6 : 0 }}>
                 {tierText(r.tier, r.rankDiv)}
                 {r.leaguePoint != null && ` ${r.leaguePoint}LP`}
               </span>
