@@ -4,12 +4,14 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.dream.basketball.entity.DreamUser;
 import com.dream.basketball.entity.LolAccount;
 import com.dream.basketball.entity.LolMatch;
 import com.dream.basketball.entity.LolMatchPlayer;
 import com.dream.basketball.mapper.LolAccountMapper;
 import com.dream.basketball.mapper.LolMatchMapper;
 import com.dream.basketball.mapper.LolMatchPlayerMapper;
+import com.dream.basketball.mapper.UserMapper;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,6 +84,8 @@ public class LolSyncService {
     private LolMatchMapper matchMapper;
     @Autowired
     private LolMatchPlayerMapper playerMapper;
+    @Autowired
+    private UserMapper userMapper;
 
     // ───────────────────────────────────────────── 绑定
 
@@ -316,6 +320,112 @@ public class LolSyncService {
         } else {
             log.warn("LoL 抓取失败 {}#{}：{}", a.getGameName(), a.getTagLine(), msg);
         }
+    }
+
+    // ───────────────────────────────────────────── 单局详情
+
+    /**
+     * 一场对局的完整详情，**从库里的 RAW_GZ 解出来，不调 Riot**。
+     *
+     * <p>这是当初坚持存原始 JSON 的第三个回报（前两个是「加新指标不用重抓」和
+     * 「晚绑定的人不用重拉」）：详情页要的是**十个人**的数据，而 {@code lol_match_player}
+     * 按设计只存自己人。真去 Riot 补那五个路人的话，每打开一次详情就是一次 API 调用，
+     * 二十个人随手点几下就能把 100 次/2 分钟的配额吃光——这正是这个模块最初
+     * 「查询绝不碰 Riot」那条原则要避免的事。
+     *
+     * <p>返回按队伍分组，并标出哪几个是站内成员：一场里自己人和路人混着，
+     * 不标的话得靠昵称去认，而游戏 ID 和站内昵称常常对不上。
+     */
+    public Map<String, Object> matchDetail(String matchId) {
+        LolMatch m = matchMapper.selectById(matchId);
+        if (m == null) {
+            return null;
+        }
+        String raw = gunzip(m.getRawGz());
+        if (raw == null) {
+            return null;                             // 老数据没存原文，详情就给不出来
+        }
+        JSONObject info = JSON.parseObject(raw).getJSONObject("info");
+        if (info == null) {
+            return null;
+        }
+
+        // PUUID → 站内昵称。只查一次，避免在循环里逐个查库
+        Map<String, String> nickByPuuid = new HashMap<>();
+        for (LolAccount a : accountMapper.selectList(null)) {
+            DreamUser u = userMapper.selectById(a.getUserId());
+            nickByPuuid.put(a.getPuuid(), u == null ? a.getGameName() : u.getUserNickname());
+        }
+
+        Map<String, Object> out = new HashMap<>();
+        out.put("matchId", matchId);
+        out.put("queueId", m.getQueueId());
+        out.put("gameStart", m.getGameStart());
+        out.put("gameDuration", m.getGameDuration());
+        out.put("gameVersion", m.getGameVersion());
+        out.put("endResult", m.getEndResult());
+
+        JSONArray parts = info.getJSONArray("participants");
+        JSONArray teamArr = info.getJSONArray("teams");
+        List<Map<String, Object>> teams = new ArrayList<>();
+        for (int i = 0; teamArr != null && i < teamArr.size(); i++) {
+            JSONObject t = teamArr.getJSONObject(i);
+            Integer teamId = t.getInteger("teamId");
+            Map<String, Object> team = new HashMap<>();
+            team.put("teamId", teamId);
+            team.put("win", Boolean.TRUE.equals(t.getBoolean("win")) ? "1" : "0");
+            JSONObject obj = t.getJSONObject("objectives");
+            Map<String, Object> objectives = new HashMap<>();
+            for (String k : new String[]{"baron", "dragon", "tower", "inhibitor", "riftHerald"}) {
+                JSONObject o = obj == null ? null : obj.getJSONObject(k);
+                objectives.put(k, o == null ? 0 : intOf(o, "kills"));
+            }
+            team.put("objectives", objectives);
+
+            int tk = 0, td = 0, ta = 0, tg = 0;
+            List<Map<String, Object>> players = new ArrayList<>();
+            for (int j = 0; parts != null && j < parts.size(); j++) {
+                JSONObject p = parts.getJSONObject(j);
+                if (!java.util.Objects.equals(p.getInteger("teamId"), teamId)) {
+                    continue;
+                }
+                tk += intOf(p, "kills");
+                td += intOf(p, "deaths");
+                ta += intOf(p, "assists");
+                tg += intOf(p, "goldEarned");
+                Map<String, Object> row = new HashMap<>();
+                String puuid = p.getString("puuid");
+                row.put("puuid", puuid);
+                // riotIdGameName 在很老的对局里可能缺，退回 summonerName
+                String gn = p.getString("riotIdGameName");
+                row.put("riotId", StringUtils.isBlank(gn)
+                        ? StringUtils.defaultString(p.getString("summonerName"), "?")
+                        : gn + "#" + StringUtils.defaultString(p.getString("riotIdTagline")));
+                row.put("nickname", nickByPuuid.get(puuid));   // null = 不是站内成员
+                row.put("championName", p.getString("championName"));
+                row.put("champLevel", intOf(p, "champLevel"));
+                row.put("teamPosition", p.getString("teamPosition"));
+                row.put("kills", intOf(p, "kills"));
+                row.put("deaths", intOf(p, "deaths"));
+                row.put("assists", intOf(p, "assists"));
+                row.put("cs", intOf(p, "totalMinionsKilled") + intOf(p, "neutralMinionsKilled"));
+                row.put("gold", intOf(p, "goldEarned"));
+                row.put("dmgChamp", intOf(p, "totalDamageDealtToChampions"));
+                row.put("dmgTaken", intOf(p, "totalDamageTaken"));
+                row.put("vision", intOf(p, "visionScore"));
+                row.put("wards", intOf(p, "wardsPlaced"));
+                row.put("deadTime", intOf(p, "totalTimeSpentDead"));
+                players.add(row);
+            }
+            team.put("kills", tk);
+            team.put("deaths", td);
+            team.put("assists", ta);
+            team.put("gold", tg);
+            team.put("players", players);
+            teams.add(team);
+        }
+        out.put("teams", teams);
+        return out;
     }
 
     // ───────────────────────────────────────────── 小工具

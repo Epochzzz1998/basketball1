@@ -3,7 +3,8 @@ import { Card, Empty, Segmented, Select, Space, Spin, Table, Tag } from 'antd'
 import { DAYS_OPTIONS, QUEUE_OPTIONS, lolApi } from '../../api/lol'
 import useIsMobile from '../../hooks/useIsMobile'
 import useUrlState from '../../hooks/useUrlState'
-import { UserAvatar, pct, rateColor } from './lolCommon'
+import LolUserAvatar from './LolUserAvatar'
+import { pct, rateColor } from './lolFormat'
 
 /**
  * 榜单：个人榜 + 开黑组合榜。
@@ -163,7 +164,7 @@ function personColumns(isMobile) {
       fixed: isMobile ? undefined : 'left',
       render: (_, r) => (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-          <UserAvatar name={r.nickname} src={r.avatar} size={24} />
+          <LolUserAvatar name={r.nickname} src={r.avatar} size={24} />
           <span style={{ fontWeight: 600 }}>{r.nickname || '（未知）'}</span>
         </span>
       ),

@@ -350,3 +350,10 @@ body {
   background: #f5f5f5;
   padding-left: 14px;
 }
+
+/* 单局详情里，站内成员那几行加个淡底色。
+   一场十个人，自己人和路人混在一起，而游戏 ID 和站内昵称常常对不上，
+   光靠读名字认不出来——所以行本身要能一眼分出来。 */
+.lol-mine > td {
+  background: rgba(250, 84, 28, .05) !important;
+}

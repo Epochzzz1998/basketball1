@@ -170,6 +170,27 @@ public class LolController {
     }
 
     /**
+     * 一场对局的完整详情（十个人，含路人）。
+     *
+     * <p>单独一个接口而不是塞进战绩流：战绩流一次返回三十场，每场再挂十个人的完整数据
+     * 会让那个响应大出一个数量级，而绝大多数场次用户根本不会点开。按需取。
+     *
+     * <p>和其它查询一样**不碰 Riot**——十个人的数据是从库里的原始 JSON 解出来的。
+     */
+    @RequiresRole(Role.USER)
+    @GetMapping("/match")
+    public Object match(String matchId) {
+        if (StringUtils.isBlank(matchId)) {
+            return new Result<>(1, "缺少对局 id", null);
+        }
+        Map<String, Object> d = sync.matchDetail(matchId);
+        if (d == null) {
+            return new Result<>(1, "这场对局的详细数据没有存下来", null);
+        }
+        return new Result<>(0, "成功", d);
+    }
+
+    /**
      * 手动跑一轮同步。
      *
      * <p>留这个接口是因为定时任务的周期是分钟级，而**验证一次改动**不该等那么久。

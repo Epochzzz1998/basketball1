@@ -28,6 +28,13 @@ export const lolApi = {
   board: (params) => http.get('/lol/board', { params }),
   /** 开黑组合榜 */
   duo: (params) => http.get('/lol/duo', { params }),
+  /**
+   * 单局详情：这一场十个人的完整数据。
+   *
+   * 单独一个接口而不是塞进战绩流——战绩流一次返回三十场，每场再挂十个人
+   * 会让响应大出一个数量级，而绝大多数场次没人会点开。按需取。
+   */
+  matchDetail: (matchId) => http.get('/lol/match', { params: { matchId } }),
 }
 
 /**

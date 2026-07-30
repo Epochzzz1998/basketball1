@@ -4,7 +4,9 @@ import { DAYS_OPTIONS, POSITION_LABEL, mmss, queueName } from '../../api/lol'
 import { lolApi } from '../../api/lol'
 import useIsMobile from '../../hooks/useIsMobile'
 import useUrlState from '../../hooks/useUrlState'
-import { UserAvatar, kdaText } from './lolCommon'
+import LolUserAvatar from './LolUserAvatar'
+import { kdaText } from './lolFormat'
+import LolMatchDetail from './LolMatchDetail'
 
 /**
  * 战绩流：最近的对局，每场列出这一场里的自己人。
@@ -24,6 +26,9 @@ export default function LolFeed() {
   const isMobile = useIsMobile()
   const [days, setDays] = useUrlState('days', 30, true)
   const [rows, setRows] = useState(null)
+  // 点开的那一场。用局部 state 而不是 URL：和站里其它弹层一致
+  // （日程的当天详情也是这样），换成路由的话从详情返回会退出整个分区
+  const [openId, setOpenId] = useState(null)
 
   useEffect(() => {
     let alive = true
@@ -50,9 +55,13 @@ export default function LolFeed() {
         <Empty description="这段时间没有对局。先去「绑定账号」把 Riot ID 填上" />
       ) : (
         <Space direction="vertical" size={12} style={{ width: '100%' }}>
-          {rows.map((m) => <MatchCard key={m.matchId} m={m} isMobile={isMobile} />)}
+          {rows.map((m) => (
+            <MatchCard key={m.matchId} m={m} isMobile={isMobile} onOpen={() => setOpenId(m.matchId)} />
+          ))}
         </Space>
       )}
+
+      <LolMatchDetail matchId={openId} open={!!openId} onClose={() => setOpenId(null)} />
     </>
   )
 }
@@ -64,7 +73,7 @@ export default function LolFeed() {
  * 后者在自定义局里才可能出现，所以直接取第一个人的结果作为这张卡的基调，
  * 真出现分属两队的情况，每个人自己那一行仍然是对的。
  */
-function MatchCard({ m, isMobile }) {
+function MatchCard({ m, isMobile, onOpen }) {
   const players = m.players || []
   const remake = players.some((p) => p.earlySurr === '1')
   const won = players[0]?.win === '1'
@@ -74,10 +83,13 @@ function MatchCard({ m, isMobile }) {
   return (
     <Card
       size="small"
+      hoverable
+      onClick={onOpen}
       style={{
         borderRadius: 14,
         // 左边一条色带就够表达胜负了，整张卡染色在深浅屏下都难看
         borderLeft: `4px solid ${remake ? '#d9d9d9' : won ? '#52c41a' : '#ff7875'}`,
+        cursor: 'pointer',
       }}
       styles={{ body: { padding: isMobile ? '10px 12px' : '12px 16px' } }}
     >
@@ -94,7 +106,7 @@ function MatchCard({ m, isMobile }) {
       <Space direction="vertical" size={6} style={{ width: '100%' }}>
         {players.map((p) => (
           <div key={p.puuid} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <UserAvatar name={p.nickname} src={p.avatar} size={26} />
+            <LolUserAvatar name={p.nickname} src={p.avatar} size={26} />
             <span style={{ fontWeight: 600, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {p.nickname || '（未知）'}
             </span>
