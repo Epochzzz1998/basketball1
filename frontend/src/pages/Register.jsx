@@ -4,6 +4,7 @@ import { IdcardOutlined, LockOutlined, UserOutlined } from '@ant-design/icons'
 import { useNavigate, Link } from 'react-router-dom'
 import { authApi } from '../api/auth'
 import AuthShell from '../components/AuthShell'
+import useAuthWide from '../hooks/useAuthWide'
 
 /**
  * 注册页（公开）。字段与后端一致：loginName（固定登录名）/ userNickname（显示昵称）/ password。
@@ -11,6 +12,7 @@ import AuthShell from '../components/AuthShell'
  */
 export default function Register() {
   const navigate = useNavigate()
+  const wide = useAuthWide()
   const [submitting, setSubmitting] = useState(false)
 
   const onFinish = async (values) => {
@@ -35,7 +37,7 @@ export default function Register() {
 
   return (
     <AuthShell title="创建账号" subtitle="注册加入百家说，一起发帖聊天">
-      <Form onFinish={onFinish} size="large">
+      <Form onFinish={onFinish} size={wide ? 'large' : 'middle'}>
         <Form.Item name="loginName" rules={[{ required: true, message: '请输入登录名' }]}>
           <Input variant="filled" prefix={<UserOutlined style={iconStyle} />} placeholder="登录名（用于登录，注册后不可改）" autoComplete="off" />
         </Form.Item>
@@ -64,13 +66,13 @@ export default function Register() {
           type="primary"
           htmlType="submit"
           block
-          size="large"
+          size={wide ? 'large' : 'middle'}
           loading={submitting}
           style={{ fontWeight: 700, boxShadow: '0 6px 16px rgba(250,84,28,.3)' }}
         >
           注 册
         </Button>
-        <div style={{ marginTop: 20, textAlign: 'center', color: '#8c8c8c' }}>
+        <div style={{ marginTop: wide ? 20 : 14, textAlign: 'center', color: '#8c8c8c', fontSize: wide ? 14 : 13 }}>
           已有账号？<Link to="/login" style={{ fontWeight: 600 }}>去登录</Link>
         </div>
       </Form>

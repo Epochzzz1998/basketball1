@@ -422,6 +422,22 @@ function ChampionTable({ rows, active, onPick }) {
  * 这个人自己的每一把。和战绩流不同：那里以对局为单位，这里以他为单位。
  *
  * 行可点，打开的是**同一个**单局详情弹层——从哪里点进去看到的应该是同一样东西。
+ *
+ * ## 为什么不给它固定高度（`scroll.y`）
+ *
+ * 原来是 `{ x: 'max-content', y: 360 }`，横滑在 App 里明显发卡。原因在 antd：
+ * **一旦给了 `scroll.y`，表头和表体就被拆成两个 DOM 容器**，而它们的横向位置
+ * 是靠 JS 逐帧对齐的（监听表体的 scroll，把 scrollLeft 写回表头）。
+ * 于是每一帧惯性滚动都夹着一次布局写入——在 WebView 里就是肉眼可见的顿挫。
+ *
+ * 去掉 `y` 之后回到**一个原生滚动容器**，横滑整条链上没有 JS，代价是表头不再吸顶。
+ * 这张表本来就在弹层里、外层自己会滚，吸顶带来的那点好处远不值这个卡顿。
+ *
+ * ## 顺带分页
+ *
+ * 60 场 × 十几列 ≈ 八百个单元格，全渲染出来光 DOM 就够重了，而横滑要移动的
+ * 正是这些节点。一页 10 行把它压到一百多个。分页也顺手替掉了 `y` 原本的作用——
+ * 不让这张表把整个弹层撑得无限长。
  */
 function MatchTable({ rows, onOpen }) {
   return (
@@ -429,8 +445,8 @@ function MatchTable({ rows, onOpen }) {
       className="stat-compact"
       size="small"
       rowKey="matchId"
-      pagination={false}
-      scroll={{ x: 'max-content', y: 360 }}
+      pagination={{ pageSize: 10, size: 'small', showSizeChanger: false, hideOnSinglePage: true }}
+      scroll={{ x: 'max-content' }}
       dataSource={rows}
       style={{ marginBottom: 14 }}
       onRow={(r) => ({ onClick: () => onOpen(r.matchId), style: { cursor: 'pointer' } })}

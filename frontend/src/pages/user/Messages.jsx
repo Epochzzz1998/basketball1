@@ -262,9 +262,24 @@ export default function Messages() {
     return () => window.removeEventListener('pm-event', onEvent)
   }, [user.userId, loadConvs, markRead, scrollBottom])
 
+  /**
+   * 打开 / 关闭一个会话。
+   *
+   * <b>从列表进会话是 push，其余都是 replace。</b>
+   *
+   * 原来一律 replace，于是「列表」和「会话」共用同一条历史记录——从会话里返回
+   * （左滑或安卓的返回键）走的 `navigate(-1)` 会越过列表，退到**进私信之前**那一页。
+   * 而底部 Tab 也是 replace 的，所以那一页往往是百家说首页：表现就是
+   * 「私信里左滑直接回百家说了」。
+   *
+   * 但也不能一律 push：会话之间来回点（A→B→C）会在历史里堆一串，
+   * 返回时要一个个退回去。所以只有**从列表进去**那一次算新的一步，
+   * 会话之间互相切、以及关掉会话回列表，都是替换。
+   */
   const openConv = (pid) => {
+    const fromList = !peerId && pid
     setPeerId(pid)
-    setSearchParams(pid ? { peerId: pid } : {}, { replace: true })
+    setSearchParams(pid ? { peerId: pid } : {}, { replace: !fromList })
   }
 
   const send = async () => {

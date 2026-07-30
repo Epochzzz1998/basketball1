@@ -76,6 +76,13 @@ function PostList({ posts, hidden }) {
   )
 }
 
+/**
+ * 评论足迹。**两种来源合在一条时间线上**：帖子里的评论，和每日赛场的赛后短评。
+ *
+ * 分成两个 Tab 是更省事的做法，但那样「我今天说过什么」要在两个地方各翻一遍——
+ * 而对本人来说它们是同一件事：我在站里发表过的看法。所以按时间混排，
+ * 各自用一枚标签说明来处。
+ */
 function CommentTrail({ comments, hidden }) {
   if (hidden) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="该用户已隐藏评论" />
   if (!comments?.length) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="还没有发表过评论" />
@@ -83,32 +90,70 @@ function CommentTrail({ comments, hidden }) {
     <List
       dataSource={comments}
       renderItem={(c) => (
-        <List.Item style={{ padding: '12px 4px', display: 'block' }}>
+        <List.Item key={c.commentId} style={{ padding: '12px 4px', display: 'block' }}>
           <div
             style={{
               fontSize: 14, lineHeight: 1.6, display: '-webkit-box',
               WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
             }}
           >
-            {Number(c.level) > 1 && <Tag color="cyan" style={{ marginRight: 6 }}>回复</Tag>}
+            {c.kind === 'game'
+              ? <Tag color="orange" style={{ marginRight: 6 }}>赛后</Tag>
+              : Number(c.level) > 1 && <Tag color="cyan" style={{ marginRight: 6 }}>回复</Tag>}
             {c.content}
           </div>
-          {/* meta 行永远单行：帖名限宽省略，长短标题样式一致 */}
+          {/* meta 行永远单行：帖名/队名限宽省略，长短标题样式一致 */}
           <div style={{ color: '#999', fontSize: 12, marginTop: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {c.newsTitle
-              ? (
-                <>在 <Link
-                  to={`/news/${c.newsId}`}
-                  style={{ display: 'inline-block', maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'bottom' }}
-                >《{c.newsTitle}》</Link> 下</>
-              )
-              : <span>原帖已删除</span>}
-            <span style={{ margin: '0 8px' }}>·</span>{fmtDate(c.commentDate)}
-            <span style={{ margin: '0 8px' }}>·</span><LikeOutlined /> {c.goodNum ?? 0}
+            {c.kind === 'game' ? <GameCommentMeta c={c} /> : (
+              <>
+                {c.newsTitle
+                  ? (
+                    <>在 <Link
+                      to={`/news/${c.newsId}`}
+                      style={{ display: 'inline-block', maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'bottom' }}
+                    >《{c.newsTitle}》</Link> 下</>
+                  )
+                  : <span>原帖已删除</span>}
+                <span style={{ margin: '0 8px' }}>·</span>{fmtDate(c.commentDate)}
+                <span style={{ margin: '0 8px' }}>·</span><LikeOutlined /> {c.goodNum ?? 0}
+              </>
+            )}
           </div>
         </List.Item>
       )}
     />
+  )
+}
+
+/**
+ * 赛后短评那一行的出处。
+ *
+ * 直接落到那场比赛的**评分页签**（`?tab=rating`），不是数据页签——
+ * 点自己说过的话，想看的是它在哪条讨论里，不是那场的 box score。
+ *
+ * 打的分也带上：短评和分是分开的两件事（分能改、话不能改），
+ * 但在足迹里并排显示才知道当时是什么态度。分是**现查**的，所以这里显示的
+ * 永远是他现在给的分，不是发这句话时给的。
+ */
+function GameCommentMeta({ c }) {
+  const vs = c.awayTeam && c.homeTeam
+    ? `${c.awayTeam} ${c.awayScore ?? ''}-${c.homeScore ?? ''} ${c.homeTeam}`
+    : '这场比赛'
+  return (
+    <>
+      在 <Link
+        to={`/games/${c.gameId}?tab=rating`}
+        style={{ display: 'inline-block', maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'bottom' }}
+      >{vs}</Link>
+      {c.playerName ? <> 里评 {c.playerName}</> : <> 下</>}
+      {c.myScore != null && (
+        <>
+          <span style={{ margin: '0 8px' }}>·</span>
+          <span style={{ color: '#fa541c', fontWeight: 700 }}>{c.myScore} 分</span>
+        </>
+      )}
+      <span style={{ margin: '0 8px' }}>·</span>{fmtDate(c.commentDate)}
+    </>
   )
 }
 

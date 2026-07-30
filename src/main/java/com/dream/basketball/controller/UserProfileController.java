@@ -58,6 +58,10 @@ public class UserProfileController {
 
     @Autowired
     private com.dream.basketball.mapper.ForumTopicMapper forumTopicMapper;
+    @Autowired
+    private com.dream.basketball.mapper.GameCommentMapper gameCommentMapper;
+    @Autowired
+    private com.dream.basketball.mapper.PlayerMapper playerMapper;
 
     @Autowired
     private com.dream.basketball.config.TopicPermissionService topicPerms;
@@ -68,6 +72,27 @@ public class UserProfileController {
     private static final int LIST_LIMIT = 100;
 
     /* ==================== 公开主页 ==================== */
+
+    /**
+     * 时间值 → 毫秒，用来给「两种来源合成一条时间线」排序。
+     *
+     * <p><b>两边的类型是不一样的</b>：帖子评论走实体，拿到的是 {@code java.util.Date}；
+     * 赛后短评走 Map，而 {@code game_comment.CREATE_TIME} 是 {@code datetime(3)}，
+     * JDBC 驱动给的是 {@code LocalDateTime}。直接强转成 Date 会在**混排的那一刻**
+     * 抛 ClassCastException——单看任何一边都正常，合到一起才炸。
+     *
+     * <p>取不到时间的排最后（返回 0），而不是让整个接口挂掉。
+     */
+    private static long millisOf(Object v) {
+        if (v instanceof java.util.Date) {
+            return ((java.util.Date) v).getTime();
+        }
+        if (v instanceof java.time.LocalDateTime) {
+            return ((java.time.LocalDateTime) v)
+                    .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+        }
+        return 0L;
+    }
 
     @GetMapping("/profile")
     public Result<Map<String, Object>> profile(String userId, HttpServletRequest request) {
@@ -152,13 +177,58 @@ public class UserProfileController {
             m.put("newsId", c.getNewsId());
             m.put("newsTitle", titleMap.get(c.getNewsId()));
             m.put("level", c.getLevel()); // >1 = 楼中楼回复
+            m.put("kind", "post");
             commentList.add(m);
+        }
+
+        // 赛后评分区说过的话也算「评论足迹」——那和帖子评论是同一件事：
+        // 这个人在站里发表过的看法。分成两个 Tab 的话，「我今天说过什么」
+        // 要在两个地方各翻一遍
+        if (!hideComments) {
+            List<Map<String, Object>> gcs = gameCommentMapper.byUser(userId, LIST_LIMIT);
+            // 比赛信息按 gameId 逐场补。**故意用循环而不是一条 IN 查询**：
+            // GAME_ID 没法安全地拼进注解式 SQL 的 IN 里（要写 <script>），而
+            // FIND_IN_SET 会让 player_game_stats 那 65 万行走全表扫描。
+            // 这里最多十来场，每场一次索引查找，而这是个人主页不是热路径
+            Map<String, Map<String, Object>> gameMeta = new HashMap<>();
+            for (Map<String, Object> gc : gcs) {
+                String gid = String.valueOf(gc.get("gameId"));
+                if (!gameMeta.containsKey(gid)) {
+                    List<Map<String, Object>> meta = playerMapper.findGameMeta(gid);
+                    gameMeta.put(gid, meta.isEmpty() ? null : meta.get(0));
+                }
+                Map<String, Object> g = gameMeta.get(gid);
+                Map<String, Object> m = new HashMap<>(gc);
+                m.put("kind", "game");
+                // 前端的排序和时间显示统一读 commentDate，两种来源在这里对齐字段名，
+                // 免得渲染时到处判断「这条是哪来的」
+                m.put("commentDate", gc.get("createTime"));
+                if (g != null) {
+                    m.put("gameDate", g.get("gameDate"));
+                    m.put("homeTeam", g.get("homeTeam"));
+                    m.put("awayTeam", g.get("awayTeam"));
+                    m.put("homeScore", g.get("homeScore"));
+                    m.put("awayScore", g.get("awayScore"));
+                }
+                commentList.add(m);
+            }
+            // 两种来源合到一条时间线上，再截断——只截其中一边的话，
+            // 发帖多的人会把评分区的话全挤掉
+            commentList.sort((a, b) -> Long.compare(millisOf(b.get("commentDate")),
+                    millisOf(a.get("commentDate"))));
+            if (commentList.size() > LIST_LIMIT) {
+                commentList = new ArrayList<>(commentList.subList(0, LIST_LIMIT));
+            }
         }
 
         // 统计（全量，不受列表截断影响）
         Map<String, Object> stats = new HashMap<>();
         stats.put("posts", dreamNewsMapper.selectCount(new QueryWrapper<DreamNews>().eq("AUTHOR_ID", userId)));
-        stats.put("comments", dreamNewsCommentMapper.selectCount(new QueryWrapper<DreamNewsComment>().eq("USER_ID", userId)));
+        // 计数把两种来源都算上，和上面那条合并后的时间线是同一个口径——
+        // Tab 上写「评论（12）」而列表里有 15 条，是最容易被当成 bug 的那种不一致
+        stats.put("comments",
+                dreamNewsCommentMapper.selectCount(new QueryWrapper<DreamNewsComment>().eq("USER_ID", userId))
+                        + gameCommentMapper.countByUser(userId));
         long likes = sumGood(dreamNewsMapper.selectObjs(new QueryWrapper<DreamNews>()
                 .select("IFNULL(SUM(GOOD_NUM),0)").eq("AUTHOR_ID", userId)))
                 + sumGood(dreamNewsCommentMapper.selectObjs(new QueryWrapper<DreamNewsComment>()

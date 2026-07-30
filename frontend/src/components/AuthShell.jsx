@@ -1,4 +1,5 @@
-import { ConfigProvider, Grid } from 'antd'
+import { ConfigProvider } from 'antd'
+import useAuthWide from '../hooks/useAuthWide'
 
 /**
  * 登录/注册页共用外壳（P5 重设计 v2）：分栏式大卡片 + 球场元素背景
@@ -77,14 +78,23 @@ function BrandPanel() {
 }
 
 export default function AuthShell({ title, subtitle, children }) {
-  const screens = Grid.useBreakpoint()
-  // 首帧 breakpoint 还没算出来（全 undefined），默认按宽屏渲染避免品牌面板闪现
-  const wide = screens.md !== false
+  const wide = useAuthWide()
   return (
-    <ConfigProvider theme={{ token: { controlHeight: 44, borderRadius: 10 } }}>
+    <ConfigProvider
+      theme={{
+        // 窄屏把控件从 44 收到 40。原来两边都是 44，再叠上表单的 size="large"，
+        // 一个输入框实际就是五十多像素高——四个字段排下来整页都是"一圈大出来"的观感。
+        // 宽屏保持 44：那是落地页该有的分量，屏幕也撑得住
+        token: { controlHeight: wide ? 44 : 40, borderRadius: 10 },
+        // 字段间距同理收一档。24px 的行距在宽屏是呼吸感，在手机上就只是把
+        // 「提交」按钮推到屏幕外
+        components: { Form: { itemMarginBottom: wide ? 24 : 16 } },
+      }}
+    >
       <div
         style={{
-          minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+          minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: wide ? 16 : 12,
           position: 'relative', overflow: 'hidden',
           background: 'linear-gradient(160deg, #fff6f1 0%, #f6f7f9 45%, #edf0f5 100%)',
         }}
@@ -92,22 +102,34 @@ export default function AuthShell({ title, subtitle, children }) {
         <Backdrop />
         <div
           style={{
-            display: 'flex', width: 'min(880px, 100%)', minHeight: 560, borderRadius: 20,
-            overflow: 'hidden', boxShadow: '0 20px 60px rgba(120,50,20,.16)', background: '#fff',
+            display: 'flex', width: 'min(880px, 100%)',
+            // 窄屏不给最小高度：560 是为了配左边那块品牌面板，而窄屏根本不显示它，
+            // 留着只会让卡片下方空出一大片
+            minHeight: wide ? 560 : undefined,
+            borderRadius: wide ? 20 : 16,
+            overflow: 'hidden',
+            boxShadow: wide ? '0 20px 60px rgba(120,50,20,.16)' : '0 8px 28px rgba(120,50,20,.10)',
+            background: '#fff',
             position: 'relative', zIndex: 1,
           }}
         >
           {wide && <BrandPanel />}
           <div
             style={{
-              flex: 1, padding: wide ? '48px 52px' : '40px 28px',
+              flex: 1, padding: wide ? '48px 52px' : '28px 22px',
               display: 'flex', flexDirection: 'column', justifyContent: 'center',
             }}
           >
-            {!wide && <div style={{ fontSize: 20, fontWeight: 800, color: BRAND, marginBottom: 6 }}>Epoch</div>}
-            <div style={{ fontSize: 24, fontWeight: 800, marginBottom: subtitle ? 0 : 30 }}>{title}</div>
-            {/* 没传副标题就整行不渲染，不然会留一条 30px 的空档 */}
-            {subtitle && <div style={{ color: '#8c8c8c', fontSize: 14, margin: '8px 0 30px' }}>{subtitle}</div>}
+            {!wide && <div style={{ fontSize: 17, fontWeight: 800, color: BRAND, marginBottom: 4 }}>Epoch</div>}
+            <div style={{ fontSize: wide ? 24 : 20, fontWeight: 800, marginBottom: subtitle ? 0 : (wide ? 30 : 20) }}>
+              {title}
+            </div>
+            {/* 没传副标题就整行不渲染，不然会留一条空档 */}
+            {subtitle && (
+              <div style={{ color: '#8c8c8c', fontSize: wide ? 14 : 13, margin: wide ? '8px 0 30px' : '5px 0 20px' }}>
+                {subtitle}
+              </div>
+            )}
             {children}
           </div>
         </div>

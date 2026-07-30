@@ -5,6 +5,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { authApi } from '../api/auth'
 import AuthShell from '../components/AuthShell'
+import useAuthWide from '../hooks/useAuthWide'
 
 /**
  * 登录页。表单字段名与后端一致：loginName（固定登录名）/ password / code（验证码）。
@@ -23,6 +24,7 @@ import AuthShell from '../components/AuthShell'
  */
 export default function Login() {
   const { login } = useAuth()
+  const wide = useAuthWide()
   const navigate = useNavigate()
   const location = useLocation()
   const [captcha, setCaptcha] = useState(null)   // {captchaId, image}
@@ -61,7 +63,7 @@ export default function Login() {
 
   return (
     <AuthShell title="欢迎回来">
-      <Form onFinish={onFinish} size="large">
+      <Form onFinish={onFinish} size={wide ? 'large' : 'middle'}>
         <Form.Item name="loginName" rules={[{ required: true, message: '请输入登录名' }]}>
           <Input variant="filled" prefix={<UserOutlined style={{ color: '#b3b3b3' }} />} placeholder="登录名" autoComplete="off" />
         </Form.Item>
@@ -99,7 +101,7 @@ export default function Login() {
           type="primary"
           htmlType="submit"
           block
-          size="large"
+          size={wide ? 'large' : 'middle'}
           loading={submitting}
           style={{ fontWeight: 700, boxShadow: '0 6px 16px rgba(250,84,28,.3)' }}
         >

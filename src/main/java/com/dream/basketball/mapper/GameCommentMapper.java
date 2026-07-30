@@ -38,4 +38,31 @@ public interface GameCommentMapper extends BaseMapper<GameComment> {
             + "where c.GAME_ID = #{gameId} "
             + "order by c.CREATE_TIME desc")
     List<Map<String, Object>> byGame(@Param("gameId") String gameId);
+
+    /**
+     * 一个人在赛后评分区说过的话，给个人主页的「评论」足迹用。
+     *
+     * <p>{@code playerName} 只有评球员的那些行有值，评比赛本身的是 null——
+     * 前端据此决定显示成「评了这场」还是「评了某某」。
+     *
+     * <p>比赛本身的信息（日期、两队、比分）**不在这里查**：那要对
+     * {@code player_game_stats} 做一次 group by，而这条已经在 join 三张表了。
+     * 调用方拿到几个 gameId 之后再补，见 {@code UserProfileController}。
+     */
+    @Select("select c.COMMENT_ID commentId, c.GAME_ID gameId, c.PLAYER_ID playerId, "
+            + "       c.CONTENT content, c.CREATE_TIME createTime, "
+            + "       coalesce(p.PLAYER_NAME, p.NAME_EN) playerName, "
+            + "       case when c.PLAYER_ID = '' then gr.SCORE else pr.SCORE end myScore "
+            + "from game_comment c "
+            + "left join dream_player p on p.PLAYER_ID = c.PLAYER_ID "
+            + "left join game_rating gr on gr.GAME_ID = c.GAME_ID and gr.USER_ID = c.USER_ID "
+            + "left join game_player_rating pr on pr.GAME_ID = c.GAME_ID "
+            + "     and pr.PLAYER_ID = c.PLAYER_ID and pr.USER_ID = c.USER_ID "
+            + "where c.USER_ID = #{userId} "
+            + "order by c.CREATE_TIME desc limit #{limit}")
+    List<Map<String, Object>> byUser(@Param("userId") String userId, @Param("limit") int limit);
+
+    /** 这个人一共说过几条。列表是截断的，统计不能跟着截断 */
+    @Select("select count(*) from game_comment where USER_ID = #{userId}")
+    int countByUser(@Param("userId") String userId);
 }
