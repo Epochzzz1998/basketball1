@@ -91,6 +91,8 @@ public class LolSyncService {
     private static final int RANK_FILL_PER_ROUND = 30;
     /** 每轮补扫几场老对局的参与者名单。解压 + 解析是本地开销，可以给得大方些 */
     private static final int SCAN_PER_ROUND = 120;
+    /** 每轮给几场老对局补「承伤占比」。同样纯本地，几百场两三轮就补完 */
+    private static final int TAKEN_FILL_PER_ROUND = 200;
 
     @Autowired
     private RiotApiClient riot;
@@ -236,6 +238,9 @@ public class LolSyncService {
 
         // 4) 登记老对局里的人（纯本地开销，不打 Riot）
         r.scanned = scanOldMatches();
+        // 4.5) 给老行补「承伤占比」。同样是纯本地：这一项一直躺在 RAW_GZ 里，
+        // 只是当初没往列上存。这正是当初坚持存原文的第一个回报——加新指标不用重抓
+        r.takenFilled = backfillTakenShare(canonical);
         // 5) 补路人段位。放最后：它是长尾任务，前面几步都比它急
         r.ranksFilled = fillSummonerRanks(r);
         r.ranksPending = summonerMapper.pendingRankCount();
@@ -437,6 +442,7 @@ public class LolSyncService {
         row.setKda(dec(ch, "kda", 2));
         row.setKillPart(dec(ch, "killParticipation", 4));
         row.setDmgShare(dec(ch, "teamDamagePercentage", 4));
+        row.setTakenShare(dec(ch, "damageTakenOnTeamPercentage", 4));
         // 重开局：本人早投降 或 本队早投降，两个字段都要看——
         // 被队友带着重开的人自己那一项是 false
         boolean remake = Boolean.TRUE.equals(p.getBoolean("gameEndedInEarlySurrender"))
@@ -505,6 +511,56 @@ public class LolSyncService {
                 continue;
             }
             registerParticipants(id, info, parts);
+            done++;
+        }
+        return done;
+    }
+
+    /**
+     * 给老的对局行补上「承伤占比」。
+     *
+     * <p>这一项从一开始就躺在 {@code RAW_GZ} 里（{@code challenges.damageTakenOnTeamPercentage}），
+     * 只是当初没往列上存。**一次 Riot 请求都不用打**，解压 + 解析全是本地开销——
+     * 这正是当初坚持存原始 JSON 的第一个回报：加新指标不用重抓。
+     *
+     * <p>靠「这一场还有没有 TAKEN_SHARE 为空的行」推进，可中断可重启，
+     * 补完之后这个查询返回空，这一步自然就不再做事了。
+     *
+     * @param canonical PUUID 别名 → 规范身份。换过 key 的账号在 RAW_GZ 里是旧 PUUID，
+     *                  而库里的行已经归一成规范身份，不映射的话这些行永远匹配不上
+     */
+    private int backfillTakenShare(Map<String, String> canonical) {
+        List<String> ids = playerMapper.matchesMissingTakenShare(TAKEN_FILL_PER_ROUND);
+        int done = 0;
+        for (String id : ids) {
+            LolMatch m = matchMapper.selectById(id);
+            String raw = m == null ? null : gunzip(m.getRawGz());
+            if (raw == null) {
+                // 没存原文的老数据补不了。写 0 占位，否则这几场每轮都会被重新挑中，
+                // 把后面还能补的挡在后面——和路人段位那里是同一个道理
+                playerMapper.markTakenShareUnknown(id);
+                continue;
+            }
+            JSONObject info = JSON.parseObject(raw).getJSONObject("info");
+            JSONArray parts = info == null ? null : info.getJSONArray("participants");
+            if (parts == null) {
+                playerMapper.markTakenShareUnknown(id);
+                continue;
+            }
+            for (int i = 0; i < parts.size(); i++) {
+                JSONObject p = parts.getJSONObject(i);
+                String pu = p.getString("puuid");
+                if (StringUtils.isBlank(pu)) {
+                    continue;
+                }
+                BigDecimal v = dec(p.getJSONObject("challenges"), "damageTakenOnTeamPercentage", 4);
+                if (v != null) {
+                    playerMapper.fillTakenShare(id, canonical.getOrDefault(pu, pu), v);
+                }
+            }
+            // 这一场里仍然为空的（路人的行本来就不存，成员的行万一原文里没这个字段）
+            // 统一占位，免得它被反复挑中
+            playerMapper.markTakenShareUnknown(id);
             done++;
         }
         return done;
@@ -871,6 +927,8 @@ public class LolSyncService {
         public int backfilledAccounts;
         /** 这一轮补扫了几场老对局的参与者名单 */
         public int scanned;
+        /** 这一轮给几场老对局补了承伤占比 */
+        public int takenFilled;
         /** 这一轮补了几个人的段位 */
         public int ranksFilled;
         /** 还有多少人没查过段位 */
@@ -889,6 +947,10 @@ public class LolSyncService {
 
         public int getScanned() {
             return scanned;
+        }
+
+        public int getTakenFilled() {
+            return takenFilled;
         }
 
         public int getRanksFilled() {

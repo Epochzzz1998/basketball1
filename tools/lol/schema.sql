@@ -130,3 +130,18 @@ ALTER TABLE `lol_account`  ADD COLUMN `API_PUUID` varchar(100) DEFAULT NULL
   COMMENT '当前 API key 下的 PUUID，只用于调接口；null = 待解析' AFTER `PUUID`;
 ALTER TABLE `lol_summoner` ADD COLUMN `API_PUUID` varchar(100) DEFAULT NULL
   COMMENT '同上。路人靠存下来的 Riot ID 重新解析' AFTER `PUUID`;
+
+-- ─────────────────────────────────────────────────────────────
+-- 追加（2026-07-30）：承伤占比
+--
+-- 为什么这一项要**存**，而「伤转」不用：
+--   伤转  = 对英雄伤害 / 自己的经济。分母就在同一行，查询里现算就行。
+--   承伤占比 = 自己的承伤 / **全队五个人**的承伤。而这张表按设计只存自己人，
+--            另外几个路人的承伤只在 lol_match.RAW_GZ 里——SQL 够不着。
+--
+-- 老数据靠 LolSyncService.backfillTakenShare() 从 RAW_GZ 补，一次 API 都不用打。
+-- 0 是「查过了但原文里没有」的占位：真实的承伤占比不可能是 0
+-- （一场里每个人多少都要挨点伤害），所以拿它当哨兵不会和真数据混淆。
+ALTER TABLE lol_match_player
+  ADD COLUMN TAKEN_SHARE decimal(5,4) DEFAULT NULL
+  COMMENT 'challenges.damageTakenOnTeamPercentage；0=查过但原文里没有' AFTER DMG_SHARE;

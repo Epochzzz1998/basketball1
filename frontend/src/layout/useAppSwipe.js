@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { TABS, isDataPage, tabIndexOf } from './mobileNav'
+import { TABS, tabIndexOf } from './mobileNav'
 import { useGoBack } from '../components/backNav'
 
 /**
@@ -21,24 +21,30 @@ import { useGoBack } from '../components/backNav'
  *
  * 所以原生那个关掉，自己按语义实现。
  *
- * ## 三条规则
+ * ## 两条规则
  *
- * 0. **NBA 数据页整页不做手势**（`isDataPage`）。那些页面全是横向滚动的宽表，
- *    手势和表格的滑动天然打架。曾经试过"表格滑到最左端才让返回接管"，判定本身是对的，
- *    但**手感很卡**：每一次横滑都要先松手才知道刚才那一下是滚表格还是返回。
- *    在一个本来就要横滑的页面上勉强塞一个横滑手势，不如干脆不做。
  * 1. **正好站在某个 Tab 的首页**——横滑切换相邻 Tab，到头就不动。
  *    判据是 `tabIndexOf`，和底部栏的显隐**共用同一个函数**：凡是不显示底部栏的页面
  *    就不算 Tab 首页。专题页（`/news/topic/x`）虽然也高亮"百家说"，但它是二级页面；
  *    私信会话（`/messages?peerId=x`）路径和私信首页**一模一样**，只有查询串不同——
  *    早先这里只比 pathname，于是在聊天里横滑会莫名其妙切到日程。
  * 2. **其它页面**——只认**从屏幕左边缘起手**的右滑，等同于点返回。
- *    限定左边缘是为了不和页面内的横向滚动抢手势。
+ *    凡是左上角有返回钮的页面都该支持，因为手势和那个按钮是同一个动作
+ *    （都走 `useGoBack`），只是一个用手指一个用点的。
  *
  * ## 还要躲开横向滚动的东西
  *
- * 类别筛选条、`.ant-segmented` 都能横向滚。手指落在它们里面时整个手势让开，
- * 否则"滑动筛选条"会变成"切换 Tab"。
+ * 类别筛选条、`.ant-segmented`、NBA 的宽表都能横向滚。手指落在它们里面时：
+ *
+ * - **切 Tab（规则 1）整个让开**——"滑动筛选条"不该变成"切换 Tab"。
+ * - **返回（规则 2）只在那个容器本来就停在最左端时接管**。
+ *
+ * 后面这条是这次放开数据页的关键。早先整类页面被排除，理由是"手势和表格打架，
+ * 试过按滚动位置判定但手感很卡"。那次的做法是**松手时**再去读表格滚到哪了，
+ * 所以同一个手势在过程中既可能滚表格又可能返回，谁也说不准。
+ * 现在读的是**按下那一刻**的位置：表格已经在最左端时，往右滑它一动不动
+ * （没得可滚），这一下从头到尾就只可能是返回；表格没在最左端，
+ * 这一下就从头到尾只是滚表格。歧义消失了，因为判据在手势开始时就定了。
  */
 
 /** 判定阈值。60px 够区分误触，1.5 倍是为了让斜着划的手势归给纵向滚动 */
@@ -83,10 +89,14 @@ export default function useAppSwipe(enabled) {
     const onStart = (e) => {
       if (e.touches.length !== 1) { start.current = null; return }
       const t = e.touches[0]
-      // 记下落点所在的横向滚动容器（可能为 null），两条规则都要用
+      // 记下落点所在的横向滚动容器（可能为 null），两条规则都要用。
+      // **连同它此刻的滚动位置一起记**：判据必须在手势开始时就定死，
+      // 松手时再读的话，这一路滑过来它自己已经动了，读到的是结果不是前提
+      const scroller = horizontalScrollerAt(e.target)
       start.current = {
         x: t.clientX, y: t.clientY, at: Date.now(),
-        scroller: horizontalScrollerAt(e.target),
+        scroller,
+        scrollerLeft: scroller ? scroller.scrollLeft : 0,
       }
     }
 
@@ -101,16 +111,6 @@ export default function useAppSwipe(enabled) {
       if (Math.abs(dx) < MIN_DX || Math.abs(dx) < Math.abs(dy) * RATIO) return
 
       const { pathname, search, goBack: back, navigate: nav } = ctx.current
-
-      /**
-       * NBA 数据页整个不做手势。
-       *
-       * 那些页面全是横向滚动的宽表，手势和表格的滑动天然打架。试过"表格滑到最左端
-       * 才让返回接管"，判定本身是对的，但**手感很卡**：每一次横滑都要先松手才知道
-       * 刚才那一下是滚表格还是返回。与其在一个本来就要横滑的页面上勉强塞一个横滑手势，
-       * 不如干脆不做，这几页只靠左上角的返回钮。
-       */
-      if (isDataPage(pathname)) return
 
       const idx = tabIndexOf(pathname, search)
 
@@ -127,10 +127,11 @@ export default function useAppSwipe(enabled) {
         return
       }
 
-      // 规则 2：二级页面，从左边缘往右滑 = 返回。
-      // 落在横向滚动容器里也让开——真正难办的宽表已经被规则 0 整页排除了，
-      // 这里剩下的都是筛选条那一类，让掉就对
-      if (dx <= 0 || s.x > EDGE || s.scroller) return
+      // 规则 2：二级页面，从左边缘往右滑 = 返回。和左上角那个返回钮同一个动作。
+      if (dx <= 0 || s.x > EDGE) return
+      // 落在横向滚动容器里：只有它**按下时**就停在最左端才让返回接管。
+      // 没在最左端说明这一下本来就是要把表格往回滚，不该被劫走
+      if (s.scroller && s.scrollerLeft > 0) return
       back()
     }
 

@@ -20,13 +20,20 @@ const form = (obj) => {
 export const gameRatingApi = {
   /** 一场的全部评分：平均分、分布、短评、每个球员的平均分；登录了还带「我给的分」 */
   detail: (gameId) => http.get('/gameRating/detail', { params: { gameId } }),
-  /** 给比赛打分 / 写短评。两个都空 = 撤销我的评分 */
-  rateGame: (gameId, score, comment) =>
-    http.post('/gameRating/rateGame', form({ gameId, score, comment })),
-  /** 给球员打分 / 写短评。score 传 0 且短评为空 = 撤销这条 */
-  ratePlayer: (gameId, playerId, score, comment) =>
-    http.post('/gameRating/ratePlayer', form({ gameId, playerId, score: String(score), comment })),
-  /** 回复一条短评。targetId 是那条短评的 ratingId，比赛和球员的都走这条 */
+
+  // ── 分：一人一条，可以改。传 0 = 撤销
+  rateGame: (gameId, score) =>
+    http.post('/gameRating/rateGame', form({ gameId, score: String(score) })),
+  ratePlayer: (gameId, playerId, score) =>
+    http.post('/gameRating/ratePlayer', form({ gameId, playerId, score: String(score) })),
+
+  // ── 短评：想发几条发几条，**发出去不能改**，只能删。
+  //    playerId 不传 = 评这场比赛本身
+  comment: (gameId, playerId, content) =>
+    http.post('/gameRating/comment', form({ gameId, playerId, content })),
+  deleteComment: (commentId) => http.post('/gameRating/deleteComment', form({ commentId })),
+
+  /** 回复一条短评。targetId 是那条短评的 commentId，比赛和球员的都走这条 */
   reply: (gameId, targetId, content, replyToUser) =>
     http.post('/gameRating/reply', form({ gameId, targetId, content, replyToUser })),
   deleteReply: (replyId) => http.post('/gameRating/deleteReply', form({ replyId })),

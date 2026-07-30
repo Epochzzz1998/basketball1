@@ -41,7 +41,7 @@ function UserAvatar({ name, src, size }) {
 }
 
 export default function RatingComments({
-  comments, replies, meId, onReply, onDeleteReply, emptyText = '还没有人说话',
+  comments, replies, meId, onReply, onDeleteReply, onDeleteComment, emptyText = '还没有人说话',
 }) {
   const [page, setPage] = useState(1)
   // 哪一条的回复框开着，以及回复给谁。开一个而不是全开：
@@ -74,24 +74,26 @@ export default function RatingComments({
   return (
     <>
       {shown.map((c) => {
-        const rs = (replies || {})[c.ratingId] || []
+        const rs = (replies || {})[c.commentId] || []
         return (
-          <div key={c.ratingId} style={{ display: 'flex', gap: 10, padding: '12px 0', borderBottom: '1px solid #f5f5f5' }}>
+          <div key={c.commentId} style={{ display: 'flex', gap: 10, padding: '12px 0', borderBottom: '1px solid #f5f5f5' }}>
             <UserAvatar name={c.nickname} src={c.avatar} size={32} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <span style={{ fontWeight: 600, fontSize: 13 }}>{c.nickname || '（未知）'}</span>
-                {c.score != null && (
-                  <span style={{ color: scoreColor(c.score), fontWeight: 800, fontSize: 14 }}>
-                    {c.score} 分
+                {/* 作者当前的分。**现查不是快照**——分可以改，存快照的话
+                    同一个人的两条短评会显示两个不同的分 */}
+                {c.myScore != null && (
+                  <span style={{ color: scoreColor(c.myScore), fontWeight: 800, fontSize: 14 }}>
+                    {c.myScore} 分
                   </span>
                 )}
                 <span style={{ color: '#ccc', fontSize: 12, marginLeft: 'auto' }}>
-                  {dayjs(c.postTime).format('M-D HH:mm')}
+                  {dayjs(c.createTime).format('M-D HH:mm')}
                 </span>
               </div>
               <div style={{ fontSize: 14, marginTop: 3, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                {c.commentTxt}
+                {c.content}
               </div>
 
               {/* 回复区，缩进 + 左边一条竖线，和帖子里的楼中楼一个样子 */}
@@ -114,7 +116,7 @@ export default function RatingComments({
                         <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{r.content}</div>
                         <div style={{ marginTop: 2 }}>
                           <a
-                            onClick={() => openReply(c.ratingId, r.userId, r.nickname)}
+                            onClick={() => openReply(c.commentId, r.userId, r.nickname)}
                             style={{ color: '#bbb', fontSize: 12 }}
                           >
                             回复
@@ -132,7 +134,7 @@ export default function RatingComments({
                 </div>
               )}
 
-              {replyAt?.targetId === c.ratingId ? (
+              {replyAt?.targetId === c.commentId ? (
                 <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   <Input.TextArea
                     value={draft}
@@ -141,18 +143,30 @@ export default function RatingComments({
                     maxLength={300}
                     autoSize={{ minRows: 1, maxRows: 4 }}
                     autoFocus
-                    style={{ flex: 1, minWidth: 160, borderRadius: 8 }}
+                    className="pill-input"
+                    style={{ flex: 1, minWidth: 160 }}
                   />
                   <Button size="small" type="primary" onClick={submit}>发送</Button>
                   <Button size="small" onClick={() => setReplyAt(null)}>取消</Button>
                 </div>
               ) : (
-                <a
-                  onClick={() => openReply(c.ratingId, null, null)}
-                  style={{ color: '#bbb', fontSize: 12, display: 'inline-block', marginTop: 4 }}
-                >
-                  回复{rs.length > 0 ? ` (${rs.length})` : ''}
-                </a>
+                <div style={{ marginTop: 4 }}>
+                  <a
+                    onClick={() => openReply(c.commentId, null, null)}
+                    style={{ color: '#bbb', fontSize: 12 }}
+                  >
+                    回复{rs.length > 0 ? ` (${rs.length})` : ''}
+                  </a>
+                  {/* 只能删不能改：改会让别人已经回复过的话悄悄变成另一句，
+                      删不会——回复跟着一起消失，不留答非所问的残句 */}
+                  {c.userId === meId && (
+                    <Popconfirm title="删除这条短评？底下的回复一并删除" okText="删除"
+                      okButtonProps={{ danger: true }}
+                      onConfirm={() => onDeleteComment?.(c.commentId)}>
+                      <a style={{ color: '#bbb', fontSize: 12, marginLeft: 12 }}>删除</a>
+                    </Popconfirm>
+                  )}
+                </div>
               )}
             </div>
           </div>

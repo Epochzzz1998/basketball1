@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.dream.basketball.entity.LolMatchPlayer;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 import java.util.Date;
 import java.util.List;
@@ -330,8 +331,14 @@ public interface LolMatchPlayerMapper extends BaseMapper<LolMatchPlayer> {
             + "       m.GAME_DURATION gameDuration, "
             + "       p.CHAMPION_NAME championName, p.TEAM_POSITION teamPosition, p.WIN win, "
             + "       p.KILLS kills, p.DEATHS deaths, p.ASSISTS assists, p.KDA kda, "
-            + "       p.CS cs, p.GOLD gold, p.DMG_CHAMP dmgChamp, p.VISION vision, "
-            + "       p.KILL_PART killPart, p.DMG_SHARE dmgShare, p.EARLY_SURR earlySurr, "
+            + "       p.CS cs, p.GOLD gold, p.DMG_CHAMP dmgChamp, p.DMG_TAKEN dmgTaken, "
+            + "       p.VISION vision, "
+            + "       p.KILL_PART killPart, p.DMG_SHARE dmgShare, "
+            // 承伤占比要存（分母是全队五个人，其中路人不在这张表里）；
+            // 伤转反过来——分母就是他自己的经济，同一行就有，现算比多存一列划算
+            + "       nullif(p.TAKEN_SHARE, 0) takenShare, "
+            + "       round(p.DMG_CHAMP / greatest(p.GOLD, 1), 3) dmgPerGold, "
+            + "       p.EARLY_SURR earlySurr, "
             + "       p.TIME_PLAYED timePlayed "
             + "from lol_match_player p join lol_match m on m.MATCH_ID = p.MATCH_ID "
             + "where p.USER_ID = #{userId} and m.GAME_START >= #{since} "
@@ -353,4 +360,26 @@ public interface LolMatchPlayerMapper extends BaseMapper<LolMatchPlayer> {
             + "from lol_match_player p join lol_match m on m.MATCH_ID = p.MATCH_ID "
             + "where p.USER_ID = #{userId} group by p.PUUID")
     List<Map<String, Object>> lastPlayedByAccount(@Param("userId") String userId);
+
+    // ───────────────────────────────────────────── 承伤占比的回填
+    //
+    // 这一项一直躺在 RAW_GZ 里，只是当初没往列上存。补它**一次 API 都不用打**，
+    // 全是本地解压 + 解析。用 0 当「查过了但补不出来」的占位值：
+    // 真实的承伤占比不可能是 0（一场里每个人多少都要挨点伤害），
+    // 所以拿它当哨兵不会和真数据混淆，读取时 nullif 掉即可。
+
+    /** 还有行没补过承伤占比的对局。补完之后这条返回空，整个步骤自然停下 */
+    @Select("select distinct MATCH_ID from lol_match_player "
+            + "where TAKEN_SHARE is null limit #{n}")
+    List<String> matchesMissingTakenShare(@Param("n") int n);
+
+    @Update("update lol_match_player set TAKEN_SHARE = #{v} "
+            + "where MATCH_ID = #{matchId} and PUUID = #{puuid} and TAKEN_SHARE is null")
+    void fillTakenShare(@Param("matchId") String matchId, @Param("puuid") String puuid,
+                        @Param("v") java.math.BigDecimal v);
+
+    /** 这一场处理过了：剩下还为空的写 0 占位，免得每轮都被重新挑中 */
+    @Update("update lol_match_player set TAKEN_SHARE = 0 "
+            + "where MATCH_ID = #{matchId} and TAKEN_SHARE is null")
+    void markTakenShareUnknown(@Param("matchId") String matchId);
 }

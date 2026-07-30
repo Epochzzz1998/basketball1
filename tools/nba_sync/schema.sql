@@ -104,3 +104,61 @@ CREATE TABLE IF NOT EXISTS `game_rating_reply` (
 -- 和 game_rating.SCORE 的口径对齐——两张表都是「分和短评至少有一个」，
 -- 而不是「必须打分」。少了这一步的表现是提交时 500：Column 'SCORE' cannot be null。
 ALTER TABLE game_player_rating MODIFY COLUMN SCORE tinyint DEFAULT NULL COMMENT '1..5；允许为空 = 只写了短评没打分';
+
+-- ─────────────────────────────────────────────────────────────
+-- 追加（2026-07-30 第三轮）：评论和评分彻底分家
+--
+-- 规则变了：**分能改，评论不能改**。
+--   分  一人一场（或一人一场一球员）只有一条，再打就是覆盖。
+--   评论 想说几次说几次，每次一条新的；发出去就定了，只能删不能改。
+--
+-- 原来两者挤在评分行里（COMMENT_TXT），那种结构只支持「一条可改的评论」——
+-- 它把「一个人的态度只有一个」这条规则**顺带**加在了评论上，而评论不该受这条约束。
+-- 一场比赛看到一半骂一句、看完再夸一句，是两句话，不是一句话改了两遍。
+CREATE TABLE IF NOT EXISTS `game_comment` (
+  `COMMENT_ID`  varchar(36)  NOT NULL COMMENT 'uuid',
+  `GAME_ID`     varchar(32)  NOT NULL,
+  `PLAYER_ID`   varchar(100) NOT NULL DEFAULT '' COMMENT '空串 = 评这场比赛本身；否则是评这个球员',
+  `USER_ID`     varchar(100) NOT NULL,
+  `CONTENT`     varchar(300) NOT NULL,
+  `CREATE_TIME` datetime     NOT NULL,
+  PRIMARY KEY (`COMMENT_ID`),
+  KEY `idx_game_comment_game` (`GAME_ID`, `PLAYER_ID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+  COMMENT='比赛/球员短评。一个人可以发多条，发出去不能改——所以这里没有唯一键也没有 UPDATE_TIME';
+
+-- PLAYER_ID 用空串而不是 NULL 当「评比赛本身」的哨兵：这张表**没有唯一键**，
+-- 所以 NULL 不会带来 game_rating 那种「唯一索引管不住 NULL」的问题；
+-- 用空串纯粹是为了让按 PLAYER_ID 分组的代码不用到处判 null。
+
+-- 把旧的单条评论搬过来，然后把列去掉
+INSERT INTO game_comment (COMMENT_ID, GAME_ID, PLAYER_ID, USER_ID, CONTENT, CREATE_TIME)
+SELECT RATING_ID, GAME_ID, '', USER_ID, COMMENT_TXT, IFNULL(UPDATE_TIME, CREATE_TIME)
+FROM game_rating WHERE COMMENT_TXT IS NOT NULL AND COMMENT_TXT <> '';
+INSERT INTO game_comment (COMMENT_ID, GAME_ID, PLAYER_ID, USER_ID, CONTENT, CREATE_TIME)
+SELECT RATING_ID, GAME_ID, PLAYER_ID, USER_ID, COMMENT_TXT, IFNULL(UPDATE_TIME, CREATE_TIME)
+FROM game_player_rating WHERE COMMENT_TXT IS NOT NULL AND COMMENT_TXT <> '';
+-- 搬迁时沿用 RATING_ID 当 COMMENT_ID，这样 game_rating_reply.TARGET_ID
+-- 不用改就仍然指向正确的那条——回复本来就是挂在「这段话」上的
+
+-- 只剩评论的行（撤了分只留话）现在没有存在意义了，删掉
+DELETE FROM game_rating        WHERE SCORE IS NULL;
+DELETE FROM game_player_rating WHERE SCORE IS NULL;
+
+ALTER TABLE game_rating        DROP COLUMN COMMENT_TXT;
+ALTER TABLE game_player_rating DROP COLUMN COMMENT_TXT;
+
+-- 评分行现在只剩一件事：这个人给了几分。为空就没有存在的理由，改回 NOT NULL
+ALTER TABLE game_rating        MODIFY COLUMN SCORE tinyint NOT NULL COMMENT '1..5';
+ALTER TABLE game_player_rating MODIFY COLUMN SCORE tinyint NOT NULL COMMENT '1..5';
+
+ALTER TABLE game_rating_reply
+  MODIFY COLUMN TARGET_ID varchar(36) NOT NULL COMMENT '被回复的那条 game_comment.COMMENT_ID';
+
+-- 短评和回复的时间戳改成毫秒精度。
+--
+-- 它们是**按时间排的会话**，而 datetime 只到秒：同一秒里发的两条谁在前谁在后
+-- 由数据库随手决定，实测连发三条短评就会乱序。评分表不用改——那里的时间只是
+-- 元信息，没有任何东西按它排。
+ALTER TABLE game_comment      MODIFY COLUMN CREATE_TIME datetime(3) NOT NULL;
+ALTER TABLE game_rating_reply MODIFY COLUMN CREATE_TIME datetime(3) NOT NULL;

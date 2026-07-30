@@ -45,13 +45,10 @@ export default function GameRating({ gameId, teams, isMobile, onPlayer }) {
   const [saving, setSaving] = useState(false)
   const [team, setTeam] = useState(teams[0]?.team)
 
+  // 拉数据时**不回填输入框**：短评是追加式的，输入框永远从空开始。
+  // 回填上一条的话，「再发一次」看起来像是在改它，而实际会多出一条
   const load = () => {
-    gameRatingApi.detail(gameId)
-      .then((d) => {
-        setData(d || null)
-        setDraft(d?.mine?.commentTxt || '')
-      })
-      .catch(() => setData(null))
+    gameRatingApi.detail(gameId).then((d) => setData(d || null)).catch(() => setData(null))
   }
 
   useEffect(() => {
@@ -70,20 +67,30 @@ export default function GameRating({ gameId, teams, isMobile, onPlayer }) {
   const myScore = data?.mine?.score ?? null
 
   // 失败不用自己再弹一次：http 拦截器已经把后端那句更具体的话弹出来了
-  const submitGame = (score, comment) => {
+  const submitGame = (score) => {
     if (!requireLogin()) return
-    setSaving(true)
-    gameRatingApi.rateGame(gameId, score, comment)
-      .then(() => { message.success(score == null && !comment ? '已取消评分' : '已评分'); load() })
+    gameRatingApi.rateGame(gameId, score)
+      .then(() => { message.success(score ? '已评分' : '已取消评分'); load() })
       .catch(() => {})
+  }
+
+  const submitPlayer = (playerId, score) => {
+    if (!requireLogin()) return
+    gameRatingApi.ratePlayer(gameId, playerId, score).then(load).catch(() => {})
+  }
+
+  /** 发一条短评。playerId 不传 = 评这场比赛本身 */
+  const postComment = (playerId, content) => {
+    if (!requireLogin()) return Promise.resolve(false)
+    setSaving(true)
+    return gameRatingApi.comment(gameId, playerId, content)
+      .then(() => { message.success('已发布'); load(); return true })
+      .catch(() => false)
       .finally(() => setSaving(false))
   }
 
-  const submitPlayer = (playerId, score, comment) => {
-    if (!requireLogin()) return
-    return gameRatingApi.ratePlayer(gameId, playerId, score, comment)
-      .then(load)
-      .catch(() => {})
+  const removeComment = (commentId) => {
+    gameRatingApi.deleteComment(commentId).then(load).catch(() => {})
   }
 
   const submitReply = (targetId, content, replyToUser) => {
@@ -119,7 +126,7 @@ export default function GameRating({ gameId, teams, isMobile, onPlayer }) {
           <ScoreDots
             value={myScore}
             size={isMobile ? 38 : 42}
-            onPick={(s) => submitGame(s === myScore ? null : s, draft || null)}
+            onPick={(s) => submitGame(s === myScore ? 0 : s)}
           />
           <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
             <Input.TextArea
@@ -128,15 +135,18 @@ export default function GameRating({ gameId, teams, isMobile, onPlayer }) {
               placeholder="说说这场比赛"
               maxLength={300}
               autoSize={{ minRows: 2, maxRows: 5 }}
-              style={{ flex: 1, minWidth: 200, borderRadius: 10 }}
+              className="pill-input"
+              style={{ flex: 1, minWidth: 200 }}
             />
+            {/* 「发布」不是「更新」：每次都是新的一条，上一条原样留着 */}
             <Button
               type="primary"
               loading={saving}
-              onClick={() => submitGame(myScore, draft || null)}
+              disabled={!draft.trim()}
+              onClick={() => postComment('', draft.trim()).then((ok) => ok && setDraft(''))}
               style={{ background: BRAND, borderColor: BRAND, alignSelf: 'flex-end' }}
             >
-              {data.mine ? '更新' : '发表'}
+              发布
             </Button>
           </div>
         </div>
@@ -153,6 +163,7 @@ export default function GameRating({ gameId, teams, isMobile, onPlayer }) {
           meId={data.meId}
           onReply={submitReply}
           onDeleteReply={removeReply}
+          onDeleteComment={removeComment}
         />
       </Card>
 
@@ -183,8 +194,10 @@ export default function GameRating({ gameId, teams, isMobile, onPlayer }) {
           isMobile={isMobile}
           onPick={submitPlayer}
           onPlayer={onPlayer}
+          onComment={postComment}
           onReply={submitReply}
           onDeleteReply={removeReply}
+          onDeleteComment={removeComment}
         />
       )}
     </>
@@ -275,7 +288,9 @@ function ScoreBars({ rows, total, big }) {
  * 短评区默认**收起**：一支球队十几个人，每人都展开一段评论区的话，
  * 想找某个人得滑过所有人的讨论。收起之后这一页仍然是一张可扫的名单。
  */
-function PlayerRatings({ rows, absent, data, isMobile, onPick, onPlayer, onReply, onDeleteReply }) {
+function PlayerRatings({
+  rows, absent, data, isMobile, onPick, onPlayer, onComment, onReply, onDeleteReply, onDeleteComment,
+}) {
   // 出场的在前、未出场的在后。合成一个数组而不是渲染两段，是为了让「行长什么样」
   // 只有一份实现——两段各写一遍，改一次样式就会有一段忘了改
   const all = [
@@ -300,8 +315,10 @@ function PlayerRatings({ rows, absent, data, isMobile, onPick, onPlayer, onReply
           isMobile={isMobile}
           onPick={onPick}
           onPlayer={onPlayer}
+          onComment={onComment}
           onReply={onReply}
           onDeleteReply={onDeleteReply}
+          onDeleteComment={onDeleteComment}
         />
       ))}
     </Card>
@@ -309,11 +326,13 @@ function PlayerRatings({ rows, absent, data, isMobile, onPick, onPlayer, onReply
 }
 
 function PlayerRow({
-  r, agg, hist, comments, replies, mine, meId, isMobile, onPick, onPlayer, onReply, onDeleteReply,
+  r, agg, hist, comments, replies, mine, meId, isMobile,
+  onPick, onPlayer, onComment, onReply, onDeleteReply, onDeleteComment,
 }) {
   const [open, setOpen] = useState(false)
-  const [draft, setDraft] = useState(mine?.commentTxt || '')
-  const myScore = mine?.score ?? null
+  // 输入框从空开始、发完清空。短评是追加式的，回填上一条会让人以为再发是在改它
+  const [draft, setDraft] = useState('')
+  const myScore = mine ?? null
   const n = (comments || []).length
 
   return (
@@ -353,7 +372,7 @@ function PlayerRow({
         <ScoreDots
           value={myScore}
           size={isMobile ? 30 : 32}
-          onPick={(s) => onPick(r.playerId, s === myScore ? 0 : s, draft || null)}
+          onPick={(s) => onPick(r.playerId, s === myScore ? 0 : s)}
         />
         <a
           onClick={() => setOpen((v) => !v)}
@@ -372,16 +391,17 @@ function PlayerRow({
               placeholder={`说说${r.playerName || r.nameEn || '他'}这场`}
               maxLength={300}
               autoSize={{ minRows: 1, maxRows: 4 }}
-              style={{ flex: 1, minWidth: 160, borderRadius: 8 }}
+              className="pill-input"
+              style={{ flex: 1, minWidth: 160 }}
             />
             <Button
               size="small"
               type="primary"
-              // 只写短评不打分也行：分传 0，后端只有分和短评都空时才删掉这一行
-              onClick={() => onPick(r.playerId, myScore ?? 0, draft.trim() || null)}
+              disabled={!draft.trim()}
+              onClick={() => onComment(r.playerId, draft.trim()).then((ok) => ok && setDraft(''))}
               style={{ background: BRAND, borderColor: BRAND, alignSelf: 'flex-end' }}
             >
-              {mine?.commentTxt ? '更新' : '发表'}
+              发布
             </Button>
           </div>
           <div style={{ marginTop: 4 }}>
@@ -391,6 +411,7 @@ function PlayerRow({
               meId={meId}
               onReply={onReply}
               onDeleteReply={onDeleteReply}
+              onDeleteComment={onDeleteComment}
               emptyText="还没有人评价他这场"
             />
           </div>

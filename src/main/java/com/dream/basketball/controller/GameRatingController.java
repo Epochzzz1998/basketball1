@@ -1,13 +1,14 @@
 package com.dream.basketball.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.dream.basketball.common.Result;
 import com.dream.basketball.config.RequiresRole;
 import com.dream.basketball.config.Role;
+import com.dream.basketball.entity.GameComment;
 import com.dream.basketball.entity.GamePlayerRating;
 import com.dream.basketball.entity.GameRating;
 import com.dream.basketball.entity.GameRatingReply;
+import com.dream.basketball.mapper.GameCommentMapper;
 import com.dream.basketball.mapper.GamePlayerRatingMapper;
 import com.dream.basketball.mapper.GameRatingMapper;
 import com.dream.basketball.mapper.GameRatingReplyMapper;
@@ -44,10 +45,19 @@ import java.util.UUID;
  * 用 {@code getLoginUserIdToSession} 而不是 {@code @RequiresRole}，
  * 没登录时它返回 null，正好是「我还没评过」。
  *
- * <h2>再评一次是改，不是叠加</h2>
+ * <h2>分和短评是**两套不同的规则**，所以是两组接口</h2>
  *
- * 两张表的唯一键都带 USER_ID，重复提交走的是 update。这不只是防刷——
- * 「看完第二天改主意」是很正常的事，而一个人对同一场比赛只该有一个态度。
+ * <table>
+ *   <tr><th></th><th>评分（rateGame / ratePlayer）</th><th>短评（comment）</th></tr>
+ *   <tr><td>一个人能有几条</td><td>一条</td><td>想发几条发几条</td></tr>
+ *   <tr><td>能不能改</td><td>能，再打一次覆盖</td><td><b>不能</b>，只能删</td></tr>
+ * </table>
+ *
+ * <p>「再打一次是改」不只是防刷——「看完第二天改主意」是很正常的事，
+ * 而一个人对同一场比赛只该有一个分，允许叠加的话平均分就成了「谁点得多谁说了算」。
+ *
+ * <p>短评正相反：它是**说过的话**，说过就定了。早先两者挤在同一行，
+ * 等于把「一个人只有一个」顺带加在了短评上，于是补一句话变成了改写前一句。
  */
 @RestController
 @RequestMapping("/gameRating")
@@ -71,6 +81,8 @@ public class GameRatingController {
     @Autowired
     private GamePlayerRatingMapper playerRatingMapper;
     @Autowired
+    private GameCommentMapper commentMapper;
+    @Autowired
     private GameRatingReplyMapper replyMapper;
     @Autowired
     private PlayerMapper playerMapper;
@@ -91,8 +103,6 @@ public class GameRatingController {
         Map<String, Object> data = new HashMap<>();
         data.put("game", gameRatingMapper.gameSummary(id));
         data.put("histogram", gameRatingMapper.scoreHistogram(id));
-        data.put("comments", gameRatingMapper.comments(id));
-
         Map<String, Object> byPlayer = new HashMap<>();
         for (Map<String, Object> row : playerRatingMapper.aggregates(id)) {
             byPlayer.put(String.valueOf(row.get("playerId")), row);
@@ -100,9 +110,14 @@ public class GameRatingController {
         data.put("players", byPlayer);
         // 每个球员的分数分布，和比赛那条同样的形状：playerId -> [{score, n}]
         data.put("playerHist", groupBy(playerRatingMapper.histogram(id), "playerId"));
-        // 球员短评，按球员分组。分组放在这里而不是让前端自己建索引：
-        // 前端要按 box score 的顺序逐行取，映射直接取得到，数组还得先扫一遍
-        data.put("playerComments", groupBy(playerRatingMapper.comments(id), "playerId"));
+        // 短评一次取全（比赛的 + 所有球员的），在这里按 PLAYER_ID 分好组。
+        // 分组放在后端而不是让前端自己建索引：前端要按 box score 的顺序逐行取，
+        // 映射直接取得到，数组还得先扫一遍。空串那一组是评比赛本身的
+        Map<String, List<Map<String, Object>>> byTarget =
+                groupBy(commentMapper.byGame(id), "playerId");
+        data.put("comments", byTarget.getOrDefault("", java.util.Collections.emptyList()));
+        byTarget.remove("");
+        data.put("playerComments", byTarget);
         // 回复按被回复的短评分组。比赛短评和球员短评的回复在同一张表里，
         // 一次取回来分好组，两边各取各的
         data.put("replies", groupBy(replyMapper.byGame(id), "targetId"));
@@ -112,10 +127,11 @@ public class GameRatingController {
         if (StringUtils.isNotBlank(me)) {
             data.put("mine", gameRatingMapper.selectOne(new QueryWrapper<GameRating>()
                     .eq("GAME_ID", id).eq("USER_ID", me).last("limit 1")));
-            // 回的是整行而不是只回分数：现在还有短评要回填到输入框里
+            // 只回分数。短评不用回填——它是**追加式**的，输入框永远是空的，
+            // 回填反而会让人以为再发一次是在改上一条
             Map<String, Object> minePlayers = new HashMap<>();
             for (Map<String, Object> row : playerRatingMapper.mine(id, me)) {
-                minePlayers.put(String.valueOf(row.get("playerId")), row);
+                minePlayers.put(String.valueOf(row.get("playerId")), row.get("score"));
             }
             data.put("minePlayers", minePlayers);
             data.put("meId", me);
@@ -134,20 +150,20 @@ public class GameRatingController {
     }
 
     /**
-     * 给这场比赛打分 / 写短评。两者都可以单独给。
+     * 给这场比赛打分。**只管分，不带短评**。
      *
-     * <p>分和短评**都空**时删掉这条记录——那是「我不想评了」，
-     * 留一条什么都没有的空记录只会让打分人数虚高。
+     * <p>{@code score} 传 0 或不传 = 撤销我的分。分是一人一条、可以改的，
+     * 短评是另一回事（多条、不可改），走 {@code /comment}。
      */
     @RequiresRole(Role.USER)
     @PostMapping("/rateGame")
-    public Object rateGame(String gameId, Integer score, String comment, HttpServletRequest request) {
+    public Object rateGame(String gameId, Integer score, HttpServletRequest request) {
         String id = StringUtils.trimToEmpty(gameId);
         String me = SecUtil.getLoginUserIdToSession(request);
         if (id.isEmpty()) {
             return new Result<>(1, "缺少比赛 id", null);
         }
-        if (score != null && (score < MIN_SCORE || score > MAX_SCORE)) {
+        if (score != null && score != 0 && (score < MIN_SCORE || score > MAX_SCORE)) {
             return new Result<>(1, "评分要在 " + MIN_SCORE + " 到 " + MAX_SCORE + " 之间", null);
         }
         // 比赛得真的存在。不查的话这张表会被任意字符串撑起来，
@@ -155,18 +171,12 @@ public class GameRatingController {
         if (playerMapper.findGameMeta(id).isEmpty()) {
             return new Result<>(1, "没有这场比赛", null);
         }
-        String text = StringUtils.trimToNull(comment);
-        if (text != null && text.length() > MAX_COMMENT) {
-            text = text.substring(0, MAX_COMMENT);
-        }
-
         GameRating exist = gameRatingMapper.selectOne(new QueryWrapper<GameRating>()
                 .eq("GAME_ID", id).eq("USER_ID", me).last("limit 1"));
-        if (score == null && text == null) {
+        if (score == null || score == 0) {
+            // 撤分**不动短评**。这是拆表之后的直接好处：以前两者同一行，
+            // 撤分就得琢磨「他的话要不要一起删」，现在这个问题不存在了
             if (exist != null) {
-                // 同 ratePlayer：连带删掉底下的回复，否则它们变成指向不存在内容的孤儿
-                replyMapper.delete(new QueryWrapper<GameRatingReply>()
-                        .eq("TARGET_ID", exist.getRatingId()));
                 gameRatingMapper.deleteById(exist.getRatingId());
             }
             return new Result<>(0, "已取消评分", null);
@@ -177,32 +187,22 @@ public class GameRatingController {
             r.setGameId(id);
             r.setUserId(me);
             r.setScore(score);
-            r.setCommentTxt(text);
             r.setCreateTime(new Date());
             gameRatingMapper.insert(r);
         } else {
-            // 必须用 UpdateWrapper 逐列 set：MyBatis-Plus 的 updateById 是按实体字段
-            // **非 null 才写**，而「只留短评、把分数清掉」恰恰要把 SCORE 写成 null——
-            // 走 updateById 的话那次点击会静悄悄不生效，界面显示已清空、刷新后分数又回来
-            gameRatingMapper.update(null, new UpdateWrapper<GameRating>()
-                    .eq("RATING_ID", exist.getRatingId())
-                    .set("SCORE", score)
-                    .set("COMMENT_TXT", text)
-                    .set("UPDATE_TIME", new Date()));
+            exist.setScore(score);
+            exist.setUpdateTime(new Date());
+            gameRatingMapper.updateById(exist);
         }
         return new Result<>(0, "已评分", null);
     }
 
     /**
-     * 给这场里的某个球员打分，可带一条短评。
-     *
-     * <p>{@code score} 传 0 表示撤销打分。**但如果同时留着短评，这一行不会被删掉**——
-     * 「我不给分了但话还想说」和「我不评了」是两回事，只有分和短评都空才删。
-     * 这和比赛那一栏是同一套规则。
+     * 给这场里的某个球员打分。同 {@link #rateGame}：只管分，0 或不传 = 撤销。
      */
     @RequiresRole(Role.USER)
     @PostMapping("/ratePlayer")
-    public Object ratePlayer(String gameId, String playerId, Integer score, String comment,
+    public Object ratePlayer(String gameId, String playerId, Integer score,
                              HttpServletRequest request) {
         String id = StringUtils.trimToEmpty(gameId);
         String pid = StringUtils.trimToEmpty(playerId);
@@ -210,44 +210,19 @@ public class GameRatingController {
         if (id.isEmpty() || pid.isEmpty()) {
             return new Result<>(1, "缺少比赛或球员", null);
         }
-        if (score == null || score < 0 || score > MAX_SCORE) {
+        if (score != null && score != 0 && (score < MIN_SCORE || score > MAX_SCORE)) {
             return new Result<>(1, "评分要在 " + MIN_SCORE + " 到 " + MAX_SCORE + " 之间", null);
-        }
-        String text = StringUtils.trimToNull(comment);
-        if (text != null && text.length() > MAX_COMMENT) {
-            text = text.substring(0, MAX_COMMENT);
         }
         GamePlayerRating exist = playerRatingMapper.selectOne(new QueryWrapper<GamePlayerRating>()
                 .eq("GAME_ID", id).eq("PLAYER_ID", pid).eq("USER_ID", me).last("limit 1"));
-        if (score == 0 && text == null) {
+        if (score == null || score == 0) {
             if (exist != null) {
-                // 连带删掉挂在这条短评底下的回复。留着的话它们就成了指向不存在内容的孤儿，
-                // 而 TARGET_ID 上没有外键，数据库不会替我们做这件事
-                replyMapper.delete(new QueryWrapper<GameRatingReply>()
-                        .eq("TARGET_ID", exist.getRatingId()));
                 playerRatingMapper.deleteById(exist.getRatingId());
             }
             return new Result<>(0, "已取消", null);
         }
-        if (exist != null) {
-            // 同 rateGame：必须逐列 set，updateById 会跳过 null，
-            // 于是「取消打分只留短评」那一次点击会静悄悄不生效
-            playerRatingMapper.update(null, new UpdateWrapper<GamePlayerRating>()
-                    .eq("RATING_ID", exist.getRatingId())
-                    .set("SCORE", score == 0 ? null : score)
-                    .set("COMMENT_TXT", text)
-                    .set("UPDATE_TIME", new Date()));
-            return new Result<>(0, "已评分", null);
-        }
-        {
-            // 这个人得真的在当场大名单里——**出场的和没出场的都算**。
-            // 只认出场名单的话，「今天该上的人怎么没上」这种意见就没地方表达了，
-            // 而那恰恰是赛后最常见的一句话。但名单之外的人一律拒绝，
-            // 否则这张表会被任意 playerId 撑起来
-            if (playerMapper.findGameBoxScore(id).stream()
-                    .noneMatch(r -> pid.equals(String.valueOf(r.get("playerId"))))
-                    && playerMapper.findGameAbsences(id).stream()
-                    .noneMatch(r -> pid.equals(String.valueOf(r.get("playerId"))))) {
+        if (exist == null) {
+            if (!onRoster(id, pid)) {
                 return new Result<>(1, "这场比赛的名单里没有这个球员", null);
             }
             GamePlayerRating r = new GamePlayerRating();
@@ -255,19 +230,87 @@ public class GameRatingController {
             r.setGameId(id);
             r.setPlayerId(pid);
             r.setUserId(me);
-            r.setScore(score == 0 ? null : score);
-            r.setCommentTxt(text);
+            r.setScore(score);
             r.setCreateTime(new Date());
             playerRatingMapper.insert(r);
+        } else {
+            exist.setScore(score);
+            exist.setUpdateTime(new Date());
+            playerRatingMapper.updateById(exist);
         }
         return new Result<>(0, "已评分", null);
     }
 
     /**
-     * 回复一条短评（比赛的或球员的都走这条）。
+     * 发一条短评。{@code playerId} 为空 = 评这场比赛本身。
      *
-     * <p>{@code targetId} 是被回复那条短评的 {@code RATING_ID}。两张评分表的主键都是 UUID，
-     * 所以一个接口够用——见 {@link GameRatingReply} 的说明。
+     * <p><b>只有发，没有改。</b>想补充就再发一条——「看到一半骂一句、看完再夸一句」
+     * 是两句话，不是一句话改了两遍。这条规则由表结构本身保证
+     * （{@code game_comment} 没有唯一键、没有 UPDATE_TIME），不靠这里的判断守。
+     */
+    @RequiresRole(Role.USER)
+    @PostMapping("/comment")
+    public Object comment(String gameId, String playerId, String content,
+                          HttpServletRequest request) {
+        String id = StringUtils.trimToEmpty(gameId);
+        String pid = StringUtils.trimToEmpty(playerId);
+        String text = StringUtils.trimToNull(content);
+        String me = SecUtil.getLoginUserIdToSession(request);
+        if (id.isEmpty()) {
+            return new Result<>(1, "缺少比赛 id", null);
+        }
+        if (text == null) {
+            return new Result<>(1, "说点什么再发", null);
+        }
+        if (text.length() > MAX_COMMENT) {
+            text = text.substring(0, MAX_COMMENT);
+        }
+        if (playerMapper.findGameMeta(id).isEmpty()) {
+            return new Result<>(1, "没有这场比赛", null);
+        }
+        if (!pid.isEmpty() && !onRoster(id, pid)) {
+            return new Result<>(1, "这场比赛的名单里没有这个球员", null);
+        }
+        GameComment c = new GameComment();
+        c.setCommentId(UUID.randomUUID().toString());
+        c.setGameId(id);
+        c.setPlayerId(pid);          // 空串 = 评比赛本身
+        c.setUserId(me);
+        c.setContent(text);
+        c.setCreateTime(new Date());
+        commentMapper.insert(c);
+        return new Result<>(0, "已发布", null);
+    }
+
+    /**
+     * 删掉自己的短评，连同它底下的回复。
+     *
+     * <p>「不能改」和「不能删」是两回事：改会让别人已经回复过的话悄悄变成另一句，
+     * 删不会——回复跟着一起消失，不会留下答非所问的残句。
+     */
+    @RequiresRole(Role.USER)
+    @PostMapping("/deleteComment")
+    public Object deleteComment(String commentId, HttpServletRequest request) {
+        String me = SecUtil.getLoginUserIdToSession(request);
+        GameComment c = commentMapper.selectById(StringUtils.trimToEmpty(commentId));
+        if (c == null) {
+            return new Result<>(0, "已删除", null);      // 已经没了，当成功
+        }
+        if (!StringUtils.equals(c.getUserId(), me)) {
+            return new Result<>(1, "只能删自己的短评", null);
+        }
+        // TARGET_ID 上没有外键，数据库不会替我们清；留着就是一堆指向不存在内容的孤儿
+        replyMapper.delete(new QueryWrapper<GameRatingReply>()
+                .eq("TARGET_ID", c.getCommentId()));
+        commentMapper.deleteById(c.getCommentId());
+        return new Result<>(0, "已删除", null);
+    }
+
+    /**
+     * 回复一条短评。
+     *
+     * <p>{@code targetId} 是那条短评的 {@code COMMENT_ID}。比赛短评和球员短评
+     * 在同一张表里，所以一个接口够用。
      *
      * <p>{@code replyToUser} 是「回复楼中楼里的某个人」时才给。给了也只当显示用，
      * 结构上仍然只有两层。
@@ -292,11 +335,8 @@ public class GameRatingController {
         // 被回复的那条短评得真的存在，而且**得属于这场比赛**。
         // 不校验 GAME_ID 的话，可以拿别的比赛的短评 id 往这里挂回复，
         // 那条回复会出现在一个和它无关的页面上（因为列表是按 GAME_ID 取的）
-        boolean ok = gameRatingMapper.selectCount(new QueryWrapper<GameRating>()
-                .eq("RATING_ID", target).eq("GAME_ID", id)) > 0
-                || playerRatingMapper.selectCount(new QueryWrapper<GamePlayerRating>()
-                .eq("RATING_ID", target).eq("GAME_ID", id)) > 0;
-        if (!ok) {
+        if (commentMapper.selectCount(new QueryWrapper<GameComment>()
+                .eq("COMMENT_ID", target).eq("GAME_ID", id)) == 0) {
             return new Result<>(1, "这条短评不存在了", null);
         }
         GameRatingReply r = new GameRatingReply();
@@ -325,5 +365,22 @@ public class GameRatingController {
         }
         replyMapper.deleteById(r.getReplyId());
         return new Result<>(0, "已删除", null);
+    }
+
+    /**
+     * 这个人在不在当场大名单里——**出场的和没出场的都算**。
+     *
+     * <p>只认出场名单的话，「今天该上的人怎么没上」这种意见就没地方表达了，
+     * 而那恰恰是赛后最常见的一句话。但名单之外的 id 一律拒绝，
+     * 否则这几张表会被任意字符串撑起来。
+     *
+     * <p>打分和发短评都要问同一个问题，所以抽出来——两份实现迟早会有一份忘了
+     * 把未出场的人算进去。
+     */
+    private boolean onRoster(String gameId, String playerId) {
+        return playerMapper.findGameBoxScore(gameId).stream()
+                .anyMatch(r -> playerId.equals(String.valueOf(r.get("playerId"))))
+                || playerMapper.findGameAbsences(gameId).stream()
+                .anyMatch(r -> playerId.equals(String.valueOf(r.get("playerId"))));
     }
 }

@@ -97,6 +97,16 @@ public class LolMatchPlayer extends Model<LolMatchPlayer> implements Serializabl
     @TableField("DMG_SHARE")
     private BigDecimal dmgShare;
 
+    /**
+     * challenges.damageTakenOnTeamPercentage —— 本队承伤里他占了多少。
+     *
+     * <p>这一项**必须存**，不能像「伤转」那样在查询里现算：伤转的分母是他自己的经济
+     * （同一行就有），而承伤占比的分母是**全队五个人的承伤总和**，
+     * 而 {@code lol_match_player} 按设计只存自己人——五个路人的承伤只在 RAW_GZ 里。
+     */
+    @TableField("TAKEN_SHARE")
+    private BigDecimal takenShare;
+
     /** '1' = 重开局。必须排除在榜单之外，否则胜率被一堆 3 分钟的局污染 */
     @TableField("EARLY_SURR")
     private String earlySurr;
@@ -263,6 +273,14 @@ public class LolMatchPlayer extends Model<LolMatchPlayer> implements Serializabl
 
     public BigDecimal getDmgShare() {
         return dmgShare;
+    }
+
+    public BigDecimal getTakenShare() {
+        return takenShare;
+    }
+
+    public void setTakenShare(BigDecimal takenShare) {
+        this.takenShare = takenShare;
     }
 
     public void setDmgShare(BigDecimal dmgShare) {

@@ -487,8 +487,18 @@ function MatchTable({ rows, onOpen }) {
         },
         { title: '参团', dataIndex: 'killPart', width: 58, align: 'right', render: (v) => rate(v) },
         { title: '输出占比', dataIndex: 'dmgShare', width: 74, align: 'right', render: (v) => rate(v) },
+        // 承伤占比是存下来的（分母是全队五个人，路人不在库里），伤转是查询里现算的
+        { title: '承伤占比', dataIndex: 'takenShare', width: 74, align: 'right', render: (v) => rate(v) },
+        {
+          title: <Tooltip title="伤害转化：每 1 金币打出多少对英雄伤害">伤转</Tooltip>,
+          dataIndex: 'dmgPerGold',
+          width: 62,
+          align: 'right',
+          render: (v) => num1(v),
+        },
         { title: '补刀', dataIndex: 'cs', width: 54, align: 'right' },
         { title: '输出', dataIndex: 'dmgChamp', width: 62, align: 'right', render: (v) => k(v) },
+        { title: '承伤', dataIndex: 'dmgTaken', width: 62, align: 'right', render: (v) => k(v) },
         { title: '视野', dataIndex: 'vision', width: 54, align: 'right' },
         { title: '时长', dataIndex: 'gameDuration', width: 62, align: 'right', render: (v) => mmss(v) },
       ]}
