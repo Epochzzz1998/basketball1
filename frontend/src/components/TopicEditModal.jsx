@@ -142,7 +142,7 @@ export default function TopicEditModal({ open, onClose, onSaved, topic, categori
           <Input placeholder="如：读书交流区" maxLength={15} showCount />
         </Form.Item>
         <Form.Item name="description" label="简介">
-          <Input.TextArea placeholder="一句话介绍这个专题" maxLength={30} showCount autoSize={{ minRows: 2, maxRows: 4 }} />
+          <Input.TextArea placeholder="一句话介绍这个专题" maxLength={50} showCount autoSize={{ minRows: 2, maxRows: 4 }} />
         </Form.Item>
         {/* 背景图：专题页顶部整块铺它，百家说的卡片顶部也铺一条。
             要 topicId 才能上传，所以只在编辑时出现（和帖子类别同理）。

@@ -50,7 +50,7 @@ public class TopicController {
      * `FIT5145 foundations of data science`（35 个字），在卡片上只看得到前半截。
      */
     private static final int NAME_MAX = 15;
-    private static final int DESC_MAX = 30;
+    private static final int DESC_MAX = 50;
     private static final String NAME_TOO_LONG = "专题名称最多 " + NAME_MAX + " 个字";
     private static final String DESC_TOO_LONG = "简介最多 " + DESC_MAX + " 个字";
 
