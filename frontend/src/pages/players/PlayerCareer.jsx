@@ -14,6 +14,7 @@ import TeamLogo, { TeamNames } from '../../components/TeamLogo'
 import SeasonProfile from './SeasonProfile'
 import GameLogTable from './GameLog'
 import { SEASON_TYPE, useGameLogSeasons } from './gameLogConfig'
+import useUrlState from '../../hooks/useUrlState'
 import useIsMobile from '../../hooks/useIsMobile'
 
 const shortSeason = (s) => seasonYearLabel(s).replace(' 赛季', '')
@@ -235,24 +236,26 @@ function PlayoffTable({ playerId }) {
  * 常规赛回补进来之后，同一个开关会自动长在常规赛页签上，不用改代码。
  */
 function StagePane({ playerId, seasonType, seasons, children }) {
-  const [view, setView] = useState('season')
+  // 同样写进 URL——从「逐场数据」点开一场比赛再返回，要回到逐场表而不是逐季汇总
+  const [view, setView] = useUrlState('view', 'season')
   const hasLog = !!seasons?.length
 
-  // 换到没有逐场数据的球员时，把视图拉回逐季汇总，免得停在一个空表上
-  useEffect(() => { if (!hasLog) setView('season') }, [hasLog])
+  // 没有逐场数据的球员一律按逐季汇总渲染。**派生而不是用 effect 把状态改回去**：
+  // effect 要等一次提交之后才跑，中间会有一帧真的停在空表上
+  const shown = hasLog ? view : 'season'
 
   return (
     <>
       {hasLog && (
         <div style={{ marginBottom: 12 }}>
           <Segmented
-            value={view}
+            value={shown}
             onChange={setView}
             options={[{ label: '逐季汇总', value: 'season' }, { label: '逐场数据', value: 'game' }]}
           />
         </div>
       )}
-      {view === 'season'
+      {shown === 'season'
         ? children
         : <GameLogTable playerId={playerId} seasonType={seasonType} seasons={seasons} />}
     </>
@@ -275,7 +278,9 @@ export default function PlayerCareer() {
   const { playerId } = useParams()
   const isMobile = useIsMobile()
   const [honors, setHonors] = useState(null)
-  const [tab, setTab] = useState('profile')
+  // 页签写进 URL：点进某一场比赛再返回时，这一页要回到用户刚才看的那个页签，
+  // 而不是默认的赛季资料卡。放在 useState 里的话一离开就丢了
+  const [tab, setTab] = useUrlState('tab', 'profile')
   // 资料卡选中赛季所属球队（由 SeasonProfile 回报）：身份头右侧那枚大队标就认它。
   // 交易赛季取最后一站＝赛季结束时所在的队；生涯档没有单一球队，不出队标。
   const [seasonTeam, setSeasonTeam] = useState(null)

@@ -5,6 +5,7 @@ import { Empty, Select } from 'antd'
 import { playerApi } from '../../api/player'
 import { TeamNames } from '../../components/TeamLogo'
 import useIsMobile from '../../hooks/useIsMobile'
+import useUrlState from '../../hooks/useUrlState'
 import { fmtMadePct, fmtPair, seasonShort, seasonYearLabel } from './rankConfig'
 import { ROUND_LABEL, SEASON_TYPE } from './gameLogConfig'
 import { compactColumns, sumColWidth } from './statColumns'
@@ -88,11 +89,19 @@ function buildColumns(seasonType, isMobile, openGame) {
 export default function GameLogTable({ playerId, seasonType, seasons }) {
   const isMobile = useIsMobile()
   const navigate = useNavigate()
-  const [season, setSeason] = useState(seasons?.[0]?.seasonNum ?? null)
+  // 选中的赛季写进 URL：从这张表点开某一场比赛，返回时要停在同一个赛季上。
+  // 键名不能用 seasonNum——同一页的赛季资料卡（SeasonProfile）已经占了那个键
+  const [urlSeason, setUrlSeason] = useUrlState('logSeason', '', true)
   const [rows, setRows] = useState(null)
 
-  // 换球员时列表会整个换掉，把选中赛季拉回新列表的最新一季
-  useEffect(() => { setSeason(seasons?.[0]?.seasonNum ?? null) }, [seasons])
+  // **派生而不是用 state + effect 同步**。要满足三种情况，派生一次就都覆盖了：
+  //   URL 里带了合法赛季 → 用它
+  //   URL 里没带 / 带的赛季这名球员没打过 → 回落到最新一季
+  //   换球员（列表整个换掉）→ 路由变了，参数自然不在，同样回落
+  // 原来那个 useEffect([seasons]) 做的就是第三件事，现在不需要了
+  const season = seasons?.some((s) => s.seasonNum === urlSeason)
+    ? urlSeason
+    : (seasons?.[0]?.seasonNum ?? null)
 
   useEffect(() => {
     if (season == null) return
@@ -115,7 +124,7 @@ export default function GameLogTable({ playerId, seasonType, seasons }) {
         <Select
           virtual={false}
           value={season}
-          onChange={setSeason}
+          onChange={setUrlSeason}
           style={{ width: isMobile ? 168 : 210 }}
           options={seasons.map((s) => ({
             value: s.seasonNum,
