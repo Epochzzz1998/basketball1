@@ -63,7 +63,9 @@ function RowBody({ type, d, dn }) {
       <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
         <FolderOpenOutlined style={{ color: '#fa8c16' }} />
         <b style={{ flex: 1, ...ellipsis }}>{d.name}</b>
-        {d.visibility === 'private' && <Tag icon={<LockOutlined />} style={{ marginInlineEnd: 0, flexShrink: 0 }}>私密</Tag>}
+        {d.visibility === 'private' && (
+          <LockOutlined title="私密专题" style={{ color: '#bbb', flexShrink: 0 }} />
+        )}
       </span>
     )
   }

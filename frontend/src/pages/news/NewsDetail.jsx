@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Avatar, Button, Card, Col, Divider, Empty, Popconfirm, Row, Skeleton, Tag, message } from 'antd'
-import { DeleteOutlined, DislikeOutlined, EyeInvisibleOutlined, FireOutlined, FormOutlined, LikeOutlined, LockOutlined, PushpinFilled, RightOutlined, StarFilled, TagsOutlined, UnlockOutlined } from '@ant-design/icons'
+import { DeleteOutlined, DislikeOutlined, EyeInvisibleOutlined, FireOutlined, FormOutlined, LikeOutlined, LockOutlined, PushpinFilled, RightOutlined, StarFilled, TagsOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import DOMPurify from 'dompurify'
 import { newsApi } from '../../api/news'
@@ -11,6 +11,7 @@ import { topicApi } from '../../api/topic'
 import { useAuth } from '../../auth/AuthContext'
 import { absolutizeHtml } from '../../config/origin'
 import BackButton from '../../components/BackButton'
+import TopicBadges from '../../components/TopicBadges'
 import { useGoBack } from '../../components/backNav'
 import CommentSection from '../../components/CommentSection'
 import RatingCard from '../../components/RatingCard'
@@ -351,9 +352,8 @@ export default function NewsDetail() {
             onClick={(e) => { e.stopPropagation(); goBack() }}
           />
           <span style={{ fontSize: isMobile ? 15 : 17, fontWeight: 800 }}>{topic.name}</span>
-          {topic.visibility === 'private'
-            ? <Tag icon={<LockOutlined />} style={{ marginInlineEnd: 0 }}>私密</Tag>
-            : <Tag icon={<UnlockOutlined />} color="green" style={{ marginInlineEnd: 0 }}>公开</Tag>}
+          {/* 和专题列表卡片、专题横幅同一个组件——同一句话在站里只有一种长相 */}
+          <TopicBadges topic={topic} light style={{ fontSize: 12 }} />
           <span style={{ flex: 1 }} />
           <span style={{ fontSize: 12, opacity: 0.85, whiteSpace: 'nowrap' }}>进入专题 <RightOutlined /></span>
         </div>

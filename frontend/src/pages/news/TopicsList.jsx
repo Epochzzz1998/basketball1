@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Button, Card, Col, Empty, Input, Popconfirm, Row, Spin, Tag, message } from 'antd'
+import { Button, Card, Col, Empty, Input, Popconfirm, Row, Spin, message } from 'antd'
 import {
-  AppstoreOutlined, DatabaseOutlined, DeleteOutlined, EditOutlined, EyeInvisibleOutlined, LockOutlined, MessageOutlined,
-  PlusOutlined, PushpinFilled, PushpinOutlined, RightOutlined, SearchOutlined, TeamOutlined, UnlockOutlined,
+  AppstoreOutlined, DatabaseOutlined, DeleteOutlined, EditOutlined, MessageOutlined,
+  PlusOutlined, PushpinFilled, PushpinOutlined, RightOutlined, SearchOutlined, TeamOutlined,
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { topicApi } from '../../api/topic'
 import { useAuth } from '../../auth/AuthContext'
 import TopicEditModal from '../../components/TopicEditModal'
 import TopicApplyButton from '../../components/TopicApplyButton'
+import TopicBadges from '../../components/TopicBadges'
 import CategoryManageModal from '../../components/CategoryManageModal'
 import ChatUsageModal from '../../components/ChatUsageModal'
 import CategoryFilter from '../../components/CategoryFilter'
@@ -176,7 +177,6 @@ export default function TopicsList() {
       ) : shown.length ? (
         <Row gutter={[16, 16]}>
           {shown.map((t) => {
-            const priv = t.visibility === 'private'
             // 有背景图的卡片整张是深色底，卡上所有文字都要跟着翻成浅色
             const art = !!t.banner
             const shadow = art ? '0 1px 6px rgba(0,0,0,.55)' : undefined
@@ -201,7 +201,7 @@ export default function TopicsList() {
                 <Card
                   className="topic-card"
                   style={{ borderRadius: 14, height: '100%', overflow: 'hidden', cursor: t.locked ? 'default' : 'pointer', opacity: t.locked ? 0.85 : 1 }}
-                  styles={{ body: { padding: '18px 20px', display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' } }}
+                  styles={{ body: { padding: '15px 18px', display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' } }}
                   onClick={() => enter(t)}
                 >
                   {/* 背景图铺满整张卡片，**原图不做任何模糊**——第一版虚化了，
@@ -242,15 +242,9 @@ export default function TopicsList() {
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 17, fontWeight: 800, color: art ? '#fff' : undefined, textShadow: shadow, ...clamp(1) }}>{t.name}</div>
-                      <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        {priv
-                          ? <Tag icon={<LockOutlined />} color="default" style={{ marginInlineEnd: 0 }}>私密</Tag>
-                          : <Tag icon={<UnlockOutlined />} color="green" style={{ marginInlineEnd: 0 }}>公开</Tag>}
-                        {t.locked && <Tag color="red" style={{ marginInlineEnd: 0 }}>无浏览权</Tag>}
-                        {t.categoryName && <Tag color="volcano" style={{ marginInlineEnd: 0 }}>{t.categoryName}</Tag>}
-                        {t.listed === false && <Tag icon={<EyeInvisibleOutlined />} color="orange" style={{ marginInlineEnd: 0 }}>未公开</Tag>}
-                        {t.pinned && <Tag icon={<PushpinFilled />} color="volcano" style={{ marginInlineEnd: 0 }}>置顶</Tag>}
-                      </div>
+                      {/* 状态标记：一行裸图标，和右上角那排操作图标同一套语言。
+                          原来是四五枚彩色 Tag，能占两行——一张卡上最抢眼的成了这些次要属性 */}
+                      <TopicBadges topic={t} light={art} style={{ marginTop: 5 }} />
                     </div>
                     {/* 置顶（人人可用，各管各的）+ admin/owner 的编辑、admin 的删除 */}
                     {(user || t.canManage) && (
@@ -270,7 +264,7 @@ export default function TopicsList() {
                     )}
                   </div>
 
-                  <div style={{ fontSize: 13, color: art ? 'rgba(255,255,255,.9)' : '#8c8c8c', textShadow: shadow, margin: '10px 0 14px', minHeight: 38, lineHeight: 1.6, ...clamp(2) }}>
+                  <div style={{ fontSize: 13, color: art ? 'rgba(255,255,255,.9)' : '#8c8c8c', textShadow: shadow, margin: '8px 0 12px', minHeight: 36, lineHeight: 1.55, ...clamp(2) }}>
                     {t.description || '暂无简介'}
                   </div>
 

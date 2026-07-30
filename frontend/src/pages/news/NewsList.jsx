@@ -3,7 +3,7 @@ import { Avatar, Badge, Button, Card, Col, Empty, Input, Pagination, Row, Segmen
 import {
   ClockCircleOutlined, CrownOutlined, EditOutlined, EyeInvisibleOutlined, FireOutlined, LikeOutlined, LockOutlined,
   MessageOutlined, PlusOutlined, RightOutlined, SearchOutlined, SettingOutlined, StarFilled,
-  StarOutlined, UnlockOutlined,
+  StarOutlined,
 } from '@ant-design/icons'
 import { Link, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
@@ -18,6 +18,7 @@ import TopicMemberModal from '../../components/TopicMemberModal'
 import TopicEditModal from '../../components/TopicEditModal'
 import TopicApplyButton from '../../components/TopicApplyButton'
 import CategoryFilter from '../../components/CategoryFilter'
+import TopicBadges from '../../components/TopicBadges'
 import { SuperAdminBadge, TopicOwnerBadge } from '../../components/RoleBadges'
 import UserTitles from '../../components/UserTitles'
 import useIsMobile from '../../hooks/useIsMobile'
@@ -413,9 +414,9 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied, n
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: isMobile ? 18 : 23, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8, textShadow: bannerUrl ? '0 1px 6px rgba(0,0,0,.45)' : undefined }}>
               {isTopic ? topic.name : official ? '官方新闻' : '百家说'}
-              {isTopic && (topic.visibility === 'private'
-                ? <Tag icon={<LockOutlined />} style={{ marginInlineEnd: 0 }}>私密</Tag>
-                : <Tag icon={<UnlockOutlined />} color="green" style={{ marginInlineEnd: 0 }}>公开</Tag>)}
+              {/* 和专题列表卡片同一个组件：状态标记是一排裸图标，不是彩色 Tag。
+                  横幅压在背景图上，所以走 light */}
+              {isTopic && <TopicBadges topic={topic} light style={{ fontSize: 13 }} />}
               {/* 改专题设置的第二个入口：原来只有专题列表页的编辑图标，进来之后想改还得退出去。
                   类别列表点开才拉——弹窗里的「专题类别」下拉要用，但普通访客用不上 */}
               {isTopic && topic.canManage && (
