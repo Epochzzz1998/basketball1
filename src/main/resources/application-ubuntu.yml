@@ -116,6 +116,14 @@ push:
 fcm:
   service-account-b64: ${FCM_SERVICE_ACCOUNT_B64:}
 
+# Riot 公开 API（开黑战绩模块）。同 VAPID / FCM：没配就整个模块静默停用，
+# 本地和测试环境不会因为少一把 key 起不来。
+#
+# 开发期用 development key（24 小时过期，门户上点一下重新生成）；
+# personal key 批下来之后换掉同一个环境变量即可，代码一行不用动。
+riot:
+  api-key: ${RIOT_API_KEY:}
+
 # Log to a file as well as stdout.
 #
 # Container stdout goes to Docker's json-file log, which is destroyed when the
