@@ -323,10 +323,15 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied, n
   const bannerUrl = isTopic ? topic.banner : null
 
   // 认不出来的分区（手打错、老链接）当作没选，退回帖子流。
-  // 两个模块各有一份注册表，但同一时刻只可能命中一个——路由决定了传进来的是哪个
-  const renderNbaSection = nbaSection ? sectionRenderer(nbaSection) : null
-  const renderLolSection = lolSection ? lolSectionRenderer(lolSection) : null
-  const renderSection = renderNbaSection || renderLolSection
+  // 两个模块各有一份注册表，但同一时刻只可能命中一个——路由决定了传进来的是哪个。
+  //
+  // **只导出 renderSection 这一个结果**，不留 renderNbaSection / renderLolSection
+  // 给别处直接用：加 LoL 模块时，发帖悬浮钮那一处还在判 `!renderNbaSection`，
+  // 于是在五条悟专题的战绩/榜单/绑定三个 tab 上都冒出了发帖按钮。
+  // 少一个能被误用的变量，就少一次这种漏改。
+  const renderSection = nbaSection
+    ? sectionRenderer(nbaSection)
+    : (lolSection ? lolSectionRenderer(lolSection) : null)
 
   return (
     <>
@@ -598,8 +603,9 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied, n
 
           bottom 留出 Tab 栏的高度再加一截（TAB_BAR_HEIGHT + 20），所以它落在 Tab 栏**上方**，
           不贴屏幕底边——贴底的话拇指去够 Tab 栏很容易误触到它。
-          Tab 栏不显示的页面（NBA 分区）这个钮也一起不出：那几页是数据看板，没有"发到哪儿"可言。 */}
-      {isMobile && canPost && !renderNbaSection && (
+          任何模块分区（NBA 数据、开黑战绩）这个钮都不出：那几页是数据看板，
+          没有"发到哪儿"可言。判据用 renderSection，它对两个模块一视同仁。 */}
+      {isMobile && canPost && !renderSection && (
         <div
           onClick={goPost}
           title={official ? '发布新闻' : user ? '发帖' : '登录后发帖'}
