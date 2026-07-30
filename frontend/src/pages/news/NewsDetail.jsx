@@ -11,7 +11,6 @@ import { topicApi } from '../../api/topic'
 import { useAuth } from '../../auth/AuthContext'
 import { absolutizeHtml } from '../../config/origin'
 import BackButton from '../../components/BackButton'
-import TopicBadges from '../../components/TopicBadges'
 import { useGoBack } from '../../components/backNav'
 import CommentSection from '../../components/CommentSection'
 import RatingCard from '../../components/RatingCard'
@@ -38,6 +37,53 @@ const avatarColor = (name) => {
   let h = 0
   for (const c of String(name || '?')) h = (h * 31 + c.codePointAt(0)) % 360
   return `hsl(${h}, 52%, 52%)`
+}
+
+/**
+ * 返回键旁边那枚「所属专题」胶囊：头像 + 名字 + 一个小箭头，点了进专题。
+ *
+ * 取代原来顶上那张橙色渐变大卡。那张卡占掉一屏的一大截，而它真正承载的信息
+ * 只有「这帖属于哪个专题」——简介在专题页上本来就有，标记（私密/类别）也一样。
+ * 帖子详情页的主角是帖子，出处给一枚胶囊就够了。
+ *
+ * 头像用专题背景图裁成圆的；没设背景图就退回首字母彩底（和站里其它没头像的地方同一套哈希规则）。
+ */
+function TopicPill({ topic, onClick }) {
+  const name = topic.name || '专题'
+  // 没有背景图时按名字哈希出稳定的底色，和帖子列表里没头像的作者同一套规则
+  let h = 0
+  for (const c of name) h = (h * 31 + c.codePointAt(0)) % 360
+  return (
+    <span
+      onClick={onClick}
+      title={name}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 1, minWidth: 0,
+        maxWidth: 190, padding: '3px 9px 3px 3px', borderRadius: 999,
+        background: '#f2f3f5', cursor: 'pointer',
+      }}
+    >
+      <span
+        style={{
+          width: 22, height: 22, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          background: topic.banner ? '#e8e8e8' : `hsl(${h}, 52%, 52%)`,
+          color: '#fff', fontSize: 11, fontWeight: 700,
+        }}
+      >
+        {topic.banner
+          ? <img src={topic.banner} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          : name[0].toUpperCase()}
+      </span>
+      <span style={{
+        fontSize: 13, fontWeight: 600, color: '#333',
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+      }}>
+        {name}
+      </span>
+      <RightOutlined style={{ fontSize: 9, color: '#bbb', flexShrink: 0 }} />
+    </span>
+  )
 }
 
 /**
@@ -132,13 +178,13 @@ export default function NewsDetail() {
   // 从"我的消息"深链进来时带 userInformationId，请求详情即顺便标记该消息已读
   const userInformationId = searchParams.get('userInformationId') || undefined
   const navigate = useNavigate()
-  const goBack = useGoBack() // 返回画在顶部卡片里（见下面的说明），所以这一页要自己拿这个动作
+  const goBack = useGoBack() // 返回画在正文卡片里（backNav 的 SELF_BACK 因此排除了这一页）
   const { user, dn } = useAuth() // dn：我给谁备注过，全站显示的就是备注名
   const isMobile = useIsMobile()
   const [news, setNews] = useState(null)
   const [canManage, setCanManage] = useState(false) // 能否置顶/加精（owner/manager+）
   const [topicOwnerIds, setTopicOwnerIds] = useState([]) // 该帖所属专题的题主集合（题主标识用，支持多题主）
-  const [topic, setTopic] = useState(null) // 帖子所属专题（页面最上方的信息卡，与论坛横幅同款）
+  const [topic, setTopic] = useState(null) // 帖子所属专题（返回键旁那枚胶囊用，见 TopicPill）
   const [ratingItems, setRatingItems] = useState([]) // 该帖打分项（主贴的 + 楼上挂的），单一数据源
   const [pollItems, setPollItems] = useState([]) // 该帖投票项（同打分的持有方式）
   const [fav, setFav] = useState({ favorited: false, count: 0 }) // 收藏状态 + 收藏数
@@ -181,7 +227,7 @@ export default function NewsDetail() {
     return () => { alive = false }
   }, [newsId, userInformationId])
 
-  // 帖子所属专题信息（顶部信息卡用）：论坛帖才有 topicId，官方新闻没有
+  // 帖子所属专题（返回键旁那枚胶囊用）：论坛帖才有 topicId，官方新闻没有
   useEffect(() => {
     const tid = news?.topicId
     if (!tid) { setTopic(null); return }
@@ -332,46 +378,19 @@ export default function NewsDetail() {
 
   return (
     <>
-    {/* 帖子所属专题信息卡：与论坛列表横幅同款品牌橙，整卡可点进专题 */}
-    {topic && (
-      <div
-        onClick={() => navigate(`/news/topic/${news.topicId}`)}
-        style={{
-          position: 'relative', overflow: 'hidden', borderRadius: 16, color: '#fff', cursor: 'pointer',
-          padding: isMobile ? '12px 14px' : '16px 22px', marginBottom: 16,
-          background: 'linear-gradient(120deg, #fa541c 0%, #d4380d 60%, #ad2102 100%)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          {/* 返回画进这张卡里。原来它单独占一行摆在卡片上方，那一行除了一个圆钮什么都没有，
-              手机上白白空掉一截。
-              stopPropagation 是必须的：整张卡是"点进专题"的按钮，不拦住就会一路冒泡过去 */}
-          <BackButton
-            variant="overlay"
-            size={28}
-            onClick={(e) => { e.stopPropagation(); goBack() }}
-          />
-          <span style={{ fontSize: isMobile ? 15 : 17, fontWeight: 800 }}>{topic.name}</span>
-          {/* 和专题列表卡片、专题横幅同一个组件——同一句话在站里只有一种长相 */}
-          <TopicBadges topic={topic} light style={{ fontSize: 12 }} />
-          <span style={{ flex: 1 }} />
-          <span style={{ fontSize: 12, opacity: 0.85, whiteSpace: 'nowrap' }}>进入专题 <RightOutlined /></span>
-        </div>
-        {topic.description && (
-          <div style={{ opacity: 0.88, marginTop: 4, fontSize: 12.5, maxWidth: 720 }}>{topic.description}</div>
-        )}
-      </div>
-    )}
     <Row gutter={[16, 16]}>
       <Col xs={24} lg={17}>
         <Card style={{ borderRadius: 16 }} styles={{ body: { padding: isMobile ? '16px 14px' : '24px 30px' } }}>
           <Skeleton loading={loading} active paragraph={{ rows: 8 }}>
             {news ? (
               <>
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                  {/* 没有专题卡的帖子（官方新闻、无专题帖）返回落在这一行的最左边——
-                      总之要在卡片内部，不能再单独占一行 */}
-                  {!topic && <BackButton size={28} onClick={goBack} />}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                  {/* 返回 + 所属专题，一行摆平。
+                      原来专题是顶上一整张橙色渐变卡：占掉一屏的一大截，
+                      而它承载的信息只有「这帖属于哪个专题」加一句简介——
+                      而简介在专题页上本来就有。现在收成返回键旁边一枚胶囊 */}
+                  <BackButton size={28} onClick={goBack} />
+                  {topic && <TopicPill topic={topic} onClick={() => navigate(`/news/topic/${news.topicId}`)} />}
                   <span style={{ flex: 1 }} />
                   {/* 编辑：作者本人或 manager+（后端 save 同款校验）。低调文字链接 */}
                   {user && (user.userId === news.authorId || user.isManagerOrOver) && (
