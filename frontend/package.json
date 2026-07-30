@@ -8,6 +8,7 @@
     "build": "vite build",
     "build:native": "VITE_NATIVE=1 vite build",
     "sync:ios": "npm run build:native && npx cap sync ios",
+    "sync:android": "npm run build:native && npx cap sync android",
     "lint": "eslint .",
     "preview": "vite preview"
   },
