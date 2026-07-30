@@ -373,6 +373,29 @@ export default function Schedule() {
               @media (min-width: 768px) {
                 .schedule-cal .ant-picker-calendar-date-content { height: 132px !important; }
               }
+              /* 移动端让日历**铺满卡片**。
+
+                 antd 的日期面板宽度是写死的：cellWidth × 7 + 左右内边距，
+                 算下来约 268px，而且 .ant-picker-panel 是 inline-flex——
+                 所以它在一张 360 多宽的卡片里只占左边一截，右边空一块，
+                 七列各挤在 36px 里。旁边「接下来 7 天」那张卡是满宽的，
+                 两张一对比就看出日历被压窄了。
+
+                 table-layout: fixed 是配套的：光把表格拉到 100% 的话，
+                 列宽仍按内容分配（"31" 比 "1" 宽），日期之间会疏密不均。
+                 固定布局才让七列严格各占七分之一。 */
+              @media (max-width: 767px) {
+                .schedule-cal .ant-picker-panel,
+                .schedule-cal .ant-picker-date-panel { width: 100% !important; display: block; }
+                .schedule-cal .ant-picker-body { padding-inline: 0 !important; }
+                .schedule-cal .ant-picker-content { width: 100%; table-layout: fixed; }
+                /* 格子里的那块底色本身也是定宽的，跟着放开，否则列宽变了它还缩在中间 */
+                .schedule-cal .ant-picker-cell .ant-picker-cell-inner {
+                  width: auto !important;
+                  min-width: 0 !important;
+                  margin-inline: 2px;
+                }
+              }
             `}</style>
             <div className="schedule-cal">
               <Calendar
