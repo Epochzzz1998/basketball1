@@ -70,13 +70,28 @@ body {
    症状是「单局详情里横滑不动，但背后的页面在上下动」：手指在弹层里，
    滚动却漏给了背后那一层，于是弹层里的宽表一动不动。
 
-   横向那条同样要：宽表滑到最右端再继续滑，会顺着链传出去。 */
+   这三个是**真的纵向滚动容器**，所以两个轴都锁。 */
 .ant-drawer-body,
 .ant-modal-body,
-.ant-modal-wrap,
+.ant-modal-wrap {
+  overscroll-behavior: contain;
+}
+
+/* 宽表**只锁横轴**。写成简写 `overscroll-behavior: contain` 会把页面滚动一起废掉，
+   而且是只在桌面滚轮下才明显的那种废法——原因有三步：
+
+   1. 简写同时设 x 和 y，而这里想拦的只有横向（宽表滑到最右端别再往外传）。
+   2. antd 给表格设的是 `overflow-x: auto`，而 CSS 规定**一个轴是 auto 时，
+      另一个轴的 visible 会被计算成 auto**——于是它在纵轴上也成了滚动容器，
+      只是可滚动距离为 0。
+   3. 可滚动距离为 0，意味着每一次纵向滚动都**直接撞到边界**，
+      而边界行为是 contain（到头也不传给祖先）。结果：滚轮停在表格上时页面纹丝不动。
+
+   `contain` 的前提是「这个容器自己能滚，只是滚到头了」。对一个纵向压根不能滚的
+   容器用它，拦掉的就不是多余的那部分，而是全部。 */
 .ant-table-content,
 .ant-table-body {
-  overscroll-behavior: contain;
+  overscroll-behavior-x: contain;
 }
 
 /* ============================================================
