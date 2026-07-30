@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ProLayout } from '@ant-design/pro-components'
 import { Avatar, Badge, Button, Dropdown } from 'antd'
 import {
@@ -38,7 +38,6 @@ import MobileTabBar, { TAB_BAR_HEIGHT, TOP_BAR_HEIGHT } from './MobileTabBar'
 import { showTabBar, showTopBar } from './mobileNav'
 import useNavigationPaint from './useNavigationPaint'
 import useAppSwipe from './useAppSwipe'
-import usePageTransition from './usePageTransition'
 
 /**
  * 整体外壳（P5-3 美化）：ProLayout 的 mix 布局 = 顶栏品牌 + 可折叠侧栏菜单，
@@ -59,9 +58,6 @@ export default function AppLayout() {
   useNavigationPaint(isMobile)
   // 左右滑：Tab 首页之间切换，二级页面从左边缘滑回上一级（见 useAppSwipe 的说明）
   useAppSwipe(isMobile)
-  // 换页时给新内容一个方向正确的滑入动画。**不能用 key 实现**，那会整页重建（见 usePageTransition）
-  const contentRef = useRef(null)
-  usePageTransition(contentRef, isMobile)
   const [unread, setUnread] = useState(0)
   const [pmUnread, setPmUnread] = useState(0)
   // 受控折叠：移动端默认收起（抽屉关闭）；点菜单项后主动收回抽屉（ProLayout 默认不收）
@@ -492,7 +488,6 @@ export default function AppLayout() {
           底部栏是 fixed 的，同样要留出等高的内边距，否则最后一条内容被永久盖住 */}
       <div
         className="app-content"
-        ref={contentRef}
         style={{
           padding: isMobile ? '12px 12px 0' : 20,
           paddingBottom: tabBar ? `calc(${TAB_BAR_HEIGHT + 12}px + env(safe-area-inset-bottom))` : (isMobile ? 12 : 20),
