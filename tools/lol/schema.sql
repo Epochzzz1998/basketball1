@@ -85,3 +85,31 @@ ALTER TABLE `lol_account`
   ADD COLUMN `RANK_WINS`    int          DEFAULT NULL AFTER `LEAGUE_POINT`,
   ADD COLUMN `RANK_LOSSES`  int          DEFAULT NULL AFTER `RANK_WINS`,
   ADD COLUMN `RANK_UPDATED` datetime     DEFAULT NULL COMMENT '上次刷新时刻；调度器据此决定要不要再查' AFTER `RANK_LOSSES`;
+
+-- ── 2026-07-30 追加：对局里所有人的段位（含路人）
+--
+-- 为什么单独一张表、而不是把段位塞进 lol_match_player：
+-- 后者按设计**只存自己人**，而段位要给一场里全部十个人显示。
+-- 而且段位是「这个召唤师当前的属性」，和某一场对局无关——
+-- 同一个人出现在二十场里，段位只该有一份。
+--
+-- 为什么不现场去查：一次详情十个人 = 十次 API 调用，占两分钟配额的 10%，
+-- 几个人随手点几下就打满了。所以改成后台慢慢填、页面只读库。
+CREATE TABLE IF NOT EXISTS `lol_summoner` (
+  `PUUID`        varchar(100) NOT NULL,
+  `GAME_NAME`    varchar(64)           DEFAULT NULL,
+  `TAG_LINE`     varchar(16)           DEFAULT NULL,
+  `PLATFORM`     varchar(8)   NOT NULL DEFAULT 'oc1',
+  `TIER`         varchar(16)           DEFAULT NULL,
+  `RANK_DIV`     varchar(8)            DEFAULT NULL,
+  `LEAGUE_POINT` int                   DEFAULT NULL,
+  `RANK_UPDATED` datetime              DEFAULT NULL COMMENT 'null = 还没查过；调度器优先补这些',
+  `LAST_SEEN`    datetime     NOT NULL COMMENT '最近一次出现在对局里。按它倒序补，先补最近见过的人',
+  PRIMARY KEY (`PUUID`),
+  KEY `idx_lol_summoner_fill` (`RANK_UPDATED`, `LAST_SEEN`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+  COMMENT='对局里出现过的所有召唤师及其当前段位。后台按 LAST_SEEN 倒序逐个补';
+
+-- 这一场的十个人有没有登记过。新入库的对局当场登记，老数据靠后台逐批补扫。
+ALTER TABLE `lol_match` ADD COLUMN `SCANNED` char(1) NOT NULL DEFAULT '0'
+  COMMENT '参与者是否已登记进 lol_summoner' AFTER `END_RESULT`;

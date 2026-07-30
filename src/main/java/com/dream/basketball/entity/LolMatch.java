@@ -53,6 +53,10 @@ public class LolMatch extends Model<LolMatch> implements Serializable {
     private String endResult;
 
     /** match-v5 详情原文的 gzip */
+    /** 这一场的十个人是否已登记进 lol_summoner。老数据靠后台逐批补扫 */
+    @TableField("SCANNED")
+    private String scanned;
+
     @TableField("RAW_GZ")
     private byte[] rawGz;
 
@@ -139,4 +143,11 @@ public class LolMatch extends Model<LolMatch> implements Serializable {
         this.createTime = createTime;
     }
 
+    public String getScanned() {
+        return scanned;
+    }
+
+    public void setScanned(String scanned) {
+        this.scanned = scanned;
+    }
 }

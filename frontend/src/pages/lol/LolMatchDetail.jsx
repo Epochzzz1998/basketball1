@@ -169,13 +169,22 @@ const COLUMNS = [
         </div>
         <div style={{ color: '#ccc', fontSize: 11 }}>
           {r.nickname ? r.riotId : null}
-          {r.tier && (
+          {r.tier ? (
             <Tooltip title="当前段位，不是这一场时的段位">
               <span style={{ color: tierColor(r.tier), fontWeight: 700, marginLeft: r.nickname ? 6 : 0 }}>
                 {tierText(r.tier, r.rankDiv)}
                 {r.leaguePoint != null && ` ${r.leaguePoint}LP`}
               </span>
             </Tooltip>
+          ) : r.rankPending === '1' ? (
+            /* 「还没查到」和「未定级」是两回事，不能都显示成灰字。
+               路人的段位是后台按最近出现过的顺序慢慢补的，几千个人要十几个小时，
+               这期间显示「未定级」是错的 */
+            <Tooltip title="段位还在后台补，最近的对局会先补上">
+              <span style={{ color: '#ddd', marginLeft: r.nickname ? 6 : 0 }}>段位查询中</span>
+            </Tooltip>
+          ) : (
+            <span style={{ color: '#ddd', marginLeft: r.nickname ? 6 : 0 }}>未定级</span>
           )}
         </div>
       </div>

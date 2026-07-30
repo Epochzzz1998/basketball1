@@ -45,9 +45,12 @@ public class LolSyncJob {
             if (r.getSkipped() != null) {
                 return;                       // 没配 key：静默跳过，不要每 5 分钟刷一条日志
             }
-            if (r.getBackfilled() > 0 || r.getPolled() > 0 || !r.getErrors().isEmpty()) {
-                log.info("LoL 同步：回填 {} 场，新增 {} 场{}",
-                        r.getBackfilled(), r.getPolled(),
+            boolean worth = r.getBackfilled() > 0 || r.getPolled() > 0
+                    || r.getScanned() > 0 || r.getRanksFilled() > 0 || !r.getErrors().isEmpty();
+            if (worth) {
+                log.info("LoL 同步：回填 {} 场，新增 {} 场，补扫 {} 场，补段位 {} 人（还差 {}）{}",
+                        r.getBackfilled(), r.getPolled(), r.getScanned(),
+                        r.getRanksFilled(), r.getRanksPending(),
                         r.getErrors().isEmpty() ? "" : "，错误 " + r.getErrors());
             }
         } catch (Exception e) {

@@ -8,9 +8,11 @@ import com.dream.basketball.entity.DreamUser;
 import com.dream.basketball.entity.LolAccount;
 import com.dream.basketball.entity.LolMatch;
 import com.dream.basketball.entity.LolMatchPlayer;
+import com.dream.basketball.entity.LolSummoner;
 import com.dream.basketball.mapper.LolAccountMapper;
 import com.dream.basketball.mapper.LolMatchMapper;
 import com.dream.basketball.mapper.LolMatchPlayerMapper;
+import com.dream.basketball.mapper.LolSummonerMapper;
 import com.dream.basketball.mapper.UserMapper;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -79,6 +81,16 @@ public class LolSyncService {
     private static final long BACKFILL_BUDGET_MS = 3 * 60 * 1000L;
     /** 段位多久刷一次。段位变化是以天计的，一小时足够及时 */
     private static final long RANK_TTL_MS = 60 * 60 * 1000L;
+    /**
+     * 每轮补几个路人的段位。
+     *
+     * <p>库里几千个人，一轮 30 个、五分钟一轮 ≈ 每小时 360 个，十来个小时补完。
+     * 想更快就是拿配额换，而配额是给「新对局要及时进来」留的——
+     * 那个是每天都在用的，路人段位是一次性的。
+     */
+    private static final int RANK_FILL_PER_ROUND = 30;
+    /** 每轮补扫几场老对局的参与者名单。解压 + 解析是本地开销，可以给得大方些 */
+    private static final int SCAN_PER_ROUND = 120;
 
     @Autowired
     private RiotApiClient riot;
@@ -90,6 +102,8 @@ public class LolSyncService {
     private LolMatchPlayerMapper playerMapper;
     @Autowired
     private UserMapper userMapper;
+    @Autowired
+    private LolSummonerMapper summonerMapper;
 
     // ───────────────────────────────────────────── 绑定
 
@@ -208,25 +222,19 @@ public class LolSyncService {
             accountMapper.updateById(a);
             r.backfilledAccounts++;
         }
+
+        // 4) 登记老对局里的人（纯本地开销，不打 Riot）
+        r.scanned = scanOldMatches();
+        // 5) 补路人段位。放最后：它是长尾任务，前面几步都比它急
+        r.ranksFilled = fillSummonerRanks(r);
+        r.ranksPending = summonerMapper.pendingRankCount();
         return r;
     }
 
     /** 刷一个账号的当前段位。取单双排那条；没打排位就留空 */
     private void refreshRank(LolAccount a, SyncReport r) {
         try {
-            JSONArray arr = riot.leagueEntries(a.getPlatform(), a.getPuuid());
-            JSONObject solo = null;
-            for (int i = 0; arr != null && i < arr.size(); i++) {
-                JSONObject e = arr.getJSONObject(i);
-                if ("RANKED_SOLO_5x5".equals(e.getString("queueType"))) {
-                    solo = e;
-                    break;
-                }
-            }
-            // 没找到单双排就退回第一条（灵活组排）——总比不显示强
-            if (solo == null && arr != null && !arr.isEmpty()) {
-                solo = arr.getJSONObject(0);
-            }
+            JSONObject solo = pickSolo(riot.leagueEntries(a.getPlatform(), a.getPuuid()));
             a.setTier(solo == null ? null : solo.getString("tier"));
             a.setRankDiv(solo == null ? null : solo.getString("rank"));
             a.setLeaguePoint(solo == null ? null : solo.getInteger("leaguePoints"));
@@ -317,6 +325,12 @@ public class LolSyncService {
         if (parts == null) {
             return fresh;
         }
+        // 顺手把这一场的**十个人**登记进 lol_summoner（含路人）。
+        // 在这里做而不是以后回头解压 RAW_GZ 找：这一刻 JSON 已经解析好在手上，
+        // 顺带写十行的代价接近零；事后补则要把几百场重新解压一遍
+        if (fresh) {
+            registerParticipants(matchId, info, parts);
+        }
         for (int i = 0; i < parts.size(); i++) {
             JSONObject p = parts.getJSONObject(i);
             String puuid = p.getString("puuid");
@@ -381,6 +395,106 @@ public class LolSyncService {
         }
     }
 
+    /** 把一场里的十个人登记进 lol_summoner，并把这场标记为已扫 */
+    private void registerParticipants(String matchId, JSONObject info, JSONArray parts) {
+        Long ts = info.getLong("gameStartTimestamp");
+        Date seen = new Date(ts == null ? System.currentTimeMillis() : ts);
+        String platform = StringUtils.defaultIfBlank(info.getString("platformId"), "oc1").toLowerCase();
+        for (int i = 0; i < parts.size(); i++) {
+            JSONObject p = parts.getJSONObject(i);
+            String puuid = p.getString("puuid");
+            if (StringUtils.isBlank(puuid)) {
+                continue;
+            }
+            try {
+                summonerMapper.upsert(puuid, p.getString("riotIdGameName"),
+                        p.getString("riotIdTagline"), platform, seen);
+            } catch (Exception e) {
+                // 登记失败不该让整场入库失败——它只是给段位显示用的附加信息
+                log.debug("LoL 登记召唤师失败 {}: {}", puuid, e.getMessage());
+            }
+        }
+        matchMapper.markScanned(matchId);
+    }
+
+    /**
+     * 补扫老对局的参与者名单。
+     *
+     * <p>这张表是后加的，之前入库的几百场没登记过里面的人。逐轮扫一批，
+     * 靠 {@code SCANNED} 标记推进——**可中断、可重启**，不需要额外的进度记录。
+     */
+    private int scanOldMatches() {
+        List<String> ids = matchMapper.unscanned(SCAN_PER_ROUND);
+        int done = 0;
+        for (String id : ids) {
+            LolMatch m = matchMapper.selectById(id);
+            String raw = m == null ? null : gunzip(m.getRawGz());
+            if (raw == null) {
+                // 没存原文的老数据永远扫不出来，标记掉免得每轮都重试
+                matchMapper.markScanned(id);
+                continue;
+            }
+            JSONObject info = JSON.parseObject(raw).getJSONObject("info");
+            JSONArray parts = info == null ? null : info.getJSONArray("participants");
+            if (parts == null) {
+                matchMapper.markScanned(id);
+                continue;
+            }
+            registerParticipants(id, info, parts);
+            done++;
+        }
+        return done;
+    }
+
+    /**
+     * 补一批路人的段位。
+     *
+     * <p>失败也要写 {@code RANK_UPDATED}——查不到段位（没打过排位）和查失败，
+     * 对「要不要再查一次」是同一个答案：别在下一轮又来一次。
+     * 不写的话这个人会永远排在待补队列最前面，把后面几千个堵死。
+     */
+    private int fillSummonerRanks(SyncReport r) {
+        List<String> targets = summonerMapper.pendingRankTargets(RANK_FILL_PER_ROUND);
+        int ok = 0;
+        for (String puuid : targets) {
+            LolSummoner su = summonerMapper.selectById(puuid);
+            if (su == null) {
+                continue;
+            }
+            try {
+                JSONArray arr = riot.leagueEntries(
+                        StringUtils.defaultIfBlank(su.getPlatform(), "oc1"), puuid);
+                JSONObject solo = pickSolo(arr);
+                su.setTier(solo == null ? null : solo.getString("tier"));
+                su.setRankDiv(solo == null ? null : solo.getString("rank"));
+                su.setLeaguePoint(solo == null ? null : solo.getInteger("leaguePoints"));
+                ok++;
+            } catch (RiotApiClient.RiotException e) {
+                if (e.isForbidden()) {
+                    // key 或主机的问题，这一轮别再往下打了
+                    r.errors.add("段位补齐中止: " + e.getMessage());
+                    log.error("LoL 补段位被拒绝（主机 {}）：{}", e.getHost(), e.getMessage());
+                    break;
+                }
+                log.debug("LoL 补段位失败 {}: {}", puuid, e.getMessage());
+            }
+            su.setRankUpdated(new Date());
+            summonerMapper.updateById(su);
+        }
+        return ok;
+    }
+
+    /** 取单双排那条；没有就退回第一条（灵活组排），都没有返回 null */
+    private static JSONObject pickSolo(JSONArray arr) {
+        for (int i = 0; arr != null && i < arr.size(); i++) {
+            JSONObject e = arr.getJSONObject(i);
+            if ("RANKED_SOLO_5x5".equals(e.getString("queueType"))) {
+                return e;
+            }
+        }
+        return arr != null && !arr.isEmpty() ? arr.getJSONObject(0) : null;
+    }
+
     // ───────────────────────────────────────────── 单局详情
 
     /**
@@ -416,6 +530,21 @@ public class LolSyncService {
             acctByPuuid.put(a.getPuuid(), a);
             DreamUser u = userMapper.selectById(a.getUserId());
             nickByPuuid.put(a.getPuuid(), u == null ? a.getGameName() : u.getUserNickname());
+        }
+        // 路人的段位：一次把这十个人查出来，而不是在循环里逐个 selectById
+        Map<String, LolSummoner> summByPuuid = new HashMap<>();
+        JSONArray allParts = info.getJSONArray("participants");
+        List<String> puuids = new ArrayList<>();
+        for (int i = 0; allParts != null && i < allParts.size(); i++) {
+            String pu = allParts.getJSONObject(i).getString("puuid");
+            if (StringUtils.isNotBlank(pu)) {
+                puuids.add(pu);
+            }
+        }
+        if (!puuids.isEmpty()) {
+            for (LolSummoner su : summonerMapper.selectBatchIds(puuids)) {
+                summByPuuid.put(su.getPuuid(), su);
+            }
         }
 
         Map<String, Object> out = new HashMap<>();
@@ -455,7 +584,7 @@ public class LolSyncService {
                 ta += intOf(p, "assists");
                 tg += intOf(p, "goldEarned");
                 tdmg += intOf(p, "totalDamageDealtToChampions");
-                players.add(detailRow(p, nickByPuuid, acctByPuuid));
+                players.add(detailRow(p, nickByPuuid, acctByPuuid, summByPuuid));
             }
             team.put("kills", tk);
             team.put("deaths", td);
@@ -480,7 +609,8 @@ public class LolSyncService {
      * 但它是判断一个人「经济吃得值不值」的常用指标。
      */
     private Map<String, Object> detailRow(JSONObject p, Map<String, String> nickByPuuid,
-                                          Map<String, LolAccount> acctByPuuid) {
+                                          Map<String, LolAccount> acctByPuuid,
+                                          Map<String, LolSummoner> summByPuuid) {
         JSONObject ch = p.getJSONObject("challenges");
         Map<String, Object> row = new HashMap<>();
         String puuid = p.getString("puuid");
@@ -491,13 +621,24 @@ public class LolSyncService {
                 ? StringUtils.defaultString(p.getString("summonerName"), "?")
                 : gn + "#" + StringUtils.defaultString(p.getString("riotIdTagline")));
         row.put("nickname", nickByPuuid.get(puuid));   // null = 不是站内成员
+        // 段位：成员优先用 lol_account（每小时刷，最新），路人用 lol_summoner（后台慢慢补）。
+        // 两张表都按 PUUID 键，取哪张只影响新鲜度不影响正确性。
+        // 注意这是**当前**段位，不是打这场时的——对局数据里没有段位字段，
+        // league-v4 也只给当前值。界面上要写清楚，免得被当成历史战力
         LolAccount acct = acctByPuuid.get(puuid);
-        if (acct != null && StringUtils.isNotBlank(acct.getTier())) {
-            // 注意这是**当前**段位，不是打这场时的段位——对局数据里没有段位，
-            // league-v4 也只给当前值。界面上要写清楚，免得被当成历史战力
-            row.put("tier", acct.getTier());
-            row.put("rankDiv", acct.getRankDiv());
-            row.put("leaguePoint", acct.getLeaguePoint());
+        LolSummoner summ = summByPuuid.get(puuid);
+        String tier = acct != null && StringUtils.isNotBlank(acct.getTier())
+                ? acct.getTier()
+                : (summ == null ? null : summ.getTier());
+        if (StringUtils.isNotBlank(tier)) {
+            boolean fromAcct = acct != null && StringUtils.isNotBlank(acct.getTier());
+            row.put("tier", tier);
+            row.put("rankDiv", fromAcct ? acct.getRankDiv() : summ.getRankDiv());
+            row.put("leaguePoint", fromAcct ? acct.getLeaguePoint() : summ.getLeaguePoint());
+        } else if (summ == null || summ.getRankUpdated() == null) {
+            // 还没查过 ≠ 没段位。分开告诉前端，才能显示「查询中」而不是「未定级」——
+            // 后台补完几千个人要十几个小时，这期间显示错的比显示"还没查"更糟
+            row.put("rankPending", "1");
         }
 
         row.put("championName", p.getString("championName"));
@@ -638,6 +779,12 @@ public class LolSyncService {
         public int backfilled;
         /** 这一轮补完了几个账号。backfilled 数的是对局数，重绑时那个会是 0（全命中已有数据） */
         public int backfilledAccounts;
+        /** 这一轮补扫了几场老对局的参与者名单 */
+        public int scanned;
+        /** 这一轮补了几个人的段位 */
+        public int ranksFilled;
+        /** 还有多少人没查过段位 */
+        public int ranksPending;
         public int polled;
         public String skipped;
         public List<String> errors = new ArrayList<>();
@@ -648,6 +795,18 @@ public class LolSyncService {
 
         public int getBackfilledAccounts() {
             return backfilledAccounts;
+        }
+
+        public int getScanned() {
+            return scanned;
+        }
+
+        public int getRanksFilled() {
+            return ranksFilled;
+        }
+
+        public int getRanksPending() {
+            return ranksPending;
         }
 
         public int getPolled() {
