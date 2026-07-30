@@ -105,7 +105,9 @@ export default function App() {
         {/* NBA 专题里的分区：同一个组件，只是多带一个 section。
             用路径段而不是查询参数——DailyGames 自己要用 ?date=，而 setSearchParams
             会整个替换查询串，把分区参数一起抹掉 */}
-        <Route path="news/topic/:topicId/nba/:section" element={<TopicPosts />} />
+        <Route path="news/topic/:topicId/nba/:section" element={<TopicPosts module="nba" />} />
+        {/* 开黑战绩：和 NBA 分区同一个组件，只是换一份分区注册表 */}
+        <Route path="news/topic/:topicId/lol/:section" element={<TopicPosts module="lol" />} />
         {/* 专题群聊：一张普通页面而不是浮层——浮层在移动端和软键盘打架 */}
         <Route path="news/topic/:topicId/chat" element={<ProtectedRoute><TopicChatPage /></ProtectedRoute>} />
         {/* 发帖/编辑：登录即可；论坛发帖须带 ?topicId（后端按专题权限校验） */}

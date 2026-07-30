@@ -13,8 +13,10 @@ import useIsMobile from '../../hooks/useIsMobile'
  * - 无浏览权（私密专题）：上锁提示，不拉帖；
  * - 有浏览权：渲染 NewsList 的专题模式（发帖/发言/管理按该专题权限）。
  */
-export default function TopicPosts() {
-  // section 来自 /news/topic/:topicId/nba/:section —— NBA 专题里的分区
+export default function TopicPosts({ module = 'nba' }) {
+  // section 来自 /news/topic/:topicId/{module}/:section。
+  // module 由路由传进来（nba / lol）——两条路由的路径段不同，靠 useParams 分不出来，
+  // 而分区注册表是各自一份，必须知道去查哪一份
   const { topicId, section } = useParams()
   const { user } = useAuth()
   const [searchParams] = useSearchParams()
@@ -73,5 +75,12 @@ export default function TopicPosts() {
     )
   }
 
-  return <NewsList topic={topic} nbaSection={section} onApplied={() => load(true)} />
+  return (
+    <NewsList
+      topic={topic}
+      nbaSection={module === 'nba' ? section : null}
+      lolSection={module === 'lol' ? section : null}
+      onApplied={() => load(true)}
+    />
+  )
 }

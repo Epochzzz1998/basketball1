@@ -26,6 +26,8 @@ import { NEWS_MODULE_ENABLED } from '../../config/modules'
 import TopicChatEntry from '../../components/TopicChatEntry'
 import NbaModuleEntry from '../../components/NbaModuleEntry'
 import { sectionRenderer } from '../../components/nbaSections'
+import { lolSectionRenderer } from '../../components/lolSections'
+import LolModuleEntry from '../../components/LolModuleEntry'
 
 /**
  * 帖子列表（公开，P5-2 内容流改版），按频道复用：
@@ -205,7 +207,7 @@ function HotRail({ rows, official }) {
  * - topic={...}：某个专题的帖子流（专题横幅，发帖/发言/管理按该专题权限）；
  * 均复用同一套卡片流 + 热榜。列表接口 ES 全量返回，前端搜索/排序/分页。
  */
-export default function NewsList({ channel = 'forum', topic = null, onApplied, nbaSection = null }) {
+export default function NewsList({ channel = 'forum', topic = null, onApplied, nbaSection = null, lolSection = null }) {
   const navigate = useNavigate()
   const { user, dn } = useAuth()
   const isMobile = useIsMobile()
@@ -320,8 +322,11 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied, n
   // 专题背景图（题主在专题设置里传）。官方新闻没有这一说，永远走蓝色渐变
   const bannerUrl = isTopic ? topic.banner : null
 
-  // 认不出来的分区（手打错、老链接）当作没选，退回帖子流
+  // 认不出来的分区（手打错、老链接）当作没选，退回帖子流。
+  // 两个模块各有一份注册表，但同一时刻只可能命中一个——路由决定了传进来的是哪个
   const renderNbaSection = nbaSection ? sectionRenderer(nbaSection) : null
+  const renderLolSection = lolSection ? lolSectionRenderer(lolSection) : null
+  const renderSection = renderNbaSection || renderLolSection
 
   return (
     <>
@@ -457,11 +462,13 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied, n
       {/* NBA 分区标签条：放在 Row 外面，所以切分区时它和上面的横幅都不动，
           只有下面的内容整块换。只在 NBA 专题渲染（组件内部按 topicId 判断） */}
       {isTopic && <NbaModuleEntry topic={topic} section={nbaSection} />}
+      {isTopic && <LolModuleEntry topic={topic} section={lolSection} />}
 
-      {renderNbaSection ? (
-        /* 选中了某个 NBA 分区：整块换成那一页，且不分左右栏——
-           右栏那些「发帖 / 热帖」对着一张联盟看板毫无意义，而这些页面本身要宽度 */
-        renderNbaSection()
+      {renderSection ? (
+        /* 选中了某个模块分区：整块换成那一页，且不分左右栏——
+           右栏那些「发帖 / 热帖」对着一张联盟看板或战绩榜毫无意义，
+           而这些页面本身要宽度 */
+        renderSection()
       ) : (
       /* 手机是单列，栅格的水平间距（每列左右各 8px）纯属浪费，只保留竖直间距。
          注意这里是表达式位置，只能用 JS 块注释——写成 {/* *\/} 会被当成对象字面量，

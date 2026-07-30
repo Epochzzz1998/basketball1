@@ -41,6 +41,7 @@ export const TABS = [
  */
 const NBA_PATTERNS = [
   /^\/news\/topic\/[^/]+\/nba\//,        // 专题里的 NBA 分区
+  /^\/news\/topic\/[^/]+\/lol\//,        // 专题里的开黑战绩分区
   /^\/league$/,
   /^\/players(\/|$)/,
   /^\/rankings(\/|$)/,
