@@ -242,7 +242,7 @@ function FloorReplies({ floorId, newsId, authorId, topicOwnerIds, locked, bump, 
   return (
     <div style={{ background: '#fafafa', borderRadius: 10, padding: isMobile ? '2px 10px' : '4px 14px', marginTop: 8 }}>
       {rows.map((r) => (
-        <div key={r.commentId} style={{ display: 'flex', gap: 10, padding: '10px 0', borderBottom: '1px solid #f0f0f0' }}>
+        <div key={r.commentId} style={{ display: 'flex', gap: 10, paddingTop: 10, paddingBottom: 4, borderBottom: '1px solid #f0f0f0' }}>
           {r.deleted !== '1' && <UserAvatar name={r.userName} src={r.commenterAvatar} size={24} userId={r.userId} />}
           <div style={{ flex: 1, minWidth: 0 }}>
             {r.deleted !== '1' && <MetaRow c={r} authorId={authorId} topicOwnerIds={topicOwnerIds} />}
@@ -381,7 +381,10 @@ function FloorNode({ comment, newsId, authorId, topicOwnerIds, locked, ratingIte
   }
 
   return (
-    <div style={{ display: 'flex', gap: 12, paddingTop: 16, paddingBottom: 16, borderBottom: '1px solid #f5f5f5' }}>
+    /* paddingBottom 比 paddingTop 小一截：这一行按钮底下就是分割线，
+       16 的话它离上面的正文只有 10px、离下面的线却有 20px，看着像浮在半空。
+       antd 小号按钮的文字本身还在盒子里往上坐一点，所以实际观感比数值更松 */
+    <div style={{ display: 'flex', gap: 12, paddingTop: 16, paddingBottom: 8, borderBottom: '1px solid #f5f5f5' }}>
       {c.deleted === '1' ? <UserAvatar name="?" size={36} /> : <UserAvatar name={c.userName} src={c.commenterAvatar} size={36} userId={c.userId} />}
       <div style={{ flex: 1, minWidth: 0 }}>
         {c.deleted !== '1' && <MetaRow c={c} authorId={authorId} topicOwnerIds={topicOwnerIds} showFloor />}
