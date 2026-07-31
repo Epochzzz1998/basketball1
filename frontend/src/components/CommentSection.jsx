@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Avatar, Button, Empty, Image, Input, Pagination, Popconfirm, Space, Spin, message } from 'antd'
-import { BarChartOutlined, DislikeOutlined, FileOutlined, LikeOutlined, LockOutlined, StarFilled, UserOutlined } from '@ant-design/icons'
+import { BarChartOutlined, DeleteOutlined, DislikeOutlined, FileOutlined, LikeOutlined, LockOutlined, MessageOutlined, StarFilled, UserOutlined } from '@ant-design/icons'
 import { Link, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { newsApi } from '../api/news'
@@ -260,18 +260,22 @@ function FloorReplies({ floorId, newsId, authorId, topicOwnerIds, locked, bump, 
               {r.deleted === '1' ? '原评论已删除' : renderContent(r.content, r.mentions)}
             </div>
             {r.deleted !== '1' && <CommentAttachments attachmentsJson={r.attachments} />}
+            {/* 操作行：赞/踩靠左（它们是「对这条内容的态度」，跟着内容读下来），
+                回复/删除靠右（它们是「我要做点什么」）。两组都带图标 */}
             {r.deleted !== '1' && (
-            <Space size={2} wrap={isMobile} style={{ marginLeft: -8, marginTop: 2 }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginLeft: -8, marginTop: 2 }}>
               <Button type="text" size="small" style={{ color: '#8c8c8c' }} icon={<LikeOutlined />} onClick={() => like(r, 'good')}>
                 {r.goodNum ?? 0}
               </Button>
               <Button type="text" size="small" style={{ color: '#8c8c8c' }} icon={<DislikeOutlined />} onClick={() => like(r, 'bad')}>
                 {r.badNum ?? 0}
               </Button>
+              <span style={{ flex: 1 }} />
               {!locked && (
                 <Button
                   type="text"
                   size="small"
+                  icon={<MessageOutlined />}
                   style={{ color: replyingId === r.commentId ? '#fa541c' : '#8c8c8c' }}
                   onClick={() => (user ? setReplyingId((id) => (id === r.commentId ? null : r.commentId)) : requireLogin())}
                 >
@@ -280,17 +284,17 @@ function FloorReplies({ floorId, newsId, authorId, topicOwnerIds, locked, bump, 
               )}
               {user && user.userId === r.userId && (
                 <Popconfirm title="删除这条回复？" okText="删除" cancelText="取消" onConfirm={() => del(r)}>
-                  <Button type="text" size="small" style={{ color: '#ff4d4f' }}>删除</Button>
+                  <Button type="text" size="small" icon={<DeleteOutlined />} style={{ color: '#ff4d4f' }}>删除</Button>
                 </Popconfirm>
               )}
-            </Space>
+            </div>
             )}
             {replyingId === r.commentId && (
               <div style={{ marginTop: 8 }}>
                 <CommentComposer
                   newsId={newsId}
                   compact
-                  placeholder={`回复 ${r.userName || ''}（@ 提及 · 可发图片/文件/表情）`}
+                  placeholder={`回复 ${r.userName || ''}`}
                   submitText="发表回复"
                   onSubmit={(payload) => replyTo(r, payload)}
                   onCancel={() => setReplyingId(null)}
@@ -324,7 +328,6 @@ function FloorReplies({ floorId, newsId, authorId, topicOwnerIds, locked, bump, 
 function FloorNode({ comment, newsId, authorId, topicOwnerIds, locked, ratingItem, onVoteRating, onDeleteRating, ratingCanDelete, pollItem, onVotePoll, onDeletePoll, onRemoved }) {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const isMobile = useIsMobile()
   const [c, setC] = useState(comment) // 本楼数据（含 goodNum/badNum/totalReplyNum），就地更新
   const [replyOpen, setReplyOpen] = useState(false)
   const [showReplies, setShowReplies] = useState(false)
@@ -432,29 +435,38 @@ function FloorNode({ comment, newsId, authorId, topicOwnerIds, locked, ratingIte
             </Button>
           )
         ) : (
-        <Space size={2} wrap={isMobile} style={{ marginLeft: -8, marginTop: 4 }}>
+        /* 左边是「对这条内容的读数」——赞、踩、有多少条回复；
+           右边是「我要做点什么」——回复、删除。两组都带图标 */
+        <div style={{ display: 'flex', alignItems: 'center', marginLeft: -8, marginTop: 4 }}>
           <Button type="text" size="small" style={{ color: '#8c8c8c' }} icon={<LikeOutlined />} onClick={() => like('good')}>
             {c.goodNum ?? 0}
           </Button>
           <Button type="text" size="small" style={{ color: '#8c8c8c' }} icon={<DislikeOutlined />} onClick={() => like('bad')}>
             {c.badNum ?? 0}
           </Button>
-          {!locked && (
-            <Button type="text" size="small" style={{ color: '#8c8c8c' }} onClick={() => (user ? setReplyOpen((o) => !o) : requireLogin())}>
-              回复
-            </Button>
-          )}
           {replyCount > 0 && (
             <Button type="link" size="small" onClick={() => setShowReplies((s) => !s)}>
               {showReplies ? '收起' : `${replyCount} 条回复`}
             </Button>
           )}
+          <span style={{ flex: 1 }} />
+          {!locked && (
+            <Button
+              type="text"
+              size="small"
+              icon={<MessageOutlined />}
+              style={{ color: replyOpen ? '#fa541c' : '#8c8c8c' }}
+              onClick={() => (user ? setReplyOpen((o) => !o) : requireLogin())}
+            >
+              回复
+            </Button>
+          )}
           {user && user.userId === c.userId && (
             <Popconfirm title="删除这条评论？" okText="删除" cancelText="取消" onConfirm={del}>
-              <Button type="text" size="small" style={{ color: '#ff4d4f' }}>删除</Button>
+              <Button type="text" size="small" icon={<DeleteOutlined />} style={{ color: '#ff4d4f' }}>删除</Button>
             </Popconfirm>
           )}
-        </Space>
+        </div>
         )}
 
         {/* 内联回复框（直接回楼） */}
@@ -463,7 +475,7 @@ function FloorNode({ comment, newsId, authorId, topicOwnerIds, locked, ratingIte
             <CommentComposer
               newsId={newsId}
               compact
-              placeholder={`回复 ${c.userName || ''}（@ 提及 · 可发图片/文件/表情）`}
+              placeholder={`回复 ${c.userName || ''}`}
               submitText="发表回复"
               onSubmit={handleReply}
               onCancel={() => setReplyOpen(false)}
@@ -683,7 +695,7 @@ export default function CommentSection({
           </div>
           <Space direction="vertical" style={{ width: '100%' }} size={10}>
             <Input
-              placeholder="想为什么打分？（必填）"
+              placeholder="想为什么打分？"
               maxLength={30}
               showCount
               value={ratingSubject}
@@ -692,7 +704,7 @@ export default function CommentSection({
             />
             <RatingImagePicker value={ratingImage} onChange={setRatingImage} upload={(f) => newsApi.uploadNewsImage(f, newsId)} />
             <Input
-              placeholder="说明文字（可选，作为楼的内容）"
+              placeholder="说明文字（可选）"
               maxLength={200}
               value={ratingNote}
               onChange={(e) => setRatingNote(e.target.value)}
@@ -715,7 +727,7 @@ export default function CommentSection({
           </div>
           <Space direction="vertical" style={{ width: '100%' }} size={10}>
             <Input
-              placeholder="想投什么？（必填）"
+              placeholder="想投什么？"
               maxLength={30}
               showCount
               value={pollSubject}
@@ -739,7 +751,7 @@ export default function CommentSection({
               <Button size="small" onClick={() => setPollOptions((arr) => [...arr, ''])} style={{ width: 120 }}>+ 添加选项</Button>
             )}
             <Input
-              placeholder="说明文字（可选，作为楼的内容）"
+              placeholder="说明文字（可选）"
               maxLength={200}
               value={pollNote}
               onChange={(e) => setPollNote(e.target.value)}
@@ -769,7 +781,7 @@ export default function CommentSection({
           <div style={{ flex: 1 }}>
             <CommentComposer
               newsId={newsId}
-              placeholder="说点什么…（@ 提及 · 可发图片/文件/表情）"
+              placeholder="说点什么…"
               submitText="发表评论"
               onSubmit={handlePost}
             />

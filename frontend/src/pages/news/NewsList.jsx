@@ -83,6 +83,7 @@ function PostCard({ post, topicOwnerIds, categoryName }) {
   const { dn } = useAuth() // 备注名：我给谁备注过，全站看到的就是备注名
   const isMobile = useIsMobile()
   const navigate = useNavigate()
+  const location = useLocation()
   const cover = coverOf(post.content)
   const excerpt = textOf(post.content)
   // 整卡是跳帖子的 Link；点头像/名字改跳作者主页（拦掉卡片默认跳转）
@@ -93,6 +94,8 @@ function PostCard({ post, topicOwnerIds, categoryName }) {
     <Link
       // 草稿点进去直接是编辑器：继续写、或者在那儿点「发布」
       to={post.draft === '1' ? `/news/edit/${post.newsId}` : `/news/${post.newsId}`}
+      // 草稿走编辑器，那就和「发帖」一样浮在这一页上面（见 App.jsx）
+      state={post.draft === '1' ? { composerBackground: location } : undefined}
       className="post-card"
       style={{
         // 手机上左右内边距和间距都收紧：正文区实测只有 116px 宽（屏 390 减掉
@@ -316,7 +319,11 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied, n
   const canPost = isTopic ? !!topic.canPost : official ? user?.isManagerOrOver : true
   const goPost = () => {
     if (!user) return navigate('/login')
-    navigate(isTopic ? `/news/new?topicId=${topicId}` : official ? '/news/new?channel=official' : '/news/new')
+    // 带上当前 location：发帖器会浮在这一页上面，而不是把它换掉（见 App.jsx 的说明）
+    navigate(
+      isTopic ? `/news/new?topicId=${topicId}` : official ? '/news/new?channel=official' : '/news/new',
+      { state: { composerBackground: location } },
+    )
   }
 
   const ring = (size, pos) => ({

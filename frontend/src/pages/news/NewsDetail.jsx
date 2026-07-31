@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Avatar, Button, Card, Col, Divider, Empty, Popconfirm, Row, Skeleton, Tag, message } from 'antd'
 import { DeleteOutlined, DislikeOutlined, EyeInvisibleOutlined, FireOutlined, FormOutlined, LikeOutlined, LockOutlined, PushpinFilled, RightOutlined, StarFilled, TagsOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
@@ -178,6 +178,7 @@ export default function NewsDetail() {
   // 从"我的消息"深链进来时带 userInformationId，请求详情即顺便标记该消息已读
   const userInformationId = searchParams.get('userInformationId') || undefined
   const navigate = useNavigate()
+  const location = useLocation()
   const goBack = useGoBack() // 返回画在正文卡片里（backNav 的 SELF_BACK 因此排除了这一页）
   const { user, dn } = useAuth() // dn：我给谁备注过，全站显示的就是备注名
   const isMobile = useIsMobile()
@@ -395,7 +396,8 @@ export default function NewsDetail() {
                   {/* 编辑：作者本人或 manager+（后端 save 同款校验）。低调文字链接 */}
                   {user && (user.userId === news.authorId || user.isManagerOrOver) && (
                     <a
-                      onClick={() => navigate(`/news/edit/${newsId}`)}
+                      // 编辑器浮在这篇帖子上面，不把详情页换掉（见 App.jsx）
+                      onClick={() => navigate(`/news/edit/${newsId}`, { state: { composerBackground: location } })}
                       style={{ color: '#888', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 4 }}
                     >
                       <FormOutlined /> 编辑

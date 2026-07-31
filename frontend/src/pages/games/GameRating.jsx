@@ -134,7 +134,7 @@ export default function GameRating({ gameId, teams, isMobile, onPlayer }) {
               onChange={(e) => setDraft(e.target.value)}
               placeholder="说说这场比赛"
               maxLength={300}
-              autoSize={{ minRows: 2, maxRows: 5 }}
+              autoSize={{ minRows: 1, maxRows: 5 }}
               className="pill-input"
               style={{ flex: 1, minWidth: 200 }}
             />

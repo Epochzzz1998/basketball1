@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import AppLayout from './layout/AppLayout'
 import { useAuth } from './auth/AuthContext'
 import ProtectedRoute from './router/ProtectedRoute'
@@ -61,9 +61,32 @@ function HomeRedirect() {
   return <Navigate to={to} replace />
 }
 
+/**
+ * 发帖器要浮在**当前这一页上面**，而不是把它换掉。
+ *
+ * 发帖器本身是一条正经路由（能直链、能前进后退、刷新不丢），但从列表里点「发帖」时
+ * 顺手把当时那个 location 塞进 `state.composerBackground`。下面渲染两棵：
+ * 主 `<Routes>` 按**背景**那个 location 渲染（于是专题帖子列表还在原地），
+ * 第二棵按真实 location 渲染发帖器，盖在上面。桌面端那层黑纱后面因此是帖子列表，
+ * 不是一片空白。
+ *
+ * 没带 state 的（直链、通知点进来、刷新之后手动改地址）走原来的路：主 Routes 匹配到
+ * 发帖器本身，整页就是它。所以这是纯增强，直链不会坏。
+ */
+const COMPOSER_ROUTES = ['/news/new', '/news/edit']
+
+export const isComposerPath = (pathname) =>
+  COMPOSER_ROUTES.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+
 export default function App() {
+  const location = useLocation()
+  // 背景只在真的停在发帖器上时才用。不校验的话，从发帖器**再点进别的页面**时
+  // state 会被 React Router 一路带着走，主 Routes 就永远卡在背景那一页上
+  const background = isComposerPath(location.pathname) ? location.state?.composerBackground : null
+
   return (
-    <Routes>
+    <>
+    <Routes location={background || location}>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/403" element={<Forbidden />} />
@@ -140,5 +163,14 @@ export default function App() {
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
+    {/* 发帖器盖在背景那一页上面。它自己是 position:fixed 的整块，
+        所以不套 AppLayout 也不影响长相 */}
+    {background && (
+      <Routes>
+        <Route path="/news/new" element={<ProtectedRoute><NewsEdit /></ProtectedRoute>} />
+        <Route path="/news/edit/:newsId" element={<ProtectedRoute><NewsEdit /></ProtectedRoute>} />
+      </Routes>
+    )}
+    </>
   )
 }

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Avatar, Button, Input, Pagination, Popconfirm } from 'antd'
+import { DeleteOutlined, MessageOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { scoreColor } from '../../api/gameRating'
 
@@ -114,17 +115,18 @@ export default function RatingComments({
                           {dayjs(r.createTime).format('M-D HH:mm')}
                         </span>
                         <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{r.content}</div>
-                        <div style={{ marginTop: 2 }}>
+                        {/* 「我要做点什么」一律靠右、带图标，和帖子评论区同一套（见那边的说明） */}
+                        <div style={{ marginTop: 2, display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
                           <a
                             onClick={() => openReply(c.commentId, r.userId, r.nickname)}
                             style={{ color: '#bbb', fontSize: 12 }}
                           >
-                            回复
+                            <MessageOutlined /> 回复
                           </a>
                           {r.userId === meId && (
                             <Popconfirm title="删除这条回复？" okText="删除" okButtonProps={{ danger: true }}
                               onConfirm={() => onDeleteReply(r.replyId)}>
-                              <a style={{ color: '#bbb', fontSize: 12, marginLeft: 10 }}>删除</a>
+                              <a style={{ color: '#ff4d4f', fontSize: 12 }}><DeleteOutlined /> 删除</a>
                             </Popconfirm>
                           )}
                         </div>
@@ -150,12 +152,12 @@ export default function RatingComments({
                   <Button size="small" onClick={() => setReplyAt(null)}>取消</Button>
                 </div>
               ) : (
-                <div style={{ marginTop: 4 }}>
+                <div style={{ marginTop: 4, display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
                   <a
                     onClick={() => openReply(c.commentId, null, null)}
                     style={{ color: '#bbb', fontSize: 12 }}
                   >
-                    回复{rs.length > 0 ? ` (${rs.length})` : ''}
+                    <MessageOutlined /> 回复{rs.length > 0 ? ` (${rs.length})` : ''}
                   </a>
                   {/* 只能删不能改：改会让别人已经回复过的话悄悄变成另一句，
                       删不会——回复跟着一起消失，不留答非所问的残句 */}
@@ -163,7 +165,7 @@ export default function RatingComments({
                     <Popconfirm title="删除这条短评？底下的回复一并删除" okText="删除"
                       okButtonProps={{ danger: true }}
                       onConfirm={() => onDeleteComment?.(c.commentId)}>
-                      <a style={{ color: '#bbb', fontSize: 12, marginLeft: 12 }}>删除</a>
+                      <a style={{ color: '#ff4d4f', fontSize: 12 }}><DeleteOutlined /> 删除</a>
                     </Popconfirm>
                   )}
                 </div>

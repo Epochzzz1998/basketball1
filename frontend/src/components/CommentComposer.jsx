@@ -125,12 +125,17 @@ export default function CommentComposer({ newsId, placeholder, submitText = '发
 
   return (
     <div ref={wrapRef}>
+      {/* 和顶栏全局搜索同一副长相（.pill-input：圆角 17、#f5f5f5 底）。
+          **minRows 必须是 1**：写 2 的话盒子恒定两行高，提示语再短也一样，
+          一屏评论区光输入框就吃掉一大截。要多行自己会长，最多到 6 行 */}
       <Input.TextArea
+        className="pill-input"
+        variant="filled"
         value={text}
         onChange={(e) => { setText(e.target.value); refreshSug(e.target.value, e.target.selectionStart) }}
         onBlur={() => setTimeout(() => setSug(null), 150)}
         placeholder={placeholder}
-        autoSize={{ minRows: compact ? 2 : 2, maxRows: 6 }}
+        autoSize={{ minRows: 1, maxRows: 6 }}
         maxLength={500}
       />
 

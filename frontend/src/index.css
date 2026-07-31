@@ -350,8 +350,13 @@ body {
    套壳 App 的 WebView 铺满整屏（网页版走 Safari 独立模式，系统会把内容排在状态栏
    下面，所以这个问题在网页上看不出来）。
    用类而不是内联样式：antd 卡片标题栏的内边距来自它自己的类，内联够不着。 */
+/* 顶部那条工具栏和底下的分割线贴得太近，一行图标压着一条线，看着挤。
+   **要抬的是 min-height，不是内边距**：antd 给卡片头写死了 min-height:56px，
+   光加 padding 的话内容只是在这 56px 里往上挪，上面挤下面松，整条栏一点没变高。
+   56 → 66，上下各多 5px。这个类只在钉住（移动端）时才挂上，桌面端一点没变。 */
 .chat-head-safe.ant-card-head {
   padding-top: env(safe-area-inset-top);
+  min-height: 66px;
 }
 
 /* 全局提示（message / notification）要让开刘海。
