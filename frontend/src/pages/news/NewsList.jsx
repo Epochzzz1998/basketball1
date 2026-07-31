@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Avatar, Badge, Button, Card, Col, Empty, Input, Pagination, Row, Segmented, Tag, Tooltip } from 'antd'
 import {
   ClockCircleOutlined, CrownOutlined, EditOutlined, EyeInvisibleOutlined, FireOutlined, LikeOutlined, LockOutlined,
-  MessageOutlined, PlusOutlined, RightOutlined, SearchOutlined, SettingOutlined, StarFilled,
-  StarOutlined,
+  MessageOutlined, PlusOutlined, ReloadOutlined, RightOutlined, SearchOutlined, SettingOutlined,
+  StarFilled, StarOutlined,
 } from '@ant-design/icons'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { newsApi } from '../../api/news'
 import { topicApi } from '../../api/topic'
@@ -23,6 +23,7 @@ import { SuperAdminBadge, TopicOwnerBadge } from '../../components/RoleBadges'
 import UserTitles from '../../components/UserTitles'
 import useIsMobile from '../../hooks/useIsMobile'
 import { TAB_BAR_HEIGHT } from '../../layout/MobileTabBar'
+import { showTopBar } from '../../layout/mobileNav'
 import { NEWS_MODULE_ENABLED } from '../../config/modules'
 import TopicChatEntry from '../../components/TopicChatEntry'
 import NbaModuleEntry from '../../components/NbaModuleEntry'
@@ -210,8 +211,11 @@ function HotRail({ rows, official }) {
  */
 export default function NewsList({ channel = 'forum', topic = null, onApplied, nbaSection = null, lolSection = null }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const { user, dn } = useAuth()
   const isMobile = useIsMobile()
+  // 顶栏（带刷新）只在四个 Tab 首页有；没有顶栏的页面把刷新挂到右下角的悬浮钮上
+  const showRefreshFab = isMobile && !showTopBar(location.pathname, location.search)
   const isTopic = !!topic
   const official = !isTopic && channel === 'official'
 
@@ -616,21 +620,49 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied, n
           不贴屏幕底边——贴底的话拇指去够 Tab 栏很容易误触到它。
           任何模块分区（NBA 数据、开黑战绩）这个钮都不出：那几页是数据看板，
           没有"发到哪儿"可言。判据用 renderSection，它对两个模块一视同仁。 */}
-      {isMobile && canPost && !renderSection && (
+      {isMobile && !renderSection && (canPost || showRefreshFab) && (
         <div
-          onClick={goPost}
-          title={official ? '发布新闻' : user ? '发帖' : '登录后发帖'}
           style={{
             position: 'fixed', right: 18, zIndex: 190,
             bottom: `calc(${TAB_BAR_HEIGHT + 20}px + env(safe-area-inset-bottom))`,
-            width: 52, height: 52, borderRadius: 26,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: official ? '#2f54eb' : BRAND, color: '#fff', fontSize: 22,
-            boxShadow: official ? '0 6px 18px rgba(47,84,235,.4)' : '0 6px 18px rgba(250,84,28,.4)',
-            cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
           }}
         >
-          <PlusOutlined />
+          {canPost && (
+            <div
+              onClick={goPost}
+              title={official ? '发布新闻' : user ? '发帖' : '登录后发帖'}
+              style={{
+                width: 52, height: 52, borderRadius: 26,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: official ? '#2f54eb' : BRAND, color: '#fff', fontSize: 22,
+                boxShadow: official ? '0 6px 18px rgba(47,84,235,.4)' : '0 6px 18px rgba(250,84,28,.4)',
+                cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              <PlusOutlined />
+            </div>
+          )}
+          {/* 整页刷新。**只在没有顶栏的页面出现**（专题内、官方新闻…）——
+              顶栏上本来就有一个同样的刷新，那些页面上再挂一个是重复的。
+              和下拉刷新也不是一回事：那个只重拉当前列表，这个是整个应用重新加载，
+              换了版本或者页面状态乱了的时候用。
+              比发帖钮小一圈、白底：它是次要动作，不该抢发帖的视觉位置 */}
+          {showRefreshFab && (
+            <div
+              onClick={() => window.location.reload()}
+              title="刷新页面"
+              style={{
+                width: 42, height: 42, borderRadius: 21,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: '#fff', color: '#8c8c8c', fontSize: 17,
+                border: '1px solid #f0f0f0', boxShadow: '0 4px 14px rgba(0,0,0,.12)',
+                cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              <ReloadOutlined />
+            </div>
+          )}
         </div>
       )}
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Avatar } from 'antd'
 import { Boot, createEditor, createToolbar } from '@wangeditor/editor'
@@ -26,6 +26,9 @@ if (typeof window !== 'undefined' && !window.__wangMentionRegistered) {
   }
   window.__wangMentionRegistered = true
 }
+
+const escapeHtml = (s) => String(s)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
 const avatarColor = (name) => {
   let h = 0
@@ -125,9 +128,16 @@ function MentionPanel({ top, left, search, onPick, onClose, placeholder = '搜�
   )
 }
 
-export default function RichTextEditor({
+/**
+ * @param bare      去掉自带工具栏和外框，正文区随内容长高（发帖器用：功能改由底部那条
+ *                  工具栏提供，见 pages/news/NewsEdit.jsx）
+ * @param minHeight bare 模式下正文区的最小高度
+ * ref 上暴露 { insertImage, insertLink, insertText, focus }，给外部工具栏调用。
+ */
+const RichTextEditor = forwardRef(function RichTextEditor({
   value, onChange, uploadImage, mentionSearch, mentionHint, placeholder = '请输入正文…',
-}) {
+  bare = false, minHeight = 220,
+}, ref) {
   const editorRef = useRef(null)
   const toolbarElRef = useRef(null)
   const editorElRef = useRef(null)
@@ -180,7 +190,8 @@ export default function RichTextEditor({
       },
       mode: 'default',
     })
-    createToolbar({ editor, selector: toolbarElRef.current, mode: 'default' })
+    // bare 模式不建工具栏（发帖器把这些动作搬到了底部那条自绘工具栏）
+    if (toolbarElRef.current) createToolbar({ editor, selector: toolbarElRef.current, mode: 'default' })
     editorRef.current = editor
     return () => {
       editor.destroy()
@@ -197,6 +208,47 @@ export default function RichTextEditor({
       editor.setHtml(value || '<p><br></p>')
     }
   }, [value])
+
+  /**
+   * 给外部工具栏用的插入接口。
+   *
+   * 每个动作都先 `restoreSelection()`：点底部工具栏那一下会让编辑器失焦，
+   * 光标位置只剩 wangEditor 自己记的那份，不还原就会插到文档开头去。
+   *
+   * **插完不要再调 `editor.focus()`。** 它会把刚才还原的那个选区重新存一遍，于是
+   * 下一次 restoreSelection 拿到的还是上上次的位置——表现出来就是"先插表情再插附件，
+   * 附件跑到表情前面去了"。连着插同一种东西反而看不出来（两个一样的，谁前谁后没区别），
+   * 所以这个坑很容易漏过去。实测出来的，不是推断。
+   *
+   * 附件走 `dangerouslyInsertHtml`：换成 `insertNode` 插一个 link 节点的话，
+   * 光标会留在链接**内部**，接着打的字全被吸进链接文字里，再插一个附件还会套娃。
+   */
+  useImperativeHandle(ref, () => ({
+    insertText: (text) => {
+      const editor = editorRef.current
+      if (!editor || !text) return
+      editor.restoreSelection()
+      editor.insertText(text)
+    },
+    insertImage: (url) => {
+      const editor = editorRef.current
+      if (!editor || !url) return
+      editor.restoreSelection()
+      // image 是 void 内联节点，插完要自己把光标挪过去（和下面 @ 提及那段一样）
+      editor.insertNode({ type: 'image', src: url, alt: '', href: '', style: {}, children: [{ text: '' }] })
+      editor.move(1)
+    },
+    insertLink: (text, url) => {
+      const editor = editorRef.current
+      if (!editor || !url) return
+      editor.restoreSelection()
+      // 附件插成一条普通链接：详情页那边正文过 DOMPurify，<a href> 是保留标签。
+      // 文件名和 URL 都要转义——名字里带个引号就能把属性提前闭合
+      editor.dangerouslyInsertHtml(
+        `<a href="${escapeHtml(url)}" target="_blank">${escapeHtml(text || url)}</a>&nbsp;`,
+      )
+    },
+  }), [])
 
   // 面板搜索：把后端 [{userId,userNickname,avatar}] 规约成 {id,name,avatar}
   const panelSearch = async (kw) => {
@@ -218,15 +270,18 @@ export default function RichTextEditor({
         children: [{ text: '' }],
       })
       editor.move(1)
-      editor.focus()
     }
     setMentionPos(null)
   }
 
   return (
-    <div style={{ border: '1px solid #d9d9d9', borderRadius: 6 }}>
-      <div ref={toolbarElRef} style={{ borderBottom: '1px solid #e8e8e8' }} />
-      <div ref={editorElRef} style={{ height: 400, overflowY: 'auto' }} />
+    <div
+      className={bare ? 'bare-editor' : undefined}
+      style={bare ? undefined : { border: '1px solid #d9d9d9', borderRadius: 6 }}
+    >
+      {!bare && <div ref={toolbarElRef} style={{ borderBottom: '1px solid #e8e8e8' }} />}
+      {/* bare 模式不给固定高度也不自己滚：外层那一屏在滚，正文区随内容长 */}
+      <div ref={editorElRef} style={bare ? { minHeight } : { height: 400, overflowY: 'auto' }} />
       {mentionPos && (
         <MentionPanel
           top={mentionPos.top}
@@ -240,4 +295,6 @@ export default function RichTextEditor({
       )}
     </div>
   )
-}
+})
+
+export default RichTextEditor

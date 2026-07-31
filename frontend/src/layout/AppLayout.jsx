@@ -226,8 +226,11 @@ export default function AppLayout() {
 
   // 移动端底部 Tab 栏：显示规则在 mobileNav.showTabBar（已按全部路由验证过）
   const tabBar = isMobile && showTabBar(location.pathname, location.search)
-  // 顶栏：只有整页搜索那一页收起来（那页自己有一条等高的真搜索框）
-  const topBar = isMobile && showTopBar(location.pathname)
+  // 顶栏（全局搜索 + 刷新）：只有四个 Tab 首页有，规则见 mobileNav.showTopBar
+  const topBar = isMobile && showTopBar(location.pathname, location.search)
+  // 顶部占位块要不要给"顶栏那么高"：搜索页没有 App 顶栏，但它自己画了一条等高的固定栏，
+  // 占位块一样要留满，否则公告条会被压在栏底下
+  const topSpace = topBar || location.pathname === '/search'
 
   /**
    * 把两个固定栏的高度写成 CSS 变量，供样式表使用（如私信页的 .pm-body 要算 100dvh 减去它们）。
@@ -239,10 +242,17 @@ export default function AppLayout() {
   useEffect(() => {
     const root = document.documentElement
     // 这个变量的含义是「顶部那条固定栏有多高」，不是「App 顶栏在不在」——
-    // 搜索页把 App 顶栏换成了自己那条等高的，高度没变，所以按 isMobile 判断
-    root.style.setProperty('--mobile-topbar-h', isMobile ? `calc(${TOP_BAR_HEIGHT}px + env(safe-area-inset-top))` : '0px')
+    // 搜索页把 App 顶栏换成了自己那条等高的，高度没变，所以用 topSpace 判断。
+    // 没有顶栏的页面不能直接写 0：套壳 App 的 WebView 铺满整屏，全局提示会顶到刘海里，
+    // 至少要留出安全区
+    root.style.setProperty(
+      '--mobile-topbar-h',
+      isMobile
+        ? (topSpace ? `calc(${TOP_BAR_HEIGHT}px + env(safe-area-inset-top))` : 'env(safe-area-inset-top)')
+        : '0px',
+    )
     root.style.setProperty('--mobile-tabbar-h', tabBar ? `calc(${TAB_BAR_HEIGHT}px + env(safe-area-inset-bottom))` : '0px')
-  }, [isMobile, tabBar])
+  }, [isMobile, tabBar, topSpace])
 
   // 全局返回按钮：一级页面（NAV_ROOTS，见 components/BackButton）不显示，其余页面统一在内容区左上角。
   // 有底部 Tab 栏的页面一律不给返回：那条栏本身就是导航，再加一个返回是重复的
@@ -485,8 +495,12 @@ export default function AppLayout() {
               高度 = 8+34+8 内边距与搜索框，再加刘海。
 
               **占位块在搜索页也要留**：那一页把 App 顶栏换成了自己那条等高的固定栏，
-              占位块要是跟着一起没了，公告条会被压在栏底下（它渲染在内容区最上面）。 */}
-          <div style={{ height: `calc(${TOP_BAR_HEIGHT}px + env(safe-area-inset-top))` }} />
+              占位块要是跟着一起没了，公告条会被压在栏底下（它渲染在内容区最上面）。
+
+              **没有顶栏的页面仍然要垫刘海**：套壳 App 的 WebView 铺满整屏（网页版走
+              Safari 独立模式，系统会自己排在状态栏下面，所以一直没暴露），
+              这一截去掉的话内容就钻到状态栏底下了。 */}
+          <div style={{ height: topSpace ? `calc(${TOP_BAR_HEIGHT}px + env(safe-area-inset-top))` : 'env(safe-area-inset-top)' }} />
         </>
       )}
 

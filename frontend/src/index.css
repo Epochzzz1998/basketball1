@@ -405,3 +405,42 @@ body {
 .lol-mine > td {
   background: #fff6f3 !important;
 }
+
+/* ===== 发帖器（pages/news/NewsEdit.jsx） ===== */
+
+/* 从下往上弹出来。整块只是"升起来"一小段 + 淡入，而不是从屏幕外整屏滑进来——
+   后者要在动画期间把元素放到视口下方，而这一层在移动端是 position:fixed 的，
+   translateY(100%) 那一帧会让底部工具栏跑出屏幕、iOS 上有几率闪一下白边。
+   26px + 淡入已经足够读成"弹出"，代价是零。
+
+   prefers-reduced-motion 开着的人直接跳过：这类整块位移正是那个设置要挡的东西。 */
+@keyframes composer-rise {
+  from { transform: translateY(26px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.composer-sheet {
+  animation: composer-rise 0.26s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .composer-sheet { animation: none; }
+}
+
+/* 无边框正文区：wangEditor 默认给自己画了底色和一个撑满父高的滚动容器。
+   发帖器里外层那一屏在滚，正文区要随内容长高，所以把它的高度限制全放开。 */
+.bare-editor .w-e-text-container {
+  background: transparent;
+  height: auto !important;
+  min-height: inherit;
+}
+.bare-editor .w-e-scroll {
+  overflow: visible !important;
+}
+.bare-editor .w-e-text-container [data-slate-editor] {
+  padding: 14px 0 !important;
+}
+.bare-editor .w-e-text-placeholder {
+  top: 14px;
+  left: 0;
+  font-style: normal;
+  color: #c4c4c4;
+}

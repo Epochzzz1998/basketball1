@@ -38,8 +38,11 @@ const SELF_BACK = [
   // 它是另一个组件、没有横幅，那个返回得留着。
   /^\/news\/topic\/[^/]+\/[^/]+\/[^/]+$/,
   // 帖子详情：返回画进了顶部那张卡里（NewsDetail），单独占一行只是白白空出一截。
-  // `(?!new$)` 排除 /news/new（发帖页），它没有自己的返回
+  // `(?!new$)` 排除 /news/new，它由下面那条单独管
   /^\/news\/(?!new$)[^/]+$/,
+  // 发帖器：左上角是自己的 ✕（右上角是发布），全局返回再来一个就成了两个关闭
+  /^\/news\/new$/,
+  /^\/news\/edit\//,
 ]
 
 export const hasOwnBack = (pathname) => SELF_BACK.some((re) => re.test(pathname))
