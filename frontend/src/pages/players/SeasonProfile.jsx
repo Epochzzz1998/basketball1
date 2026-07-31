@@ -4,7 +4,7 @@ import { Card, Col, Empty, Row, Space, Spin, Tag } from 'antd'
 import SeasonPicker from '../../components/SeasonPicker'
 import RadarChart from '../../components/RadarChart'
 import { playerApi } from '../../api/player'
-import { ADV_EMPTY, CAREER_SEASON, PLAYOFF_TAG, fmtNum, seasonYearLabel, statQualifiedIn, qualifiedFor, rankIn, unqualifiedReason, tiedCount, ADVANCED_STATS, fmtAdv } from './rankConfig'
+import { ADV_EMPTY, CAREER_SEASON, EMPTY, PLAYOFF_TAG, fmtNum, seasonYearLabel, statQualifiedIn, qualifiedFor, rankIn, unqualifiedReason, tiedCount, ADVANCED_STATS, fmtAdv } from './rankConfig'
 import { TeamNames } from '../../components/TeamLogo'
 import { CAREER_AWARDS } from './honorConfig'
 import { GlossaryIcon, GlossaryTip } from './statGlossary'
@@ -256,6 +256,11 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
   const statCard = (dataRow, leagueRows, prefix, color, stage, stats = GRID_STATS) => {
     // 季后赛不套 58 场资格线（最多才 28 场），否则名次全没、全员「场次不足」
     const po = stage === 'po'
+    // 整季在队但一场没打（absence_roster_rows.py 补出来的行）。
+    // 占位符用 '-' 而不是 '/'：'/' 在这张卡上的意思是「这个赛季没有这项数据」
+    // （1977 之前没有效率值那种），而这里是「有这项数据，只是他没上场」。
+    // 名次也一并不给——给一个 0 场的人排「并列联盟第 580」毫无意义。
+    const dnp = Number(dataRow?.playerAppearance ?? 0) === 0 && dataRow?.seasonNum !== CAREER_SEASON
     return (
     <Row gutter={isMobile ? [6, 6] : [10, 10]}>
       {stats.filter((s) => stage === 'po' || !s.poOnly).map((raw) => {
@@ -275,9 +280,9 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
                 {s.note && !isMobile && <span style={{ marginLeft: 4, fontSize: 11, color: '#ccc' }}>{s.note}</span>}
               </div>
               <div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 800, color: missing ? '#ccc' : color, margin: '2px 0 4px', fontVariantNumeric: 'tabular-nums' }}>
-                {missing ? ADV_EMPTY : s.pct || s.rate ? fmtAdv(mine, s) : fmtNum(mine, s.digits ?? 1)}
+                {missing ? (dnp ? EMPTY : ADV_EMPTY) : s.pct || s.rate ? fmtAdv(mine, s) : fmtNum(mine, s.digits ?? 1)}
               </div>
-              {!missing && (
+              {!missing && !dnp && (
                 <RankChip
                   rank={rankIn(leagueRows, s.key, mine, s.asc, po)}
                   unqualified={!po && leagueRows?.length && !qualifiedFor(leagueRows, s.key, dataRow) ? unqualifiedReason(s.key) : null}
@@ -310,6 +315,11 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
           {/* 队标已经在身份头那枚大的上了，这里只留中文队名 */}
           {!isCareer && <Tag color="volcano"><TeamNames value={row.playerTeam} /></Tag>}
           {!isCareer && row.playerPosition && <Tag>{row.playerPosition}</Tag>}
+          {/* 整季在队、一场没打。B-R 的 Inactive 名单不带原因，所以只说「未出场」，
+              不说「报销」——数据能证明前者，证不了后者 */}
+          {!isCareer && Number(row.playerAppearance ?? 0) === 0 && (
+            <Tag color="default" style={{ color: '#8c8c8c' }}>本赛季未出场</Tag>
+          )}
           {chips.map((a) => (
             <Tag key={a.key} color={a.gold ? 'gold' : 'orange'} style={{ fontWeight: 600 }}>
               {a.icon} {a.label}{a.count ? ` ×${a.count}` : ''}
