@@ -42,9 +42,10 @@ export default function LolFeed() {
   const [player, setPlayer] = useUrlState('player', '')
   const [queue, setQueue] = useUrlState('queue', 0, true)
   const [rows, setRows] = useState(null)
-  // 点开的那一场。用局部 state 而不是 URL：和站里其它弹层一致
-  // （日程的当天详情也是这样），换成路由的话从详情返回会退出整个分区
-  const [openId, setOpenId] = useState(null)
+  // 点开的那一场。**写进 URL**（?match=）而不是纯局部 state：
+  // 「@ 了你」的通知点进来要能直接展开那一局，而对局详情是个浮层、没有自己的路由，
+  // 只能靠这个参数告诉战绩流开哪一场。顺带也就能把某一局的链接发给别人了。
+  const [openId, setOpenId] = useUrlState('match', '')
   const [calOpen, setCalOpen] = useState(false)
   const [options, setOptions] = useState([])
   // 输入框跟着 URL 走，但打字过程中不能每敲一个字就查一次
@@ -178,7 +179,7 @@ export default function LolFeed() {
         </>
       )}
 
-      <LolMatchDetail matchId={openId} open={!!openId} onClose={() => setOpenId(null)} />
+      <LolMatchDetail matchId={openId} open={!!openId} onClose={() => setOpenId('')} />
     </>
   )
 }

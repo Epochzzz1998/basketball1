@@ -81,6 +81,27 @@ public class GameRatingController {
     /** 短评长度上限，和建表时的 varchar(300) 对齐 */
     private static final int MAX_COMMENT = 300;
 
+    /**
+     * 这一场是 NBA 比赛还是一局 LoL。
+     *
+     * <p><b>三张表原样复用</b>（{@code game_rating} / {@code game_comment} /
+     * {@code game_rating_reply}）：它们只按一个 GAME_ID 键，没有任何 NBA 专属列，
+     * 而两边的 id 天然不会撞——B-R 的是 {@code 202604180CLE}，Riot 的是
+     * {@code OC1_654943407}。为一套一模一样的「打分 + 短评 + 回复」再建三张表、
+     * 再抄一遍控制器，换来的只是重复。
+     *
+     * <p>只有三处真的要分流：这一场存不存在（查哪张表）、要不要带球员维度
+     * （LoL 不按人打分）、以及 @ 通知点了跳哪儿。其余一个字都不用改。
+     */
+    private static final String KIND_LOL = "lol";
+
+    /** 这一场存在吗。顺带承担「kind 和 id 对不对得上」的校验 */
+    private boolean gameExists(String id, String kind) {
+        return KIND_LOL.equals(kind)
+                ? lolMatchMapper.selectById(id) != null
+                : !playerMapper.findGameMeta(id).isEmpty();
+    }
+
     @Autowired
     private GameRatingMapper gameRatingMapper;
     @Autowired
@@ -91,6 +112,10 @@ public class GameRatingController {
     private GameRatingReplyMapper replyMapper;
     @Autowired
     private PlayerMapper playerMapper;
+    @Autowired
+    private com.dream.basketball.mapper.LolMatchMapper lolMatchMapper;
+    @Autowired
+    private com.dream.basketball.service.LolSyncService lolSync;
     @Autowired
     private UserMapper userMapper;
     @Autowired
@@ -104,7 +129,7 @@ public class GameRatingController {
      * 数组还得先自己建一次索引。
      */
     @GetMapping("/detail")
-    public Object detail(String gameId, String userInformationId, HttpServletRequest request) {
+    public Object detail(String gameId, String kind, String userInformationId, HttpServletRequest request) {
         String id = StringUtils.trimToEmpty(gameId);
         if (id.isEmpty()) {
             return new Result<>(1, "缺少比赛 id", null);
@@ -117,12 +142,13 @@ public class GameRatingController {
         Map<String, Object> data = new HashMap<>();
         data.put("game", gameRatingMapper.gameSummary(id));
         data.put("histogram", gameRatingMapper.scoreHistogram(id));
+        // 按人聚合的这几块两边共用：NBA 的 PLAYER_ID 是 nba-6606，LoL 的是那一场的 PUUID。
+        // 这几张表只按 (GAME_ID, PLAYER_ID) 键，对它们来说两者没有区别
         Map<String, Object> byPlayer = new HashMap<>();
         for (Map<String, Object> row : playerRatingMapper.aggregates(id)) {
             byPlayer.put(String.valueOf(row.get("playerId")), row);
         }
         data.put("players", byPlayer);
-        // 每个球员的分数分布，和比赛那条同样的形状：playerId -> [{score, n}]
         data.put("playerHist", groupBy(playerRatingMapper.histogram(id), "playerId"));
         // 短评一次取全（比赛的 + 所有球员的），在这里按 PLAYER_ID 分好组。
         // 分组放在后端而不是让前端自己建索引：前端要按 box score 的顺序逐行取，
@@ -176,7 +202,7 @@ public class GameRatingController {
      */
     @RequiresRole(Role.USER)
     @PostMapping("/rateGame")
-    public Object rateGame(String gameId, Integer score, HttpServletRequest request) {
+    public Object rateGame(String gameId, String kind, Integer score, HttpServletRequest request) {
         String id = StringUtils.trimToEmpty(gameId);
         String me = SecUtil.getLoginUserIdToSession(request);
         if (id.isEmpty()) {
@@ -187,7 +213,7 @@ public class GameRatingController {
         }
         // 比赛得真的存在。不查的话这张表会被任意字符串撑起来，
         // 而外键在这个库里没用（历史数据是脚本灌的，加外键会让灌数据变慢很多）
-        if (playerMapper.findGameMeta(id).isEmpty()) {
+        if (!gameExists(id, kind)) {
             return new Result<>(1, "没有这场比赛", null);
         }
         GameRating exist = gameRatingMapper.selectOne(new QueryWrapper<GameRating>()
@@ -221,7 +247,7 @@ public class GameRatingController {
      */
     @RequiresRole(Role.USER)
     @PostMapping("/ratePlayer")
-    public Object ratePlayer(String gameId, String playerId, Integer score,
+    public Object ratePlayer(String gameId, String kind, String playerId, Integer score,
                              HttpServletRequest request) {
         String id = StringUtils.trimToEmpty(gameId);
         String pid = StringUtils.trimToEmpty(playerId);
@@ -241,7 +267,7 @@ public class GameRatingController {
             return new Result<>(0, "已取消", null);
         }
         if (exist == null) {
-            if (!onRoster(id, pid)) {
+            if (!onRoster(id, pid, kind)) {
                 return new Result<>(1, "这场比赛的名单里没有这个球员", null);
             }
             GamePlayerRating r = new GamePlayerRating();
@@ -269,7 +295,7 @@ public class GameRatingController {
      */
     @RequiresRole(Role.USER)
     @PostMapping("/comment")
-    public Object comment(String gameId, String playerId, String content,
+    public Object comment(String gameId, String kind, String playerId, String content,
                           HttpServletRequest request) {
         String id = StringUtils.trimToEmpty(gameId);
         String pid = StringUtils.trimToEmpty(playerId);
@@ -284,10 +310,10 @@ public class GameRatingController {
         if (text.length() > MAX_COMMENT) {
             text = text.substring(0, MAX_COMMENT);
         }
-        if (playerMapper.findGameMeta(id).isEmpty()) {
+        if (!gameExists(id, kind)) {
             return new Result<>(1, "没有这场比赛", null);
         }
-        if (!pid.isEmpty() && !onRoster(id, pid)) {
+        if (!pid.isEmpty() && !onRoster(id, pid, kind)) {
             return new Result<>(1, "这场比赛的名单里没有这个球员", null);
         }
         GameComment c = new GameComment();
@@ -299,7 +325,7 @@ public class GameRatingController {
         c.setMentions(MentionUtil.resolveTextMentions(text, allNickToId()));
         c.setCreateTime(new Date());
         commentMapper.insert(c);
-        notifyMentions(c.getMentions(), me, id, text);
+        notifyMentions(c.getMentions(), me, id, text, kind);
         return new Result<>(0, "已发布", null);
     }
 
@@ -338,7 +364,7 @@ public class GameRatingController {
      */
     @RequiresRole(Role.USER)
     @PostMapping("/reply")
-    public Object reply(String gameId, String targetId, String content, String replyToUser,
+    public Object reply(String gameId, String kind, String targetId, String content, String replyToUser,
                         HttpServletRequest request) {
         String id = StringUtils.trimToEmpty(gameId);
         String target = StringUtils.trimToEmpty(targetId);
@@ -370,7 +396,7 @@ public class GameRatingController {
         r.setMentions(MentionUtil.resolveTextMentions(text, allNickToId()));
         r.setCreateTime(new Date());
         replyMapper.insert(r);
-        notifyMentions(r.getMentions(), me, id, text);
+        notifyMentions(r.getMentions(), me, id, text, kind);
         return new Result<>(0, "已回复", null);
     }
 
@@ -465,7 +491,7 @@ public class GameRatingController {
      * （前端 {@code utils/notification.js} 据此拼 {@code /games/:gameId}）。
      * 存短评 id 是没用的——短评没有自己的页面。
      */
-    private void notifyMentions(String mentionsJson, String meId, String gameId, String text) {
+    private void notifyMentions(String mentionsJson, String meId, String gameId, String text, String kind) {
         java.util.Set<String> ids = MentionUtil.parseCommentMentionIds(mentionsJson);
         if (ids.isEmpty()) {
             return;
@@ -477,11 +503,18 @@ public class GameRatingController {
                 continue;
             }
             userInformationService.saveUserInformation(meId, myName, uid,
-                    Constants.MENTION_GAME, gameId, "", "", "", text, "");
+                    KIND_LOL.equals(kind) ? Constants.MENTION_LOL : Constants.MENTION_GAME,
+                    gameId, "", "", "", text, "");
         }
     }
 
-    private boolean onRoster(String gameId, String playerId) {
+    private boolean onRoster(String gameId, String playerId, String kind) {
+        if (KIND_LOL.equals(kind)) {
+            // 一局十个人，**路人和对面也能评**——这正是这个功能被要的样子。
+            // 只有站内成员的那一两行在 lol_match_player 里，另外九个人只在 RAW_GZ 里，
+            // 所以校验必须从原始对局数据走（见 LolSyncService.matchParticipants）
+            return lolSync.matchParticipants(gameId).contains(playerId);
+        }
         return playerMapper.findGameBoxScore(gameId).stream()
                 .anyMatch(r -> playerId.equals(String.valueOf(r.get("playerId"))))
                 || playerMapper.findGameAbsences(gameId).stream()

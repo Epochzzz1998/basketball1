@@ -3,6 +3,8 @@ import { Drawer, Empty, Modal, Spin, Table, Tag, Tooltip } from 'antd'
 import { POSITION_LABEL, queueName, lolApi } from '../../api/lol'
 import useIsMobile from '../../hooks/useIsMobile'
 import { k, mmss, num1, rate, spellName, tierColor, tierText } from './lolFormat'
+import LolMatchRating, { PlayerRating, PlayerScoreBadge } from './LolMatchRating'
+import useMatchRating from './useMatchRating'
 
 /**
  * 单局详情：这一场**十个人**的完整数据。
@@ -29,6 +31,9 @@ import { k, mmss, num1, rate, spellName, tierColor, tierText } from './lolFormat
 export default function LolMatchDetail({ matchId, open, onClose }) {
   const isMobile = useIsMobile()
   const [data, setData] = useState(null)
+  // 整局那块在表下面、按人那块在行展开里，隔着一整张表。一次拉、两边共用——
+  // 各拉各的话，给某个人打完分之后整局的平均分不会跟着变
+  const rating = useMatchRating(open ? matchId : null)
 
   useEffect(() => {
     if (!open || !matchId) return undefined
@@ -61,10 +66,12 @@ export default function LolMatchDetail({ matchId, open, onClose }) {
       ? <Empty description="这场对局的详细数据没有存下来" />
       : (
         <>
-          {(data.teams || []).map((t) => <TeamBlock key={t.teamId} team={t} />)}
+          {(data.teams || []).map((t) => <TeamBlock key={t.teamId} team={t} rating={rating} />)}
           <div style={{ color: '#bbb', fontSize: 11, marginTop: 4 }}>
             段位是**当前**段位，不是打这一场时的——对局数据里没有段位字段
           </div>
+          {/* 整局的打分和短评。放在十人数据**下面**：先看完这一局再评，顺序才对 */}
+          <LolMatchRating rating={rating} />
         </>
       )
 
@@ -87,7 +94,7 @@ export default function LolMatchDetail({ matchId, open, onClose }) {
 }
 
 /** 一支队伍：胜负条 + 五个人 */
-function TeamBlock({ team }) {
+function TeamBlock({ team, rating }) {
   const won = team.win === '1'
   const o = team.objectives || {}
   return (
@@ -121,8 +128,16 @@ function TeamBlock({ team }) {
         pagination={false}
         scroll={{ x: 'max-content' }}
         dataSource={team.players || []}
-        columns={COLUMNS}
-        expandable={{ expandedRowRender: (r) => <PlayerExtra p={r} />, expandRowByClick: true }}
+        columns={columnsWithScore(rating)}
+        expandable={{
+          expandedRowRender: (r) => (
+            <>
+              <PlayerExtra p={r} />
+              <PlayerRating rating={rating} puuid={r.puuid} name={r.nickname || r.championName} />
+            </>
+          ),
+          expandRowByClick: true,
+        }}
         // 站内成员那几行加个底色：一场里自己人和路人混在一起，
         // 而游戏 ID 和站内昵称常常对不上，光读名字认不出来
         rowClassName={(r) => (r.nickname ? 'lol-mine' : '')}
@@ -130,6 +145,22 @@ function TeamBlock({ team }) {
     </div>
   )
 }
+
+/**
+ * 在固定列后面插一列平均分。**不展开也看得见**——十行里谁被骂了谁被夸了
+ * 得一眼扫出来，不能逼人一行行点开才知道。
+ */
+const columnsWithScore = (rating) => [
+  COLUMNS[0],
+  {
+    title: '评分',
+    key: 'rating',
+    width: 62,
+    align: 'center',
+    render: (_, r) => <PlayerScoreBadge rating={rating} puuid={r.puuid} />,
+  },
+  ...COLUMNS.slice(1),
+]
 
 /** 主表的列。手机和桌面**同一套**，窄屏靠横向滚动 */
 const COLUMNS = [

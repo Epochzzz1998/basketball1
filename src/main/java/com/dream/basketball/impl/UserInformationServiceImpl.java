@@ -169,6 +169,13 @@ public class UserInformationServiceImpl extends ServiceImpl<UserInformationMappe
             contentMsg = StringUtils.length(commentContent) > 30
                     ? StringUtils.substring(commentContent, 0, 30) + "......"
                     : StringUtils.defaultIfBlank(commentContent, "(图片或附件)");
+        } else if (StringUtils.equals(MENTION_LOL, msgType)) {
+            // msgId=Riot 的 matchId，commentContent=那条短评/回复的原文。
+            // 和 MENTION_GAME 一样不去查那一局——要展示的就是那句话本身
+            content = StringUtils.length(commentContent) > 30
+                    ? StringUtils.substring(commentContent, 0, 30) + "......"
+                    : StringUtils.defaultIfBlank(commentContent, "(空)");
+            contentMsg = "在对局短评里@了您";
         } else if (StringUtils.equals(MENTION_GAME, msgType)) {
             // msgId=比赛 id（点击跳 /games/:gameId），commentContent=那条短评/回复的原文。
             // 这里**不去查比赛**：查一场比赛要对 player_game_stats 做 group by，

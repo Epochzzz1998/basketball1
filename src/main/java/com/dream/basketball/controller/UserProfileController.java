@@ -45,6 +45,9 @@ public class UserProfileController {
     private com.dream.basketball.config.SingleSessionGuard singleSession;
 
     @Autowired
+    private com.dream.basketball.mapper.LolMatchMapper lolMatchMapper;
+
+    @Autowired
     private DreamNewsMapper dreamNewsMapper;
 
     @Autowired
@@ -202,7 +205,11 @@ public class UserProfileController {
                 }
                 Map<String, Object> g = gameMeta.get(gid);
                 Map<String, Object> m = new HashMap<>(gc);
-                m.put("kind", "game");
+                // 两种来源共用这三张表（见 GameRatingController 的 KIND_LOL 说明）。
+                // NBA 的 id 查得到比赛，LoL 的查不到——**不能一律当成 NBA**，
+                // 否则开黑那几条会渲染成一场没有队名没有比分的球赛
+                boolean isLol = g == null && lolMatchMapper.selectById(gid) != null;
+                m.put("kind", isLol ? "lol" : "game");
                 // 前端的排序和时间显示统一读 commentDate，两种来源在这里对齐字段名，
                 // 免得渲染时到处判断「这条是哪来的」
                 m.put("commentDate", gc.get("createTime"));

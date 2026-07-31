@@ -648,6 +648,34 @@ public class LolSyncService {
      * 对线期数据、视野细分、目标参与、多杀。这些**全都躺在原文里、一分钱不多花**，
      * 前端要不要显示是另一回事——反过来「想看时才发现没存」是补不回来的。
      */
+    /**
+     * 这一场十个人的 PUUID。给「按人打分」校验用：打分的对象必须真的在这一局里。
+     *
+     * <p><b>不能查 {@code lol_match_player}</b>——那张表只存站内成员（平均每场 1.24 行），
+     * 另外九个人只存在于 {@code RAW_GZ} 里。而「路人也想评价」正是这个功能的要求。
+     *
+     * <p>PUUID 是按 API key 加密的，同一个人在不同 key 拉的对局里是不同的串；
+     * 但**一场对局的 RAW_GZ 写进去就冻结了**，所以「这一场里的这个 puuid」
+     * 是个稳定的键，评分挂在上面不会变成孤儿。
+     */
+    public java.util.Set<String> matchParticipants(String matchId) {
+        java.util.Set<String> out = new java.util.HashSet<>();
+        LolMatch m = matchMapper.selectById(matchId);
+        String raw = m == null ? null : gunzip(m.getRawGz());
+        if (raw == null) {
+            return out;
+        }
+        JSONObject info = JSON.parseObject(raw).getJSONObject("info");
+        JSONArray parts = info == null ? null : info.getJSONArray("participants");
+        for (int i = 0; parts != null && i < parts.size(); i++) {
+            String pu = parts.getJSONObject(i).getString("puuid");
+            if (StringUtils.isNotBlank(pu)) {
+                out.add(pu);
+            }
+        }
+        return out;
+    }
+
     public Map<String, Object> matchDetail(String matchId) {
         LolMatch m = matchMapper.selectById(matchId);
         if (m == null) {

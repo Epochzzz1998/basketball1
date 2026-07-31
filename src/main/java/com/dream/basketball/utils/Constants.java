@@ -44,6 +44,9 @@ public class Constants {
     /** 每日赛场的短评/回复里 @ 了你。msgId=gameId（点进去跳那场比赛）。 */
     public static final String MENTION_GAME = "mentionGame";
 
+    /** 开黑战绩的对局短评/回复里 @ 了你。msgId=Riot 的 matchId（点进去跳战绩流并展开那一局）。 */
+    public static final String MENTION_LOL = "mentionLol";
+
     /** a schedule event was assigned to you (immediate, from the event creator) */
     public static final String SCHEDULE_ASSIGN = "scheduleAssign";
 

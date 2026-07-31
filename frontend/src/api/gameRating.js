@@ -3,6 +3,10 @@ import http from './http'
 /**
  * 赛后评分：给一场比赛打分写短评，给场上的球员逐个打分。
  *
+ * `kind` 不传 = NBA（默认）；传 'lol' 就是开黑战绩里的一局。**两边共用同一套接口和
+ * 同三张表**——它们只按一个 id 键，而 B-R 的 id（202604180CLE）和 Riot 的
+ * （OC1_654943407）不会撞。见后端 GameRatingController.KIND_LOL。
+ *
  * 单独一个文件而不是并进 `player.js`：那边全是**不会变的历史数据**，
  * 这边是每分钟都在变的用户产出。放一起的话很容易顺手给评分也加上缓存，
  * 而那正是这类接口最不能有的东西。
@@ -22,24 +26,24 @@ export const gameRatingApi = {
    * 一场的全部评分：平均分、分布、短评、每个球员的平均分；登录了还带「我给的分」。
    * userInformationId 可选：从「我的消息」点 @ 通知进来时带上，后端顺便把那条标记已读。
    */
-  detail: (gameId, userInformationId) =>
-    http.get('/gameRating/detail', { params: { gameId, userInformationId } }),
+  detail: (gameId, userInformationId, kind) =>
+    http.get('/gameRating/detail', { params: { gameId, userInformationId, kind } }),
 
   // ── 分：一人一条，可以改。传 0 = 撤销
-  rateGame: (gameId, score) =>
-    http.post('/gameRating/rateGame', form({ gameId, score: String(score) })),
+  rateGame: (gameId, score, kind) =>
+    http.post('/gameRating/rateGame', form({ gameId, score: String(score), kind })),
   ratePlayer: (gameId, playerId, score) =>
     http.post('/gameRating/ratePlayer', form({ gameId, playerId, score: String(score) })),
 
   // ── 短评：想发几条发几条，**发出去不能改**，只能删。
   //    playerId 不传 = 评这场比赛本身
-  comment: (gameId, playerId, content) =>
-    http.post('/gameRating/comment', form({ gameId, playerId, content })),
+  comment: (gameId, playerId, content, kind) =>
+    http.post('/gameRating/comment', form({ gameId, playerId, content, kind })),
   deleteComment: (commentId) => http.post('/gameRating/deleteComment', form({ commentId })),
 
   /** 回复一条短评。targetId 是那条短评的 commentId，比赛和球员的都走这条 */
-  reply: (gameId, targetId, content, replyToUser) =>
-    http.post('/gameRating/reply', form({ gameId, targetId, content, replyToUser })),
+  reply: (gameId, targetId, content, replyToUser, kind) =>
+    http.post('/gameRating/reply', form({ gameId, targetId, content, replyToUser, kind })),
   deleteReply: (replyId) => http.post('/gameRating/deleteReply', form({ replyId })),
 }
 

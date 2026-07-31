@@ -6,8 +6,9 @@
  * 而且只有真机上才看得见。
  *
  * 这里**不能 import 任何 React/antd 的东西**：service worker 里没有 DOM，
- * 引进去构建能过、运行时直接炸。
+ * 引进去构建能过、运行时直接炸。config/modules.js 是纯常量，可以引。
  */
+import { LOL_TOPIC_ID } from '../config/modules'
 
 // 点赞/点踩帖子类消息 msgId=帖子 id；评论类（含评论里@）msgId=评论 id、msgIdSecond=帖子 id
 const COMMENT_TYPES = ['goodComment', 'badComment', 'commentComment', 'mentionComment']
@@ -17,6 +18,9 @@ const TOPIC_TYPES = ['topicApply', 'topicApproved', 'topicRejected', 'mentionCha
 const SCHEDULE_TYPES = ['scheduleAssign', 'scheduleRemind', 'scheduleOverdue', 'scheduleExpiry']
 // 每日赛场的短评/回复里被 @：msgId=比赛 id，点进去跳那场比赛（短评没有自己的页面）
 const GAME_TYPES = ['mentionGame']
+// 开黑对局的短评/回复里被 @：msgId=Riot 的 matchId。对局详情是战绩流里的一个浮层、
+// 没有自己的路由，所以带 ?match= 进去让战绩流自己展开那一局
+const LOL_TYPES = ['mentionLol']
 
 const newsIdOf = (m) => (COMMENT_TYPES.includes(m.msgType) ? m.msgIdSecond : m.msgId)
 
@@ -45,6 +49,8 @@ export const linkOf = (m) =>
           ? `/schedule?date=${m.msgType === 'scheduleAssign' ? (m.msgIdSecond || '') : m.msgId}&userInformationId=${m.userInformationId}`
           : GAME_TYPES.includes(m.msgType)
             ? `/games/${m.msgId}?userInformationId=${m.userInformationId}`
+          : LOL_TYPES.includes(m.msgType)
+            ? `/news/topic/${LOL_TOPIC_ID}/lol/feed?match=${m.msgId}&userInformationId=${m.userInformationId}`
             : `/news/${newsIdOf(m)}?userInformationId=${m.userInformationId}`
 
 /**
@@ -69,6 +75,7 @@ export const actionTextOf = (m) => {
     case 'mentionNews': return t ? `在帖子${t}里@了您` : '在帖子里@了您'
     case 'mentionChat': return `在${m.content ? `「${m.content}」` : '专题'}的群聊里@了您`
     case 'mentionGame': return '在赛后短评里@了您'
+    case 'mentionLol': return '在开黑对局的短评里@了您'
     case 'follow': return '关注了你'
     case 'topicApply': return `申请加入你的专题${m.content ? `「${m.content}」` : ''}`
     case 'topicApproved': return `通过了你加入${m.content ? `「${m.content}」` : '专题'}的申请`
@@ -97,6 +104,7 @@ export const detailOf = (m) => {
     case 'mentionChat': return `群聊消息：${s(m.contentMsg)}`
     // 比赛信息点进去就看到了，消息里要展示的是那句话本身（content 存的就是它）
     case 'mentionGame': return `短评：${s(m.content)}`
+    case 'mentionLol': return `短评：${s(m.content)}`
     case 'follow': return '点击去 TA 的主页看看'
     case 'topicApply': return '点击进入专题，在成员管理里审批'
     case 'topicApproved': return '点击进入该专题'
