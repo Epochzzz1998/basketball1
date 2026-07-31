@@ -51,7 +51,7 @@ import java.util.Base64;
 public class TokenStore {
 
     /** Redis key 前缀。和 session 的 {@code dream:session} 并列，一眼看得出是哪一类 */
-    private static final String PREFIX = "dream:token:";
+    static final String PREFIX = "dream:token:";
 
     /**
      * 30 天滑动过期——**和现有 session 的口径完全一致**
@@ -104,6 +104,11 @@ public class TokenStore {
         if (StringUtils.isNotBlank(token)) {
             redis.delete(PREFIX + hash(token));
         }
+    }
+
+    /** 令牌 → 存进 Redis 的那个哈希。{@link SingleSessionGuard} 要拿它记指针 */
+    public static String hashOf(String token) {
+        return hash(token);
     }
 
     private static String hash(String token) {

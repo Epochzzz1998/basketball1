@@ -68,6 +68,9 @@ public class TokenAuthFilter extends OncePerRequestFilter {
     @Autowired
     private UserMapper userMapper;
 
+    @Autowired
+    private SingleSessionGuard singleSession;
+
     /** 从请求里取出令牌：优先请求头，其次查询参数。都没有返回 null */
     public static String extract(HttpServletRequest request) {
         String h = request.getHeader(HEADER);
@@ -100,6 +103,12 @@ public class TokenAuthFilter extends OncePerRequestFilter {
             // ② 用户还在、且没被封。封号立刻生效，不用等他重新登录
             if (u != null && !Constants.DISABLE.equals(u.getUserStatus())) {
                 request.setAttribute(SecUtil.REQ_USER_KEY, u);
+                // 「App 端一处」的指针跟着令牌一起滑动续期。
+                // 令牌只签发给带 wantToken=1 的客户端，而那只有套壳 App 会带，
+                // 所以「解析成功的令牌」等价于「这是一个 App 会话」。
+                // 不续的话：令牌 30 天滑动、指针 30 天定死，第 31 天指针先没了，
+                // 再登录就找不到旧令牌，同一账号会攒出第二个 App 会话
+                singleSession.touchApp(userId);
             }
         }
         // ③ 令牌无效/过期/用户被封：什么都不做，当匿名继续走（理由见类注释）

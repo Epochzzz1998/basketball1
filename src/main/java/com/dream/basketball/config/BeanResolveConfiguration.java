@@ -35,7 +35,7 @@ public class BeanResolveConfiguration implements WebMvcConfigurer {
      * 安卓上是 {@code http://localhost}（Capacitor 默认；也有配成 {@code ionic://} 的老项目）。
      * 这三个是<b>固定字面量</b>，不是通配，所以放开它们不会扩大攻击面。
      */
-    private static final String[] NATIVE_ORIGINS = {
+    static final String[] NATIVE_ORIGINS = {
         "capacitor://localhost", "ionic://localhost", "http://localhost",
     };
 

@@ -42,6 +42,9 @@ public class UserProfileController {
     private UserMapper userMapper;
 
     @Autowired
+    private com.dream.basketball.config.SingleSessionGuard singleSession;
+
+    @Autowired
     private DreamNewsMapper dreamNewsMapper;
 
     @Autowired
@@ -352,7 +355,12 @@ public class UserProfileController {
                 .eq("USER_ID", me.getUserId()).set("PASSWORD", hashed));
         me.setPassword(hashed);
         SecUtil.setLoginUserToSession(request, me);
-        return new Result<>(0, "密码已修改", null);
+        // 改密码作废其它所有凭据（网页会话 + App 令牌），只留改密码的人自己这一条。
+        // 不做这一步的话，令牌或 Cookie 被抄走之后改密码是拦不住的——
+        // 而「改密码要能立刻作废已发出的凭据」正是当初选 Redis 而不是 JWT 的理由之一
+        javax.servlet.http.HttpSession sess = request.getSession(false);
+        singleSession.revokeAll(me.getUserId(), sess == null ? null : sess.getId());
+        return new Result<>(0, "密码已修改，其它设备需要重新登录", null);
     }
 
     /** 主页隐私（仅本人）：是否隐藏我的发帖 / 评论。传哪个改哪个（'1' 隐藏 / '0' 显示）。 */

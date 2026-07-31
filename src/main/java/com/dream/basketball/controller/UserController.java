@@ -40,6 +40,9 @@ public class UserController extends BaseUtils {
     private UserService userService;
     @Autowired
     private com.dream.basketball.config.TokenStore tokenStore;
+
+    @Autowired
+    private com.dream.basketball.config.SingleSessionGuard singleSession;
     @Autowired
     private com.dream.basketball.config.CaptchaStore captchaStore;
     @Autowired
@@ -111,10 +114,17 @@ public class UserController extends BaseUtils {
         SecUtil.setLoginUserToSession(request, dreamUser);
         // 拿不到 Cookie 的客户端（套壳 App）显式索要令牌；网页端不要，继续用 httpOnly Cookie
         if ("1".equals(request.getParameter("wantToken"))) {
+            String token = tokenStore.issue(dreamUser.getUserId());
+            // App 端一处：作废这个人上一个 App 令牌。**必须在签发之后**——
+            // 指针要指向新令牌，先踢后签会把新令牌的指针写丢
+            singleSession.enforceApp(dreamUser.getUserId(),
+                    com.dream.basketball.config.TokenStore.hashOf(token));
             Map<String, Object> data = new HashMap<>();
-            data.put("token", tokenStore.issue(dreamUser.getUserId()));
+            data.put("token", token);
             return new Result<>(0, "登录成功！", data);
         }
+        // 网页端一处：给本次 session 打 principal 索引，踢掉这个人的其它网页会话
+        singleSession.enforceWeb(request, dreamUser.getUserId());
         return handlerResultJson(true, "登录成功！");
     }
 
@@ -206,7 +216,12 @@ public class UserController extends BaseUtils {
     public Object loginOut(HttpServletRequest request) {
         // 令牌登录的客户端：登出必须把令牌真的作废掉。
         // 只清客户端存的那份是不够的——那串东西如果被抄走过，服务端这边还认它
-        tokenStore.revoke(com.dream.basketball.config.TokenAuthFilter.extract(request));
+        String tk = com.dream.basketball.config.TokenAuthFilter.extract(request);
+        if (org.apache.commons.lang3.StringUtils.isNotBlank(tk)) {
+            singleSession.clearApp(SecUtil.getLoginUserIdToSession(request),
+                    com.dream.basketball.config.TokenStore.hashOf(tk));
+        }
+        tokenStore.revoke(tk);
         SecUtil.logout4Session(request);
         return handlerResultJson(true, "已登出");
     }
