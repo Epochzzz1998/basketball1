@@ -101,7 +101,10 @@ export default function LolMatchRating({ rating }) {
 export function PlayerRating({ rating, puuid, name }) {
   if (!rating.data) return null
   return (
-    <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px dashed #eee' }}>
+    // textAlign 要显式写死：展开行本身也是个 <td>，而数据表有一条
+    // `.stat-compact ... > td { text-align: center !important }`，
+    // 会把这块里的标题、输入框、短评正文全部居中。数字列该居中，成段的话不该。
+    <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px dashed #eee', textAlign: 'left' }}>
       <RatingBlock
         r={rating}
         puuid={puuid}
