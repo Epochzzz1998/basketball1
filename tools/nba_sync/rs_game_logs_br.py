@@ -354,8 +354,15 @@ def build_season(year, roster, slug_ids, dry):
                 if not pid or pid in clash:
                     unresolved.append((year, code, p['name']))
                     continue
+    # 主键带上球队代码。看着冗余，但**一场比赛一个球员只有一行**这个假设是错的：
+    # 1978-11-08 篮网 @ 76 人因判罚争议被联盟裁定从争议时刻重赛，重赛在三个多月后的
+    # 1979-03-23，那时 Eric Money、Ralph Simpson、Harvey Catchings 已经在两队之间
+    # 互相交易过——所以他们三个在**同一场比赛**里各为两队出场一次，B-R 两边的
+    # box score 都列着他们。Eric Money 是 NBA 史上唯一在同一场比赛为两队得分的球员。
+    # 两行都是真的，不能丢；带上球队代码，主键就天然唯一了。
+    # GAME_STAT_ID 全站没有任何地方引用（纯主键），所以改它的组成是免费的。
                 tuples.append(
-                    f"('{pid}-g{g['id']}', '{pid}', {season_num}, {REGULAR_TYPE}, NULL, "
+                    f"('{pid}-g{g['id']}-{code}', '{pid}', {season_num}, {REGULAR_TYPE}, NULL, "
                     f"'{sync.esc(g['id'])}', '{g['date']}', '{sync.esc(code)}', '{sync.esc(opp)}', "
                     f"{home}, {win}, {n(me['score'])}, {n(other['score'])}, {p['starter']}, "
                     f"{n(p['mp'])}, {n(p['pts'])}, {n(p['trb'])}, {n(p['orb'])}, {n(p['drb'])}, "

@@ -551,7 +551,9 @@ def build(years, dry):
                     if not pid or pid in clash:
                         unresolved.append((year, code, p['name']))
                         continue
-                    vals = [f"'{pid}-g{g['id']}'", f"'{pid}'", str(season_num), str(PLAYOFF_TYPE),
+                    # 同 rs_game_logs_br：主键带球队代码。季后赛没有那场重赛，
+                    # 但两个爬虫写的是同一张表，键的构成保持一致
+                    vals = [f"'{pid}-g{g['id']}-{code}'", f"'{pid}'", str(season_num), str(PLAYOFF_TYPE),
                             str(g['round']), f"'{sync.esc(g['id'])}'", f"'{g['date']}'",
                             f"'{sync.esc(code)}'", f"'{sync.esc(opp)}'", str(home), str(win),
                             n(me['score']), n(other['score']), str(p['starter']), n(p['mp']),
