@@ -20,6 +20,24 @@
             (select * from player_stats where SEASON_NUM = #{param.seasonNum} ) s  on t.PLAYER_ID = s.PLAYER_ID
         <where>
             <include refid="whereConditionPlayer"></include>
+            <!-- 新秀榜：本季就是他在库里最早的一季。
+                 不按选秀年份判——库里没有选秀数据，而且**落选新秀会被整批漏掉**。
+                 逐季数据覆盖到 1947（SEASON_NUM 可为负），所以这个判据在最早那一季也成立：
+                 1976-77 按它算 100 人，按 nba_career_totals.FIRST_YEAR 算也是同一批 100 人，
+                 同季那 173 名 1977 年前出道的老将两种口径都正确排除。
+
+                 写成 IN 子查询而不是 join：本查询的 playerPosition / playerTeam 条件
+                 是挂在 `</where>` 后面、靠 `and` 接到前面 ON 子句上的，中间插一个 join
+                 会改掉它们的挂靠点。IN 里那一坨只算一次（整表分组一遍就物化），
+                 不像相关子查询那样每行重算——player_stats 上除了主键没有别的索引。
+
+                 0 场的人不进榜——这榜按场均得分排，他没有场均。 -->
+            <if test="param.rookieOnly != null and param.rookieOnly">
+                and ifnull(s.PLAYER_APPEARANCE, 0) &gt; 0
+                and s.PLAYER_ID in (select PLAYER_ID from player_stats
+                                    where SEASON_NUM &lt;&gt; 99 group by PLAYER_ID
+                                    having min(SEASON_NUM) = #{param.seasonNum})
+            </if>
         </where>
         <if test="param.playerPosition != null and param.playerPosition !=''">
             and s.PLAYER_POSITION like CONCAT('%',#{param.playerPosition},'%')

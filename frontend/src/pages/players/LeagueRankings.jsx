@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Badge, Card, Col, Empty, Row, Segmented, Select, Space, Table, Tag } from 'antd'
-import { CrownOutlined, OrderedListOutlined, TeamOutlined } from '@ant-design/icons'
+import { CrownOutlined, OrderedListOutlined, RiseOutlined, TeamOutlined } from '@ant-design/icons'
 import PillTabs from '../../components/PillTabs'
 import { Link, useNavigate } from 'react-router-dom'
 import { playerApi } from '../../api/player'
@@ -12,6 +12,7 @@ import { GlossaryButton, GlossaryTip } from './statGlossary'
 import PositionFilter from './PositionFilter'
 import StatViewSwitch from './StatViewSwitch'
 import SeasonPicker from '../../components/SeasonPicker'
+import AllPlayerSeasonStats from './AllPlayerSeasonStats'
 import { TeamCell } from '../../components/TeamLogo'
 import useIsMobile from '../../hooks/useIsMobile'
 import useUrlState from '../../hooks/useUrlState'
@@ -430,8 +431,9 @@ export default function LeagueRankings() {
             value={stage}
             onChange={(v) => {
               setStage(v)
-              if (v === 'po' && tab === 'honors') {
-                setTab('stats') // 荣誉 Tab 在季后赛模式下不存在，跳回单项排行
+              // 荣誉和新秀两个 Tab 在季后赛模式下都不存在，跳回单项排行
+              if (v === 'po' && (tab === 'honors' || tab === 'rookies')) {
+                setTab('stats')
               }
             }}
             options={[{ label: '常规赛', value: 'reg' }, { label: '季后赛', value: 'po' }]}
@@ -446,12 +448,17 @@ export default function LeagueRankings() {
           { value: 'stats', icon: <OrderedListOutlined />, label: '单项排行' },
           // 荣誉是全季评选（FMVP 已含），季后赛模式下不显示该 Tab
           ...(stage === 'po' ? [] : [{ value: 'honors', icon: <CrownOutlined />, label: '赛季荣誉' }]),
+          // 新秀榜只有常规赛：判据那条 SQL 只写在常规赛的查询里，季后赛走的是另一条，
+          // 挂上去会静默地把全体季后赛球员当成新秀
+          ...(stage === 'po' ? [] : [{ value: 'rookies', icon: <RiseOutlined />, label: '新秀榜' }]),
           { value: 'teams', icon: <TeamOutlined />, label: '球队排行' },
           // 历史总榜跟赛季无关（生涯累计），赛季/赛段选择对它不起作用
         ]}
       />
       {tab === 'stats' && <StatsTab seasonNum={seasonNum} stage={stage} />}
       {tab === 'honors' && stage !== 'po' && <HonorsTab seasonNum={seasonNum} />}
+      {/* 新秀榜就是赛季数据榜筛出新秀那一批：默认排序本来就是场均得分倒序 */}
+      {tab === 'rookies' && stage !== 'po' && <AllPlayerSeasonStats seasonNum={seasonNum} rookieOnly />}
       {tab === 'teams' && <TeamsTab seasonNum={seasonNum} stage={stage} />}
     </>
   )

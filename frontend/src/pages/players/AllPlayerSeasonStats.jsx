@@ -18,9 +18,12 @@ import { ADVANCED_TABLE_FIELDS, BASIC_TABLE_FIELDS, buildFullStatColumns, buildA
  * - stage：'reg' 常规赛 / 'po' 季后赛（各查各的表，同一套排序白名单）；
  * - round：季后赛下指定轮次（1-4）时改查单轮次表，此时"球队"列换成"对手"，
  *   位置列丢掉（系列赛数据源没有位置）；不传或传 null 就是整个季后赛的汇总；
+ * - rookieOnly：只留本赛季的新秀（新秀榜用）。判据在后端（player_stats 里最早的一季
+ *   就是这一季），**不看选秀年份**——库里没有选秀数据，而且落选新秀会被整批漏掉。
+ *   只对常规赛成立：季后赛走的是另一条查询，没有这个条件，调用方负责别在季后赛下传它。
  * - 排序直连 P3-1 白名单；不分页一滚到底；独立使用时带球员名模糊搜索。
  */
-export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: seasonProp, round = null }) {
+export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: seasonProp, round = null, rookieOnly = false }) {
   // 独立使用时赛季写进 URL（返回可恢复）；受控嵌入（球队页）时忽略此值
   const [seasonState, setSeasonState] = useUrlState('seasonNum', LATEST_SEASON, true)
   const [playerName, setPlayerName] = useState() // 球员名模糊搜索（后端 LIKE）
@@ -64,12 +67,12 @@ export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: s
     <ProTable
       className="stat-compact"
       bordered
-      headerTitle={team ? undefined : '球员赛季数据榜'}
+      headerTitle={team ? undefined : rookieOnly ? '本赛季新秀（按场均得分）' : '球员赛季数据榜'}
       rowKey="statsId"
       columns={columns}
       /* adv 必须在 params 里：列裁剪之后两种视图取的是不同的列，切视图不重新请求的话
          列换了、数据还是上一次那批（高阶列全成 "/"）。ProTable 只认 params 的变化。 */
-      params={{ seasonNum, playerTeam: team, playerName, stage, round, pos, adv }}
+      params={{ seasonNum, playerTeam: team, playerName, stage, round, pos, adv, rookieOnly }}
       search={false}
       scroll={{ x: sumColWidth(columns) }}
       options={false}
@@ -93,6 +96,8 @@ export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: s
           playerName: params.playerName,
           field: sortKey,
           order: sortKey ? (sort[sortKey] === 'ascend' ? 'asc' : 'desc') : undefined,
+          // 不传就是后端默认的「场均得分倒序」，新秀榜要的正是这个
+          rookieOnly: params.rookieOnly || undefined,
         }
         // 单轮次走独立接口，返回的是裸数组（不分页）
         if (byRound) {
