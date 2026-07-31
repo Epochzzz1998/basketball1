@@ -51,7 +51,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 import sync
 from br_backfill import BR2CODE, initial_key, key, strip_suffix
-from po_game_logs_br import (absence_stmts, absence_tuples, fetch_html, league_wide_names,
+from po_game_logs_br import (absence_stmts, absence_tuples, fetch_html, game_ambiguity,
+                            league_wide_names,
                             parse_absences, parse_box_table, parse_line_score, resolve_pid,
                             GAMES_CACHE as PO_GAMES_CACHE)
 
@@ -332,16 +333,25 @@ def build_season(year, roster, slug_ids, dry):
             home = 1 if br_code == g['home'] else 0
             win = 1 if (me['score'] or 0) > (other['score'] or 0) else 0
             pool = roster.get((season_num, code), {})
+            # 见 po_game_logs_br.resolve_pid：同一场里两个同姓同首字母的人，
+            # 首字母兜底必须整个关掉，否则没进 player_stats 的那个会被记到队友头上
+            dup_names, dup_iks = game_ambiguity(
+                [p['name'] for p in me['players']]
+                + [a['name'] for a in (me.get('absent') or [])])
             # Who dressed but never played, plus who was inactive. `.get` because the
             # field is newer than the cache: seasons crawled before it existed simply
             # have no 'absent' key, and they stay empty until re-crawled.
-            t, miss = absence_tuples(g['id'], code, me.get('absent'), pool, slug_ids, wide)
+            t, miss = absence_tuples(g['id'], code, me.get('absent'), pool, slug_ids, wide,
+                                     dup_iks, dup_names)
             absences += t
             absent_missed += [(year, code, nm) for nm in miss]
-            for p in me['players']:
+            # 先全部解析，再查有没有两个人落到同一个 id（见 po_game_logs_br.game_ambiguity）
+            pids = [resolve_pid(p['name'], p['slug'], pool, slug_ids, dup_iks, dup_names)
+                    for p in me['players']]
+            clash = {x for x in pids if x and pids.count(x) > 1}
+            for p, pid in zip(me['players'], pids):
                 # Same identity chain as the absence list — see resolve_pid().
-                pid = resolve_pid(p['name'], p['slug'], pool, slug_ids)
-                if not pid:
+                if not pid or pid in clash:
                     unresolved.append((year, code, p['name']))
                     continue
                 tuples.append(

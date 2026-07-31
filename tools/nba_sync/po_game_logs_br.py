@@ -351,7 +351,7 @@ ABSENCE_TABLE = 'game_absence'
 ABSENCE_COLS = 'GAME_ID, PLAYER_ID, TEAM, KIND, REASON'
 
 
-def resolve_pid(name, slug, pool, slug_ids):
+def resolve_pid(name, slug, pool, slug_ids, banned_iks=None, banned_names=None):
     """A B-R name/slug -> our PLAYER_ID, or None when nothing matches confidently.
 
     Four attempts in falling order of confidence:
@@ -366,16 +366,67 @@ def resolve_pid(name, slug, pool, slug_ids):
     so an ambiguous match returns None instead of an arbitrary pick — an unresolved row
     costs one missing name, a wrong one silently attributes a game to the wrong player.
 
+    `banned_iks` 关掉的是 load_rosters 那道护栏**看不见的**歧义。它只认识
+    `player_stats` 里有的人，而一个整季没进那张表的球员照样会出现在 box score 里：
+    1987-11-07 骑士同时上了 Kevin Johnson 和 Kannard Johnson，后者不在 player_stats，
+    于是 `kjohnson` 这个键只有前者认领、没被丢弃，Kannard 的一场比赛就被记到了
+    Kevin 头上。同场都上了才撞主键报错，只有一个人上的场次会**静默记错**。
+    调用方按「这一场 box score 里的名字」自己算一遍歧义传进来，才拦得住。
+
     Extracted so the box-score path and the absence path resolve identity **the same way**.
     Two copies would drift, and a drifted copy shows up as "this guy is in the box score
     but missing from the roster list", which reads like a data bug rather than a code bug.
     """
     k = key(name)
-    pid = pool.get(k) or pool.get(strip_suffix(k)) or slug_ids.get(slug)
+    sk = strip_suffix(k)
+    # 这一场里有同名的人：名字这条路根本分不开他们，直接跳到 slug
+    same_name = bool(banned_names) and (k in banned_names or sk in banned_names)
+    if not same_name:
+        pid = pool.get(k) or pool.get(sk)
+        if pid:
+            return pid
+    pid = slug_ids.get(slug)
     if pid:
         return pid
-    ik = initial_key(strip_suffix(k))
-    return pool.get(ik) if ik else None
+    if same_name:
+        return None          # 同名，而 slug 也认不出来：宁可不认，绝不猜
+    ik = initial_key(sk)
+    if not ik or (banned_iks and ik in banned_iks):
+        return None
+    return pool.get(ik)
+
+
+def game_ambiguity(names):
+    """一份名单（一场比赛里一支队的全部人名）自带的歧义 -> (姓名键, 首字母键)。
+
+    两种，都真实发生过，也都会让身份解析悄悄记错人：
+
+      **首字母撞车**  1987-11-07 骑士同时上了 Kevin Johnson 和 Kannard Johnson。
+                      后者不在 player_stats 里，所以 load_rosters 那道护栏看不见这组歧义，
+                      `k|johnson` 这个键只有 Kevin 认领、没被丢弃 → Kannard 记成了 Kevin。
+
+      **姓名撞车**    1988-12-06 子弹队上了**两个 Charles Jones**（中锋那个和后卫那个）。
+                      名字一模一样，唯一能分开他们的是 B-R 的 slug
+                      （jonesch01 / jonesch02，两个在 br_ids_cache.json 里都有）。
+
+    同场都上了才会撞主键报错；只有其中一个上场的比赛会**静默记到另一个人头上**，
+    永远不会有人发现。所以这个判断必须按「这一场实际出现的名字」来做，
+    不能只靠球队赛季名单。"""
+    seen_name, dup_name = {}, set()
+    seen_ik, dup_ik = {}, set()
+    for nm in names or ():
+        k = key(nm)
+        sk = strip_suffix(k)
+        for kk in {k, sk}:
+            if kk in seen_name:
+                dup_name.add(kk)
+            seen_name[kk] = nm
+        ik = initial_key(sk)
+        if ik:
+            if ik in seen_ik and seen_ik[ik] != nm:
+                dup_ik.add(ik)
+            seen_ik.setdefault(ik, nm)
+    return dup_name, dup_ik
 
 
 def league_wide_names(season_num, window=2):
@@ -419,14 +470,15 @@ def league_wide_names(season_num, window=2):
     return names
 
 
-def absence_tuples(game_id, team_code, entries, pool, slug_ids, fallback=None):
+def absence_tuples(game_id, team_code, entries, pool, slug_ids, fallback=None,
+                   banned_iks=None, banned_names=None):
     """-> ([SQL tuple text], [names we could not resolve]).
 
     `fallback` 是 league_wide_names() 的结果，队内名单认不出来时再查一次全联盟。
     不传就是老行为（认不出就丢）。"""
     tuples, missed = [], []
     for a in entries or ():
-        pid = resolve_pid(a['name'], a.get('slug'), pool, slug_ids)
+        pid = resolve_pid(a['name'], a.get('slug'), pool, slug_ids, banned_iks, banned_names)
         if not pid and fallback:
             pid = fallback.get(key(a['name'])) or fallback.get(strip_suffix(key(a['name'])))
         if not pid:
@@ -478,15 +530,25 @@ def build(years, dry):
                 home = 1 if br_code == g['home'] else 0
                 win = 1 if (me['score'] or 0) > (other['score'] or 0) else 0
                 pool = roster.get((season_num, code), {})
+                # 这一场 box score 里自己就有歧义的首字母键（同队两个 Johnson），
+                # load_rosters 那道护栏看不见，见 resolve_pid 的说明
+                dup_names, dup_iks = game_ambiguity(
+                    [p['name'] for p in me['players']]
+                    + [a['name'] for a in (me.get('absent') or [])])
                 # 大名单里没上场的人。`.get` 而不是 `[...]`：这个字段是后加的，
                 # 之前缓存下来的赛季没有它，那些赛季要重爬才会有
-                t, miss = absence_tuples(g['id'], code, me.get('absent'), pool, slug_ids, wide)
+                t, miss = absence_tuples(g['id'], code, me.get('absent'), pool, slug_ids, wide,
+                                         dup_iks, dup_names)
                 absences += t
                 absent_missed += [(year, code, nm) for nm in miss]
-                for p in me['players']:
+                # 先全部解析一遍，再看有没有两个人落到同一个 id 上（最后一道兜底：
+                # 前面两道护栏是按已知的撞车方式设的，这一道不假设撞车是怎么来的）
+                pids = [resolve_pid(p['name'], p['slug'], pool, slug_ids, dup_iks, dup_names)
+                        for p in me['players']]
+                clash = {x for x in pids if x and pids.count(x) > 1}
+                for p, pid in zip(me['players'], pids):
                     # 和未出场名单**共用同一条身份链**，见 resolve_pid 的说明
-                    pid = resolve_pid(p['name'], p['slug'], pool, slug_ids)
-                    if not pid:
+                    if not pid or pid in clash:
                         unresolved.append((year, code, p['name']))
                         continue
                     vals = [f"'{pid}-g{g['id']}'", f"'{pid}'", str(season_num), str(PLAYOFF_TYPE),
