@@ -32,8 +32,8 @@ export const gameRatingApi = {
   // ── 分：一人一条，可以改。传 0 = 撤销
   rateGame: (gameId, score, kind) =>
     http.post('/gameRating/rateGame', form({ gameId, score: String(score), kind })),
-  ratePlayer: (gameId, playerId, score) =>
-    http.post('/gameRating/ratePlayer', form({ gameId, playerId, score: String(score) })),
+  ratePlayer: (gameId, playerId, score, kind) =>
+    http.post('/gameRating/ratePlayer', form({ gameId, playerId, score: String(score), kind })),
 
   // ── 短评：想发几条发几条，**发出去不能改**，只能删。
   //    playerId 不传 = 评这场比赛本身
