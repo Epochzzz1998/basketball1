@@ -647,15 +647,16 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied, n
               顶栏上本来就有一个同样的刷新，那些页面上再挂一个是重复的。
               和下拉刷新也不是一回事：那个只重拉当前列表，这个是整个应用重新加载，
               换了版本或者页面状态乱了的时候用。
-              比发帖钮小一圈、白底：它是次要动作，不该抢发帖的视觉位置 */}
+              **和发帖钮同样大小**：两个圆钮上下叠在一起，直径不一样看着就是没对齐。
+              主次靠颜色分（发帖是品牌色实心，刷新是白底灰图标），不靠尺寸 */}
           {showRefreshFab && (
             <div
               onClick={() => window.location.reload()}
               title="刷新页面"
               style={{
-                width: 42, height: 42, borderRadius: 21,
+                width: 52, height: 52, borderRadius: 26,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: '#fff', color: '#8c8c8c', fontSize: 17,
+                background: '#fff', color: '#8c8c8c', fontSize: 20,
                 border: '1px solid #f0f0f0', boxShadow: '0 4px 14px rgba(0,0,0,.12)',
                 cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
               }}

@@ -696,6 +696,8 @@ export default function Messages() {
                   className="pill-input"
                   style={{ paddingRight: 12 }}
                 />
+                {/* 34 = 一行时输入框的高度（.pill-input 的圆角 17 就是按这个定的）。
+                    原来给的 40 比输入框高出一头，两个圆角挨在一起谁都对不齐 */}
                 <Button
                   type="primary"
                   shape="circle"
@@ -703,7 +705,7 @@ export default function Messages() {
                   loading={sending}
                   disabled={!text.trim() && !attachments.length}
                   onClick={send}
-                  style={{ flexShrink: 0, width: 40, height: 40, boxShadow: (text.trim() || attachments.length) ? '0 4px 12px rgba(250,84,28,.3)' : 'none' }}
+                  style={{ flexShrink: 0, width: 34, height: 34, minWidth: 34, boxShadow: (text.trim() || attachments.length) ? '0 4px 12px rgba(250,84,28,.3)' : 'none' }}
                 />
               </div>
             </div>

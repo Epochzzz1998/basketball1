@@ -421,8 +421,17 @@ body {
 .composer-sheet {
   animation: composer-rise 0.26s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
+/* 桌面端那层黑纱：纸在升起来的同时纱淡进来，两条动画同长 */
+@keyframes composer-veil {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.composer-backdrop {
+  animation: composer-veil 0.26s ease-out;
+}
 @media (prefers-reduced-motion: reduce) {
-  .composer-sheet { animation: none; }
+  .composer-sheet,
+  .composer-backdrop { animation: none; }
 }
 
 /* 无边框正文区：wangEditor 默认给自己画了底色和一个撑满父高的滚动容器。

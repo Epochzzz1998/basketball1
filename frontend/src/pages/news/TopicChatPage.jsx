@@ -677,19 +677,19 @@ export default function TopicChatPage() {
             </div>
           )}
 
-          {/* 工具条在输入框上面，别挤在下面单占一行 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
-            <EmojiPicker onPick={insertEmoji} />
-            <Upload accept="image/*" showUploadList={false} beforeUpload={makeUpload(true)}>
-              <span title="发图片" style={toolIcon}><PictureOutlined /></span>
-            </Upload>
-            <Upload accept={FILE_ACCEPT} showUploadList={false} beforeUpload={makeUpload(false)}>
-              <span title="发附件" style={toolIcon}><PaperClipOutlined /></span>
-            </Upload>
-            {uploading && <LoadingOutlined style={{ color: BRAND, marginLeft: 4 }} />}
-          </div>
-
-          <div style={{ position: 'relative' }}>
+          {/* 和私信一条排：表情/图片/附件在左，输入框居中，发送是右边一个圆钮。
+              原来工具条单占输入框上面一行，等于每次打字都白搭进去一行高度 */}
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, paddingBottom: 2 }}>
+              <EmojiPicker onPick={insertEmoji} />
+              <Upload accept="image/*" showUploadList={false} beforeUpload={makeUpload(true)}>
+                <span title="发图片" style={toolIcon}><PictureOutlined /></span>
+              </Upload>
+              <Upload accept={FILE_ACCEPT} showUploadList={false} beforeUpload={makeUpload(false)}>
+                <span title="发附件" style={toolIcon}><PaperClipOutlined /></span>
+              </Upload>
+              {uploading && <LoadingOutlined style={{ color: BRAND, marginLeft: 4 }} />}
+            </div>
             <Input.TextArea
               ref={taRef}
               value={text}
@@ -705,20 +705,18 @@ export default function TopicChatPage() {
               // 写 2 的话盒子恒定两行高，提示语再短也一样
               autoSize={{ minRows: 1, maxRows: 5 }}
               className="pill-input"
-              style={{ paddingRight: 82, paddingBottom: 6 }}
+              style={{ paddingRight: 12 }}
             />
+            {/* 34 = 一行时输入框的高度（.pill-input 的圆角 17 就是按这个定的） */}
             <Button
               type="primary"
-              size="small"
+              shape="circle"
               icon={<SendOutlined />}
               loading={sending}
               disabled={!text.trim()}
               onClick={() => send()}
-              // bottom 跟着输入框缩到一行调小：24px 高的按钮配 bottom 8 会顶出 34px 的盒子
-              style={{ position: 'absolute', right: 8, bottom: 5, borderRadius: 14 }}
-            >
-              发送
-            </Button>
+              style={{ flexShrink: 0, width: 34, height: 34, minWidth: 34, boxShadow: text.trim() ? '0 4px 12px rgba(250,84,28,.3)' : 'none' }}
+            />
           </div>
         </div>
       </div>

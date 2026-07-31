@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Button, Input, Modal, Popconfirm, Popover, Spin, Tooltip, Upload, message } from 'antd'
+import { Button, Input, Modal, Popconfirm, Spin, Tooltip, Upload, message } from 'antd'
 import {
   AppstoreOutlined, BarChartOutlined, CloseOutlined, PaperClipOutlined, PictureOutlined,
-  PlusOutlined, RightOutlined, StarOutlined, TagOutlined,
+  RightOutlined, StarOutlined, TagOutlined,
 } from '@ant-design/icons'
 import RichTextEditor from '../../components/RichTextEditor'
 import EmojiPicker from '../../components/EmojiPicker'
@@ -125,7 +125,6 @@ export default function NewsEdit() {
   const [pollOpen, setPollOpen] = useState(false)
   const [ratingOpen, setRatingOpen] = useState(false)
   const [catOpen, setCatOpen] = useState(false)
-  const [moreOpen, setMoreOpen] = useState(false) // 底部工具栏最右那个「+」
 
   const newsIdRef = useRef(routeId || crypto.randomUUID())
   const editorRef = useRef(null)
@@ -168,6 +167,15 @@ export default function NewsEdit() {
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
   }, [routeId, isEdit])
+
+  // 桌面端是罩在页面上的弹层，底下那一页不该还能滚（滚了黑纱后面的内容会动，
+  // 而且滚回来时纸的位置没变，看着像卡住了）。移动端那张纸自己钉满一屏，不用管
+  useEffect(() => {
+    if (isMobile) return undefined
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [isMobile])
 
   // NBA 专区（专题名含 NBA，与首页热帖榜同一判定）才开 @ 面板
   const isNbaZone = !official && topicName.includes('NBA')
@@ -294,50 +302,77 @@ export default function NewsEdit() {
         background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden',
       }
     : {
-        background: '#fff', borderRadius: 14, overflow: 'hidden',
-        display: 'flex', flexDirection: 'column', minHeight: '72vh',
-        // 桌面端不铺满整个内容区：一张 1400px 宽的"纸"读起来很累，
-        // 而且设置区那几行的值会被甩到屏幕另一头
-        maxWidth: 760, width: '100%', margin: '0 auto',
+        background: '#fff', borderRadius: 16, overflow: 'hidden',
+        display: 'flex', flexDirection: 'column',
+        // 桌面端是一张浮在蒙层上的纸，尺寸和原来铺在页面里时一样（宽 760、至少 72vh），
+        // 只是不再跟着页面滚——上下留一截，内容多了在纸里面滚
+        maxWidth: 760, width: '100%', minHeight: '72vh', maxHeight: 'calc(100vh - 64px)',
+        boxShadow: '0 16px 48px rgba(0,0,0,.24)',
       }
 
   return (
+    /* 外面这一层：桌面端是黑纱，移动端用 display:contents 让它从布局里消失
+       （里面那张纸自己已经钉满一屏了）。
+       **不能写成「移动端直接返回 sheet、桌面端才包一层」**：`pinned` 会在挂载后
+       第一次拿到 visualViewport 时由 false 翻成 true，根节点的结构一变 React 就把
+       整棵子树卸载重建，富文本编辑器跟着被销毁重造，控制台一串
+       "Can not get editor instance"，刚打的字也没了。结构恒定，只换样式。
+
+       点黑纱不关：写了一半的东西手一抖就没了，关闭只走左上角那个 ✕（和移动端一致） */
+    <div
+      className={pinned ? undefined : 'composer-backdrop'}
+      style={pinned ? { display: 'contents' } : {
+        position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.45)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+      }}
+    >
     <div className="composer-sheet" style={shell}>
       {/* ===== 顶栏：✕ / 标题 / 存草稿 + 发布 ===== */}
       <div
         style={{
-          display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0,
-          height: HEAD_H, padding: '0 14px',
+          flexShrink: 0, padding: '0 14px',
           paddingTop: pinned ? 'env(safe-area-inset-top)' : 0,
-          boxSizing: 'content-box', borderBottom: '1px solid #f5f5f5', background: '#fff',
+          borderBottom: '1px solid #f5f5f5', background: '#fff',
         }}
       >
-        <CloseOutlined
-          onClick={goBack}
-          style={{ fontSize: 18, color: '#595959', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-        />
-        <span style={{ flex: 1, textAlign: 'center', fontSize: 16, fontWeight: 600 }}>
-          {isEdit ? '编辑' : official ? '新闻' : '贴子'}
-        </span>
-        {/* 草稿：不校验必填也不通知任何人，随手存下来就走。已经发出去的帖子没有"存草稿"一说 */}
-        {(!isEdit || isDraft) && (
-          <a
-            onClick={() => !saving && submit(true)}
-            style={{ fontSize: 13, color: '#8c8c8c', flexShrink: 0 }}
+        {/* 标题绝对定位居中，**不能靠 flex:1 + textAlign 居中**：右边「存草稿 + 发布」
+            比左边一个 ✕ 宽得多，那样算出来的中点是「剩余空间的中点」，看着明显偏左。
+            这一层不含上面那截安全区内边距，所以 inset 0 就是顶栏本身。
+            pointerEvents:none 让它不挡住底下按钮的点击区 */}
+        <div style={{ position: 'relative', height: HEAD_H, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span
+            style={{
+              position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 16, fontWeight: 600, pointerEvents: 'none',
+            }}
           >
-            存草稿
-          </a>
-        )}
-        <Button
-          type="primary"
-          shape="round"
-          loading={saving && !draftRef.current}
-          onClick={() => submit(false)}
-          style={{ flexShrink: 0 }}
-        >
-          {/* 只有「改一篇已经发出去的帖子」才叫保存；新帖和草稿点下去都是真的发出去 */}
-          {isEdit && !isDraft ? '保存' : '发布'}
-        </Button>
+            {isEdit ? '编辑' : official ? '新闻' : '贴子'}
+          </span>
+          <CloseOutlined
+            onClick={goBack}
+            style={{ fontSize: 18, color: '#595959', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+          />
+          <span style={{ flex: 1 }} />
+          {/* 草稿：不校验必填也不通知任何人，随手存下来就走。已经发出去的帖子没有"存草稿"一说 */}
+          {(!isEdit || isDraft) && (
+            <a
+              onClick={() => !saving && submit(true)}
+              style={{ fontSize: 13, color: '#8c8c8c', flexShrink: 0, position: 'relative' }}
+            >
+              存草稿
+            </a>
+          )}
+          <Button
+            type="primary"
+            shape="round"
+            loading={saving && !draftRef.current}
+            onClick={() => submit(false)}
+            style={{ flexShrink: 0, position: 'relative' }}
+          >
+            {/* 只有「改一篇已经发出去的帖子」才叫保存；新帖和草稿点下去都是真的发出去 */}
+            {isEdit && !isDraft ? '保存' : '发布'}
+          </Button>
+        </div>
       </div>
 
       {/* ===== 中间：可滚动的一屏 ===== */}
@@ -444,7 +479,9 @@ export default function NewsEdit() {
         )}
       </div>
 
-      {/* ===== 底部工具栏：图片 / 附件 / 表情 …… + ===== */}
+      {/* ===== 底部工具栏：图片 / 附件 / 表情 =====
+          右下角原来还有一个「+」（弹出投票/打分/话题），去掉了——那三样在上面设置区
+          各自有一行，同一个动作给两个入口只会让人犹豫点哪个 */}
       <div
         style={{
           flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6,
@@ -462,40 +499,6 @@ export default function NewsEdit() {
         <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, fontSize: 20 }}>
           <EmojiPicker onPick={(e) => editorRef.current?.insertText(e)} />
         </span>
-        <span style={{ flex: 1 }} />
-        {/* 「+」= 还能往帖子里加什么。和上面设置区那两行是同一组动作，
-            只是手在底部工具栏上时不用再滚到下面去 */}
-        <Popover
-          open={moreOpen}
-          onOpenChange={setMoreOpen}
-          trigger="click"
-          placement="topRight"
-          arrow={false}
-          content={
-            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 120 }}>
-              <span
-                onClick={() => { setMoreOpen(false); setPollOpen(true) }}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 4px', cursor: 'pointer', fontSize: 14 }}
-              >
-                <BarChartOutlined /> 投票
-              </span>
-              <span
-                onClick={() => { setMoreOpen(false); setRatingOpen(true) }}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 4px', cursor: 'pointer', fontSize: 14 }}
-              >
-                <StarOutlined /> 打分
-              </span>
-              <span
-                onClick={() => { setMoreOpen(false); setTagOpen(true) }}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 4px', cursor: 'pointer', fontSize: 14 }}
-              >
-                <TagOutlined /> 话题
-              </span>
-            </div>
-          }
-        >
-          <ToolIcon icon={<PlusOutlined />} title="更多" />
-        </Popover>
       </div>
 
       {/* ===== 弹窗 ===== */}
@@ -536,6 +539,7 @@ export default function NewsEdit() {
         </div>
         <div style={{ fontSize: 12, color: '#bbb', marginTop: 14 }}>不选 = 未分类；再点一下已选中的即可取消</div>
       </Modal>
+    </div>
     </div>
   )
 }
