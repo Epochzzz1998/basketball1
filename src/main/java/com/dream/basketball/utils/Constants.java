@@ -41,6 +41,9 @@ public class Constants {
     /** 群聊里被 @ 到（msgId 存专题 id，点开直接进那个专题） */
     public static final String MENTION_CHAT = "mentionChat";
 
+    /** 每日赛场的短评/回复里 @ 了你。msgId=gameId（点进去跳那场比赛）。 */
+    public static final String MENTION_GAME = "mentionGame";
+
     /** a schedule event was assigned to you (immediate, from the event creator) */
     public static final String SCHEDULE_ASSIGN = "scheduleAssign";
 

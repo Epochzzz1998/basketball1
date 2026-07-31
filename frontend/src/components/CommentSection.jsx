@@ -11,6 +11,8 @@ import PollCard from './PollCard'
 import { SuperAdminBadge, TopicOwnerBadge, OpBadge } from './RoleBadges'
 import UserTitles from './UserTitles'
 import useIsMobile from '../hooks/useIsMobile'
+// @ 昵称渲染成链接：和每日赛场的短评区共用一份（见 mentionText.jsx）
+import { renderMentions as renderContent } from './mentionText'
 import { assetUrl } from '../config/origin'
 
 const fmt = (v) => (v ? dayjs(v).format('YYYY-MM-DD HH:mm') : '')
@@ -38,47 +40,6 @@ function UserAvatar({ name, src, size, userId }) {
       {String(name || '匿')[0].toUpperCase()}
     </Avatar>
   )
-}
-
-// 把正文里"选中过的 @昵称"渲染成可点链接（跳该用户主页），其余保持纯文本。
-// mentionsJson 是后端存的 [{id,name}]，后端读时会补 cur=@对象的当前昵称；
-// 用旧 name（正文里就是它）按长度倒序匹配定位，避免 "@li" 抢 "@lisa" 前缀；显示时优先 cur（改名后 @ 显示新名）。
-function renderContent(content, mentionsJson) {
-  if (!content) return content
-  let mentions = []
-  try { mentions = JSON.parse(mentionsJson || '[]') } catch { mentions = [] }
-  const sorted = mentions.filter((m) => m && m.name).sort((a, b) => b.name.length - a.name.length)
-  if (!sorted.length) return content
-  const nodes = []
-  let i = 0
-  let k = 0
-  while (i < content.length) {
-    let hit = null
-    if (content[i] === '@') {
-      for (const m of sorted) {
-        if (content.startsWith('@' + m.name, i)) { hit = m; break }
-      }
-    }
-    if (hit) {
-      nodes.push(
-        <Link
-          key={k++}
-          to={`/users/${hit.id}`}
-          onClick={(e) => e.stopPropagation()}
-          style={{ color: '#1677ff', fontWeight: 600 }}
-        >
-          @{hit.cur || hit.name}
-        </Link>,
-      )
-      i += 1 + hit.name.length
-    } else {
-      let j = content.indexOf('@', i + 1)
-      if (j === -1) j = content.length
-      nodes.push(content.slice(i, j))
-      i = j
-    }
-  }
-  return nodes
 }
 
 // 评论附件渲染：图片走缩略图（点开大图预览），文件走下载卡。

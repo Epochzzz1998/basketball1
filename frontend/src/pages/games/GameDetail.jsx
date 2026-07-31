@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ProTable } from '@ant-design/pro-components'
 import { Button, Card, Empty, Segmented, Spin, Tag } from 'antd'
 import dayjs from 'dayjs'
@@ -45,7 +45,11 @@ export default function GameDetail() {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
   const [data, setData] = useState(undefined)
-  const [tab, setTab] = useUrlState('tab', 'stats')
+  // 从「我的消息」点 @ 通知进来时带 userInformationId：那条消息说的是短评，
+  // 所以直接落在「评分」这一页上，而不是让人自己再点一下
+  const [searchParams] = useSearchParams()
+  const userInformationId = searchParams.get('userInformationId') || undefined
+  const [tab, setTab] = useUrlState('tab', userInformationId ? 'rating' : 'stats')
 
   useEffect(() => {
     let alive = true
@@ -167,6 +171,7 @@ export default function GameDetail() {
         : (
           <GameRating
             gameId={gameId}
+            userInformationId={userInformationId}
             teams={order.map((team) => ({
               team,
               isHome: team === homeTeam,

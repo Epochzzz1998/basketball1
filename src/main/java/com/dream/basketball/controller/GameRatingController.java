@@ -13,6 +13,11 @@ import com.dream.basketball.mapper.GamePlayerRatingMapper;
 import com.dream.basketball.mapper.GameRatingMapper;
 import com.dream.basketball.mapper.GameRatingReplyMapper;
 import com.dream.basketball.mapper.PlayerMapper;
+import com.dream.basketball.mapper.UserMapper;
+import com.dream.basketball.entity.DreamUser;
+import com.dream.basketball.service.UserInformationService;
+import com.dream.basketball.utils.Constants;
+import com.dream.basketball.utils.MentionUtil;
 import com.dream.basketball.utils.SecUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -86,6 +91,10 @@ public class GameRatingController {
     private GameRatingReplyMapper replyMapper;
     @Autowired
     private PlayerMapper playerMapper;
+    @Autowired
+    private UserMapper userMapper;
+    @Autowired
+    private UserInformationService userInformationService;
 
     /**
      * 一场比赛的全部评分数据。公开可读；登录了额外带上「我给过的分」。
@@ -95,10 +104,15 @@ public class GameRatingController {
      * 数组还得先自己建一次索引。
      */
     @GetMapping("/detail")
-    public Object detail(String gameId, HttpServletRequest request) {
+    public Object detail(String gameId, String userInformationId, HttpServletRequest request) {
         String id = StringUtils.trimToEmpty(gameId);
         if (id.isEmpty()) {
             return new Result<>(1, "缺少比赛 id", null);
+        }
+        // 从「我的消息」点 @ 通知进来时带 userInformationId，顺便把那条标记已读
+        // （和专题页、帖子详情同一套做法：读接口顺手做，不额外开一个"标已读"接口）
+        if (StringUtils.isNotBlank(userInformationId)) {
+            userInformationService.updateInformationRead(userInformationId);
         }
         Map<String, Object> data = new HashMap<>();
         data.put("game", gameRatingMapper.gameSummary(id));
@@ -113,14 +127,19 @@ public class GameRatingController {
         // 短评一次取全（比赛的 + 所有球员的），在这里按 PLAYER_ID 分好组。
         // 分组放在后端而不是让前端自己建索引：前端要按 box score 的顺序逐行取，
         // 映射直接取得到，数组还得先扫一遍。空串那一组是评比赛本身的
+        List<Map<String, Object>> allComments = commentMapper.byGame(id);
+        List<Map<String, Object>> allReplies = replyMapper.byGame(id);
+        // @ 到的人可能已经改过昵称：正文里留的是旧名（定位要用），这里补一个 cur=当前昵称，
+        // 前端显示时优先用它。不补的话，改名之后 @ 出来的还是那个已经不存在的名字
+        enrichMentions(allComments, allReplies);
         Map<String, List<Map<String, Object>>> byTarget =
-                groupBy(commentMapper.byGame(id), "playerId");
+                groupBy(allComments, "playerId");
         data.put("comments", byTarget.getOrDefault("", java.util.Collections.emptyList()));
         byTarget.remove("");
         data.put("playerComments", byTarget);
         // 回复按被回复的短评分组。比赛短评和球员短评的回复在同一张表里，
         // 一次取回来分好组，两边各取各的
-        data.put("replies", groupBy(replyMapper.byGame(id), "targetId"));
+        data.put("replies", groupBy(allReplies, "targetId"));
 
         // 没登录时 me 是 null，下面两块就都不带——前端据此显示「登录后可评分」
         String me = SecUtil.getLoginUserIdToSession(request);
@@ -277,8 +296,10 @@ public class GameRatingController {
         c.setPlayerId(pid);          // 空串 = 评比赛本身
         c.setUserId(me);
         c.setContent(text);
+        c.setMentions(MentionUtil.resolveTextMentions(text, allNickToId()));
         c.setCreateTime(new Date());
         commentMapper.insert(c);
+        notifyMentions(c.getMentions(), me, id, text);
         return new Result<>(0, "已发布", null);
     }
 
@@ -346,8 +367,10 @@ public class GameRatingController {
         r.setUserId(me);
         r.setReplyToUser(StringUtils.trimToNull(replyToUser));
         r.setContent(text);
+        r.setMentions(MentionUtil.resolveTextMentions(text, allNickToId()));
         r.setCreateTime(new Date());
         replyMapper.insert(r);
+        notifyMentions(r.getMentions(), me, id, text);
         return new Result<>(0, "已回复", null);
     }
 
@@ -377,6 +400,87 @@ public class GameRatingController {
      * <p>打分和发短评都要问同一个问题，所以抽出来——两份实现迟早会有一份忘了
      * 把未出场的人算进去。
      */
+
+    /**
+     * 全站「昵称 → userId」。
+     *
+     * <p><b>@ 到谁是后端算的，不是前端报的。</b>前端那个联想面板只列「有来往的人」
+     * （关注我的 ∪ 我关注的），它做的事情仅仅是把 {@code @昵称 } 插进文本里——
+     * 和自己一个字一个字打出来完全等价。所以陌生人只要昵称打对照样 @ 得到，
+     * 只是没有提示。这条规则要成立，解析就必须在这里按**全站**昵称做。
+     *
+     * <p>用户量在几百这个量级，每次现查两列比维护一份缓存划算：缓存要处理改名失效，
+     * 而改名恰恰是这个映射唯一会变的时候。
+     */
+    /**
+     * 给短评/回复行里的 {@code mentions} 补一个 {@code cur}＝该 id 当前的昵称。
+     *
+     * <p>被 @ 的人改了昵称之后，正文里那串字还是旧的（前端要靠它在文本里定位），
+     * 但显示出来必须是新名字——否则点进去会看到一个和链接文字对不上的人。
+     *
+     * <p>先把整页涉及的 id 收齐再查一次，不逐行查：一场几十条短评加回复，
+     * 逐行查就是几十趟往返，而它们要的是同一张表的同几行。
+     */
+    private void enrichMentions(List<Map<String, Object>> comments, List<Map<String, Object>> replies) {
+        java.util.Set<String> ids = new java.util.LinkedHashSet<>();
+        List<Map<String, Object>> all = new ArrayList<>();
+        all.addAll(comments);
+        all.addAll(replies);
+        for (Map<String, Object> row : all) {
+            ids.addAll(MentionUtil.parseCommentMentionIds((String) row.get("mentions")));
+        }
+        if (ids.isEmpty()) {
+            return;
+        }
+        Map<String, String> idToNick = new HashMap<>();
+        for (DreamUser u : userMapper.selectList(new QueryWrapper<DreamUser>()
+                .select("USER_ID", "USER_NICKNAME").in("USER_ID", ids))) {
+            if (u != null) {
+                idToNick.put(u.getUserId(), u.getUserNickname());
+            }
+        }
+        for (Map<String, Object> row : all) {
+            String m = (String) row.get("mentions");
+            if (StringUtils.isNotBlank(m)) {
+                row.put("mentions", MentionUtil.enrichCommentMentions(m, idToNick));
+            }
+        }
+    }
+
+    private Map<String, String> allNickToId() {
+        Map<String, String> m = new HashMap<>();
+        for (DreamUser u : userMapper.selectList(new QueryWrapper<DreamUser>()
+                .select("USER_ID", "USER_NICKNAME"))) {
+            if (u != null && StringUtils.isNotBlank(u.getUserNickname())) {
+                m.put(u.getUserNickname(), u.getUserId());
+            }
+        }
+        return m;
+    }
+
+    /**
+     * 给被 @ 到的人各发一条站内消息（排除自己——@ 自己不该给自己发通知）。
+     *
+     * <p>{@code msgId} 存的是 <b>gameId</b>：点这条消息要跳回那场比赛
+     * （前端 {@code utils/notification.js} 据此拼 {@code /games/:gameId}）。
+     * 存短评 id 是没用的——短评没有自己的页面。
+     */
+    private void notifyMentions(String mentionsJson, String meId, String gameId, String text) {
+        java.util.Set<String> ids = MentionUtil.parseCommentMentionIds(mentionsJson);
+        if (ids.isEmpty()) {
+            return;
+        }
+        DreamUser me = userMapper.selectById(meId);
+        String myName = me == null ? "" : me.getUserNickname();
+        for (String uid : ids) {
+            if (StringUtils.equals(uid, meId)) {
+                continue;
+            }
+            userInformationService.saveUserInformation(meId, myName, uid,
+                    Constants.MENTION_GAME, gameId, "", "", "", text, "");
+        }
+    }
+
     private boolean onRoster(String gameId, String playerId) {
         return playerMapper.findGameBoxScore(gameId).stream()
                 .anyMatch(r -> playerId.equals(String.valueOf(r.get("playerId"))))

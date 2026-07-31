@@ -162,3 +162,10 @@ ALTER TABLE game_rating_reply
 -- 元信息，没有任何东西按它排。
 ALTER TABLE game_comment      MODIFY COLUMN CREATE_TIME datetime(3) NOT NULL;
 ALTER TABLE game_rating_reply MODIFY COLUMN CREATE_TIME datetime(3) NOT NULL;
+
+-- ── 短评/回复支持 @ 提及（2026-07-31）
+-- 存的是 [{"id":"..","name":".."}]，发布那一刻按全站昵称解析出来的（MentionUtil.resolveTextMentions）。
+-- 为什么连 name 一起存：正文里写的是**当时**的昵称，对方改名之后只能靠旧名在文本里定位，
+-- 显示则用读取时补上的当前昵称。只存 id 的话，改名之后那段文字就再也标不出来了。
+ALTER TABLE game_comment ADD COLUMN MENTIONS varchar(1000) DEFAULT NULL COMMENT '被@到的人 [{id,name}]';
+ALTER TABLE game_rating_reply ADD COLUMN MENTIONS varchar(1000) DEFAULT NULL COMMENT '被@到的人 [{id,name}]';

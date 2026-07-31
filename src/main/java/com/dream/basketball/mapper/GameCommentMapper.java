@@ -27,7 +27,7 @@ public interface GameCommentMapper extends BaseMapper<GameComment> {
      * 存快照的话，一个人改了分之后，同一个人的两条短评会显示两个不同的分。
      */
     @Select("select c.COMMENT_ID commentId, c.PLAYER_ID playerId, c.CONTENT content, "
-            + "       c.CREATE_TIME createTime, "
+            + "       c.CREATE_TIME createTime, c.MENTIONS mentions, "
             + "       c.USER_ID userId, u.USER_NICKNAME nickname, u.AVATAR avatar, "
             + "       case when c.PLAYER_ID = '' then gr.SCORE else pr.SCORE end myScore "
             + "from game_comment c "

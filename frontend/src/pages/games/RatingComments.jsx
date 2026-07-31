@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { Avatar, Button, Input, Pagination, Popconfirm } from 'antd'
+import { Avatar, Button, Pagination, Popconfirm } from 'antd'
 import { DeleteOutlined, MessageOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { scoreColor } from '../../api/gameRating'
+import MentionTextArea from '../../components/MentionTextArea'
+import { renderMentions } from '../../components/mentionText'
 
 /**
  * 短评列表 + 回复。比赛短评和球员短评共用这一个。
@@ -94,7 +96,7 @@ export default function RatingComments({
                 </span>
               </div>
               <div style={{ fontSize: 14, marginTop: 3, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                {c.content}
+                {renderMentions(c.content, c.mentions)}
               </div>
 
               {/* 回复区，缩进 + 左边一条竖线，和帖子里的楼中楼一个样子 */}
@@ -114,7 +116,7 @@ export default function RatingComments({
                         <span style={{ color: '#ccc', marginLeft: 6, fontSize: 11 }}>
                           {dayjs(r.createTime).format('M-D HH:mm')}
                         </span>
-                        <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{r.content}</div>
+                        <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{renderMentions(r.content, r.mentions)}</div>
                         {/* 「我要做点什么」一律靠右、带图标，和帖子评论区同一套（见那边的说明） */}
                         <div style={{ marginTop: 2, display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
                           <a
@@ -138,15 +140,14 @@ export default function RatingComments({
 
               {replyAt?.targetId === c.commentId ? (
                 <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  <Input.TextArea
+                  <MentionTextArea
                     value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
+                    onChange={setDraft}
                     placeholder={replyAt.toName ? `回复 @${replyAt.toName}` : `回复 ${c.nickname || ''}`}
                     maxLength={300}
                     autoSize={{ minRows: 1, maxRows: 4 }}
                     autoFocus
-                    className="pill-input"
-                    style={{ flex: 1, minWidth: 160 }}
+                    style={{ minWidth: 160 }}
                   />
                   <Button size="small" type="primary" onClick={submit}>发送</Button>
                   <Button size="small" onClick={() => setReplyAt(null)}>取消</Button>

@@ -25,7 +25,7 @@ public interface GameRatingReplyMapper extends BaseMapper<GameRatingReply> {
      * 存昵称快照的话，改名之后那句话就指向一个已经不存在的人了。
      */
     @Select("select r.REPLY_ID replyId, r.TARGET_ID targetId, r.CONTENT content, "
-            + "       r.CREATE_TIME createTime, "
+            + "       r.CREATE_TIME createTime, r.MENTIONS mentions, "
             + "       r.USER_ID userId, u.USER_NICKNAME nickname, u.AVATAR avatar, "
             + "       r.REPLY_TO_USER replyToUser, t.USER_NICKNAME replyToName "
             + "from game_rating_reply r "

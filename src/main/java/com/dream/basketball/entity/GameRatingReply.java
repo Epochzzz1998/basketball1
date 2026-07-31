@@ -52,6 +52,16 @@ public class GameRatingReply implements Serializable {
     @TableField("CREATE_TIME")
     private Date createTime;
 
+    /**
+     * 这条内容 @ 到了谁：{@code [{"id","name"}]}，发布那一刻按全站昵称解析出来的。
+     *
+     * <p><b>连昵称一起存。</b>正文里写的是当时那个昵称，对方改名之后文本没变，
+     * 所以只能按旧名在文本里定位；显示用的是读取时补上的当前昵称。
+     * 只存 id 的话，谁一改名，历史内容里那段 @ 就再也标不出来了。
+     */
+    @TableField("MENTIONS")
+    private String mentions;
+
     public String getReplyId() {
         return replyId;
     }
@@ -106,5 +116,13 @@ public class GameRatingReply implements Serializable {
 
     public void setCreateTime(Date createTime) {
         this.createTime = createTime;
+    }
+
+    public String getMentions() {
+        return mentions;
+    }
+
+    public void setMentions(String mentions) {
+        this.mentions = mentions;
     }
 }

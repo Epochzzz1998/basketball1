@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Card, Empty, Input, Segmented, Spin, message } from 'antd'
+import { Button, Card, Empty, Segmented, Spin, message } from 'antd'
 import { DownOutlined, RightOutlined } from '@ant-design/icons'
 import { useAuth } from '../../auth/AuthContext'
 import {
@@ -9,6 +9,7 @@ import {
 import TeamLogo, { HomeAwayTag, TeamNames } from '../../components/TeamLogo'
 import { KIND_TAG, reasonText } from './absence'
 import RatingComments from './RatingComments'
+import MentionTextArea from '../../components/MentionTextArea'
 
 const BRAND = '#fa541c'
 
@@ -37,7 +38,7 @@ const BRAND = '#fa541c'
  * 「今天该上的人怎么没上」是赛后最常说的一句，没地方表达才是缺失。
  * 但他们和有数据的人不该混在一起排：一个是评表现，一个是评「这个安排」。
  */
-export default function GameRating({ gameId, teams, isMobile, onPlayer }) {
+export default function GameRating({ gameId, teams, isMobile, onPlayer, userInformationId }) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [data, setData] = useState(undefined)
@@ -48,7 +49,7 @@ export default function GameRating({ gameId, teams, isMobile, onPlayer }) {
   // 拉数据时**不回填输入框**：短评是追加式的，输入框永远从空开始。
   // 回填上一条的话，「再发一次」看起来像是在改它，而实际会多出一条
   const load = () => {
-    gameRatingApi.detail(gameId).then((d) => setData(d || null)).catch(() => setData(null))
+    gameRatingApi.detail(gameId, userInformationId).then((d) => setData(d || null)).catch(() => setData(null))
   }
 
   useEffect(() => {
@@ -129,14 +130,15 @@ export default function GameRating({ gameId, teams, isMobile, onPlayer }) {
             onPick={(s) => submitGame(s === myScore ? 0 : s)}
           />
           <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-            <Input.TextArea
+            {/* 打 @ 会联想到「有来往的人」；不在联想里的人把昵称打全一样 @ 得到，
+                谁被 @ 到是后端按全站昵称解析的（见 MentionTextArea 的说明） */}
+            <MentionTextArea
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="说说这场比赛"
+              onChange={setDraft}
+              placeholder="说说这场比赛，打 @ 提到别人"
               maxLength={300}
               autoSize={{ minRows: 1, maxRows: 5 }}
-              className="pill-input"
-              style={{ flex: 1, minWidth: 200 }}
+              style={{ minWidth: 200 }}
             />
             {/* 「发布」不是「更新」：每次都是新的一条，上一条原样留着 */}
             <Button
@@ -385,14 +387,13 @@ function PlayerRow({
       {open && (
         <div style={{ marginTop: 8, background: '#fafafa', borderRadius: 10, padding: '8px 12px' }}>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            <Input.TextArea
+            <MentionTextArea
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={setDraft}
               placeholder={`说说${r.playerName || r.nameEn || '他'}这场`}
               maxLength={300}
               autoSize={{ minRows: 1, maxRows: 4 }}
-              className="pill-input"
-              style={{ flex: 1, minWidth: 160 }}
+              style={{ minWidth: 160 }}
             />
             <Button
               size="small"

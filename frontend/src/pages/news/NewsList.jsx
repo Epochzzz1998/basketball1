@@ -362,9 +362,17 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied, n
         style={{
           position: 'relative', overflow: 'hidden', borderRadius: 16, color: '#fff',
           padding: isMobile ? '16px 14px' : '24px 28px', marginBottom: 16,
-          // 有背景图时给一个下限高度。第一版给的 132/178 太矮，用户反馈「有点小」——
-          // 一张 3:1 的横图在那个高度下只看得见中间一条，认不出画的是什么
-          minHeight: bannerUrl ? (isMobile ? 176 : 240) : undefined,
+          // 有背景图时给一个下限高度。这个数调过三轮：132/178 → 176/240 → 现在。
+          // 反复太矮的根因是 `object-fit: cover` ——图比框宽的时候，两边裁掉的部分
+          // 全从**高度**里省不回来，横图在矮框里只剩中间一条，画的是什么根本认不出。
+          //
+          // 现在按屏宽算：手机 16:9 见方（390 屏 ≈ 220），桌面固定 300。
+          // 不写死数值是因为 iPhone SE 和 Pro Max 差了快 100px 宽，同一个高度
+          // 在两端一个偏胖一个偏瘦。上限 260 挡住平板竖屏那种超宽的情况——
+          // 再高就把下面的帖子全推出首屏了。
+          minHeight: bannerUrl
+            ? (isMobile ? Math.min(260, Math.round((typeof window !== 'undefined' ? window.innerWidth : 390) * 0.56)) : 300)
+            : undefined,
           // 有背景图时整块做成"返回在最上、标题贴底"的布局（参照贴吧那种吧头）：
           // 列方向 + justify-content:flex-end 把内容压到底，返回钮再用 margin-bottom:auto
           // 把自己顶回最上面（auto 外边距吃掉全部剩余空间，优先级高于 justify-content）。

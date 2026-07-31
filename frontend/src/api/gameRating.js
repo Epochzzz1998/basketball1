@@ -18,8 +18,12 @@ const form = (obj) => {
 }
 
 export const gameRatingApi = {
-  /** 一场的全部评分：平均分、分布、短评、每个球员的平均分；登录了还带「我给的分」 */
-  detail: (gameId) => http.get('/gameRating/detail', { params: { gameId } }),
+  /**
+   * 一场的全部评分：平均分、分布、短评、每个球员的平均分；登录了还带「我给的分」。
+   * userInformationId 可选：从「我的消息」点 @ 通知进来时带上，后端顺便把那条标记已读。
+   */
+  detail: (gameId, userInformationId) =>
+    http.get('/gameRating/detail', { params: { gameId, userInformationId } }),
 
   // ── 分：一人一条，可以改。传 0 = 撤销
   rateGame: (gameId, score) =>

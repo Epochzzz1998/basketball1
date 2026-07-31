@@ -169,6 +169,14 @@ public class UserInformationServiceImpl extends ServiceImpl<UserInformationMappe
             contentMsg = StringUtils.length(commentContent) > 30
                     ? StringUtils.substring(commentContent, 0, 30) + "......"
                     : StringUtils.defaultIfBlank(commentContent, "(图片或附件)");
+        } else if (StringUtils.equals(MENTION_GAME, msgType)) {
+            // msgId=比赛 id（点击跳 /games/:gameId），commentContent=那条短评/回复的原文。
+            // 这里**不去查比赛**：查一场比赛要对 player_game_stats 做 group by，
+            // 而消息里真正要展示的就是那句话本身，比赛信息点进去就看到了。
+            content = StringUtils.length(commentContent) > 30
+                    ? StringUtils.substring(commentContent, 0, 30) + "......"
+                    : StringUtils.defaultIfBlank(commentContent, "(空)");
+            contentMsg = "在赛后短评里@了您";
         } else if (StringUtils.equals(TOPIC_APPLY, msgType) || StringUtils.equals(TOPIC_APPROVED, msgType)
                 || StringUtils.equals(TOPIC_REJECTED, msgType)) {
             // msgId=专题 id：content 存专题名，供"我的消息"展示与跳转
