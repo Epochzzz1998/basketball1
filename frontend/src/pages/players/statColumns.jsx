@@ -4,6 +4,30 @@ import { TeamNames } from '../../components/TeamLogo'
 import { withGlossary } from './statGlossary'
 
 /**
+ * 「首发/出场」这一格。0 场的赛季行不写成 `0/0`，写成「未出场」。
+ *
+ * 这种行是 `absence_roster_rows.py` 补出来的：整季在队但一场没打（赛季报销、
+ * 一场没轮上的新秀）。数值列本来就全是 NULL、显示成 `-`，`0/0` 夹在一排 `-` 中间
+ * 看着像数据没抓全，而它恰恰是**抓全了**才有的行。
+ *
+ * 生涯逐季表和球队赛季名单共用这一个，两处必须说同一句话。
+ */
+export const renderAppearance = (_, r) => {
+  const g = Number(r.playerAppearance ?? 0)
+  if (g === 0) {
+    return (
+      <span
+        title="整季在这支球队，但没有出场记录"
+        style={{ color: '#bfbfbf', fontSize: 12, whiteSpace: 'nowrap' }}
+      >
+        未出场
+      </span>
+    )
+  }
+  return `${r.playerFrAppearance ?? 0}/${g}`
+}
+
+/**
  * 球员全量数据列（总览/球队页/荣誉完整数据页共用）。
  * 表头一律不带排序（排序箭头会把"首发/出场"这类表头挤到换行，PC 移动端都去掉；
  * 排行需求走「联盟排行/完整排行」页）。serverSort 参数保留只为兼容旧调用。
@@ -22,7 +46,7 @@ export function buildFullStatColumns({ serverSort = true } = {}) {
     },
     { title: '球队', dataIndex: 'playerTeam', width: 78, render: (v) => <TeamNames value={v} /> },
     { title: '位置', dataIndex: 'playerPosition', width: 46 },
-    { title: '首发/出场', dataIndex: 'playerAppearance', width: 94, ...srt, render: (_, r) => `${r.playerFrAppearance ?? 0}/${r.playerAppearance ?? 0}` },
+    { title: '首发/出场', dataIndex: 'playerAppearance', width: 94, ...srt, render: renderAppearance },
     { title: '时间', dataIndex: 'playingTime', width: 48, ...srt, render: (v) => num(v) },
     { title: '得分', dataIndex: 'playerAvgScore', width: 48, ...srt, render: (v) => num(v) },
     { title: '篮板', dataIndex: 'playerAvgReb', width: 48, ...srt, render: (v) => num(v) },

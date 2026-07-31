@@ -15,6 +15,7 @@ import subprocess
 import sys
 import tempfile
 
+import sync
 from zh_names import ZH_NAMES
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -32,9 +33,10 @@ def db_password():
 
 
 def mysql(pwd, sql, capture=True):
-    cmd = ['docker', 'exec', '-i', 'mysql', 'mysql', '-uroot', f'-p{pwd}',
-           '--default-character-set=utf8mb4', '-N', 'dream']
-    r = subprocess.run(cmd, input=sql.encode('utf-8'),
+    # 走 sync.mysql_cmd()：数据库早就不在跑脚本这台机器上了，自己拼 docker exec
+    # 会在本机找不到 docker 时直接失败——而这个脚本的典型用法正是「sync 插了新人，
+    # 顺手本地化一下」，那时候人已经在别处了。设 DREAM_DB_SSH 即可远程执行。
+    r = subprocess.run(sync.mysql_cmd(['-N']), input=sql.encode('utf-8'),
                        stdout=subprocess.PIPE if capture else None,
                        stderr=subprocess.PIPE)
     if r.returncode != 0:

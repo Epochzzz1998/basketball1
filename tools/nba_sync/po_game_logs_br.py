@@ -378,15 +378,57 @@ def resolve_pid(name, slug, pool, slug_ids):
     return pool.get(ik) if ik else None
 
 
-def absence_tuples(game_id, team_code, entries, pool, slug_ids):
+def league_wide_names(season_num, window=2):
+    """整个联盟的「名字 -> PLAYER_ID」，只给**缺阵名单**兜底用。
+
+    `pool` 是「某队某季有过数据的人」，而缺阵名单里恰恰有两种人不在里面：
+      · 整季一场没打的（利拉德 25-26 报销，OKC 的新秀索伯一场没上）；
+      · 赛季中途换过队的（米勒 25-26 记在 CHI，却出现在马刺的 Inactive 里）。
+    两种都不是脏数据，是 pool 的定义决定的盲区。
+
+    三道闸，缺一不可：
+      1. **同名即弃**——库里有 15 组重名（三个 George Johnson），
+         这种 key 整条丢掉。宁可少一个名字，不能张冠李戴。
+      2. **年代校验**——候选人得在目标赛季 ±window 季内真的打过球。
+         没有这一条，2026 的新秀会去认领一个同名的 1970 年代球员。
+      3. **完全没数据的人放行**——他们只可能来自 roster_fill.py 补的当前名单，
+         也就是「现役但还没上过场」，年代本来就是对的。
+
+    **只用于缺阵，绝不用于 box score。** 少一条缺阵记录是少个名字；
+    把一场比赛记到同名的另一个人头上，是悄悄伪造数据。
+    """
+    q = ("SELECT COALESCE(p.NAME_EN, p.PLAYER_NAME), p.PLAYER_ID, "
+         "  (SELECT COUNT(*) FROM player_stats s WHERE s.PLAYER_ID = p.PLAYER_ID "
+         "     AND s.SEASON_NUM <> 99), "
+         "  (SELECT COUNT(*) FROM player_stats s WHERE s.PLAYER_ID = p.PLAYER_ID "
+         f"     AND s.SEASON_NUM <> 99 AND ABS(s.SEASON_NUM - {int(season_num)}) <= {int(window)}) "
+         "FROM dream_player p;")
+    names, dropped = {}, set()
+    for name, pid, total, near in db_rows(q):
+        if not name:
+            continue
+        k = key(name)
+        if k in names and names[k] != pid:
+            dropped.add(k)          # 重名：两个人都不要
+        else:
+            names.setdefault(k, pid)
+        if int(total) and not int(near):
+            dropped.add(k)          # 打过球，但不是这个年代的人
+    for k in dropped:
+        names.pop(k, None)
+    return names
+
+
+def absence_tuples(game_id, team_code, entries, pool, slug_ids, fallback=None):
     """-> ([SQL tuple text], [names we could not resolve]).
 
-    Unresolved names are dropped, not guessed. Someone who never played a single game
-    that season may have no row in player_stats at all, so he is simply not in `pool` —
-    that is the expected tail here, not corruption."""
+    `fallback` 是 league_wide_names() 的结果，队内名单认不出来时再查一次全联盟。
+    不传就是老行为（认不出就丢）。"""
     tuples, missed = [], []
     for a in entries or ():
         pid = resolve_pid(a['name'], a.get('slug'), pool, slug_ids)
+        if not pid and fallback:
+            pid = fallback.get(key(a['name'])) or fallback.get(strip_suffix(key(a['name'])))
         if not pid:
             missed.append(a['name'])
             continue
@@ -424,6 +466,8 @@ def build(years, dry):
             continue
         season_num = year - SEASON_BASE
         seasons_done.append(season_num)
+        # 缺阵名单的全联盟兜底，一季查一次（见 league_wide_names 的三道闸）
+        wide = league_wide_names(season_num)
         for g in json.loads(f.read_text())['games']:
             codes = list(g['teams'].keys())
             for br_code in codes:
@@ -436,7 +480,7 @@ def build(years, dry):
                 pool = roster.get((season_num, code), {})
                 # 大名单里没上场的人。`.get` 而不是 `[...]`：这个字段是后加的，
                 # 之前缓存下来的赛季没有它，那些赛季要重爬才会有
-                t, miss = absence_tuples(g['id'], code, me.get('absent'), pool, slug_ids)
+                t, miss = absence_tuples(g['id'], code, me.get('absent'), pool, slug_ids, wide)
                 absences += t
                 absent_missed += [(year, code, nm) for nm in miss]
                 for p in me['players']:

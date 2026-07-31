@@ -56,7 +56,13 @@ def id_of_code(code, season, team_ids):
         return team_ids.get('NOP')
     return team_ids.get(code)
 
-def mysql_cmd():
+def mysql_cmd(extra=()):
+    """mysql 调用命令。`extra` 插在选项和库名之间，例如 ['-N'] 去掉表头。
+
+    加这个参数是因为「自己拼一份」的代价太大：本文件之外还拼过一份的脚本
+    （localize_names.py）在数据库搬到别的机器之后就直接跑不动了，而它平时只在
+    「sync 插了新人之后顺手跑一次」时才用，坏了要很久才会有人发现。
+    """
     # password from env DREAM_DB_PWD or the git-ignored .dbpwd file next to this script
     pwd = os.environ.get('DREAM_DB_PWD')
     if not pwd:
@@ -66,7 +72,7 @@ def mysql_cmd():
     if not pwd:
         sys.exit('missing DB password: set DREAM_DB_PWD or create tools/nba_sync/.dbpwd')
     cmd = ['docker', 'exec', '-i', 'mysql', 'mysql', '-uroot', f'-p{pwd}',
-           '--default-character-set=utf8mb4', 'dream']
+           '--default-character-set=utf8mb4', *extra, 'dream']
     # The database no longer runs on the machine that runs these scripts. Set
     # DREAM_DB_SSH to the ssh host (e.g. `dream`) and every caller reaches it there —
     # this is the single place the whole toolchain builds its mysql invocation, so

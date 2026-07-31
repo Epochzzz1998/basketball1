@@ -169,3 +169,9 @@ ALTER TABLE game_rating_reply MODIFY COLUMN CREATE_TIME datetime(3) NOT NULL;
 -- 显示则用读取时补上的当前昵称。只存 id 的话，改名之后那段文字就再也标不出来了。
 ALTER TABLE game_comment ADD COLUMN MENTIONS varchar(1000) DEFAULT NULL COMMENT '被@到的人 [{id,name}]';
 ALTER TABLE game_rating_reply ADD COLUMN MENTIONS varchar(1000) DEFAULT NULL COMMENT '被@到的人 [{id,name}]';
+
+-- ── 0 场赛季行（2026-07-31）
+-- 没有建表语句：这是 absence_roster_rows.py 往 player_stats 里补的普通行，
+-- PLAYER_APPEARANCE = 0、其余数值列 NULL。记在这里是因为它有一条必须知道的约束：
+-- sync.py 每次同步都会 DELETE 掉整季的 nba-% 行再重插，所以这些 0 场行
+-- **每次 sync 之后都要重新跑一遍 absence_roster_rows.py**，它不是一次性数据修复。

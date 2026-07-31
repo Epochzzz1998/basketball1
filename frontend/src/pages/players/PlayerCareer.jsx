@@ -8,7 +8,7 @@ import { withGlossary } from './statGlossary'
 import StatViewSwitch from './StatViewSwitch'
 import { CAREER_SEASON, NBA_TEAM_NAMES, PLAYOFF_TAG, fmtNum as num, fmtPair, seasonYearLabel, seasonShort, fmtPct } from './rankConfig'
 import { CAREER_AWARDS } from './honorConfig'
-import { advColWidth, compactColumns, sumColWidth } from './statColumns'
+import { advColWidth, compactColumns, renderAppearance, sumColWidth } from './statColumns'
 import { ADVANCED_STATS, fmtAdv } from './rankConfig'
 import TeamLogo, { TeamNames } from '../../components/TeamLogo'
 import SeasonProfile from './SeasonProfile'
@@ -106,7 +106,7 @@ function CareerTable({ playerId }) {
     { title: '赛季', dataIndex: 'seasonNum', width: 64, fixed: 'left', render: (s) => (s === CAREER_SEASON ? '生涯' : seasonShort(s)) },
     { title: '球队', dataIndex: 'playerTeam', width: 78, render: (v) => <TeamNames value={v} /> },
     { title: '位置', dataIndex: 'playerPosition', width: 46 },
-    { title: '首发/出场', dataIndex: 'playerAppearance', width: 94, render: (_, r) => `${r.playerFrAppearance ?? 0}/${r.playerAppearance ?? 0}` },
+    { title: '首发/出场', dataIndex: 'playerAppearance', width: 94, render: renderAppearance },
     { title: '时间', dataIndex: 'playingTime', width: 48, render: (v) => num(v) },
     { title: '得分', dataIndex: 'playerAvgScore', width: 48, render: (v) => num(v) },
     { title: '篮板', dataIndex: 'playerAvgReb', width: 48, render: (v) => num(v) },

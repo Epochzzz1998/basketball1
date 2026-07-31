@@ -51,8 +51,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 import sync
 from br_backfill import BR2CODE, initial_key, key, strip_suffix
-from po_game_logs_br import (absence_stmts, absence_tuples, fetch_html, parse_absences,
-                            parse_box_table, parse_line_score, resolve_pid,
+from po_game_logs_br import (absence_stmts, absence_tuples, fetch_html, league_wide_names,
+                            parse_absences, parse_box_table, parse_line_score, resolve_pid,
                             GAMES_CACHE as PO_GAMES_CACHE)
 
 HERE = Path(__file__).parent
@@ -60,7 +60,11 @@ INDEX_CACHE = HERE / 'rs_index_cache'
 GAMES_CACHE = HERE / 'rs_games_cache'
 IDS_CACHE = HERE / 'br_ids_cache.json'
 BASE = 'https://www.basketball-reference.com'
-DELAY = 3.5                      # B-R tolerates ~20 req/min; proven by the playoff crawl
+# 3.5 秒（≈17 次/分）是季后赛那 85 场验证过的速度，但常规赛连着两次都在第 100 场
+# 左右开始连续 429。两次都是在**前面已经把它惹毛**的情况下开跑的，所以未必是 3.5
+# 本身不行；不过一趟要跑 1230 场，中途被封的代价是整轮重来，宁可慢一点。
+# 5 秒 ≈ 12 次/分。
+DELAY = 5.0
 SEASON_BASE = 1976
 TABLE = 'player_game_stats'
 REGULAR_TYPE = 2
@@ -308,6 +312,8 @@ def build_season(year, roster, slug_ids, dry):
     season_num = year - SEASON_BASE
     tuples, unresolved = [], []
     absences, absent_missed = [], []
+    # 缺阵名单的全联盟兜底，一季查一次（三道闸见 po_game_logs_br.league_wide_names）
+    wide = league_wide_names(season_num)
     for line in f.read_text().splitlines():
         if not line.strip():
             continue
@@ -329,7 +335,7 @@ def build_season(year, roster, slug_ids, dry):
             # Who dressed but never played, plus who was inactive. `.get` because the
             # field is newer than the cache: seasons crawled before it existed simply
             # have no 'absent' key, and they stay empty until re-crawled.
-            t, miss = absence_tuples(g['id'], code, me.get('absent'), pool, slug_ids)
+            t, miss = absence_tuples(g['id'], code, me.get('absent'), pool, slug_ids, wide)
             absences += t
             absent_missed += [(year, code, nm) for nm in miss]
             for p in me['players']:
