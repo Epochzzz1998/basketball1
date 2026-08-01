@@ -215,6 +215,22 @@ public class TopicFileController {
         } catch (IllegalArgumentException e) {
             return new Result<>(1, e.getMessage(), null);
         }
+        // 幂等：同名文件夹已经在了就直接还给它的 id。这是「上传整个文件夹」的地基——
+        // 客户端按相对路径逐段确保目录存在，同一段被确保两次必须收敛到同一个夹，
+        // 不能长出两个同名夹（手动重复建也一样收敛，顺带把重名问题挡了）
+        QueryWrapper<ForumTopicFile> dup = new QueryWrapper<ForumTopicFile>()
+                .eq("TOPIC_ID", t.getTopicId()).eq("KIND", KIND_FOLDER).eq("NAME", nm);
+        if (folder == null) {
+            dup.isNull("PARENT_ID");
+        } else {
+            dup.eq("PARENT_ID", folder.getFileId());
+        }
+        ForumTopicFile exist = fileMapper.selectOne(dup.last("limit 1"));
+        Map<String, Object> data = new HashMap<>();
+        if (exist != null) {
+            data.put("fileId", exist.getFileId());
+            return new Result<>(0, "已存在", data);
+        }
         if (countIn(t.getTopicId(), folder) >= FOLDER_CAP) {
             return new Result<>(1, "这个文件夹放不下了（上限 " + FOLDER_CAP + " 项）", null);
         }
@@ -227,7 +243,8 @@ public class TopicFileController {
         f.setUploaderId(me.getUserId());
         f.setCreateTime(new Date());
         fileMapper.insert(f);
-        return new Result<>(0, "已创建", null);
+        data.put("fileId", f.getFileId());
+        return new Result<>(0, "已创建", data);
     }
 
     /**

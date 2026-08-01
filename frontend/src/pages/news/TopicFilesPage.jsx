@@ -4,7 +4,7 @@ import { Button, Card, Empty, Input, Modal, Popconfirm, Spin, Upload, message } 
 import {
   ArrowLeftOutlined, DeleteOutlined, EditOutlined, FileImageOutlined, FileOutlined,
   FilePdfOutlined, FileTextOutlined, FileZipOutlined, FolderAddOutlined, FolderFilled,
-  UploadOutlined,
+  FolderOpenOutlined, UploadOutlined,
 } from '@ant-design/icons'
 import { topicApi } from '../../api/topic'
 import { topicFileApi } from '../../api/topicFile'
@@ -87,6 +87,75 @@ export default function TopicFilesPage() {
     }
   }
 
+  /**
+   * 批量上传的编排器。「选多个文件」和「选整个文件夹」都走这一条——
+   * 区别只在有没有相对路径（webkitRelativePath）。
+   *
+   * 有路径时先把目录树建出来：收集全部中间目录、按深度排序、逐段 mkdir。
+   * mkdir 是幂等的（同名同父直接返回已有的 id，见后端），所以同一段被
+   * 两个文件共享也只会长出一个夹。**必须串行**：并发建同一个夹就算后端幂等，
+   * 两个请求同时都查不到也会插两行。
+   *
+   * 文件本身也串行传。并发能快一点，但这里单文件最大 30MB，
+   * 并发几个大文件会把手机的上行挤死，进度数字也会跳来跳去。
+   */
+  const uploadBatch = async (files, withPaths) => {
+    setUploading(true)
+    const key = 'topicfs-upload'
+    let ok = 0
+    const fails = []
+    try {
+      const dirIds = { '': folder || undefined }
+      if (withPaths) {
+        const dirs = new Set()
+        files.forEach((f) => {
+          const parts = String(f.webkitRelativePath || f.name).split('/')
+          for (let i = 1; i < parts.length; i++) dirs.add(parts.slice(0, i).join('/'))
+        })
+        const ordered = [...dirs].sort((a, b) => a.split('/').length - b.split('/').length)
+        for (const d of ordered) {
+          const parent = d.includes('/') ? d.slice(0, d.lastIndexOf('/')) : ''
+          message.loading({ content: `建目录 ${d}…`, key, duration: 0 })
+          const r = await topicFileApi.mkdir(topicId, dirIds[parent], d.split('/').pop())
+          if (!r?.fileId) throw new Error(`目录 ${d} 创建失败`)
+          dirIds[d] = r.fileId
+        }
+      }
+      for (const f of files) {
+        const rel = withPaths ? String(f.webkitRelativePath || f.name) : f.name
+        const parent = withPaths && rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : ''
+        message.loading({ content: `上传中 ${ok + fails.length + 1}/${files.length}…`, key, duration: 0 })
+        try {
+          await topicFileApi.upload(f, topicId, dirIds[parent])
+          ok += 1
+        } catch {
+          // 单个失败不中断：一批里夹着一个超限的，剩下的照传
+          fails.push(rel)
+        }
+      }
+      if (fails.length) {
+        message.warning({
+          content: `${ok} 个成功，${fails.length} 个失败（类型不支持或超 30MB）：${fails.slice(0, 3).join('、')}${fails.length > 3 ? '…' : ''}`,
+          key, duration: 6,
+        })
+      } else {
+        message.success({ content: `已上传 ${ok} 个文件`, key })
+      }
+      load()
+    } catch (e) {
+      message.error({ content: e?.message || '上传失败', key })
+      load()
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  /** antd 对一批里的每个文件各调一次 beforeUpload；只在第一个上编排整批，其余直接吞掉 */
+  const interceptBatch = (withPaths) => (file, list) => {
+    if (file.uid === list[0].uid) uploadBatch(list, withPaths)
+    return false
+  }
+
   const canManage = !!data?.canManage
   const crumbs = data?.path || []
 
@@ -129,18 +198,14 @@ export default function TopicFilesPage() {
           <Button size="small" icon={<FolderAddOutlined />} onClick={() => { setMkdirName(''); setMkdirOpen(true) }}>
             {isMobile ? '' : '新建文件夹'}
           </Button>
-          <Upload
-            showUploadList={false}
-            multiple
-            customRequest={async ({ file, onSuccess, onError }) => {
-              setUploading(true)
-              try {
-                await topicFileApi.upload(file, topicId, folder || undefined)
-                onSuccess()
-                load()
-              } catch (e) { onError(e) } finally { setUploading(false) }
-            }}
-          >
+          {/* 传整个文件夹：目录结构原样搬进来。只在桌面端给——手机浏览器/套壳 WebView
+              没有目录选择器，directory 输入框点了要么没反应要么退化成选单个文件 */}
+          {!isMobile && (
+            <Upload showUploadList={false} directory beforeUpload={interceptBatch(true)}>
+              <Button size="small" icon={<FolderOpenOutlined />} loading={uploading}>传文件夹</Button>
+            </Upload>
+          )}
+          <Upload showUploadList={false} multiple beforeUpload={interceptBatch(false)}>
             <Button size="small" type="primary" icon={<UploadOutlined />} loading={uploading} style={{ background: BRAND }}>
               {isMobile ? '' : '上传文件'}
             </Button>
