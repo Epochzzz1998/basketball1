@@ -10,6 +10,8 @@ import { userApi } from '../../api/user'
 import { followApi } from '../../api/follow'
 import { blockApi } from '../../api/block'
 import { remarkApi } from '../../api/remark'
+import { queueName } from '../../api/lol'
+import { LOL_TOPIC_ID } from '../../config/modules'
 import { useAuth } from '../../auth/AuthContext'
 import UserTitles from '../../components/UserTitles'
 
@@ -99,12 +101,15 @@ function CommentTrail({ comments, hidden }) {
           >
             {c.kind === 'game'
               ? <Tag color="orange" style={{ marginRight: 6 }}>赛后</Tag>
-              : Number(c.level) > 1 && <Tag color="cyan" style={{ marginRight: 6 }}>回复</Tag>}
+              : c.kind === 'lol'
+                ? <Tag color="purple" style={{ marginRight: 6 }}>开黑</Tag>
+                : Number(c.level) > 1 && <Tag color="cyan" style={{ marginRight: 6 }}>回复</Tag>}
             {c.content}
           </div>
           {/* meta 行永远单行：帖名/队名限宽省略，长短标题样式一致 */}
           <div style={{ color: '#999', fontSize: 12, marginTop: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {c.kind === 'game' ? <GameCommentMeta c={c} /> : (
+            {c.kind === 'game' ? <GameCommentMeta c={c} />
+              : c.kind === 'lol' ? <LolCommentMeta c={c} /> : (
               <>
                 {c.newsTitle
                   ? (
@@ -145,6 +150,38 @@ function GameCommentMeta({ c }) {
         to={`/games/${c.gameId}?tab=rating`}
         style={{ display: 'inline-block', maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'bottom' }}
       >{vs}</Link>
+      {c.playerName ? <> 里评 {c.playerName}</> : <> 下</>}
+      {c.myScore != null && (
+        <>
+          <span style={{ margin: '0 8px' }}>·</span>
+          <span style={{ color: '#fa541c', fontWeight: 700 }}>{c.myScore} 分</span>
+        </>
+      )}
+      <span style={{ margin: '0 8px' }}>·</span>{fmtDate(c.commentDate)}
+    </>
+  )
+}
+
+/**
+ * 开黑短评那一行的出处。
+ *
+ * 和赛后短评是同一件事，只是那一局没有「客队 比分 主队」可写——用「日期 + 队列」
+ * 指认，和战绩流卡片上写的是同一个说法。
+ *
+ * 落点是战绩流并带上 `?match=`，那个参数会直接把这一局的详情弹开
+ * （`LolFeed` 的 `useUrlState('match')`），和 @ 通知点进来是同一条路。
+ */
+function LolCommentMeta({ c }) {
+  const t = new Date(c.gameStart)
+  const stamp = Number.isNaN(t.getTime())
+    ? '那一局'
+    : `${t.getMonth() + 1}/${t.getDate()} ${queueName(c.queueId)}`
+  return (
+    <>
+      在 <Link
+        to={`/news/topic/${LOL_TOPIC_ID}/lol/feed?match=${c.gameId}`}
+        style={{ display: 'inline-block', maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'bottom' }}
+      >{stamp}</Link>
       {c.playerName ? <> 里评 {c.playerName}</> : <> 下</>}
       {c.myScore != null && (
         <>

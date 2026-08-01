@@ -676,6 +676,50 @@ public class LolSyncService {
         return out;
     }
 
+    /**
+     * 这一场里 puuid → 显示名。给「我的评论」标出那条短评评的是谁。
+     *
+     * <p>口径和打分界面上写的那个名字**必须一致**：站内成员用站内昵称，路人用英雄名
+     * （见 {@code LolMatchRating.PlayerRating} 的 `nickname || championName`）。
+     * 不一致的话，同一条短评在评分页写着「给 Mordekaiser 打分」、
+     * 在足迹里却写着另一个名字，看的人得自己去对。
+     */
+    public Map<String, String> participantLabels(String matchId) {
+        Map<String, String> out = new HashMap<>();
+        LolMatch m = matchMapper.selectById(matchId);
+        String raw = m == null ? null : gunzip(m.getRawGz());
+        if (raw == null) {
+            return out;
+        }
+        JSONObject info = JSON.parseObject(raw).getJSONObject("info");
+        JSONArray parts = info == null ? null : info.getJSONArray("participants");
+        if (parts == null || parts.isEmpty()) {
+            return out;
+        }
+        // 两个 PUUID 别名都要认（换过 API key，老对局里是旧串），同 matchDetail
+        Map<String, String> nickByPuuid = new HashMap<>();
+        for (LolAccount a : accountMapper.selectList(null)) {
+            DreamUser u = userMapper.selectById(a.getUserId());
+            String nick = u == null ? a.getGameName() : u.getUserNickname();
+            for (String alias : new String[]{a.getPuuid(), a.getApiPuuid()}) {
+                if (StringUtils.isNotBlank(alias)) {
+                    nickByPuuid.put(alias, nick);
+                }
+            }
+        }
+        for (int i = 0; i < parts.size(); i++) {
+            JSONObject p = parts.getJSONObject(i);
+            String pu = p.getString("puuid");
+            if (StringUtils.isBlank(pu)) {
+                continue;
+            }
+            String nick = nickByPuuid.get(pu);
+            out.put(pu, StringUtils.isNotBlank(nick)
+                    ? nick : StringUtils.defaultString(p.getString("championName"), "他"));
+        }
+        return out;
+    }
+
     public Map<String, Object> matchDetail(String matchId) {
         LolMatch m = matchMapper.selectById(matchId);
         if (m == null) {

@@ -8,6 +8,7 @@ import com.dream.basketball.config.Role;
 import com.dream.basketball.entity.DreamNews;
 import com.dream.basketball.entity.DreamNewsComment;
 import com.dream.basketball.entity.DreamUser;
+import com.dream.basketball.entity.LolMatch;
 import com.dream.basketball.mapper.DreamNewsCommentMapper;
 import com.dream.basketball.mapper.DreamNewsMapper;
 import com.dream.basketball.mapper.UserMapper;
@@ -68,6 +69,8 @@ public class UserProfileController {
     private com.dream.basketball.mapper.GameCommentMapper gameCommentMapper;
     @Autowired
     private com.dream.basketball.mapper.PlayerMapper playerMapper;
+    @Autowired
+    private com.dream.basketball.service.LolSyncService lolSync;
 
     @Autowired
     private com.dream.basketball.config.TopicPermissionService topicPerms;
@@ -197,6 +200,8 @@ public class UserProfileController {
             // FIND_IN_SET 会让 player_game_stats 那 65 万行走全表扫描。
             // 这里最多十来场，每场一次索引查找，而这是个人主页不是热路径
             Map<String, Map<String, Object>> gameMeta = new HashMap<>();
+            Map<String, LolMatch> lolMeta = new HashMap<>();
+            Map<String, Map<String, String>> lolNames = new HashMap<>();
             for (Map<String, Object> gc : gcs) {
                 String gid = String.valueOf(gc.get("gameId"));
                 if (!gameMeta.containsKey(gid)) {
@@ -208,7 +213,11 @@ public class UserProfileController {
                 // 两种来源共用这三张表（见 GameRatingController 的 KIND_LOL 说明）。
                 // NBA 的 id 查得到比赛，LoL 的查不到——**不能一律当成 NBA**，
                 // 否则开黑那几条会渲染成一场没有队名没有比分的球赛
-                boolean isLol = g == null && lolMatchMapper.selectById(gid) != null;
+                if (g == null && !lolMeta.containsKey(gid)) {
+                    lolMeta.put(gid, lolMatchMapper.selectById(gid));
+                }
+                LolMatch lm = g == null ? lolMeta.get(gid) : null;
+                boolean isLol = lm != null;
                 m.put("kind", isLol ? "lol" : "game");
                 // 前端的排序和时间显示统一读 commentDate，两种来源在这里对齐字段名，
                 // 免得渲染时到处判断「这条是哪来的」
@@ -219,6 +228,18 @@ public class UserProfileController {
                     m.put("awayTeam", g.get("awayTeam"));
                     m.put("homeScore", g.get("homeScore"));
                     m.put("awayScore", g.get("awayScore"));
+                }
+                if (isLol) {
+                    // 开黑那几条也得说清「在哪一局说的」，否则前端只能显示成「原帖已删除」
+                    m.put("queueId", lm.getQueueId());
+                    m.put("gameStart", lm.getGameStart());
+                    // 评人的那些行补上被评者的名字。playerName 这个字段名是**故意**和
+                    // NBA 那边一致的，前端「里评 XXX」那一支两种来源共用
+                    String pid = StringUtils.trimToEmpty((String) gc.get("playerId"));
+                    if (!pid.isEmpty()) {
+                        m.put("playerName", lolNames
+                                .computeIfAbsent(gid, lolSync::participantLabels).get(pid));
+                    }
                 }
                 commentList.add(m);
             }
