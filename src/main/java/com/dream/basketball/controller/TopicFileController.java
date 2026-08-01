@@ -394,6 +394,90 @@ public class TopicFileController {
         return new Result<>(0, "已删除", null);
     }
 
+    /**
+     * 下载：文件按原名直出，文件夹整棵打成 zip 流出去。
+     *
+     * <p>为什么要有这个接口而不是让前端直接开 /picImg/ 的静态地址——三个原因：
+     * ① 静态地址的文件名是内容哈希，浏览器存下来叫 <code>9bceb458....txt</code>，
+     *    这里带 {@code Content-Disposition} 还原成上传时的原名；
+     * ② 文件夹没有静态地址可开，只能服务端现打包；
+     * ③ zip 是**流式**写的（边压边发），不在内存或磁盘攒整包——
+     *    文件夹上限 200 项 × 30MB，攒整包最坏要吃 6GB。
+     *
+     * <p>权限同 list（能看专题就能下载）。zip 里同名文件按 (2)、(3) 改名——
+     * zip 规范不允许重名条目，而同一个文件夹里传两个同名文件是允许的。
+     */
+    @GetMapping("/download")
+    public void download(String fileId, HttpServletRequest request,
+                         javax.servlet.http.HttpServletResponse response) throws IOException {
+        DreamUser me = SecUtil.getLoginUserToSession(request);
+        ForumTopicFile f = fileMapper.selectById(StringUtils.trimToEmpty(fileId));
+        ForumTopic t = f == null ? null : perms.getTopic(f.getTopicId());
+        String no = f == null ? "文件不存在" : gateView(me, t);
+        if (no != null) {
+            response.setStatus(404);
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write("{\"code\":1,\"msg\":\"" + no + "\",\"data\":null}");
+            return;
+        }
+        if (KIND_FILE.equals(f.getKind())) {
+            java.io.File disk = FileUtils.resolveUploadFile(uploadPath, f.getUrl());
+            if (disk == null) {
+                response.setStatus(404);
+                return;
+            }
+            response.setContentType("application/octet-stream");
+            response.setContentLengthLong(disk.length());
+            response.setHeader("Content-Disposition", "attachment; filename*=UTF-8''"
+                    + java.net.URLEncoder.encode(f.getName(), "UTF-8").replace("+", "%20"));
+            java.nio.file.Files.copy(disk.toPath(), response.getOutputStream());
+            return;
+        }
+
+        // 文件夹：BFS 收集整棵子树，边走边记每个节点的相对路径
+        response.setContentType("application/zip");
+        response.setHeader("Content-Disposition", "attachment; filename*=UTF-8''"
+                + java.net.URLEncoder.encode(f.getName() + ".zip", "UTF-8").replace("+", "%20"));
+        Map<String, String> pathOf = new HashMap<>();
+        pathOf.put(f.getFileId(), "");
+        List<String> frontier = new ArrayList<>();
+        frontier.add(f.getFileId());
+        Set<String> used = new HashSet<>();
+        try (java.util.zip.ZipOutputStream zip =
+                     new java.util.zip.ZipOutputStream(response.getOutputStream(),
+                             java.nio.charset.StandardCharsets.UTF_8)) {
+            for (int depth = 0; !frontier.isEmpty() && depth < 20; depth++) {
+                List<ForumTopicFile> kids = fileMapper.selectList(new QueryWrapper<ForumTopicFile>()
+                        .eq("TOPIC_ID", f.getTopicId()).in("PARENT_ID", frontier));
+                frontier = new ArrayList<>();
+                for (ForumTopicFile k : kids) {
+                    String base = pathOf.get(k.getParentId()) + k.getName();
+                    if (KIND_FOLDER.equals(k.getKind())) {
+                        pathOf.put(k.getFileId(), base + "/");
+                        frontier.add(k.getFileId());
+                        zip.putNextEntry(new java.util.zip.ZipEntry(base + "/"));
+                        zip.closeEntry();
+                        continue;
+                    }
+                    java.io.File disk = FileUtils.resolveUploadFile(uploadPath, k.getUrl());
+                    if (disk == null) {
+                        continue;      // 盘上没了就跳过，别让一条坏记录毁掉整个包
+                    }
+                    String entry = base;
+                    for (int i = 2; !used.add(entry); i++) {
+                        int dot = base.lastIndexOf('.');
+                        entry = dot > base.lastIndexOf('/')
+                                ? base.substring(0, dot) + " (" + i + ")" + base.substring(dot)
+                                : base + " (" + i + ")";
+                    }
+                    zip.putNextEntry(new java.util.zip.ZipEntry(entry));
+                    java.nio.file.Files.copy(disk.toPath(), zip);
+                    zip.closeEntry();
+                }
+            }
+        }
+    }
+
     private int countIn(String topicId, ForumTopicFile folder) {
         QueryWrapper<ForumTopicFile> qw = new QueryWrapper<ForumTopicFile>().eq("TOPIC_ID", topicId);
         if (folder == null) {

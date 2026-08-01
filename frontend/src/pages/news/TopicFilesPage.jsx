@@ -2,12 +2,13 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button, Card, Empty, Input, Modal, Popconfirm, Spin, Upload, message } from 'antd'
 import {
-  ArrowLeftOutlined, DeleteOutlined, EditOutlined, FileImageOutlined, FileOutlined,
+  ArrowLeftOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, FileImageOutlined, FileOutlined,
   FilePdfOutlined, FileTextOutlined, FileZipOutlined, FolderAddOutlined, FolderFilled,
   FolderOpenOutlined, UploadOutlined,
 } from '@ant-design/icons'
 import { topicApi } from '../../api/topic'
 import { topicFileApi } from '../../api/topicFile'
+import { getToken } from '../../auth/token'
 import useIsMobile from '../../hooks/useIsMobile'
 import useUrlState from '../../hooks/useUrlState'
 
@@ -99,9 +100,13 @@ export default function TopicFilesPage() {
    * 文件本身也串行传。并发能快一点，但这里单文件最大 30MB，
    * 并发几个大文件会把手机的上行挤死，进度数字也会跳来跳去。
    */
-  const uploadBatch = async (items) => {
+  const uploadBatch = async (rawItems) => {
     // items: [{ file, rel }]。rel 带 '/' 就按路径建目录；来源有三个——
-    // 多选文件（rel=文件名）、目录选择器（rel=webkitRelativePath）、拖拽（rel=自己走出来的）
+    // 多选文件（rel=文件名）、目录选择器（rel=webkitRelativePath）、拖拽（rel=自己走出来的）。
+    // 隐藏文件在这里统一挡掉（路径里任何一段以 . 开头）：.DS_Store、.git 这类
+    // 跟着整个文件夹一起进来，既不该上传，也不该在结果里报一堆"类型不支持"吓人
+    const items = rawItems.filter(({ rel }) => !rel.split('/').some((seg) => seg.startsWith('.')))
+    if (!items.length) return
     setUploading(true)
     const key = 'topicfs-upload'
     let ok = 0
@@ -181,6 +186,39 @@ export default function TopicFilesPage() {
       for (const e of batch) out.push(...await walkEntry(e, `${prefix + entry.name}/`))
     }
     return out
+  }
+
+  /**
+   * 下载走后端 /topicFile/download：文件带 Content-Disposition 还原原名
+   * （静态地址存下来叫一串哈希），文件夹由服务端流式打包成 zip。
+   * 用带令牌的 fetch 拿 blob 再落地——直接 window.open 在套壳里不带 Authorization。
+   */
+  const [zipping, setZipping] = useState('')
+  const downloadNode = async (f) => {
+    setZipping(f.fileId)
+    try {
+      const token = getToken()
+      const res = await fetch(`/topicFile/download?fileId=${encodeURIComponent(f.fileId)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: 'include',
+      })
+      if (!res.ok || (res.headers.get('content-type') || '').includes('application/json')) {
+        message.error('下载失败')
+        return
+      }
+      const blob = await res.blob()
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = f.kind === 'folder' ? `${f.name}.zip` : f.name
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      setTimeout(() => URL.revokeObjectURL(a.href), 30000)
+    } catch {
+      message.error('下载失败')
+    } finally {
+      setZipping('')
+    }
   }
 
   const [dragOver, setDragOver] = useState(false)
@@ -291,6 +329,17 @@ export default function TopicFilesPage() {
               <div style={{ color: '#bbb', fontSize: 12 }}>
                 {[fmtSize(f.size), fmtDate(f.createTime), f.uploaderName].filter(Boolean).join(' · ')}
               </div>
+            </span>
+            {/* 下载人人可见：文件按原名下载，文件夹整棵打成 zip。管理钮只给题主 */}
+            <span onClick={(e) => e.stopPropagation()} style={{ flexShrink: 0, display: 'inline-flex', gap: 2 }}>
+              <Button
+                type="text"
+                size="small"
+                icon={<DownloadOutlined />}
+                title={f.kind === 'folder' ? '打包下载' : '下载'}
+                loading={zipping === f.fileId}
+                onClick={() => downloadNode(f)}
+              />
             </span>
             {canManage && (
               // 行内管理钮要 stopPropagation：整行是"打开"，别让改名点成进入文件夹

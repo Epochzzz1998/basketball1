@@ -541,10 +541,16 @@
         select d.DRAFT_YEAR as draftYear, d.ROUND_NUM as roundNum, d.ROUND_PICK as roundPick,
                d.PICK_NUM as pickNum, d.TEAM as team, d.PLAYER_NAME as nameEn,
                d.COLLEGE as college, d.SEASONS as seasons, d.G as games, d.PTS as pts,
-               d.TRB as trb, d.AST as ast, d.WS as ws, d.BPM as bpm, d.VORP as vorp,
-               d.BR_SLUG as brId, c.PLAYER_ID as playerId, c.PLAYER_NAME_ZH as nameZh
+               d.TRB as trb, d.AST as ast, c.STL as stl, c.BLK as blk,
+               d.WS as ws, d.BPM as bpm, d.VORP as vorp,
+               d.BR_SLUG as brId, c.PLAYER_ID as playerId,
+               <!-- 中文名优先取 dream_player 的（全量汉化过），career_totals 的 ZH 只是
+                    给没进本库的历史球员兜底——只取后者的话大批有汉化的人会显示英文。
+                    nullif 挡住"没汉化的行 PLAYER_NAME=NAME_EN"：那种值不该压过兜底 -->
+               coalesce(nullif(p.PLAYER_NAME, p.NAME_EN), c.PLAYER_NAME_ZH, p.PLAYER_NAME) as nameZh
         from nba_draft d
         left join nba_career_totals c on c.BR_ID = d.BR_SLUG
+        left join dream_player p on p.PLAYER_ID = c.PLAYER_ID
         where d.DRAFT_YEAR = #{year}
         <!-- 按总顺位排，不按 B-R 的行序：有属地选秀的年份（1949、1954……）B-R 把属地那几个
              排在最前面，照抄行序的话表格会以 4、5、9、1、2、3 开头。没有总顺位的老年份

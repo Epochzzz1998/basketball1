@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Card, Empty, Select, Table, Tag, Tooltip } from 'antd'
+import { Card, Empty, Select, Table, Tag } from 'antd'
 import { Link } from 'react-router-dom'
 import { playerApi } from '../../api/player'
 import TeamLogo from '../../components/TeamLogo'
@@ -103,16 +103,9 @@ export default function DraftHistory() {
     { title: '总得分', dataIndex: 'pts', width: 72, render: (v) => v ?? <span style={{ color: '#ddd' }}>—</span> },
     { title: '总篮板', dataIndex: 'trb', width: 70, render: (v) => v ?? <span style={{ color: '#ddd' }}>—</span> },
     { title: '总助攻', dataIndex: 'ast', width: 70, render: (v) => v ?? <span style={{ color: '#ddd' }}>—</span> },
-    {
-      dataIndex: 'ws', width: 88,
-      title: (
-        <Tooltip title="Win Shares：把球队赢下的场次按功劳分给每个人。这里是整个生涯加起来的，名宿常在 100 以上，历史第一是詹姆斯 276.8；资料卡里那个是单赛季的，15 就已经是 MVP 级">
-          <span style={{ borderBottom: '1px dotted #bbb', cursor: 'help' }}>胜利贡献</span>
-        </Tooltip>
-      ),
-      render: (v) => (v == null ? <span style={{ color: '#ddd' }}>—</span>
-        : <b style={{ color: '#fa541c' }}>{Number(v).toFixed(1)}</b>),
-    },
+    // 盖帽抢断 1973-74 才开始统计，之前的联盟根本没记——空着显示 —，不是数据缺失
+    { title: '总盖帽', dataIndex: 'blk', width: 70, render: (v) => v ?? <span style={{ color: '#ddd' }}>—</span> },
+    { title: '总抢断', dataIndex: 'stl', width: 70, render: (v) => v ?? <span style={{ color: '#ddd' }}>—</span> },
   ]), [])
 
   const columns = useMemo(() => {
