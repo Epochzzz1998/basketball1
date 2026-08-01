@@ -97,22 +97,23 @@ export default function DraftHistory() {
    * 这几个名字指的都是**场均/单季**（资料卡的胜利贡献 15 就是 MVP 级），
    * 这里却是一整个生涯加起来——同一个词两种量级，不说清楚只会让人以为数据错了。
    */
+  // 场均一位小数；空 = 没打过或那个年代没统计（盖帽抢断 1973-74 才有）
+  const avg = (v) => (v == null ? <span style={{ color: '#ddd' }}>—</span> : Number(v).toFixed(1))
   const careerCols = useMemo(() => ([
     { title: '赛季', dataIndex: 'seasons', width: 54, render: (v) => v ?? <span style={{ color: '#ddd' }}>—</span> },
-    { title: '出场', dataIndex: 'games', width: 62, render: (v) => v ?? <span style={{ color: '#ddd' }}>—</span> },
-    { title: '总得分', dataIndex: 'pts', width: 72, render: (v) => v ?? <span style={{ color: '#ddd' }}>—</span> },
-    { title: '总篮板', dataIndex: 'trb', width: 70, render: (v) => v ?? <span style={{ color: '#ddd' }}>—</span> },
-    { title: '总助攻', dataIndex: 'ast', width: 70, render: (v) => v ?? <span style={{ color: '#ddd' }}>—</span> },
-    // 盖帽抢断 1973-74 才开始统计，之前的联盟根本没记——空着显示 —，不是数据缺失
-    { title: '总盖帽', dataIndex: 'blk', width: 70, render: (v) => v ?? <span style={{ color: '#ddd' }}>—</span> },
-    { title: '总抢断', dataIndex: 'stl', width: 70, render: (v) => v ?? <span style={{ color: '#ddd' }}>—</span> },
+    { title: '场数', dataIndex: 'games', width: 62, render: (v) => v ?? <span style={{ color: '#ddd' }}>—</span> },
+    { title: '场均得分', dataIndex: 'avgPts', width: 76, render: avg },
+    { title: '场均篮板', dataIndex: 'avgTrb', width: 76, render: avg },
+    { title: '场均助攻', dataIndex: 'avgAst', width: 76, render: avg },
+    { title: '场均盖帽', dataIndex: 'avgBlk', width: 76, render: avg },
+    { title: '场均抢断', dataIndex: 'avgStl', width: 76, render: avg },
   ]), [])
 
   const columns = useMemo(() => {
     const id = isMobile ? compactColumns(idCols) : idCols
     // 组标题只套在生涯那几列上，身份列不套——套上去它们会平白多顶一行空表头
     const career = isMobile ? compactColumns(careerCols) : careerCols
-    return [...id, { title: '生涯累计', key: 'career', children: career }]
+    return [...id, { title: '生涯场均', key: 'career', children: career }]
   }, [isMobile, idCols, careerCols])
 
   const played = rows?.filter((r) => Number(r.games) > 0).length ?? 0
