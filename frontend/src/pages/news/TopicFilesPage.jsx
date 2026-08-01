@@ -99,34 +99,33 @@ export default function TopicFilesPage() {
    * 文件本身也串行传。并发能快一点，但这里单文件最大 30MB，
    * 并发几个大文件会把手机的上行挤死，进度数字也会跳来跳去。
    */
-  const uploadBatch = async (files, withPaths) => {
+  const uploadBatch = async (items) => {
+    // items: [{ file, rel }]。rel 带 '/' 就按路径建目录；来源有三个——
+    // 多选文件（rel=文件名）、目录选择器（rel=webkitRelativePath）、拖拽（rel=自己走出来的）
     setUploading(true)
     const key = 'topicfs-upload'
     let ok = 0
     const fails = []
     try {
       const dirIds = { '': folder || undefined }
-      if (withPaths) {
-        const dirs = new Set()
-        files.forEach((f) => {
-          const parts = String(f.webkitRelativePath || f.name).split('/')
-          for (let i = 1; i < parts.length; i++) dirs.add(parts.slice(0, i).join('/'))
-        })
-        const ordered = [...dirs].sort((a, b) => a.split('/').length - b.split('/').length)
-        for (const d of ordered) {
-          const parent = d.includes('/') ? d.slice(0, d.lastIndexOf('/')) : ''
-          message.loading({ content: `建目录 ${d}…`, key, duration: 0 })
-          const r = await topicFileApi.mkdir(topicId, dirIds[parent], d.split('/').pop())
-          if (!r?.fileId) throw new Error(`目录 ${d} 创建失败`)
-          dirIds[d] = r.fileId
-        }
+      const dirs = new Set()
+      items.forEach(({ rel }) => {
+        const parts = rel.split('/')
+        for (let i = 1; i < parts.length; i++) dirs.add(parts.slice(0, i).join('/'))
+      })
+      const ordered = [...dirs].sort((a, b) => a.split('/').length - b.split('/').length)
+      for (const d of ordered) {
+        const parent = d.includes('/') ? d.slice(0, d.lastIndexOf('/')) : ''
+        message.loading({ content: `建目录 ${d}…`, key, duration: 0 })
+        const r = await topicFileApi.mkdir(topicId, dirIds[parent], d.split('/').pop())
+        if (!r?.fileId) throw new Error(`目录 ${d} 创建失败`)
+        dirIds[d] = r.fileId
       }
-      for (const f of files) {
-        const rel = withPaths ? String(f.webkitRelativePath || f.name) : f.name
-        const parent = withPaths && rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : ''
-        message.loading({ content: `上传中 ${ok + fails.length + 1}/${files.length}…`, key, duration: 0 })
+      for (const { file, rel } of items) {
+        const parent = rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : ''
+        message.loading({ content: `上传中 ${ok + fails.length + 1}/${items.length}…`, key, duration: 0 })
         try {
-          await topicFileApi.upload(f, topicId, dirIds[parent])
+          await topicFileApi.upload(file, topicId, dirIds[parent])
           ok += 1
         } catch {
           // 单个失败不中断：一批里夹着一个超限的，剩下的照传
@@ -152,8 +151,53 @@ export default function TopicFilesPage() {
 
   /** antd 对一批里的每个文件各调一次 beforeUpload；只在第一个上编排整批，其余直接吞掉 */
   const interceptBatch = (withPaths) => (file, list) => {
-    if (file.uid === list[0].uid) uploadBatch(list, withPaths)
+    if (file.uid === list[0].uid) {
+      uploadBatch(list.map((f) => ({
+        file: f,
+        rel: withPaths ? String(f.webkitRelativePath || f.name) : f.name,
+      })))
+    }
     return false
+  }
+
+  /**
+   * 拖拽上传：把文件或整个文件夹拖进列表区。
+   *
+   * 文件夹要靠 `webkitGetAsEntry` 递归展开——DataTransfer.files 只会给顶层文件，
+   * 目录在里面是个空壳。`readEntries` 一次最多吐 100 项，必须循环读到空，
+   * 否则超过 100 个文件的文件夹会静默截断。
+   */
+  const walkEntry = async (entry, prefix) => {
+    if (entry.isFile) {
+      const f = await new Promise((res) => entry.file(res, () => res(null)))
+      return f ? [{ file: f, rel: prefix + f.name }] : []
+    }
+    if (!entry.isDirectory) return []
+    const reader = entry.createReader()
+    const out = []
+    for (;;) {
+      const batch = await new Promise((res) => reader.readEntries(res, () => res([])))
+      if (!batch.length) break
+      for (const e of batch) out.push(...await walkEntry(e, `${prefix + entry.name}/`))
+    }
+    return out
+  }
+
+  const [dragOver, setDragOver] = useState(false)
+  const onDrop = async (e) => {
+    e.preventDefault()
+    setDragOver(false)
+    if (!canManage || uploading) return
+    const items = [...(e.dataTransfer?.items || [])]
+    const entries = items.map((i) => i.webkitGetAsEntry?.()).filter(Boolean)
+    let collected = []
+    if (entries.length) {
+      for (const en of entries) collected.push(...await walkEntry(en, ''))
+    } else {
+      // 老内核没有 entry API：退回平铺文件（拖文件夹在这种内核里本来就拿不到内容）
+      collected = [...(e.dataTransfer?.files || [])].map((f) => ({ file: f, rel: f.name }))
+    }
+    if (collected.length) uploadBatch(collected)
   }
 
   const canManage = !!data?.canManage
@@ -161,7 +205,10 @@ export default function TopicFilesPage() {
 
   return (
     <Card
-      style={{ borderRadius: 14 }}
+      onDragOver={(e) => { e.preventDefault(); if (canManage) setDragOver(true) }}
+      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(false) }}
+      onDrop={onDrop}
+      style={{ borderRadius: 14, outline: dragOver ? '2px dashed #fa541c' : 'none', outlineOffset: -2 }}
       styles={{ body: { padding: isMobile ? '4px 0 10px' : '4px 8px 12px' } }}
       title={(
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
