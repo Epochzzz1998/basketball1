@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Card, Empty, Select, Table, Tag } from 'antd'
+import { Card, Empty, Select, Table, Tag, Tooltip } from 'antd'
 import { Link } from 'react-router-dom'
 import { playerApi } from '../../api/player'
 import TeamLogo from '../../components/TeamLogo'
@@ -47,7 +47,8 @@ export default function DraftHistory() {
     return () => { alive = false }
   }, [year])
 
-  const columns = useMemo(() => ([
+  // 身份列：这个人是谁、被谁在第几顺位选走的
+  const idCols = useMemo(() => ([
     {
       title: '顺位', key: 'pick', width: isMobile ? 52 : 78, fixed: 'left',
       render: (_, r) => {
@@ -87,17 +88,39 @@ export default function DraftHistory() {
       title: '学校 / 来源', dataIndex: 'college', width: 150, ellipsis: true,
       render: (v) => v || <span style={{ color: '#ddd' }}>—</span>,
     },
+  ]), [isMobile])
+
+  /**
+   * 生涯累计列。
+   *
+   * **必须顶着「生涯累计」这个组标题**，不能光写「得分」「胜利贡献」：站里别处
+   * 这几个名字指的都是**场均/单季**（资料卡的胜利贡献 15 就是 MVP 级），
+   * 这里却是一整个生涯加起来——同一个词两种量级，不说清楚只会让人以为数据错了。
+   */
+  const careerCols = useMemo(() => ([
     { title: '赛季', dataIndex: 'seasons', width: 54, render: (v) => v ?? <span style={{ color: '#ddd' }}>—</span> },
     { title: '出场', dataIndex: 'games', width: 62, render: (v) => v ?? <span style={{ color: '#ddd' }}>—</span> },
-    { title: '得分', dataIndex: 'pts', width: 70, render: (v) => v ?? <span style={{ color: '#ddd' }}>—</span> },
-    { title: '篮板', dataIndex: 'trb', width: 66, render: (v) => v ?? <span style={{ color: '#ddd' }}>—</span> },
-    { title: '助攻', dataIndex: 'ast', width: 66, render: (v) => v ?? <span style={{ color: '#ddd' }}>—</span> },
+    { title: '总得分', dataIndex: 'pts', width: 72, render: (v) => v ?? <span style={{ color: '#ddd' }}>—</span> },
+    { title: '总篮板', dataIndex: 'trb', width: 70, render: (v) => v ?? <span style={{ color: '#ddd' }}>—</span> },
+    { title: '总助攻', dataIndex: 'ast', width: 70, render: (v) => v ?? <span style={{ color: '#ddd' }}>—</span> },
     {
-      title: '胜利贡献', dataIndex: 'ws', width: 80,
+      dataIndex: 'ws', width: 88,
+      title: (
+        <Tooltip title="Win Shares：把球队赢下的场次按功劳分给每个人。这里是整个生涯加起来的，名宿常在 100 以上，历史第一是詹姆斯 276.8；资料卡里那个是单赛季的，15 就已经是 MVP 级">
+          <span style={{ borderBottom: '1px dotted #bbb', cursor: 'help' }}>胜利贡献</span>
+        </Tooltip>
+      ),
       render: (v) => (v == null ? <span style={{ color: '#ddd' }}>—</span>
         : <b style={{ color: '#fa541c' }}>{Number(v).toFixed(1)}</b>),
     },
-  ]), [isMobile])
+  ]), [])
+
+  const columns = useMemo(() => {
+    const id = isMobile ? compactColumns(idCols) : idCols
+    // 组标题只套在生涯那几列上，身份列不套——套上去它们会平白多顶一行空表头
+    const career = isMobile ? compactColumns(careerCols) : careerCols
+    return [...id, { title: '生涯累计', key: 'career', children: career }]
+  }, [isMobile, idCols, careerCols])
 
   const played = rows?.filter((r) => Number(r.games) > 0).length ?? 0
 
@@ -130,7 +153,7 @@ export default function DraftHistory() {
           size="small"
           rowKey={(r) => `${r.draftYear}-${r.roundNum}-${r.roundPick}`}
           dataSource={rows}
-          columns={isMobile ? compactColumns(columns) : columns}
+          columns={columns}
           pagination={false}
           scroll={{ x: 'max-content' }}
         />
