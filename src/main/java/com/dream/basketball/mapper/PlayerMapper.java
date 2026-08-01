@@ -100,4 +100,18 @@ public interface PlayerMapper extends BaseMapper<DreamPlayer> {
 
     /** 发帖 @球员 的候选：按中/英文名模糊，生涯总得分高的排前面。kw 为空时给一批名人垫底。 */
     List<Map<String, Object>> searchMentionPlayers(@Param("kw") String kw, @Param("limit") Integer limit);
+
+    /**
+     * 这名球员的选秀记录。落选、或者 B-R id 没对上本库的，返回空。
+     *
+     * <p>关联走 {@code nba_draft.BR_SLUG -> nba_career_totals.BR_ID -> PLAYER_ID}：
+     * 选秀表里**没有**本库的球员 id，那份映射只在 nba_career_totals 一处维护。
+     */
+    List<Map<String, Object>> findDraftByPlayer(@Param("playerId") String playerId);
+
+    /** 一届选秀的全部顺位，附带本库的球员 id 与中文名（对不上的两列留空）。 */
+    List<Map<String, Object>> findDraftClass(@Param("year") Integer year);
+
+    /** 有选秀数据的年份，新的在前。 */
+    List<Integer> findDraftYears();
 }

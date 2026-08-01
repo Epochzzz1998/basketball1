@@ -12,6 +12,7 @@ import { advColWidth, compactColumns, renderAppearance, sumColWidth } from './st
 import { ADVANCED_STATS, fmtAdv } from './rankConfig'
 import TeamLogo, { TeamNames } from '../../components/TeamLogo'
 import SeasonProfile from './SeasonProfile'
+import DraftTag from './DraftTag'
 import GameLogTable from './GameLog'
 import { SEASON_TYPE, useGameLogSeasons } from './gameLogConfig'
 import useUrlState from '../../hooks/useUrlState'
@@ -345,10 +346,14 @@ export default function PlayerCareer() {
               <div style={{ color: '#999', fontSize: 13, fontStyle: 'italic' }}>{honors.nameEn}</div>
             )}
             {/* 手机上省掉括号里的注解，否则右边那枚队标一挤，这行会从「冠军」中间断开 */}
-            <div style={{ color: '#999', fontSize: 13 }}>
-              {goldCount > 0
-                ? `顶级荣誉 ×${goldCount}${isMobile ? '' : '（冠军/MVP/DPOY）'}`
-                : '生涯逐季数据与荣誉'}
+            <div style={{ color: '#999', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              {/* 选秀标签排在荣誉说明前面：它是这名球员的出身，先于他后来打成什么样 */}
+              <DraftTag draft={honors?.draft} size={isMobile ? 'small' : 'normal'} />
+              <span>
+                {goldCount > 0
+                  ? `顶级荣誉 ×${goldCount}${isMobile ? '' : '（冠军/MVP/DPOY）'}`
+                  : '生涯逐季数据与荣誉'}
+              </span>
             </div>
           </div>
         </Space>

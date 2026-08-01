@@ -23,6 +23,10 @@ export const playerApi = {
   listTeams: () => http.get('/player/teams'),
   // 球员生涯荣誉（MVP/DPOY/阵容/单项王/总冠军/FMVP/6MOY/MIP）
   playerHonors: (playerId) => http.get('/player/honors', { params: { playerId } }),
+  // 一届选秀的全部顺位（含本库球员 id 与中文名，对不上的两列为空）
+  draftClass: (year) => http.get('/player/draftClass', { params: { year } }),
+  // 有选秀数据的年份，新的在前
+  draftYears: () => http.get('/player/draftYears'),
   // 某赛季特别奖得主（FMVP/最佳第六人/最快进步球员）
   seasonAwards: (seasonNum) => http.get('/player/seasonAwards', { params: { seasonNum } }),
   // 某队某赛季单轮次阵容数据（1 首轮 / 2 半决赛 / 3 分区决赛 / 4 总决赛）

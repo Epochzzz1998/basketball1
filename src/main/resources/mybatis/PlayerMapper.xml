@@ -524,6 +524,38 @@
         limit #{limit}
     </select>
 
+    <!-- 选秀。三条查询都经 nba_career_totals 把 B-R id 翻成本库的球员 id：
+         nba_draft 里只存 B-R 的 slug，映射不复制第二份（复制的那份迟早和主份对不上）。 -->
+    <select id="findDraftByPlayer" resultType="java.util.Map">
+        select d.DRAFT_YEAR as draftYear, d.ROUND_NUM as roundNum,
+               d.ROUND_PICK as roundPick, d.PICK_NUM as pickNum, d.TEAM as team
+        from nba_draft d
+        join nba_career_totals c on c.BR_ID = d.BR_SLUG
+        where c.PLAYER_ID = #{playerId}
+        <!-- 同一个球员 id 偶有两条 B-R 记录（同名合并），取最早那次选秀 -->
+        order by d.DRAFT_YEAR
+        limit 1
+    </select>
+
+    <select id="findDraftClass" resultType="java.util.Map">
+        select d.DRAFT_YEAR as draftYear, d.ROUND_NUM as roundNum, d.ROUND_PICK as roundPick,
+               d.PICK_NUM as pickNum, d.TEAM as team, d.PLAYER_NAME as nameEn,
+               d.COLLEGE as college, d.SEASONS as seasons, d.G as games, d.PTS as pts,
+               d.TRB as trb, d.AST as ast, d.WS as ws, d.BPM as bpm, d.VORP as vorp,
+               d.BR_SLUG as brId, c.PLAYER_ID as playerId, c.PLAYER_NAME_ZH as nameZh
+        from nba_draft d
+        left join nba_career_totals c on c.BR_ID = d.BR_SLUG
+        where d.DRAFT_YEAR = #{year}
+        <!-- 按总顺位排，不按 B-R 的行序：有属地选秀的年份（1949、1954……）B-R 把属地那几个
+             排在最前面，照抄行序的话表格会以 4、5、9、1、2、3 开头。没有总顺位的老年份
+             （ifnull → 999）排在本轮末尾 -->
+        order by d.ROUND_NUM, ifnull(d.PICK_NUM, 999), d.ROUND_PICK
+    </select>
+
+    <select id="findDraftYears" resultType="java.lang.Integer">
+        select distinct DRAFT_YEAR from nba_draft order by DRAFT_YEAR desc
+    </select>
+
     <sql id="whereConditionPlayer">
         1=1
         <!-- fuzzy name search (player search box); #{} binding keeps it injection-safe.

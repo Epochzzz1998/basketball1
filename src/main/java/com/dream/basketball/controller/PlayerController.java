@@ -52,6 +52,8 @@ public class PlayerController extends BaseUtils {
     private PlayerService playerService;
     @Autowired
     private PlayerStatsService playerStatsService;
+    @Autowired
+    private com.dream.basketball.mapper.PlayerMapper playerMapper;
 
     @Value("${picPath.uploadPath:}")
     private String uploadPath;
@@ -126,6 +128,10 @@ public class PlayerController extends BaseUtils {
         data.put("nameEn", player == null ? "" : player.getNameEn());
         data.put("playerNumber", player == null ? "" : player.getPlayerNumber());
         data.put("photo", player == null ? "" : player.getPhoto());
+        // 选秀详情跟着身份头一起下发：那枚 tag 就贴在名字下面，单独一个接口
+        // 会让这一页在球员之间切换时多一次往返，而这条查询只命中两个索引
+        List<Map<String, Object>> draft = playerMapper.findDraftByPlayer(playerId);
+        data.put("draft", draft.isEmpty() ? null : draft.get(0));
         List<Integer> mvp = new ArrayList<>();
         List<Integer> dpoy = new ArrayList<>();
         List<Integer> all1 = new ArrayList<>();
@@ -178,6 +184,24 @@ public class PlayerController extends BaseUtils {
     @GetMapping("/seasonAwards")
     public Object seasonAwards(Integer seasonNum) {
         return new Result<>(0, "成功", playerService.findSeasonAwards(seasonNum == null ? 1 : seasonNum));
+    }
+
+    /**
+     * 一届选秀的完整顺位表。
+     *
+     * <p>不分页：最长的一届（1960 年代）也就一百多人，一次给完前端才能整届排序、
+     * 一屏翻到底。年份不合法就当空的返回，不报错——这一页是靠年份选择器进来的。
+     */
+    @GetMapping("/draftClass")
+    public Object draftClass(Integer year) {
+        return new Result<>(0, "成功", year == null
+                ? new ArrayList<>() : playerMapper.findDraftClass(year));
+    }
+
+    /** 有选秀数据的年份，新的在前。给年份选择器用。 */
+    @GetMapping("/draftYears")
+    public Object draftYears() {
+        return new Result<>(0, "成功", playerMapper.findDraftYears());
     }
 
     /** 单个球员季后赛逐季数据（含生涯汇总行，公开） */
