@@ -40,3 +40,22 @@ export const draftText = (d) => {
   const tier = draftTier(pick)
   return `${d.draftYear}年${tier.name || `${pick}号秀`}`
 }
+
+/**
+ * B-R 队码 → 现行 30 队码。选秀表存的是**选中时刻**的 B-R 码，队标库只认现行码。
+ *
+ * 镜像自 tools/nba_sync/br_backfill.py 的 BR2CODE（同一份血脉表，改要一起改）：
+ * 有现代血脉的老特许权映射到继承者（SEA→OKC、MNL→LAL…），
+ * **彻底消失的刻意不映射**（芝加哥雄鹿 CHS、圣路易斯轰炸机 STB、安德森包装工 AND…）——
+ * 没有任何现役球队继承它们，硬塞给谁都是错的，让 TeamLogo 的灰底码块兜住。
+ */
+const BR_TEAM_MODERN = {
+  CHH: 'CHA', WSB: 'WAS', VAN: 'MEM', SEA: 'OKC', NJN: 'BKN', PHO: 'PHX',
+  NOH: 'NOP', NOK: 'NOP', BRK: 'BKN', CHO: 'CHA',
+  BUF: 'LAC', SDC: 'LAC', NOJ: 'UTA', KCK: 'SAC', NYN: 'BKN',
+  PHW: 'GSW', SFW: 'GSW', MNL: 'LAL', SYR: 'PHI', ROC: 'SAC', CIN: 'SAC', KCO: 'SAC',
+  TRI: 'ATL', MLH: 'ATL', STL: 'ATL', FTW: 'DET', CHP: 'WAS', CHZ: 'WAS',
+  BAL: 'WAS', CAP: 'WAS', SDR: 'HOU',
+}
+
+export const modernTeam = (code) => BR_TEAM_MODERN[code] || code

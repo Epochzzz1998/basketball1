@@ -6,7 +6,8 @@ import TeamLogo from '../../components/TeamLogo'
 import useIsMobile from '../../hooks/useIsMobile'
 import useUrlState from '../../hooks/useUrlState'
 import { compactColumns } from './statColumns'
-import { draftTier } from './draftConfig'
+import { draftTier, modernTeam } from './draftConfig'
+import { NBA_TEAM_NAMES } from './rankConfig'
 
 /**
  * 历史选秀（/history?tab=draft）：一届一张表，1947 年至今 80 届。
@@ -69,7 +70,13 @@ export default function DraftHistory() {
     },
     {
       title: '球队', dataIndex: 'team', width: 66,
-      render: (v) => (v ? <TeamLogo code={v} size={22} title={v} /> : <span style={{ color: '#ddd' }}>—</span>),
+      // 队码按血脉换成现行码取队标；换过码的把「当年的码 → 现在是谁」写进悬停。
+      // 彻底消失的老特许权（CHS/STB/AND…）没有继承者，落 TeamLogo 的灰底码块
+      render: (v) => {
+        if (!v) return <span style={{ color: '#ddd' }}>—</span>
+        const m = modernTeam(v)
+        return <TeamLogo code={m} size={22} title={m === v ? v : `${v}（现${NBA_TEAM_NAMES[m] || m}）`} />
+      },
     },
     {
       title: '球员', key: 'name', width: 150, fixed: 'left',
