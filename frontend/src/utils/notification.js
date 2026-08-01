@@ -16,11 +16,11 @@ const COMMENT_TYPES = ['goodComment', 'badComment', 'commentComment', 'mentionCo
 const TOPIC_TYPES = ['topicApply', 'topicApproved', 'topicRejected', 'mentionChat']
 // 日程类：remind 的 msgId=日期；assign 的 msgId=事件id、msgIdSecond=日期。点进日历对应那天（顺便标已读）
 const SCHEDULE_TYPES = ['scheduleAssign', 'scheduleRemind', 'scheduleOverdue', 'scheduleExpiry']
-// 每日赛场的短评/回复里被 @：msgId=比赛 id，点进去跳那场比赛（短评没有自己的页面）
-const GAME_TYPES = ['mentionGame']
-// 开黑对局的短评/回复里被 @：msgId=Riot 的 matchId。对局详情是战绩流里的一个浮层、
+// 每日赛场的短评/回复：被 @ 或被回复，msgId=比赛 id，点进去跳那场比赛（短评没有自己的页面）
+const GAME_TYPES = ['mentionGame', 'replyGame']
+// 开黑对局的短评/回复：同上，msgId=Riot 的 matchId。对局详情是战绩流里的一个浮层、
 // 没有自己的路由，所以带 ?match= 进去让战绩流自己展开那一局
-const LOL_TYPES = ['mentionLol']
+const LOL_TYPES = ['mentionLol', 'replyLol']
 
 const newsIdOf = (m) => (COMMENT_TYPES.includes(m.msgType) ? m.msgIdSecond : m.msgId)
 
@@ -76,6 +76,8 @@ export const actionTextOf = (m) => {
     case 'mentionChat': return `在${m.content ? `「${m.content}」` : '专题'}的群聊里@了您`
     case 'mentionGame': return '在赛后短评里@了您'
     case 'mentionLol': return '在开黑对局的短评里@了您'
+    case 'replyGame': return '回复了您的赛后短评'
+    case 'replyLol': return '回复了您在开黑对局里的短评'
     case 'follow': return '关注了你'
     case 'topicApply': return `申请加入你的专题${m.content ? `「${m.content}」` : ''}`
     case 'topicApproved': return `通过了你加入${m.content ? `「${m.content}」` : '专题'}的申请`
@@ -105,6 +107,9 @@ export const detailOf = (m) => {
     // 比赛信息点进去就看到了，消息里要展示的是那句话本身（content 存的就是它）
     case 'mentionGame': return `短评：${s(m.content)}`
     case 'mentionLol': return `短评：${s(m.content)}`
+    // 回复类展示的是**对方那句回复**（content 存的就是它），点进去才看得到上下文
+    case 'replyGame':
+    case 'replyLol': return `回复：${s(m.content)}`
     case 'follow': return '点击去 TA 的主页看看'
     case 'topicApply': return '点击进入专题，在成员管理里审批'
     case 'topicApproved': return '点击进入该专题'

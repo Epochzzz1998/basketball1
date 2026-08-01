@@ -30,6 +30,7 @@ import NbaModuleEntry from '../../components/NbaModuleEntry'
 import { sectionRenderer } from '../../components/nbaSections'
 import { lolSectionRenderer } from '../../components/lolSections'
 import LolModuleEntry from '../../components/LolModuleEntry'
+import { onPostPublished } from '../../utils/postBus'
 
 /**
  * 帖子列表（公开，P5-2 内容流改版），按频道复用：
@@ -256,6 +257,10 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied, n
     setRows(null); setKw(''); setView('最新'); setPage(1); setCat('all'); setShown(MOBILE_PAGE)
     fetchRows()
   }, [fetchRows])
+
+  // 发帖器是盖在这一页上的浮层，发完只是收起浮层、这个组件不会重新挂载，
+  // 所以得自己接一声招呼再拉一次，否则刚发的帖子要手动下拉刷新才出得来
+  useEffect(() => onPostPublished(() => { fetchRows() }), [fetchRows])
 
   // 下拉刷新（仅移动端）：重新拉一次列表，并把已展开的条数收回第一屏
   const onRefresh = useCallback(async () => {

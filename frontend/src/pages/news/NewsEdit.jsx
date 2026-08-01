@@ -16,6 +16,7 @@ import { useAuth } from '../../auth/AuthContext'
 import { useGoBack } from '../../components/backNav'
 import useIsMobile from '../../hooks/useIsMobile'
 import useVisualViewport from '../../hooks/useVisualViewport'
+import { notifyPostPublished } from '../../utils/postBus'
 import {
   PollEditModal, PollPreview, RatingEditModal, RatingPreview, TagPickerModal,
 } from './PostComposerExtras'
@@ -278,6 +279,9 @@ export default function NewsEdit() {
         } catch { message.warning('帖子已发出，但投票发起失败，可在评论区重新发起') }
       }
       message.success(isEdit && !isDraft ? '已保存' : '已发布')
+      // 招呼底下那一层重新拉一次：这个编辑器是盖在列表/详情上的浮层，
+      // 收起浮层不会让它们重新挂载，不说一声新帖就要手动刷新才出得来
+      notifyPostPublished()
       navigate(-1)
       return undefined
     } finally {

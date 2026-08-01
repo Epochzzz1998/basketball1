@@ -47,6 +47,18 @@ public class Constants {
     /** 开黑战绩的对局短评/回复里 @ 了你。msgId=Riot 的 matchId（点进去跳战绩流并展开那一局）。 */
     public static final String MENTION_LOL = "mentionLol";
 
+    /**
+     * 有人回复了你在每日赛场里的短评。msgId=gameId，和 {@link #MENTION_GAME} 同一条跳转。
+     *
+     * <p>和帖子那边的 {@code commentComment} 是同一件事，但不能共用一个类型：
+     * 那个类型的 msgId 是评论 id、跳转要靠 msgIdSecond 拼帖子链接，而赛后短评没有
+     * 自己的页面，只能跳回那场比赛。
+     */
+    public static final String REPLY_GAME = "replyGame";
+
+    /** 有人回复了你在开黑对局里的短评。msgId=Riot 的 matchId。 */
+    public static final String REPLY_LOL = "replyLol";
+
     /** a schedule event was assigned to you (immediate, from the event creator) */
     public static final String SCHEDULE_ASSIGN = "scheduleAssign";
 

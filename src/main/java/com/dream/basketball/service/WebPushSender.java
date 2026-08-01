@@ -30,7 +30,11 @@ import static com.dream.basketball.utils.Constants.COMMENT_COMMENT;
 import static com.dream.basketball.utils.Constants.COMMENT_NEWS;
 import static com.dream.basketball.utils.Constants.MENTION_CHAT;
 import static com.dream.basketball.utils.Constants.MENTION_COMMENT;
+import static com.dream.basketball.utils.Constants.MENTION_GAME;
+import static com.dream.basketball.utils.Constants.MENTION_LOL;
 import static com.dream.basketball.utils.Constants.MENTION_NEWS;
+import static com.dream.basketball.utils.Constants.REPLY_GAME;
+import static com.dream.basketball.utils.Constants.REPLY_LOL;
 import static com.dream.basketball.utils.Constants.SCHEDULE_ASSIGN;
 import static com.dream.basketball.utils.Constants.SCHEDULE_OVERDUE;
 import static com.dream.basketball.utils.Constants.SCHEDULE_REMIND;
@@ -72,6 +76,9 @@ public class WebPushSender {
      */
     private static final Set<String> PUSHABLE = new HashSet<>(Arrays.asList(
             MENTION_CHAT, MENTION_COMMENT, MENTION_NEWS,
+            // 赛后短评/开黑对局这四类以前漏在外面：被 @、被回复照上面的标准本来就该推，
+            // 加这两个功能时只接了站内消息，没顺手加进这张表
+            MENTION_GAME, MENTION_LOL, REPLY_GAME, REPLY_LOL,
             COMMENT_NEWS, COMMENT_COMMENT,
             SCHEDULE_ASSIGN, SCHEDULE_REMIND, SCHEDULE_OVERDUE,
             TOPIC_APPLY, TOPIC_APPROVED, TOPIC_REJECTED));

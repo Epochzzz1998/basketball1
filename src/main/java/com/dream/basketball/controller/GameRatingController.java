@@ -396,7 +396,10 @@ public class GameRatingController {
         r.setMentions(MentionUtil.resolveTextMentions(text, allNickToId()));
         r.setCreateTime(new Date());
         replyMapper.insert(r);
-        notifyMentions(r.getMentions(), me, id, text, kind);
+        // 先发「有人回复了你」，再发「有人 @ 了你」，并把已经收到回复通知的人排掉——
+        // 同一条回复既是回复又 @ 了对方时，两条通知说的是同一件事
+        java.util.Set<String> notified = notifyReply(id, target, r.getReplyToUser(), me, text, kind);
+        notifyMentions(r.getMentions(), me, id, text, kind, notified);
         return new Result<>(0, "已回复", null);
     }
 
@@ -492,6 +495,11 @@ public class GameRatingController {
      * 存短评 id 是没用的——短评没有自己的页面。
      */
     private void notifyMentions(String mentionsJson, String meId, String gameId, String text, String kind) {
+        notifyMentions(mentionsJson, meId, gameId, text, kind, java.util.Collections.emptySet());
+    }
+
+    private void notifyMentions(String mentionsJson, String meId, String gameId, String text,
+                                String kind, java.util.Set<String> skip) {
         java.util.Set<String> ids = MentionUtil.parseCommentMentionIds(mentionsJson);
         if (ids.isEmpty()) {
             return;
@@ -499,13 +507,51 @@ public class GameRatingController {
         DreamUser me = userMapper.selectById(meId);
         String myName = me == null ? "" : me.getUserNickname();
         for (String uid : ids) {
-            if (StringUtils.equals(uid, meId)) {
+            if (StringUtils.equals(uid, meId) || skip.contains(uid)) {
                 continue;
             }
             userInformationService.saveUserInformation(meId, myName, uid,
                     KIND_LOL.equals(kind) ? Constants.MENTION_LOL : Constants.MENTION_GAME,
                     gameId, "", "", "", text, "");
         }
+    }
+
+    /**
+     * 「有人回复了你的短评」——站内消息。
+     *
+     * <p>这一条以前是漏的：短评里 @ 别人会发通知，而**直接点「回复」不会**，
+     * 于是被回复的人只有自己回到那场比赛才看得见。帖子那边早就有
+     * （{@code commentComment}），赛后短评这边一直没接上。
+     *
+     * <p>两个收件人：被回复的**那条短评的作者**，以及楼中楼里被点名回复的那个人
+     * （{@code REPLY_TO_USER} 存的是用户 id，不是当时的昵称）。两者常常是同一个人，
+     * 用 {@code LinkedHashSet} 去重后各发一条。自己回自己不发——这条由
+     * {@code saveUserInformation} 统一兜住，不在这里重复判断。
+     *
+     * @return 已经收到通知的人，交给 @ 那一轮排掉，免得同一条回复发两条消息
+     */
+    private java.util.Set<String> notifyReply(String gameId, String targetId, String replyToUser,
+                                              String meId, String text, String kind) {
+        java.util.Set<String> to = new java.util.LinkedHashSet<>();
+        GameComment target = commentMapper.selectById(targetId);
+        if (target != null && StringUtils.isNotBlank(target.getUserId())) {
+            to.add(target.getUserId());
+        }
+        if (StringUtils.isNotBlank(replyToUser)) {
+            to.add(replyToUser.trim());
+        }
+        to.remove(meId);
+        if (to.isEmpty()) {
+            return to;
+        }
+        DreamUser me = userMapper.selectById(meId);
+        String myName = me == null ? "" : me.getUserNickname();
+        String type = KIND_LOL.equals(kind) ? Constants.REPLY_LOL : Constants.REPLY_GAME;
+        for (String uid : to) {
+            userInformationService.saveUserInformation(meId, myName, uid, type,
+                    gameId, "", targetId, "", text, "");
+        }
+        return to;
     }
 
     private boolean onRoster(String gameId, String playerId, String kind) {
