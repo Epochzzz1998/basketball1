@@ -106,12 +106,28 @@ public class ForumTopic extends Model<ForumTopic> implements Serializable {
     @TableField("CHAT_ENABLED")
     private String chatEnabled;
 
+    /**
+     * 文件系统开关：'1' 开 / '0' 关（默认关）。**只有超管能改**——和群聊不同，
+     * 群聊是题主自己的决定，文件系统占的是服务器的盘，开给谁由站长说了算。
+     * 开关的落点在 TopicController.update：参数收到了但调用者不是超管就直接忽略。
+     */
+    @TableField("FILES_ENABLED")
+    private String filesEnabled;
+
     public String getChatEnabled() {
         return chatEnabled;
     }
 
     public void setChatEnabled(String chatEnabled) {
         this.chatEnabled = chatEnabled;
+    }
+
+    public String getFilesEnabled() {
+        return filesEnabled;
+    }
+
+    public void setFilesEnabled(String filesEnabled) {
+        this.filesEnabled = filesEnabled;
     }
 
     /**

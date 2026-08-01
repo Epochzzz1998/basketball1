@@ -31,6 +31,7 @@ import { sectionRenderer } from '../../components/nbaSections'
 import { lolSectionRenderer } from '../../components/lolSections'
 import LolModuleEntry from '../../components/LolModuleEntry'
 import { onPostPublished } from '../../utils/postBus'
+import TopicFilesEntry from '../../components/TopicFilesEntry'
 
 /**
  * 帖子列表（公开，P5-2 内容流改版），按频道复用：
@@ -549,6 +550,7 @@ export default function NewsList({ channel = 'forum', topic = null, onApplied, n
               ]}
             />
             {isTopic && <TopicChatEntry topic={topic} />}
+            {isTopic && <TopicFilesEntry topic={topic} />}
             <span style={{ flex: 1 }} />
           </div>
 

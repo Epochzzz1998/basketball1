@@ -44,6 +44,7 @@ export default function TopicEditModal({ open, onClose, onSaved, topic, categori
         visibility: topic.visibility, openPost: topic.openPost, openComment: topic.openComment,
         listed: topic.listed !== false, categoryId: topic.categoryId || undefined,
         chatEnabled: !!topic.chatEnabled,
+        filesEnabled: !!topic.filesEnabled,
       })
       setVisibility(topic.visibility || 'public')
       setPostCats(topic.postCategories || [])
@@ -98,6 +99,9 @@ export default function TopicEditModal({ open, onClose, onSaved, topic, categori
         categoryId: v.categoryId || '', // 空串=显式设为未分类（后端据此区分"没传"和"清空"）
         chatEnabled: v.chatEnabled ? '1' : '0',
       }
+      // 文件系统开关只有超管的请求会被后端采纳；非超管干脆不发这个参数，
+      // 免得表单里残留的值把超管刚设的又盖回去
+      if (isSuper) payload.filesEnabled = v.filesEnabled ? '1' : '0'
       if (isEdit) {
         // 背景图先传：uploadBanner 自己就落库了，所以随后的 update 不带 banner 参数
         // （后端见 null 就不动这一列）。只有"点了移除且没选新图"才显式传空串
@@ -282,6 +286,19 @@ export default function TopicEditModal({ open, onClose, onSaved, topic, categori
               />
               <Button icon={<PlusOutlined />} onClick={addPostCat} disabled={!newCat.trim() || postCats.length >= 20}>添加</Button>
             </Space.Compact>
+          </Form.Item>
+        )}
+        {/* 文件系统：只有超管看得到这一行——开关本身就只有超管能动（占的是服务器的盘）。
+            题主的权限是"开了之后管理里面的内容"，不含开关 */}
+        {isEdit && isSuper && (
+          <Form.Item
+            name="filesEnabled"
+            label="文件系统"
+            valuePropName="checked"
+            extra="仅超管可开关。打开后题主可上传文件、建文件夹，能浏览本专题的人都可查看下载。"
+            style={{ marginTop: 12 }}
+          >
+            <Switch checkedChildren="已开放" unCheckedChildren="未开放" />
           </Form.Item>
         )}
         {/* 群聊：默认关，题主自己决定要不要给这个专题开一个实时房间 */}

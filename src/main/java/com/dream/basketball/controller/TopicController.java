@@ -71,6 +71,9 @@ public class TopicController {
     private ForumTopicMapper topicMapper;
     @Autowired
     private com.dream.basketball.mapper.TopicSubscriptionMapper subscriptionMapper;
+
+    @Autowired
+    private com.dream.basketball.mapper.ForumTopicFileMapper topicFileMapper;
     @Autowired
     private com.dream.basketball.mapper.TopicPinMapper pinMapper;
     @Autowired
@@ -288,6 +291,8 @@ public class TopicController {
         // 群聊：chatEnabled 是题主的总开关，canChat 是"我现在能不能进这个房间"
         m.put("chatEnabled", ON.equals(t.getChatEnabled()));
         m.put("canChat", perms.canChat(me, t));
+        // 文件系统：开关只有超管能动（见 update），但开了之后按专题可见性对成员开放
+        m.put("filesEnabled", ON.equals(t.getFilesEnabled()));
         m.put("openPost", ON.equals(t.getOpenPost()));
         m.put("openComment", ON.equals(t.getOpenComment()));
         m.put("postCount", dreamNewsMapper.selectCount(new QueryWrapper<DreamNews>().eq("TOPIC_ID", t.getTopicId())));
@@ -534,7 +539,8 @@ public class TopicController {
     @PostMapping("/update")
     public Object update(String topicId, String name, String description, String visibility,
                          String openPost, String openComment, String listed, String ownerId,
-                         String categoryId, String chatEnabled, String banner, HttpServletRequest request) {
+                         String categoryId, String chatEnabled, String filesEnabled, String banner,
+                         HttpServletRequest request) {
         DreamUser me = SecUtil.getLoginUserToSession(request);
         ForumTopic t = perms.getTopic(topicId);
         if (t == null) {
@@ -573,6 +579,12 @@ public class TopicController {
         }
         if (chatEnabled != null) {
             t.setChatEnabled(ON.equals(chatEnabled) ? ON : OFF);
+        }
+        // 文件系统开关**只认超管**。群聊是题主自己房间的事，文件占的是服务器的盘，
+        // 开给哪个专题由站长决定；题主传了这个参数就当没看见（不报错——同一个
+        // 设置弹窗题主和超管共用，报错会把题主保存别的设置一起挡掉）
+        if (filesEnabled != null && Role.fromUserRole(me.getUserRole()) == Role.SUPER_MANAGER) {
+            t.setFilesEnabled(ON.equals(filesEnabled) ? ON : OFF);
         }
         // 空串 = 明确要求"去掉背景图"，null（没传）= 不动。
         // 只接受本站上传出来的相对路径：允许填任意 URL 的话，这块会变成一个
@@ -705,6 +717,9 @@ public class TopicController {
         }
         memberMapper.delete(new QueryWrapper<ForumTopicMember>().eq("TOPIC_ID", topicId));
         subscriptionMapper.delete(new QueryWrapper<com.dream.basketball.entity.TopicSubscription>().eq("TOPIC_ID", topicId));
+        // 文件系统一起收走：DB 行 + 磁盘目录。TARGET 上没有外键，不清就是孤儿
+        topicFileMapper.delete(new QueryWrapper<com.dream.basketball.entity.ForumTopicFile>().eq("TOPIC_ID", topicId));
+        com.dream.basketball.utils.FileUtils.deleteUploadFolder(uploadPath, "topicfs-" + topicId);
         topicMapper.deleteById(topicId);
         return new Result<>(0, "已删除", null);
     }
