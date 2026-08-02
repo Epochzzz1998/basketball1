@@ -78,7 +78,10 @@ export default function LolMatchDetail({ matchId, open, onClose }) {
   return isMobile ? (
     <Drawer
       placement="bottom"
-      height="90%"
+      // 全屏而不是 90%：留一条背景在顶上，手指一搭就把焦点给了背景页，
+      // 横滑宽表时背景跟着动、抽屉里反而滑不动。盖满整屏就没有这个入口
+      height="100%"
+      rootClassName="drawer-fullscreen"
       open={open}
       onClose={onClose}
       title={title}

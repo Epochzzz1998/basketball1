@@ -212,7 +212,9 @@ export default function LolPlayerCard({ userId, initialPuuid, days, open, onClos
 
   return isMobile ? (
     <>
-      <Drawer placement="bottom" height="90%" open={open} onClose={onClose} title={title}
+      {/* 全屏，理由同 LolMatchDetail：90% 留的那条背景就是「焦点跑到背景」的入口 */}
+      <Drawer placement="bottom" height="100%" rootClassName="drawer-fullscreen"
+        open={open} onClose={onClose} title={title}
         styles={{ body: { padding: '10px 12px 16px' } }}>
         {body}
       </Drawer>

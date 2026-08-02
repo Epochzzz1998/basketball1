@@ -458,3 +458,9 @@ body {
   font-style: normal;
   color: #c4c4c4;
 }
+
+/* 全屏抽屉（LoL 对局详情 / 账号资料卡）：盖满整屏之后头部要给刘海让位，
+   否则关闭按钮和标题顶进状态栏里点不到 */
+.drawer-fullscreen .ant-drawer-header {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 12px);
+}
