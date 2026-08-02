@@ -464,3 +464,9 @@ body {
 .drawer-fullscreen .ant-drawer-header {
   padding-top: calc(env(safe-area-inset-top, 0px) + 12px);
 }
+
+/* 抽屉内容滚到尽头后不把滚动传染给（已锁死的）背景页——
+   iOS 上这种链式滚动表现为"到顶再拉一下，整个抽屉跟着橡皮筋" */
+.drawer-fullscreen .ant-drawer-body {
+  overscroll-behavior: contain;
+}

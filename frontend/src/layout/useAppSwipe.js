@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { TABS, tabIndexOf } from './mobileNav'
 import { useGoBack } from '../components/backNav'
+import { inOverlay } from '../utils/overlay'
 
 /**
  * 移动端的左右滑手势。
@@ -67,8 +68,7 @@ const EDGE = 30
  * 这条在数据页整类被排除的时候不需要——那时那些页面上的弹层顺带也被挡住了。
  * 放开数据页之后它就成了必需的。
  */
-const inOverlay = (el) => !!(el && typeof el.closest === 'function'
-  && el.closest('.ant-drawer, .ant-modal-wrap, .ant-modal-mask, .ant-image-preview-wrap'))
+// 判定挪去 utils/overlay 和下拉刷新共用——两个 window 级手势各记一份名单迟早漂移
 
 /** 手指落点所在的横向滚动容器；没有则返回 null */
 const horizontalScrollerAt = (el) => {

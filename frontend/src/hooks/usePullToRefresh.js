@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { inOverlay } from '../utils/overlay'
 
 /**
  * 下拉刷新（移动端）。
@@ -33,7 +34,9 @@ export default function usePullToRefresh(onRefresh, enabled = true) {
     const atTop = () => (window.scrollY || document.documentElement.scrollTop || 0) <= 0
 
     const onStart = (e) => {
-      if (refreshing || !atTop()) {
+      // 浮层里不接管（见 utils/overlay 的说明）：抽屉开着时背景页滚动被锁死，
+      // atTop() 恒为真，不挡的话抽屉里所有往下的手指移动都会被这里劫走
+      if (refreshing || !atTop() || inOverlay(e.target)) {
         active.current = false
         return
       }
