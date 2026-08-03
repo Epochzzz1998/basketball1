@@ -2,12 +2,10 @@ package com.dream.basketball.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.dream.basketball.common.Result;
-import com.dream.basketball.entity.DreamPlayer;
 import com.dream.basketball.entity.DreamUser;
 import com.dream.basketball.esEntity.News;
 import com.dream.basketball.mapper.UserMapper;
 import com.dream.basketball.service.NewsService;
-import com.dream.basketball.service.PlayerService;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,9 +27,6 @@ import static com.dream.basketball.utils.Constants.NEWS_CHANNEL_OFFICIAL;
 @RestController
 @RequestMapping("/search")
 public class SearchController {
-
-    @Autowired
-    private PlayerService playerService;
 
     @Autowired
     private NewsService newsService;
@@ -80,22 +75,13 @@ public class SearchController {
         boolean featNews = com.dream.basketball.utils.Constants.NEWS_MODULE_ENABLED
                 && (meFresh == null || isSuper || !"0".equals(meFresh.getFeatNews()));
 
-        // 球员：按名字模糊（仅当 Dream Union 对本人开放）。
-        // PLAYER_NAME 已汉化、NAME_EN 存英文名——两列都命中，中英文都能搜到
-        List<Map<String, Object>> players = new ArrayList<>();
-        if (featData) {
-            for (DreamPlayer p : playerService.list(new QueryWrapper<DreamPlayer>()
-                    .and(w -> w.like("PLAYER_NAME", kw).or().like("NAME_EN", kw))
-                    .last("limit " + GROUP_LIMIT))) {
-                Map<String, Object> m = new HashMap<>();
-                m.put("playerId", p.getPlayerId());
-                m.put("playerName", p.getPlayerName());
-                m.put("nameEn", p.getNameEn());
-                m.put("playerNumber", p.getPlayerNumber());
-                m.put("photo", p.getPhoto()); // 有照片就在结果里出头像（超管在球员管理里上传）
-                players.add(m);
-            }
-        }
+        // 球员：中文名 / 英文名 / 外号模糊（仅当 Dream Union 对本人开放）。
+        // 走的是发帖 @球员 那条 mapper——名次规则（整名或外号精确的排最前，其余按生涯总得分）
+        // 全站只能有一份。这儿原来是自己拼的无序 limit 6：搜"詹姆斯"（命中 37 人）勒布朗排第三，
+        // 搜"库里"斯蒂芬排第四，而 @球员 那条早把这个坑填了，只是没人把两边并起来。
+        List<Map<String, Object>> players = featData
+                ? playerMapper.searchMentionPlayers(kw, GROUP_LIMIT)
+                : new ArrayList<>();
         data.put("players", players);
 
         // 新闻 / 资讯：ES 相关度前 N（标题前缀加权）。论坛结果滤掉无权浏览的私密/不可见专题帖（防泄露）

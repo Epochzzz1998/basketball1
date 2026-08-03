@@ -506,21 +506,35 @@
         order by s.SEASON_NUM desc
     </select>
 
-    <!-- 发帖 @球员 的候选列表。排序是这里的重点：光按名字模糊匹配，"库里"会先出埃迪·库里，
-         真正想 @ 的斯蒂芬·库里排在第四。所以左连生涯总数按总得分排——名气在这张表里就是得分。
-         同一个 PLAYER_ID 偶有两条 B-R 记录（同名合并），group by 收成一行取最大值。 -->
+    <!-- 球员搜索候选：顶栏全局搜索、球员对比选人、发帖 @球员 三处共用这一条。
+         排序是这里的重点：光按名字模糊匹配，"库里"会先出戴尔/迈克尔/塞斯，
+         真正想要的斯蒂芬排在第四。所以左连生涯总数按总得分排——名气在这张表里就是得分。
+         （全局搜索曾经自己写了一份无序 limit，搜"詹姆斯"勒布朗排第三——同一条规则
+         写两份只修一份的老毛病，现在只留这一份。）
+
+         别名（外号）也在这儿并进来：`字母哥` 和 `阿德托昆博` 既不同字也不同音，
+         任何相似度算法都连不上，只能查表。表小（几百行），子查询全表扫也是廉价的。
+         同一个 PLAYER_ID 偶有两条 B-R 记录（同名合并）、一个人可能有多个外号，
+         两个 left join 都会放大行数，group by 收成一行、聚合一律取 max。 -->
     <select id="searchMentionPlayers" resultType="java.util.Map">
         select p.PLAYER_ID as playerId, p.PLAYER_NAME as playerName, p.NAME_EN as nameEn,
-               p.PHOTO as photo, max(c.FIRST_YEAR) as firstYear, max(c.LAST_YEAR) as lastYear
+               p.PLAYER_NUMBER as playerNumber, p.PHOTO as photo,
+               max(c.FIRST_YEAR) as firstYear, max(c.LAST_YEAR) as lastYear
         from dream_player p
         left join nba_career_totals c on c.PLAYER_ID = p.PLAYER_ID
+        left join player_alias a on a.PLAYER_ID = p.PLAYER_ID
         <if test="kw != null and kw != ''">
-            where p.PLAYER_NAME like concat('%', #{kw}, '%') or p.NAME_EN like concat('%', #{kw}, '%')
+            where p.PLAYER_NAME like concat('%', #{kw}, '%')
+               or p.NAME_EN like concat('%', #{kw}, '%')
+               or a.ALIAS like concat('%', #{kw}, '%')
         </if>
-        group by p.PLAYER_ID, p.PLAYER_NAME, p.NAME_EN, p.PHOTO
-        <!-- 整名相等的排最前（打全名就是要这个人），其余一律看生涯得分。
+        group by p.PLAYER_ID, p.PLAYER_NAME, p.NAME_EN, p.PLAYER_NUMBER, p.PHOTO
+        <!-- 整名相等、或外号打全了的排最前（打全名就是要这个人），其余一律看生涯得分。
+             外号那一半不能省：`AD` 这种两字母外号，NAME_EN 里 like '%AD%' 能扫出一堆
+             （Adebayo、Radja…），不给精确命中加权，戴维斯会被得分更高的人挤下去。
              不要加"前缀命中优先"：搜"詹姆斯"会把八个叫 James X 的排到勒布朗前面 -->
-        order by (p.PLAYER_NAME = #{kw}) desc, ifnull(max(c.PTS), 0) desc
+        order by (p.PLAYER_NAME = #{kw} or ifnull(max(a.ALIAS = #{kw}), 0) = 1) desc,
+                 ifnull(max(c.PTS), 0) desc
         limit #{limit}
     </select>
 
@@ -574,10 +588,15 @@
         1=1
         <!-- fuzzy name search (player search box); #{} binding keeps it injection-safe.
              PLAYER_NAME is the localized display name, NAME_EN the permanent English one —
-             match both so Chinese and English queries work after localization -->
+             match both so Chinese and English queries work after localization.
+             player_alias carries nicknames, which no similarity rule can derive from either
+             name. This is a WHERE fragment shared by five queries, so the alias match has to
+             be a subquery rather than the join searchMentionPlayers uses. -->
         <if test="param.playerName != null and param.playerName !=''">
              and (t.PLAYER_NAME like CONCAT('%', #{param.playerName}, '%')
-                  or t.NAME_EN like CONCAT('%', #{param.playerName}, '%'))
+                  or t.NAME_EN like CONCAT('%', #{param.playerName}, '%')
+                  or t.PLAYER_ID in (select a.PLAYER_ID from player_alias a
+                                     where a.ALIAS like CONCAT('%', #{param.playerName}, '%')))
         </if>
         <if test="param.playerId != null and param.playerId !=''">
             and t.PLAYER_ID = #{param.playerId}

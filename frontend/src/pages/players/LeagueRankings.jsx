@@ -6,7 +6,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { playerApi } from '../../api/player'
 import { teamApi } from '../../api/team'
 import { HONOR_GROUPS } from './honorConfig'
-import { ADVANCED_STATS, LATEST_SEASON, NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, RANKING_STATS, filterByPosition, fmtAdv, fmtDelta, fmtNum, fmtPct, fmtTeamChainZh, honorEligible, numOrNull, playoffRecord, qualifiedBoard } from './rankConfig'
+import { ADVANCED_STATS, LATEST_SEASON, NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, RANKING_STATS, filterByPosition, fmtAdv, fmtDelta, fmtNum, fmtPct, fmtTeamChainZh, honorEligible, numOrNull, playoffRecord, qualifiedBoard, withValue } from './rankConfig'
 import { compactColumns, rankCardFields, sumColWidth } from './statColumns'
 import { GlossaryButton, GlossaryTip } from './statGlossary'
 import PositionFilter from './PositionFilter'
@@ -37,7 +37,7 @@ function StatRankCard({ stat, seasonNum, stage, pos }) {
         const list = r.records || []
         // 先按资格线取池子再筛位置：反过来会让补场规则的基准变成"该位置最好成绩"
         const board = stage === 'po' ? list : qualifiedBoard(list, stat.field, seasonNum)
-        setRows(filterByPosition(board, pos).slice(0, 10))
+        setRows(withValue(filterByPosition(board, pos), stat.field).slice(0, 10))
       })
       .catch(() => { if (alive) setRows([]) })
     return () => { alive = false }

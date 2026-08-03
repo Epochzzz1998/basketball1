@@ -3,7 +3,7 @@ import { ProTable } from '@ant-design/pro-components'
 import { Button } from 'antd'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { playerApi } from '../../api/player'
-import { ADVANCED_STATS, DRILL_ONLY_STATS, RANKING_STATS, fmtAdv, fmtNum, fmtPct, LATEST_SEASON, qualifiedBoard, filterByPosition } from './rankConfig'
+import { ADVANCED_STATS, DRILL_ONLY_STATS, RANKING_STATS, fmtAdv, fmtNum, fmtPct, LATEST_SEASON, qualifiedBoard, filterByPosition, withValue } from './rankConfig'
 import SeasonPicker from '../../components/SeasonPicker'
 import useIsMobile from '../../hooks/useIsMobile'
 import { ADVANCED_TABLE_FIELDS, BASIC_TABLE_FIELDS, buildFullStatColumns, buildAdvancedStatColumns, HONOR_COLUMN_KEYS, compactColumns, sumColWidth } from './statColumns'
@@ -107,7 +107,7 @@ export default function RankingDetail() {
           })
           // 常规赛套 58 场资格线（含补场规则）；季后赛不设。位置筛在资格线之后
           const board = stage === 'po' ? (res.records || []) : qualifiedBoard(res.records || [], stat.field, seasonNum)
-          const list = filterByPosition(board, params.pos)
+          const list = withValue(filterByPosition(board, params.pos), stat.field)
           return { data: list, total: list.length, success: true }
         }}
       />

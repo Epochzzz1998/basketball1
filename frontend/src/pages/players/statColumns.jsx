@@ -64,6 +64,10 @@ export function buildFullStatColumns({ serverSort = true } = {}) {
     { title: '抢断', dataIndex: 'playerAvgSteal', width: 48, ...srt, render: (v) => num(v) },
     { title: '失误', dataIndex: 'playerAvgTurnover', width: 48, ...srt, render: (v) => num(v) },
     { title: '犯规', dataIndex: 'playerAvgPf', width: 48, ...srt, render: (v) => num(v) },
+    // 正负值是基础数据，不是高阶指标（NBA 官方 box score 里就有这一列）。它一度只挂在高阶视图下，
+    // 纯粹是因为当时只有季后赛拿得到：赛季汇总表没有这一项，只能靠逐场累加。常规赛逐场入库后
+    // 1997 起每季都有（B-R 1997 才开始记正负值，1996 及更早整列为空，和 1980 前没三分同理）。
+    { title: '正负值', dataIndex: 'playerAvgPn', width: 62, ...srt, render: (v) => num(v) },
     { title: '效率值', dataIndex: 'playerPer', width: 78, ...srt, render: (v) => num(v) },
     { title: 'MVP', dataIndex: 'mvpRank', width: 50, ...srt },
     { title: 'DPOY', dataIndex: 'dpoyRank', width: 56, ...srt },
@@ -112,9 +116,8 @@ export function buildAdvancedStatColumns() {
     // 出场场次不在这儿重复——基础表已经有「首发/出场」。时间留着：使用率、篮板率
     // 这些率值得配上场时间才读得懂
     { title: '时间', dataIndex: 'playingTime', width: 48, render: (v) => num(v) },
-    // 正负值季后赛和常规赛都有了：赛季汇总表本来就没有这项，只能靠逐场累加，
-    // 常规赛的逐场数据补到哪一季，这一列就有到哪一季（更早的留空，和 1980 前没三分同理）
-    { title: '正负值', dataIndex: 'playerAvgPn', width: 62, render: (v) => num(v) },
+    // 正负值不在这儿——它已经回到基础表（见 buildFullStatColumns）。两个视图之间不重复列，
+    // 只有「时间」是例外，因为使用率、篮板率这些率值不配上场时间读不懂。
     ...ADVANCED_STATS.map((a) => ({
       title: a.label,
       dataIndex: a.field,

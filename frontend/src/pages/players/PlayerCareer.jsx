@@ -84,12 +84,12 @@ function HonorShelf({ honors }) {
 }
 
 /** 逐季表的高阶列：赛季/球队/出场打头，后面接共享的高阶指标定义 */
-const advSeasonColumns = (po) => withGlossary([
+const advSeasonColumns = () => withGlossary([
   { title: '赛季', dataIndex: 'seasonNum', width: 64, fixed: 'left', render: (s) => (s === CAREER_SEASON ? '生涯' : seasonShort(s)) },
   { title: '球队', dataIndex: 'playerTeam', width: 78, render: (v) => <TeamNames value={v} /> },
   // 出场不重复（基础表的「首发/出场」已有），时间留着——率值要配上场时间才读得懂
   { title: '时间', dataIndex: 'playingTime', width: 48, render: (v) => num(v) },
-  ...(po ? [{ title: '正负值', dataIndex: 'playerAvgPn', width: 62, render: (v) => num(v) }] : []),
+  // 正负值原来只在这儿、还只对季后赛开（常规赛那时拿不到），现在两张基础表都有了，这里不重复
   ...ADVANCED_STATS.map((a) => ({
     title: a.label,
     dataIndex: a.field,
@@ -124,6 +124,8 @@ function CareerTable({ playerId }) {
     { title: '抢断', dataIndex: 'playerAvgSteal', width: 48, render: (v) => num(v) },
     { title: '失误', dataIndex: 'playerAvgTurnover', width: 48, render: (v) => num(v) },
     { title: '犯规', dataIndex: 'playerAvgPf', width: 48, render: (v) => num(v) },
+    // 常规赛的正负值来自逐场累加（赛季汇总表没这项），1997 起有值，更早的整季留空
+    { title: '正负值', dataIndex: 'playerAvgPn', width: 62, render: (v) => num(v) },
     { title: '效率值', dataIndex: 'playerPer', width: 78, render: (v) => num(v) },
     { title: 'MVP', dataIndex: 'mvpRank', width: 50 },
     { title: 'DPOY', dataIndex: 'dpoyRank', width: 56 },
@@ -131,7 +133,7 @@ function CareerTable({ playerId }) {
     { title: '最佳防守', dataIndex: 'allDefTeam', width: 72 },
   ]
 
-  const columns = view === 'adv' ? advSeasonColumns(false) : basicColumns
+  const columns = view === 'adv' ? advSeasonColumns() : basicColumns
   const cols = isMobile ? compactColumns(columns) : columns
   return (
     <>
@@ -205,10 +207,11 @@ function PlayoffTable({ playerId }) {
     { title: '抢断', dataIndex: 'playerAvgSteal', width: 48, render: (v) => num(v) },
     { title: '失误', dataIndex: 'playerAvgTurnover', width: 48, render: (v) => num(v) },
     { title: '犯规', dataIndex: 'playerAvgPf', width: 48, render: (v) => num(v) },
+    { title: '正负值', dataIndex: 'playerAvgPn', width: 62, render: (v) => num(v) },
     { title: '效率值', dataIndex: 'playerPer', width: 78, render: (v) => num(v) },
   ]
 
-  const columns = view === 'adv' ? advSeasonColumns(true) : basicColumns
+  const columns = view === 'adv' ? advSeasonColumns() : basicColumns
   const cols = isMobile ? compactColumns(columns) : columns
   return (
     <>

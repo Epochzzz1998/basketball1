@@ -251,6 +251,13 @@ export const inPositionGroup = (row, group) =>
 export const filterByPosition = (rows, group) =>
   !group || group === 'all' ? (rows || []) : (rows || []).filter((r) => inPositionGroup(r, group))
 
+/**
+ * 这一项没有数据的行不进榜。MySQL 的 `order by ... desc` 把 NULL 排在最后，所以
+ * 数据源整季缺这一项时（1996 及更早没有正负值），榜单会排出十个 "-" 来——看着像
+ * 十个人并列，其实是这一项那年根本不存在。榜单卡和完整排行共用这一条。
+ */
+export const withValue = (rows, field) => (rows || []).filter((r) => r?.[field] != null)
+
 
 /**
  * 生涯总数的项：资料卡的生涯总数块、历史总榜、历史球员最小档案共用这一份。
@@ -468,6 +475,7 @@ export const RANKING_STATS = [
   { field: 'playerPer', label: '效率值', note: '得分+板+助+断+帽−打铁−失误' },
   { field: 'playerAvgTurnover', label: '失误', note: '场均最多' },
   { field: 'playerAvgPf', label: '犯规', note: '场均最多' },
-  // 正负值只有季后赛有（赛季级别的数据源没有，逐场累加目前只覆盖季后赛）
-  { field: 'playerAvgPn', label: '正负值', poOnly: true, note: '仅季后赛' },
+  // 正负值靠逐场累加（赛季级别的数据源没有）。常规赛逐场入库后 1997 起每季都排得出来，
+  // 1996 及更早整季没有这项数据，那些年份这张卡是空的——不是没人合格，是数据源就没有。
+  { field: 'playerAvgPn', label: '正负值', note: '1997 赛季起' },
 ]
