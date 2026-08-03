@@ -54,7 +54,8 @@ DOMAINS = OrderedDict([
     ]),
     ('日程', ['schedule_event', 'schedule_recur_done']),
     ('NBA 数据', [
-        'dream_player', 'player_stats', 'player_playoff_stats', 'player_playoff_round_stats',
+        'dream_player', 'player_alias', 'player_stats', 'player_playoff_stats',
+        'player_playoff_round_stats',
         'player_game_stats', 'game_absence', 'game_period_score',
         'team_season', 'season_award', 'nba_career_totals', 'nba_draft',
     ]),
@@ -107,6 +108,7 @@ RELATIONS = {
         'schedule_event ||--o{ schedule_recur_done : "循环日程按日完成"',
     ],
     'NBA 数据': [
+        'dream_player ||--o{ player_alias : "外号/别名,检索用"',
         'dream_player ||--o{ player_stats : "常规赛逐季(99=生涯)"',
         'dream_player ||--o{ player_playoff_stats : "季后赛逐季"',
         'dream_player ||--o{ player_playoff_round_stats : "季后赛分轮次"',
