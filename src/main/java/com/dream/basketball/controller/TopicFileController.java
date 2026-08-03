@@ -54,10 +54,13 @@ import static com.dream.basketball.entity.ForumTopicFile.KIND_FOLDER;
  *
  * <h2>存储复用评论附件那一套</h2>
  *
- * 文件落在 {@code {uploadPath}/topicfs-{topicId}/}，走 {@link FileUtils#uploadAttachment}：
- * 同样的类型白名单（图片+常见文档，挡 html/svg/exe）、同样的 30MB 上限、同样的内容寻址
- * （同一个文件重复上传只落一份盘）。目录名和文件名都是猜不到的，私密专题的文件不会
- * 因为 URL 泄露而被翻出来——和私信附件同一个安全口径。
+ * 文件落在 {@code {uploadPath}/topicfs-{topicId}/}，走 {@link FileUtils#uploadTopicFile}：
+ * 同样的 30MB 上限、同样的内容寻址（同一个文件重复上传只落一份盘），但类型规则是
+ * **黑名单**而不是评论附件那份白名单——文件系统的用途就是「什么文件都能放」，
+ * 白名单每加一种格式都要改代码。挡掉的只有两类：浏览器会当文档执行的（html/svg/xml…，
+ * 上传目录是静态直出的，那就是我们域名下的储存型 XSS）和双击即执行的（exe/bat/vbs…）。
+ * 目录名和文件名都是猜不到的，私密专题的文件不会因为 URL 泄露而被翻出来——和私信附件
+ * 同一个安全口径。
  *
  * <h2>没有「移动」</h2>
  *
@@ -276,7 +279,7 @@ public class TopicFileController {
         }
         String url;
         try {
-            url = FileUtils.uploadAttachment(file, uploadPath, "topicfs-" + t.getTopicId());
+            url = FileUtils.uploadTopicFile(file, uploadPath, "topicfs-" + t.getTopicId());
         } catch (IllegalArgumentException e) {
             return new Result<>(1, e.getMessage(), null);
         } catch (IOException e) {

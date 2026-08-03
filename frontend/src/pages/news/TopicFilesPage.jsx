@@ -2,9 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button, Card, Empty, Input, Modal, Popconfirm, Spin, Upload, message } from 'antd'
 import {
-  ArrowLeftOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, FileImageOutlined, FileOutlined,
-  FilePdfOutlined, FileTextOutlined, FileZipOutlined, FolderAddOutlined, FolderFilled,
-  FolderOpenOutlined, UploadOutlined,
+  ArrowLeftOutlined, CodeOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, FileImageOutlined,
+  FileOutlined, FilePdfOutlined, FileTextOutlined, FileZipOutlined, FolderAddOutlined, FolderFilled,
+  FolderOpenOutlined, PlayCircleOutlined, UploadOutlined,
 } from '@ant-design/icons'
 import { topicApi } from '../../api/topic'
 import { topicFileApi } from '../../api/topicFile'
@@ -41,13 +41,20 @@ const fmtDate = (v) => {
   return `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}`
 }
 
-/** 扩展名 → 图标。分四类就够了：图 / pdf / 文本表格 / 压缩包，其余给通用文件 */
+/**
+ * 扩展名 → 图标。分六类：图 / pdf / 文本表格 / 数据代码 / 音视频 / 压缩包，其余给通用文件。
+ * 这里只影响图标，认不出来的一律落到通用文件图标——后端放行的格式没有上限（黑名单制），
+ * 所以这份表**不需要**跟后端保持同步，也不该试图穷举。
+ */
 const fileIcon = (name) => {
   const ext = String(name || '').split('.').pop().toLowerCase()
-  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext)) return <FileImageOutlined style={{ color: '#4a8fe0' }} />
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'heic', 'tif', 'tiff'].includes(ext)) return <FileImageOutlined style={{ color: '#4a8fe0' }} />
   if (ext === 'pdf') return <FilePdfOutlined style={{ color: '#e5533d' }} />
-  if (['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv', 'md'].includes(ext)) return <FileTextOutlined style={{ color: '#52a35a' }} />
-  if (['zip', 'rar', '7z'].includes(ext)) return <FileZipOutlined style={{ color: '#b58a2f' }} />
+  if (['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv', 'tsv', 'md', 'rtf', 'odt', 'ods', 'odp', 'epub'].includes(ext)) return <FileTextOutlined style={{ color: '#52a35a' }} />
+  if (['json', 'yaml', 'yml', 'toml', 'ini', 'conf', 'properties', 'log', 'sql', 'py', 'java', 'js', 'ts',
+    'tsx', 'jsx', 'css', 'go', 'rs', 'rb', 'c', 'h', 'cpp', 'cs', 'kt', 'swift', 'sh'].includes(ext)) return <CodeOutlined style={{ color: '#7a5af0' }} />
+  if (['mp3', 'wav', 'flac', 'aac', 'm4a', 'mp4', 'mov', 'mkv', 'webm', 'avi'].includes(ext)) return <PlayCircleOutlined style={{ color: '#d4437e' }} />
+  if (['zip', 'rar', '7z', 'tar', 'gz', 'tgz', 'bz2', 'xz'].includes(ext)) return <FileZipOutlined style={{ color: '#b58a2f' }} />
   return <FileOutlined style={{ color: '#8c8c8c' }} />
 }
 
@@ -139,7 +146,7 @@ export default function TopicFilesPage() {
       }
       if (fails.length) {
         message.warning({
-          content: `${ok} 个成功，${fails.length} 个失败（类型不支持或超 30MB）：${fails.slice(0, 3).join('、')}${fails.length > 3 ? '…' : ''}`,
+          content: `${ok} 个成功，${fails.length} 个失败（超 30MB，或是网页脚本/可执行文件）：${fails.slice(0, 3).join('、')}${fails.length > 3 ? '…' : ''}`,
           key, duration: 6,
         })
       } else {

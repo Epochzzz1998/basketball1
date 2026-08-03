@@ -28,10 +28,38 @@ public class FileUtils {
 
     private static final Set<String> ALLOWED_EXTENSIONS = new HashSet<>(Arrays.asList(
             "jpg", "jpeg", "png", "gif", "webp", "bmp"));
-    // Comment file attachments: images + common documents/archives. Deliberately excludes
-    // html/svg/js/jsp/exe/sh etc. (stored-XSS / executable) — same defensive stance as images.
+    // Comment file attachments: images + common documents/archives/plain data. Deliberately
+    // excludes html/svg/jsp/exe etc. (stored-XSS / executable) — same stance as images.
     private static final Set<String> ALLOWED_DOC_EXTENSIONS = new HashSet<>(Arrays.asList(
-            "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "csv", "md", "zip", "rar", "7z"));
+            "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "csv", "md", "zip", "rar", "7z",
+            "json", "yaml", "yml", "log", "tsv", "rtf", "odt", "ods", "odp", "epub"));
+
+    /**
+     * 专题文件系统改用**黑名单**：它的用途本来就是「什么文件都能放」，白名单每加一种
+     * 格式就要改一次代码，而真正需要拦的其实只有两类。
+     *
+     * <p>第一类是**我们自己域名下会被浏览器当成文档执行的**。上传目录由静态资源处理器
+     * 直接对外服务（{@code ImgConfigurer}），Content-Type 完全由扩展名决定，所以一个
+     * .html 或 .svg 就是我们域名下的储存型 XSS——这不是「不常见」，是危险。
+     * 服务端脚本的扩展名（.php/.jsp…）我们的服务器不执行，但上传目录哪天被别的
+     * web server 挂出去就会，留着不花钱。
+     *
+     * <p>第二类是**双击就中招的 Windows 可执行/脚本**。文件 URL 是无鉴权的，不值得
+     * 让站点变成马场。.apk/.dmg/.deb/.jar 这类开发产物**不在**名单里，是有意放开的
+     * ——本站自己就在分发 APK。
+     *
+     * <p>没有扩展名的文件（README、Makefile）也放行，落盘时补 .bin。
+     */
+    private static final Set<String> DANGEROUS_EXTENSIONS = new HashSet<>(Arrays.asList(
+            // 浏览器直接渲染成文档、能跑脚本
+            "html", "htm", "xhtml", "xht", "shtml", "svg", "svgz",
+            "xml", "xsl", "xslt", "mht", "mhtml", "swf",
+            // 服务端脚本名
+            "jsp", "jspx", "jspf", "jsw", "jsv", "php", "php3", "php4", "php5", "phtml",
+            "asp", "aspx", "ascx", "asa", "cer", "cshtml", "cgi",
+            // 双击即执行（Windows 为主）
+            "exe", "dll", "msi", "bat", "cmd", "com", "scr", "pif", "hta",
+            "vbs", "vbe", "wsf", "wsh", "ps1", "psm1", "reg", "lnk"));
     private static final long MAX_FILE_SIZE = 10L * 1024 * 1024; // 10MB (images)
     private static final long MAX_BANNER_SIZE = 20L * 1024 * 1024; // 20MB (topic banners — full-bleed wallpapers)
     private static final long MAX_ATTACHMENT_SIZE = 30L * 1024 * 1024; // 30MB (comment files)
@@ -61,7 +89,8 @@ public class FileUtils {
      * @throws IOException              storage failure
      */
     public static String upload(MultipartFile file, String uploadPath, String folderKey) throws IOException {
-        return store(file, uploadPath, folderKey, ALLOWED_EXTENSIONS, MAX_FILE_SIZE, "仅允许图片 " + ALLOWED_EXTENSIONS);
+        return store(file, uploadPath, folderKey, ALLOWED_EXTENSIONS::contains, MAX_FILE_SIZE,
+                "仅允许图片 " + ALLOWED_EXTENSIONS);
     }
 
     /**
@@ -72,7 +101,8 @@ public class FileUtils {
      * cap only changes which files get rejected outright.
      */
     public static String uploadBanner(MultipartFile file, String uploadPath, String folderKey) throws IOException {
-        return store(file, uploadPath, folderKey, ALLOWED_EXTENSIONS, MAX_BANNER_SIZE, "仅允许图片 " + ALLOWED_EXTENSIONS);
+        return store(file, uploadPath, folderKey, ALLOWED_EXTENSIONS::contains, MAX_BANNER_SIZE,
+                "仅允许图片 " + ALLOWED_EXTENSIONS);
     }
 
     /**
@@ -82,12 +112,24 @@ public class FileUtils {
     public static String uploadAttachment(MultipartFile file, String uploadPath, String folderKey) throws IOException {
         Set<String> allowed = new HashSet<>(ALLOWED_EXTENSIONS);
         allowed.addAll(ALLOWED_DOC_EXTENSIONS);
-        return store(file, uploadPath, folderKey, allowed, MAX_ATTACHMENT_SIZE, "支持图片与常见文档 " + allowed);
+        return store(file, uploadPath, folderKey, allowed::contains, MAX_ATTACHMENT_SIZE,
+                "支持图片与常见文档 " + allowed);
     }
 
-    /** Validate (non-empty / size / extension whitelist) then store with a random name; returns the URL. */
+    /**
+     * Store a topic file-system file. Same hardening as {@link #upload}, but the extension rule is
+     * a **denylist** ({@link #DANGEROUS_EXTENSIONS}) instead of a whitelist — a file system whose
+     * point is arbitrary files cannot enumerate its formats in advance.
+     */
+    public static String uploadTopicFile(MultipartFile file, String uploadPath, String folderKey) throws IOException {
+        return store(file, uploadPath, folderKey, ext -> !DANGEROUS_EXTENSIONS.contains(ext),
+                MAX_ATTACHMENT_SIZE, "网页脚本与可执行文件不能上传（" + DANGEROUS_EXTENSIONS.size() + " 种）");
+    }
+
+    /** Validate (non-empty / size / extension rule) then store with a random name; returns the URL. */
     private static String store(MultipartFile file, String uploadPath, String folderKey,
-                                Set<String> allowedExt, long maxSize, String typeHint) throws IOException {
+                                java.util.function.Predicate<String> extAllowed, long maxSize,
+                                String typeHint) throws IOException {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("上传文件为空");
         }
@@ -95,7 +137,7 @@ public class FileUtils {
             throw new IllegalArgumentException("文件过大，最大 " + (maxSize / 1024 / 1024) + "MB");
         }
         String ext = safeExtension(file.getOriginalFilename());
-        if (!allowedExt.contains(ext)) {
+        if (!extAllowed.test(ext)) {
             throw new IllegalArgumentException("不支持的文件类型，" + typeHint);
         }
         // path-traversal-safe folder segment; the filename is always server-generated
@@ -111,7 +153,9 @@ public class FileUtils {
         // 文件名 = 内容指纹。同一个文件重复上传只会落一份盘，天然去重。
         // 加盐是为了让名字仍然猜不到：直接用内容哈希的话，谁手里有同一张图就能拼出 URL
         // 去探测"这张图是不是被发过"，私信附件尤其不该泄露这个。
-        String safeName = contentName(bytes) + "." + ext;
+        // 没有扩展名的文件（README、Makefile，只有黑名单那条路放得进来）补 .bin：
+        // 空扩展名会拼出 "xxxx." 这种带尾点的名字。显示名在库里另存，不受影响。
+        String safeName = contentName(bytes) + "." + (ext.isEmpty() ? "bin" : ext);
 
         File dir = safeFolder.isEmpty() ? new File(uploadPath) : new File(uploadPath, safeFolder);
         if (!dir.exists() && !dir.mkdirs()) {
