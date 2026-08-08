@@ -1,5 +1,7 @@
 package com.dream.basketball.utils;
 
+import com.dream.basketball.storage.UploadStore;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
@@ -7,7 +9,9 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -64,11 +68,41 @@ public class FileUtils {
     private static final long MAX_BANNER_SIZE = 20L * 1024 * 1024; // 20MB (topic banners — full-bleed wallpapers)
     private static final long MAX_ATTACHMENT_SIZE = 30L * 1024 * 1024; // 30MB (comment files)
 
+    /**
+     * 扩展名 → 真实 MIME 类型。**只有图片在这张表里**，其余一律 octet-stream。
+     *
+     * <p>分界线不是「安不安全」而是「要不要在浏览器里直接显示」：图片要能被
+     * {@code <img src>} 渲染，所以必须给真类型；其它一切没有内联显示的需求，
+     * 那就一律标成「一坨不知道是什么的字节」，浏览器对它只有一个反应——下载。
+     */
+    private static final Map<String, String> IMAGE_TYPES = new HashMap<>();
+
+    static {
+        IMAGE_TYPES.put("jpg", "image/jpeg");
+        IMAGE_TYPES.put("jpeg", "image/jpeg");
+        IMAGE_TYPES.put("png", "image/png");
+        IMAGE_TYPES.put("gif", "image/gif");
+        IMAGE_TYPES.put("webp", "image/webp");
+        IMAGE_TYPES.put("bmp", "image/bmp");
+    }
+
     /** URL prefix that ImgConfigurer maps to the upload dir (e.g. /picImg/). */
     private static String picPath;
 
     /** 文件名指纹的盐：外置，改了只影响新文件的去重命中，不影响已有链接 */
     private static String hashSalt = "dream-upload";
+
+    /**
+     * 存储后端。静态注入是为了不动那 7 个上传调用点的签名——它们全是
+     * {@code FileUtils.upload(file, uploadPath, folderKey)} 这个形状，改签名要动 7 个文件，
+     * 而这一步的原则是**改动面越小越好回滚**。
+     */
+    private static UploadStore uploadStore;
+
+    @Autowired
+    public void setUploadStore(UploadStore uploadStore) {
+        FileUtils.uploadStore = uploadStore;
+    }
 
     @Value("${picPath.hashSalt:dream-upload}")
     public void setHashSalt(String salt) {
@@ -156,18 +190,19 @@ public class FileUtils {
         // 没有扩展名的文件（README、Makefile，只有黑名单那条路放得进来）补 .bin：
         // 空扩展名会拼出 "xxxx." 这种带尾点的名字。显示名在库里另存，不受影响。
         String safeName = contentName(bytes) + "." + (ext.isEmpty() ? "bin" : ext);
+        String key = (safeFolder.isEmpty() ? "" : safeFolder + "/") + safeName;
 
-        File dir = safeFolder.isEmpty() ? new File(uploadPath) : new File(uploadPath, safeFolder);
-        if (!dir.exists() && !dir.mkdirs()) {
-            throw new IOException("无法创建上传目录");
+        // 这里是这次改造真正的安全收益：类型在**写入时**由服务端决定，而不是读取时由扩展名决定。
+        // 注意用的是瘦身之后的 ext——ImageUtil.shrink 可能把 PNG 转成 JPEG 并改掉扩展名，
+        // 类型必须跟着走，用原始扩展名会标错。
+        String contentType = IMAGE_TYPES.get(ext);
+        boolean isImage = contentType != null;
+        if (!uploadStore.exists(key)) {
+            uploadStore.put(key, bytes, isImage ? contentType : "application/octet-stream", !isImage);
         }
-        File target = new File(dir, safeName);
-        if (!target.exists()) {
-            java.nio.file.Files.write(target.toPath(), bytes);
-        }
-
-        String urlFolder = safeFolder.isEmpty() ? "" : safeFolder + "/";
-        return picPath + urlFolder + safeName;
+        // uploadPath 这个参数到这里已经用不上了（本地后端从配置自己拿根目录）。
+        // 保留它是为了不动 7 个调用点的签名，等 1b 统一清掉。
+        return urlOf(key);
     }
 
     /**
@@ -196,6 +231,30 @@ public class FileUtils {
     /** True if a URL points into our own upload store (rejects external / javascript: URLs on save). */
     public static boolean isLocalUploadUrl(String url) {
         return url != null && picPath != null && !picPath.isEmpty() && url.startsWith(picPath);
+    }
+
+    /**
+     * 公开 URL → 存储 key：{@code /picImg/topicfs-x/abc.pdf} → {@code topicfs-x/abc.pdf}。
+     * 任何一道检查不过都返回 null。
+     *
+     * <p>三道检查和 {@link #resolveUploadFile} 完全一样，**故意的**。{@code ..} 对 S3 其实
+     * 无害（key 就是个字符串，没有目录可以往上跳），但两个后端的行为必须一致——
+     * 不然本地模式拒绝的 URL 在 S3 模式下能过，双写期间两边就分叉了。
+     */
+    public static String keyOf(String url) {
+        if (!isLocalUploadUrl(url)) {
+            return null;
+        }
+        String rel = url.substring(picPath.length());
+        if (rel.isEmpty() || rel.startsWith("/") || rel.contains("..")) {
+            return null;
+        }
+        return rel;
+    }
+
+    /** 存储 key → 公开 URL。key 为 null 时返回 null，方便直接串起来用 */
+    public static String urlOf(String key) {
+        return key == null ? null : picPath + key;
     }
 
     /**
@@ -233,6 +292,20 @@ public class FileUtils {
      * the folder does not exist.
      */
     public static void deleteUploadFolder(String uploadPath, String folderKey) {
+        String safeFolder = folderKey == null ? "" : folderKey.replaceAll("[^a-zA-Z0-9_\\-]", "");
+        if (safeFolder.isEmpty()) {
+            return;      // 空的 folderKey 会变成「删掉整个上传根目录」，必须挡住
+        }
+        uploadStore.deleteFolder(safeFolder);
+    }
+
+    /**
+     * {@link #deleteUploadFolder} 原来那段磁盘操作，现在是 LocalUploadStore 的实现。
+     *
+     * <p>folderKey 已经由调用方清洗过，这里再挡一次空值——同一个前缀清洗写两遍不算冗余，
+     * 这个函数一旦拿到空串就是「把上传根目录整个删掉」。
+     */
+    public static void deleteUploadFolderOnDisk(String uploadPath, String folderKey) {
         String safeFolder = folderKey == null ? "" : folderKey.replaceAll("[^a-zA-Z0-9_\\-]", "");
         if (safeFolder.isEmpty() || uploadPath == null || uploadPath.isEmpty()) {
             return;

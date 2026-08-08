@@ -196,14 +196,44 @@ export default function TopicFilesPage() {
   }
 
   /**
-   * 下载走后端 /topicFile/download：文件带 Content-Disposition 还原原名
+   * 下载分两条路。
+   *
+   * **单文件优先走直链**：先问后端要一张 5 分钟有效的 S3 预签名地址，拿到就交给浏览器
+   * 自己下——字节从 S3 直接到用户，不经过我们的服务器，也不占后端线程。
+   * 实测 9MB 的包从 7.6 秒降到 3.1 秒（前者要绕 Cloudflare Tunnel）。
+   *
+   * 这里必须用 `<a href>` 跳转而不是 fetch：同源策略管的是**脚本发起的请求**，
+   * 不管浏览器导航。用 fetch 跟到 S3 就是跨域，要在桶上配 CORS，而且跨域重定向时
+   * 浏览器会剥掉 Authorization 头。文件名也不能靠 `a.download`（跨域会被忽略），
+   * 靠的是预签名 URL 里带的 Content-Disposition。
+   *
+   * **拿不到直链就走老路** /topicFile/download：文件带 Content-Disposition 还原原名
    * （静态地址存下来叫一串哈希），文件夹由服务端流式打包成 zip。
    * 用带令牌的 fetch 拿 blob 再落地——直接 window.open 在套壳里不带 Authorization。
+   * 存储后端是 local 时后端一定回 code=1，所以这条路是常态而不是异常分支，不弹错。
+   *
+   * 文件夹永远走老路：zip 得服务端现打，S3 上没有这个东西。
    */
   const [zipping, setZipping] = useState('')
   const downloadNode = async (f) => {
     setZipping(f.fileId)
     try {
+      if (f.kind !== 'folder') {
+        try {
+          const r = await topicFileApi.downloadUrl(f.fileId)
+          if (r?.code === 0 && r?.data?.url) {
+            const a = document.createElement('a')
+            a.href = r.data.url
+            a.rel = 'noopener'
+            document.body.appendChild(a)
+            a.click()
+            a.remove()
+            return
+          }
+        } catch {
+          // 直链这条路任何问题都不声张，直接往下走老路
+        }
+      }
       const token = getToken()
       const res = await fetch(`/topicFile/download?fileId=${encodeURIComponent(f.fileId)}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},

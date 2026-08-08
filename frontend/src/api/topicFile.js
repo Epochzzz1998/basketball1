@@ -23,6 +23,14 @@ export const topicFileApi = {
 
   rename: (fileId, name) => http.post('/topicFile/rename', new URLSearchParams({ fileId, name })),
 
+  /**
+   * 单文件的短期直链（S3 预签名）。鉴权在后端，和 /download 同一套。
+   *
+   * 拿到之后前端自己 `<a href>` 打开，字节从 S3 直接到用户，不经过我们的服务器。
+   * 本地存储后端下后端会回 code=1，调用方据此回落到老的 /download。
+   */
+  downloadUrl: (fileId) => http.get('/topicFile/downloadUrl', { params: { fileId } }),
+
   /** 文件夹连整棵子树一起删（后端递归收集） */
   remove: (fileId) => http.post('/topicFile/delete', new URLSearchParams({ fileId })),
 }

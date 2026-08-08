@@ -99,6 +99,22 @@ picPath:
   uploadPath: /config/workspace/uploads/
   picPath: /picImg/
 
+# 上传文件存到哪。切档只要改这一行 + 重启，代码不用动，这就是这次改造的回滚路径。
+#   local = 只写本地盘（改造前的行为，也是回滚位）
+#   dual  = 双写，读优先 S3、失败回落本地（过渡期用）
+#   s3    = 只用 S3
+# 凭据不写在这里：走 SDK 默认凭据链，现在读的是 dream-app/.env 里的
+# AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY，阶段 4 上 ECS 后自动换成 Task Role。
+upload:
+  backend: local
+  s3:
+    bucket: dream-uploads-epoch
+    region: ap-southeast-2
+    # 桶内前缀。和备份桶里 uploads/ 保持一致，两个桶的结构看起来一样
+    key-prefix: uploads/
+    # 预签名有效期。够点一下下载就行，别长——它是一张无鉴权的通行证
+    presign-ttl: 5m
+
 # Web Push (RFC 8292 VAPID). Both halves come from the environment: the pair has to
 # match, and splitting one into the repo and one into env is how they end up not
 # matching. Absent -> WebPushSender logs a warning and quietly does nothing, so the

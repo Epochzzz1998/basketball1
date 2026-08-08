@@ -1,5 +1,6 @@
 package com.dream.basketball.utils;
 
+import com.dream.basketball.storage.LocalUploadStore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
@@ -18,8 +19,10 @@ class FileUtilsTest {
     @BeforeEach
     void setUp() throws Exception {
         uploadDir = Files.createTempDirectory("fileutils-test");
-        // emulate the @Value-injected static field
-        new FileUtils().setPicPath("/picImg/");
+        // emulate the @Value / @Autowired injected static fields
+        FileUtils f = new FileUtils();
+        f.setPicPath("/picImg/");
+        f.setUploadStore(new LocalUploadStore(uploadDir.toString()));
     }
 
     // ---------- safeExtension robustness (P2-4: no more substring(-1) crash) ----------
@@ -87,5 +90,63 @@ class FileUtilsTest {
         assertTrue(url.startsWith("/picImg/etc/"), url);
         // nothing was written outside the temp upload dir
         assertTrue(new File(uploadDir.toFile(), "etc").isDirectory());
+    }
+
+    // ---------- phase 1a: URL <-> storage key ----------
+
+    @Test
+    void keyOf_stripsPrefix() {
+        assertEquals("topicfs-x/abc.pdf", FileUtils.keyOf("/picImg/topicfs-x/abc.pdf"));
+        assertEquals("abc.png", FileUtils.keyOf("/picImg/abc.png"));
+    }
+
+    @Test
+    void keyOf_rejectsAnythingNotOurs() {
+        assertNull(FileUtils.keyOf(null));
+        assertNull(FileUtils.keyOf("https://evil.example/x.png"));   // external
+        assertNull(FileUtils.keyOf("javascript:alert(1)"));          // scheme injection
+        assertNull(FileUtils.keyOf("/other/abc.png"));               // wrong prefix
+        assertNull(FileUtils.keyOf("/picImg/"));                     // empty remainder
+        assertNull(FileUtils.keyOf("/picImg//etc/passwd"));          // leading slash
+        assertNull(FileUtils.keyOf("/picImg/../../etc/passwd"));     // traversal
+        assertNull(FileUtils.keyOf("/picImg/a/../../b.png"));        // traversal mid-path
+    }
+
+    @Test
+    void urlOf_isTheInverseOfKeyOf() {
+        String url = "/picImg/topicfs-x/abc.pdf";
+        assertEquals(url, FileUtils.urlOf(FileUtils.keyOf(url)));
+        assertNull(FileUtils.urlOf(null));
+    }
+
+    // ---------- phase 1a: everything goes through the store ----------
+
+    @Test
+    void upload_storesViaUploadStore_andDedupesByContent() throws Exception {
+        byte[] bytes = "same bytes".getBytes();
+        String a = FileUtils.upload(new MockMultipartFile("file", "one.png", "image/png", bytes),
+                uploadDir.toString(), "news1");
+        String b = FileUtils.upload(new MockMultipartFile("file", "two.png", "image/png", bytes),
+                uploadDir.toString(), "news1");
+
+        // content-addressed naming: same bytes -> same key, and only one file on disk
+        assertEquals(a, b);
+        File dir = new File(uploadDir.toFile(), "news1");
+        assertEquals(1, dir.listFiles().length);
+    }
+
+    @Test
+    void deleteUploadFolder_refusesBlankKey() throws Exception {
+        FileUtils.upload(new MockMultipartFile("file", "x.png", "image/png", new byte[]{7}),
+                uploadDir.toString(), "news1");
+
+        // a blank folder key would mean "wipe the whole upload root" — must be a no-op
+        FileUtils.deleteUploadFolder(uploadDir.toString(), "");
+        FileUtils.deleteUploadFolder(uploadDir.toString(), null);
+        FileUtils.deleteUploadFolder(uploadDir.toString(), "///");   // sanitises to ""
+        assertTrue(new File(uploadDir.toFile(), "news1").isDirectory());
+
+        FileUtils.deleteUploadFolder(uploadDir.toString(), "news1");
+        assertFalse(new File(uploadDir.toFile(), "news1").exists());
     }
 }

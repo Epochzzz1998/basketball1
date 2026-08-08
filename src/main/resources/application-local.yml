@@ -97,6 +97,16 @@ picPath:
   uploadPath: /Users/epoch/basketball-uploads/
   picPath: /picImg/
 
+# 本机开发一律走本地盘：不需要 AWS 凭据，也不会因为连不上 AWS 影响开发。
+# 要在本机试 S3 就临时改成 s3，并 export AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY。
+upload:
+  backend: local
+  s3:
+    bucket: dream-uploads-epoch
+    region: ap-southeast-2
+    key-prefix: uploads/
+    presign-ttl: 5m
+
 # Web Push: no keys locally by default, so push is simply off (see WebPushSender.init).
 # Export VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY to exercise it against a local browser.
 push:

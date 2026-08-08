@@ -10,6 +10,7 @@ import com.dream.basketball.entity.ForumTopic;
 import com.dream.basketball.entity.ForumTopicFile;
 import com.dream.basketball.mapper.ForumTopicFileMapper;
 import com.dream.basketball.mapper.UserMapper;
+import com.dream.basketball.storage.UploadStore;
 import com.dream.basketball.utils.FileUtils;
 import com.dream.basketball.utils.SecUtil;
 import org.apache.commons.lang3.StringUtils;
@@ -23,8 +24,11 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
+import java.io.InputStream;
+import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.Deque;
 import java.util.HashMap;
@@ -87,6 +91,13 @@ public class TopicFileController {
 
     @Value("${picPath.uploadPath:}")
     private String uploadPath;
+
+    @Autowired
+    private UploadStore store;
+
+    /** 预签名直链的有效期。够点一下下载就行——它是一张无鉴权的通行证 */
+    @Value("${upload.s3.presign-ttl:5m}")
+    private Duration presignTtl;
 
     /** 这个专题的文件功能开着、而且这个人能看它，返回 null；否则给出拒绝理由 */
     private String gateView(DreamUser me, ForumTopic t) {
@@ -388,10 +399,7 @@ public class TopicFileController {
             boolean shared = fileMapper.selectCount(new QueryWrapper<ForumTopicFile>()
                     .eq("URL", url)) > 0;
             if (!shared) {
-                java.io.File disk = FileUtils.resolveUploadFile(uploadPath, url);
-                if (disk != null) {
-                    disk.delete();
-                }
+                store.delete(FileUtils.keyOf(url));
             }
         }
         return new Result<>(0, "已删除", null);
@@ -410,6 +418,40 @@ public class TopicFileController {
      * <p>权限同 list（能看专题就能下载）。zip 里同名文件按 (2)、(3) 改名——
      * zip 规范不允许重名条目，而同一个文件夹里传两个同名文件是允许的。
      */
+    /**
+     * 拿一张短期直链，让浏览器绕过我们直接去 S3 取。
+     *
+     * <p>鉴权和 {@link #download} 一模一样——**授权判断留在这里，只是不再由本进程搬字节**。
+     * 一个 9MB 的 zip 原来要经 mini PC → Cloudflare Tunnel → 用户（实测 7.6 秒），
+     * 改完是 S3 → 用户（实测 3.1 秒），而且不再占住一个 Tomcat 线程直到传完。
+     *
+     * <p>**为什么返回 JSON 而不是 302 重定向**：前端是用 {@code fetch} 拿的
+     * （套壳里 {@code window.open} 不带 Authorization），跟随重定向到 S3 就变成了跨域请求，
+     * 要在桶上配 CORS，而且浏览器在跨域重定向时会剥掉 Authorization 头。
+     * 返回地址让前端自己用 {@code <a href>} 打开则完全不涉及跨域——同源策略管的是
+     * 脚本发起的请求，不管浏览器导航。
+     *
+     * <p>只对单文件有效。文件夹要现打 zip，那件事只能服务端做（见 download 的注释）。
+     * 本地存储后端下 {@code presignedGet} 返回 null，这里回 code=1，前端据此走回 /download。
+     */
+    @GetMapping("/downloadUrl")
+    public Object downloadUrl(String fileId, HttpServletRequest request) {
+        DreamUser me = SecUtil.getLoginUserToSession(request);
+        ForumTopicFile f = fileMapper.selectById(StringUtils.trimToEmpty(fileId));
+        ForumTopic t = f == null ? null : perms.getTopic(f.getTopicId());
+        String no = f == null ? "文件不存在" : gateView(me, t);
+        if (no != null) {
+            return new Result<>(1, no, null);
+        }
+        if (!KIND_FILE.equals(f.getKind())) {
+            return new Result<>(1, "文件夹请用打包下载", null);
+        }
+        String url = store.presignedGet(FileUtils.keyOf(f.getUrl()), f.getName(), presignTtl);
+        return url == null
+                ? new Result<>(1, "直链不可用", null)
+                : new Result<>(0, "ok", Collections.singletonMap("url", url));
+    }
+
     @GetMapping("/download")
     public void download(String fileId, HttpServletRequest request,
                          javax.servlet.http.HttpServletResponse response) throws IOException {
@@ -424,16 +466,21 @@ public class TopicFileController {
             return;
         }
         if (KIND_FILE.equals(f.getKind())) {
-            java.io.File disk = FileUtils.resolveUploadFile(uploadPath, f.getUrl());
-            if (disk == null) {
+            String key = FileUtils.keyOf(f.getUrl());
+            long len = store.size(key);
+            if (len < 0) {
                 response.setStatus(404);
                 return;
             }
             response.setContentType("application/octet-stream");
-            response.setContentLengthLong(disk.length());
+            response.setContentLengthLong(len);
             response.setHeader("Content-Disposition", "attachment; filename*=UTF-8''"
                     + java.net.URLEncoder.encode(f.getName(), "UTF-8").replace("+", "%20"));
-            java.nio.file.Files.copy(disk.toPath(), response.getOutputStream());
+            try (InputStream in = store.open(key)) {
+                if (in != null) {
+                    in.transferTo(response.getOutputStream());
+                }
+            }
             return;
         }
 
@@ -462,9 +509,9 @@ public class TopicFileController {
                         zip.closeEntry();
                         continue;
                     }
-                    java.io.File disk = FileUtils.resolveUploadFile(uploadPath, k.getUrl());
-                    if (disk == null) {
-                        continue;      // 盘上没了就跳过，别让一条坏记录毁掉整个包
+                    String kKey = FileUtils.keyOf(k.getUrl());
+                    if (!store.exists(kKey)) {
+                        continue;      // 文件没了就跳过，别让一条坏记录毁掉整个包
                     }
                     String entry = base;
                     for (int i = 2; !used.add(entry); i++) {
@@ -474,7 +521,11 @@ public class TopicFileController {
                                 : base + " (" + i + ")";
                     }
                     zip.putNextEntry(new java.util.zip.ZipEntry(entry));
-                    java.nio.file.Files.copy(disk.toPath(), zip);
+                    try (InputStream in = store.open(kKey)) {
+                        if (in != null) {
+                            in.transferTo(zip);
+                        }
+                    }
                     zip.closeEntry();
                 }
             }

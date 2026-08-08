@@ -166,6 +166,26 @@
             <artifactId>jackson-annotations</artifactId>
             <version>2.14.1</version>
         </dependency>
+        <!--
+          AWS SDK v2, S3 only. Uploads live in S3 from phase 1a on (see the vault doc
+          07-云迁移/63). The `s3` artifact already contains S3Presigner, so there is no
+          separate presigner dependency to add.
+
+          Netty is excluded on purpose: it is only needed by the ASYNC client, and we use
+          the synchronous S3Client (Apache HTTP). Pulling it in would add ~6MB to the fat
+          jar and a second HTTP stack that nothing ever calls.
+        -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>2.51.3</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>netty-nio-client</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
     </dependencies>
 
     <build>

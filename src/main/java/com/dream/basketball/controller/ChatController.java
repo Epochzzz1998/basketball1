@@ -13,6 +13,7 @@ import com.dream.basketball.entity.TopicChatRead;
 import com.dream.basketball.mapper.TopicChatMessageMapper;
 import com.dream.basketball.mapper.TopicChatReadMapper;
 import com.dream.basketball.mapper.UserMapper;
+import com.dream.basketball.storage.UploadStore;
 import com.dream.basketball.utils.Constants;
 import com.dream.basketball.utils.FileUtils;
 import com.dream.basketball.utils.MentionUtil;
@@ -63,6 +64,10 @@ public class ChatController {
     /** 上传根目录，导出要按 URL 找回原文件、清理要把文件一起删 */
     @org.springframework.beans.factory.annotation.Value("${picPath.uploadPath:}")
     private String uploadPath;
+
+    /** 附件存哪由它说了算（本地盘 / S3），这里只按 key 读写删 */
+    @Autowired
+    private UploadStore store;
 
     @Autowired
     private TopicChatMessageMapper chatMapper;
@@ -386,8 +391,7 @@ public class ChatController {
         // 先删文件再删行——顺序反了就再也找不到该删哪些文件了
         int files = 0;
         for (String url : doomed) {
-            java.io.File f = FileUtils.resolveUploadFile(uploadPath, url);
-            if (f != null && f.delete()) {
+            if (store.delete(FileUtils.keyOf(url))) {
                 files++;
             }
         }
@@ -409,9 +413,9 @@ public class ChatController {
             String tid = String.valueOf(row.get("topicId"));
             long[] agg = fileAgg.computeIfAbsent(tid, k -> new long[2]);
             for (String key : new String[]{"imageUrl", "fileUrl"}) {
-                java.io.File f = FileUtils.resolveUploadFile(uploadPath, (String) row.get(key));
-                if (f != null) {
-                    agg[0] += f.length();
+                long n = store.size(FileUtils.keyOf((String) row.get(key)));
+                if (n >= 0) {
+                    agg[0] += n;
                     agg[1]++;
                 }
             }
@@ -540,14 +544,21 @@ public class ChatController {
     /** 把一个附件塞进 zip 的 files/ 下，返回包内文件名；不是本站文件或已经塞过就返回原名/ null。 */
     private String packFile(java.util.zip.ZipOutputStream zip, String url, java.util.Set<String> packed)
             throws java.io.IOException {
-        java.io.File f = FileUtils.resolveUploadFile(uploadPath, url);
-        if (f == null) {
+        String key = FileUtils.keyOf(url);
+        if (key == null || !store.exists(key)) {
             return null;
         }
-        String name = f.getName();
+        // 包内条目名原来取自 File.getName()，换成 key 的最后一段——值是一样的
+        // （落盘名就是 key 的最后一段），但不再需要一个 File 对象。
+        // 这个名字同时用于去重，写错会让 zip 里出现重名条目，整个包都打不开。
+        String name = key.substring(key.lastIndexOf('/') + 1);
         if (packed.add(name)) {
             zip.putNextEntry(new java.util.zip.ZipEntry("files/" + name));
-            java.nio.file.Files.copy(f.toPath(), zip);
+            try (java.io.InputStream in = store.open(key)) {
+                if (in != null) {
+                    in.transferTo(zip);
+                }
+            }
             zip.closeEntry();
         }
         return name;
