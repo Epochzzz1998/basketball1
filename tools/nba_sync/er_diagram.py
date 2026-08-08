@@ -212,14 +212,20 @@ def entity_block(name, cols):
 def build(tables):
     now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
     assigned = set()
+    header = []
+    header.append('# 57 - 数据库 ER 图\n')
+    header.append(f'> 生成时间：{now} ｜ 库：`dream`（迷你主机 MySQL 8）｜ 表 {len(tables)} 张（不含备份表）\n')
+    header.append('> **这份文档是生成的，不要手改实体部分。** 改了表结构后重跑：\n>')
+    header.append('> ```\n> cd ~/IdeaProjects/basketball/tools/nba_sync && DREAM_DB_SSH=dream python3 er_diagram.py\n> ```\n>')
+    header.append('> 实体（表/列/主键/注释）来自 information_schema 现读；**关系连线在脚本的 RELATIONS 里手工维护**——'
+                 '这个库刻意不建外键（历史数据整表灌入，外键拖慢太多），表间关联只存在于代码里。'
+                '新表没归类会落到文末「未分组」一节，提醒去脚本里补。\n')
+
+    # 目录也一起生成。这份文档快 900 行，没目录没法翻；而它是脚本产物，
+    # 手工插的目录下次重跑就没了，所以必须由生成器负责。
+    # sections 在下面边生成边收集，最后拼成 Obsidian 的同文档跳转链接。
+    sections = []
     out = []
-    out.append('# 57 - 数据库 ER 图\n')
-    out.append(f'> 生成时间：{now} ｜ 库：`dream`（迷你主机 MySQL 8）｜ 表 {len(tables)} 张（不含备份表）\n')
-    out.append('> **这份文档是生成的，不要手改实体部分。** 改了表结构后重跑：\n>')
-    out.append('> ```\n> cd ~/IdeaProjects/basketball/tools/nba_sync && DREAM_DB_SSH=dream python3 er_diagram.py\n> ```\n>')
-    out.append('> 实体（表/列/主键/注释）来自 information_schema 现读；**关系连线在脚本的 RELATIONS 里手工维护**——'
-               '这个库刻意不建外键（历史数据整表灌入，外键拖慢太多），表间关联只存在于代码里。'
-               '新表没归类会落到文末「未分组」一节，提醒去脚本里补。\n')
 
     for domain, wanted in DOMAINS.items():
         present = [t for t in wanted if t in tables]
@@ -230,6 +236,7 @@ def build(tables):
             print(f'!! 域「{domain}」里这些表已不在库中: {missing}')
         if not present:
             continue
+        sections.append(domain)
         out.append(f'\n## {domain}\n')
         out.append('```mermaid')
         out.append('erDiagram')
@@ -249,6 +256,7 @@ def build(tables):
 
     orphans = [t for t in tables if t not in assigned]
     if orphans:
+        sections.append('未分组（新表？去 er_diagram.py 的 DOMAINS 里归类）')
         out.append('\n## 未分组（新表？去 er_diagram.py 的 DOMAINS 里归类）\n')
         out.append('```mermaid')
         out.append('erDiagram')
@@ -258,10 +266,15 @@ def build(tables):
 
     baks = fetch_bak_tables()
     if baks:
+        sections.append('备份表（不入图）')
         out.append('\n## 备份表（不入图）\n')
         out.append('、'.join(f'`{b}`' for b in baks))
     out.append('')
-    return '\n'.join(out)
+
+    toc = ['---', '', '## 目录', '']
+    toc += [f'- [[#{s}|{s}]]' for s in sections]
+    toc += ['', '---']
+    return '\n'.join(header + toc + out)
 
 
 def main():
