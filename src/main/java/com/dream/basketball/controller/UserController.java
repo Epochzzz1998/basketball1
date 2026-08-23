@@ -160,8 +160,11 @@ public class UserController extends BaseUtils {
         dreamUser.setPassword(PasswordUtil.hash(dreamUserDto.getPassword()));
         dreamUser.setUserStatus(Constants.USABLE);
         dreamUser.setUserRole(Constants.NORMAL_USER);
-        // 新用户默认不开放「数据分析(NBA 模块)」；新闻/百家说/私信不设(null=开放)。超管可在用户管理里放开。
-        dreamUser.setFeatData("0");
+        // FEAT_DATA 一律留空。**不要在这里写 "0"**：Feature.NBA_DATA 的语义翻转之后
+        // （「默认关、逐个放行」→「登录即可用、超管可按人封禁」），"0" 的含义从
+        // 「还没放行」变成了「被点名封禁」——照原样写下去，等于每个新注册的人在注册那一刻
+        // 就被主动封掉 NBA 模块。null 才是「没设置过」，也就是放行。
+        // 新闻/百家说/私信同理，都不设。
         userService.save(dreamUser);
         return handlerResultJson(true, "注册成功！");
     }
@@ -196,9 +199,12 @@ public class UserController extends BaseUtils {
         data.put("canBrowse", !"0".equals(u.getCanBrowse()));
         data.put("canComment", !"0".equals(u.getCanComment()));
         data.put("canPost", !"0".equals(u.getCanPost()));
-        // 功能模块可用性（前端据此显隐导航菜单）。
-        // NBA 与其余几项语义相反：**默认关**，超管逐个放行才是 true（见 config.Feature.NBA_DATA）
-        data.put("featData", "1".equals(u.getFeatData()));
+        // 功能模块可用性（前端据此显隐导航菜单）。**判定必须和 config.Feature 里那份完全一致**，
+        // 否则会出现「后端愿意放行、前端不给入口」这种查不出来的状态：这里曾经写成
+        // "1".equals(...)（翻转前的旧语义），而拦截器用的是 !"0".equals(...)，
+        // 结果 17 个 FEAT_DATA 为 null 的用户在界面上根本看不到 NBA 模块，
+        // 而接口其实是通的。五项现在是同一套写法：只有显式的 "0" 才算关。
+        data.put("featData", !"0".equals(u.getFeatData()));
         data.put("featNews", !"0".equals(u.getFeatNews()));
         data.put("featForum", !"0".equals(u.getFeatForum()));
         data.put("featPm", !"0".equals(u.getFeatPm()));
@@ -256,7 +262,8 @@ public class UserController extends BaseUtils {
             m.put("canBrowse", !"0".equals(u.getCanBrowse()));
             m.put("canComment", !"0".equals(u.getCanComment()));
             m.put("canPost", !"0".equals(u.getCanPost()));
-            m.put("featData", "1".equals(u.getFeatData()));
+            // 和 /user/current 同一套判定，见上面那段说明
+            m.put("featData", !"0".equals(u.getFeatData()));
             m.put("featNews", !"0".equals(u.getFeatNews()));
             m.put("featForum", !"0".equals(u.getFeatForum()));
             m.put("featPm", !"0".equals(u.getFeatPm()));
@@ -362,7 +369,9 @@ public class UserController extends BaseUtils {
         m.put("topicOwned", topicMapper.selectCount(
                 new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<com.dream.basketball.entity.ForumTopic>()
                         .eq("OWNER_ID", u.getUserId())));
-        m.put("featData", "1".equals(u.getFeatData()));
+        // 和 /user/current、/userList 同一套判定（只有显式 "0" 才算关）。
+        // 这一处是最后被发现的：改前它和另外两处一起停在翻转前的旧规则上。
+        m.put("featData", !"0".equals(u.getFeatData()));
         m.put("featNews", !"0".equals(u.getFeatNews()));
         m.put("featForum", !"0".equals(u.getFeatForum()));
         m.put("featPm", !"0".equals(u.getFeatPm()));

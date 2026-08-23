@@ -40,7 +40,9 @@ import java.util.TreeSet;
  * 球员相关 JSON 接口（P4-1 REST 化）。写接口另需 superManager（P2-5）。
  * 异常交由 GlobalExceptionHandler 统一处理（P4-2），不再逐方法 try/catch。
  *
- * 整个 NBA 模块不再公开：必须登录，且必须被超管在用户管理里放行（FEAT_DATA='1'）。
+ * 整个 NBA 模块不再公开：**必须登录**。登录之后默认就能用，超管可以在用户管理里
+ * 按人封禁（写入 FEAT_DATA='0'）。早先是「默认关、逐个放行」，2026 年翻转过来的——
+ * 入口挪进 NBA 专题之后，想看的人自己点进去就能用，不该再卡一道人工审批。
  * 挂在类上而不是逐方法挂——这里每一个接口都是 NBA 数据，漏一个就等于没关。
  */
 @RequiresFeature(Feature.NBA_DATA)
