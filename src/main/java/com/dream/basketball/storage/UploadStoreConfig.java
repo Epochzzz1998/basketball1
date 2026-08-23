@@ -48,7 +48,21 @@ public class UploadStoreConfig {
             log.error("upload.backend={} 但没配 upload.s3.bucket，退回 local", mode);
             return local;
         }
-        S3UploadStore s3 = new S3UploadStore(bucket, region, keyPrefix);
+        // 构造 S3 客户端**必须包起来**。这里曾经是裸调用，结果 2026-08-23 切 dual 时
+        // 撞上 NoClassDefFoundError（见 pom 里 aws sdk 那段注释），异常一路冒到
+        // Spring 的 bean 创建，**整个应用起不来，站点挂了约 4 分钟**。
+        //
+        // 这个兜底本来就是为「S3 那半有问题时，上传功能降级、站点照常」而写的，
+        // 但当初只挡了「桶没配」这一种可以预见的失败，没挡住「构造时抛异常」这种
+        // 预见不到的。**兜底要挡的恰恰是预见不到的那一类**，否则它只是一句好听的话。
+        UploadStore s3;
+        try {
+            s3 = new S3UploadStore(bucket, region, keyPrefix);
+        } catch (Throwable e) {
+            // 抓 Throwable 不是 Exception：NoClassDefFoundError 是 Error，catch Exception 抓不到
+            log.error("S3 客户端构造失败，上传降级为 local（站点照常，但新上传不会进 S3）", e);
+            return local;
+        }
         if ("dual".equals(mode)) {
             log.info("上传存储后端: dual（本地 {} + s3://{}/{}）", uploadPath, bucket, keyPrefix);
             return new DualUploadStore(local, s3);

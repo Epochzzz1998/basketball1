@@ -171,9 +171,29 @@
           07-云迁移/63). The `s3` artifact already contains S3Presigner, so there is no
           separate presigner dependency to add.
 
-          Netty is excluded on purpose: it is only needed by the ASYNC client, and we use
-          the synchronous S3Client (Apache HTTP). Pulling it in would add ~6MB to the fat
-          jar and a second HTTP stack that nothing ever calls.
+          BOTH bundled HTTP clients are excluded and replaced with url-connection-client,
+          which is a thin wrapper over the JDK's HttpURLConnection and drags in nothing.
+
+          netty-nio-client is only used by the ASYNC client, which we never construct.
+
+          apache5-client is the harder story, and it took the site down once. It needs
+          Apache HttpClient 5.4+ (for TlsSocketStrategy), but Spring Boot 2.7.6's
+          dependency management pins httpclient5 to 5.1.4 and wins, so the class is simply
+          absent. Nothing fails at build time: the app starts, reaches the point where the
+          S3 client is first constructed, and dies with NoClassDefFoundError. This is the
+          same shape as the kotlin-stdlib problem described in the properties block above.
+
+          Mind the artifact id: this SDK ships apache5-client (package …http.apache5), NOT
+          the older apache-client. Excluding the wrong name does nothing at all — Maven
+          ignores an exclusion that matches no artifact, without a warning — which is how
+          the first attempt at this fix silently failed.
+
+          Overriding httpclient5.version would also work — nothing else in the tree uses
+          httpclient5 — but that is managing the conflict rather than removing it, and it
+          would have to stay correct across future Boot upgrades. url-connection-client has
+          no version relationship with anything. Its limitations (no HTTP PATCH, no real
+          connection pooling) do not apply: S3 never sends PATCH, and an upload is a handful
+          of requests.
         -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
@@ -184,7 +204,16 @@
                     <groupId>software.amazon.awssdk</groupId>
                     <artifactId>netty-nio-client</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>apache5-client</artifactId>
+                </exclusion>
             </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>url-connection-client</artifactId>
+            <version>2.51.3</version>
         </dependency>
     </dependencies>
 
