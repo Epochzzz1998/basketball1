@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Avatar, Card, Col, DatePicker, Empty, Modal, Row, Spin, Tag } from 'antd'
+import { Avatar, Card, Col, Empty, Modal, Row, Spin, Tag, message } from 'antd'
 import { FireOutlined, UserOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { useSearchParams } from 'react-router-dom'
 import { bbqApi } from '../../api/bbq'
 import { useAuth } from '../../auth/AuthContext'
 import useIsMobile from '../../hooks/useIsMobile'
+import DayRangePicker from '../../components/DayRangePicker'
 import BbqTabs from './BbqTabs'
 
 /**
@@ -30,6 +31,20 @@ const fmtDur = (min) => `${Math.floor(min / 60)}小时${min % 60 ? `${min % 60}�
 const fmtHours = (min) => `${(min / 60).toFixed(1)}h`
 /** 本周从周一起算（dayjs 默认周日为一周之首，手动折算） */
 const mondayOf = (d) => d.subtract((d.day() + 6) % 7, 'day')
+
+/**
+ * 时段快捷项。**存的是取值函数不是值**：写成常量的话，模块加载那一刻就把「今天」定死了，
+ * 页面开着过了午夜再点「近 7 天」，算出来的还是昨天那一段。
+ */
+const QUICK = [
+  { label: '本月', get: () => [dayjs().startOf('month'), dayjs()] },
+  { label: '上月', get: () => [dayjs().subtract(1, 'month').startOf('month'), dayjs().subtract(1, 'month').endOf('month')] },
+  { label: '本周', get: () => [mondayOf(dayjs()), dayjs()] },
+  { label: '近 7 天', get: () => [dayjs().subtract(6, 'day'), dayjs()] },
+  { label: '近 30 天', get: () => [dayjs().subtract(29, 'day'), dayjs()] },
+  { label: '近 90 天', get: () => [dayjs().subtract(89, 'day'), dayjs()] },
+  { label: '今年', get: () => [dayjs().startOf('year'), dayjs()] },
+]
 
 /** 柱状图：竖条 + 底部刻度（bars: [{key?, label, title?, value, showLabel}]）+ 最大值虚线；
  *  fmt 控制数值文案（默认金额；穿串统计传 "N 串"）；条数 ≤10 时柱顶直接标数值。
@@ -155,19 +170,29 @@ export default function BbqLedger() {
    * 不是"一键选本月"这个便利。少了它，每次看本月都要点两次日历。
    */
   const [range, setRange] = useState([dayjs().startOf('month'), dayjs()])
-  /*
-   * 选到一半时的那个端点。用来把「超过一年」的日子直接置灰，**在选择器里就不让选出来**，
-   * 而不是等选完发一次注定失败的请求、再弹一句「跨度最多 366 天」。
-   *
-   * 这个 366 必须和后端 `LEDGER_MAX_DAYS` 对齐——两边各写一个数字迟早分叉，
-   * 而分叉的表现是：界面允许选、后端拒绝，用户看到一个自己无法理解的失败。
-   */
-  const [picking, setPicking] = useState(null)
   const [data, setData] = useState(null)
   const [skewerDetailOpen, setSkewerDetailOpen] = useState(false)
   // 店长从成员管理点「薪资总览」进来时带的人；店员传了也没用（后端把店员钉死在自己身上）
   const [searchParams] = useSearchParams()
   const staffId = searchParams.get('staff') || undefined
+
+  /**
+   * 换时段的唯一入口——手动选和快捷按钮都走这里。
+   *
+   * **一年上限在这里守，不在日历里置灰。** 置灰要知道「正在选哪一头」，而移动端那两个
+   * 单月日历是分开的，传不进这个上下文；写成两套判断，迟早和后端的 366 对不上。
+   * 在入口处拦一次，两端一致，而且拦下来能给一句人话，比日期变灰说得清楚。
+   *
+   * `DayRangePicker` 只选了一头时回调 null——那时保持原区间不动，别去发一次半截请求。
+   */
+  const applyRange = (v) => {
+    if (!v || !v[0] || !v[1]) return
+    if (v[1].diff(v[0], 'day') > 366) {
+      message.warning('时段最长一年，请缩短一点')
+      return
+    }
+    setRange(v)
+  }
 
   const from = range?.[0]?.format('YYYY-MM-DD')
   const to = range?.[1]?.format('YYYY-MM-DD')
@@ -309,37 +334,48 @@ export default function BbqLedger() {
         </div>
       </div>
 
-      {/* 时段：一个区间选择器，起止随便选（后端上限一年）。
-          自带的 presets 覆盖了原来「按月/按周」两个按钮的便利，但不再是"模式"——
-          选完就是一对普通的起止日期，图表和标题只认这一对值 */}
+      {/*
+        时段：一对起止日期，起止随便选（后端上限一年）。
+
+        **用的是项目里已有的 `DayRangePicker` 而不是裸的 antd RangePicker。** 第一版就是裸的，
+        结果手机上直接不可用：RangePicker 的弹层是左右两个月并排、约 560px 宽，手机屏放不下，
+        左边那个月被挤出屏幕，**开始日期根本点不到**。那个组件早就把这件事解决了——
+        PC 用 RangePicker，移动端拆成两个单月日历。聊天导出和清理记录也用它。
+
+        快捷项没有走 RangePicker 自带的 presets（那个侧边栏在手机上同样挤，而且
+        `DayRangePicker` 在移动端根本不渲染 RangePicker），改成下面一排小按钮，两端一致。
+      */}
       <Card style={{ borderRadius: 16, marginBottom: 16 }} styles={{ body: { padding: '10px 16px' } }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 13, color: '#999', whiteSpace: 'nowrap' }}>时段</span>
-          <DatePicker.RangePicker
-            value={range}
-            onChange={(v) => { if (v && v[0] && v[1]) setRange(v) }}
-            allowClear={false}
-            inputReadOnly={isMobile}
-            onCalendarChange={setPicking}
-            onOpenChange={(open) => { if (!open) setPicking(null) }}
-            disabledDate={(cur) => {
-              const anchor = picking?.[0] || picking?.[1]
-              // 没开始选、或者两端都已选完：不限制（限制了会把已选中的那一端也置灰）
-              if (!anchor || (picking?.[0] && picking?.[1])) return false
-              return Math.abs(cur.diff(anchor, 'day')) > 366
-            }}
-            style={{ flex: isMobile ? '1 1 100%' : '0 1 320px' }}
-            presets={[
-              { label: '本月', value: [dayjs().startOf('month'), dayjs()] },
-              { label: '上月', value: [dayjs().subtract(1, 'month').startOf('month'), dayjs().subtract(1, 'month').endOf('month')] },
-              { label: '本周', value: [mondayOf(dayjs()), dayjs()] },
-              { label: '近 7 天', value: [dayjs().subtract(6, 'day'), dayjs()] },
-              { label: '近 30 天', value: [dayjs().subtract(29, 'day'), dayjs()] },
-              { label: '近 90 天', value: [dayjs().subtract(89, 'day'), dayjs()] },
-              { label: '今年', value: [dayjs().startOf('year'), dayjs()] },
-            ]}
-          />
-          <span style={{ fontSize: 12, color: '#bbb', whiteSpace: 'nowrap' }}>最长一年</span>
+        <div style={{ display: 'flex', alignItems: isMobile ? 'stretch' : 'center', gap: 10, flexWrap: 'wrap', flexDirection: isMobile ? 'column' : 'row' }}>
+          <div style={{ flex: isMobile ? 'none' : '0 1 340px' }}>
+            {/*
+              key 里带上区间，是为了让快捷按钮生效。
+
+              `DayRangePicker` 在移动端拆成两个单月日历，**它们的值是组件自己存的、故意不跟
+              `value` 回写**（原因见那个组件的注释：只选了一头时父组件的 value 会变成 null，
+              反向同步会把刚点的那一头立刻抹掉）。副作用是外部改 `range`（点快捷按钮）时，
+              两个输入框不会跟着变——图表换了、日期还停在原处。
+
+              key 一变就整个重挂，重挂时它按新的 `value` 初始化，两边就对上了。
+              手动选日期时父组件的 range 只在两头都选齐后才变，所以不会打断选择过程。
+            */}
+            <DayRangePicker key={`${from}~${to}`} value={range} onChange={applyRange} />
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: 1 }}>
+            {QUICK.map((q) => (
+              <span
+                key={q.label}
+                onClick={() => applyRange(q.get())}
+                style={{
+                  cursor: 'pointer', userSelect: 'none', padding: '2px 10px', borderRadius: 999,
+                  fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
+                  color: AMBER_DARK, background: '#fffbe6', border: '1px solid #ffe58f',
+                }}
+              >
+                {q.label}
+              </span>
+            ))}
+          </div>
         </div>
       </Card>
 
