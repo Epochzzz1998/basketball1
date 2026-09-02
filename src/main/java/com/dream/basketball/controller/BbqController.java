@@ -48,6 +48,17 @@ public class BbqController {
     /** minutes of pay deducted when the worker ate at the shop */
     private static final int MEAL_MINUTES = 15;
 
+    /**
+     * 台账一次能查的最长跨度。原来是 93 天（够「按月/按周」两个视图用），2026-09-02 台账改成
+     * 自由选区间之后放到 366——一整年（含闰年）是这个店真正会看的最大跨度，「看看去年一整年」
+     * 是个合理请求，而 93 天会把它挡掉。
+     *
+     * <p>**留着上限而不是取消**：这个接口把区间内每一条记录都拉进内存再聚合，没有分页。
+     * 现在库里只有个位数记录，选十年也无所谓；但等它长到几千条，一个手滑选出来的
+     * 十年区间会当场把页面拉死。上限是给未来的自己留的，不是给现在的。
+     */
+    private static final int LEDGER_MAX_DAYS = 366;
+
     @Autowired
     private BbqStaffMapper staffMapper;
     @Autowired
@@ -494,8 +505,13 @@ public class BbqController {
             if (r == null) {
                 return new Result<>(1, "记录不存在", null);
             }
-            if (StringUtils.isNotBlank(r.getSettleId())) {
-                return new Result<>(1, "已结清的记录不可修改", null);
+            // 已结清的记录**可以**改（店长要能修错账）。代价是那张结清凭据会和记录对不上，
+            // 所以保存完要把它重算一遍——见方法末尾的 resyncSettlement。
+            //
+            // 但**不允许把一条已结清的记录换到别人名下**：凭据是按人开的（一人一张），
+            // 换人会让同一张凭据横跨两个人，重算也救不回来。要挪就先删了重记。
+            if (StringUtils.isNotBlank(r.getSettleId()) && !StringUtils.equals(r.getUserId(), userId)) {
+                return new Result<>(1, "已结清的记录不能改到别人名下，请先删除再重新记账", null);
             }
             // editing may keep a promoted-to-manager person's own legacy record, but not move a record onto a manager
             if ("manager".equals(targetRole) && !StringUtils.equals(r.getUserId(), userId)) {
@@ -615,6 +631,8 @@ public class BbqController {
             line.setRecordId(r.getRecordId());
             wageSkewerMapper.insert(line);
         }
+        // 改的是一条已结清的记录 → 那张凭据上的金额/条数已经过时，重算
+        resyncSettlement(r.getSettleId());
         Map<String, Object> out = new HashMap<>();
         out.put("recordId", r.getRecordId());
         out.put("base", base);
@@ -623,7 +641,58 @@ public class BbqController {
         return new Result<>(0, "已保存", out);
     }
 
-    /** 删记录（店长）：已结清的不可删。 */
+    /**
+     * 把一张结清凭据重算成「它名下现存记录的真实合计」；一条都不剩就把凭据删掉。
+     *
+     * <p>存在的理由：`bbq_settlement` 记的是结清那一刻的 AMOUNT / RECORD_COUNT / 起止日。
+     * 原本这些数字永远不会变，因为已结清的记录锁死了。**2026-09-02 起店长可以改和删已结清的记录**
+     * （要能修错账），于是凭据会立刻和记录对不上——写着结了 $120，实际记录加起来是 $150。
+     *
+     * <p>选了「跟着重算」而不是「凭据不动」：这张凭据**全站没有任何地方读它、也没有界面显示它**，
+     * 一个没人看的错数字比一个没人看的对数字更糟——它会在将来某天被人当真。重算之后
+     * 「凭据 = 这批记录的合计」这条不变式一直成立，不需要谁去记得它可能是假的。
+     *
+     * <p>{@code settleId} 为空（未结清的记录）时什么都不做，调用方不用先判断。
+     */
+    private void resyncSettlement(String settleId) {
+        if (StringUtils.isBlank(settleId)) {
+            return;
+        }
+        List<BbqWageRecord> left = wageMapper.selectList(
+                new QueryWrapper<BbqWageRecord>().eq("SETTLE_ID", settleId));
+        if (left.isEmpty()) {
+            // 这批记录被删光了，凭据没有对应物，留着就是一条孤儿
+            settlementMapper.deleteById(settleId);
+            return;
+        }
+        BbqSettlement s = settlementMapper.selectById(settleId);
+        if (s == null) {
+            return;
+        }
+        BigDecimal amount = BigDecimal.ZERO;
+        String from = null;
+        String to = null;
+        for (BbqWageRecord r : left) {
+            amount = amount.add(r.getTotal());
+            if (from == null || r.getWorkDate().compareTo(from) < 0) {
+                from = r.getWorkDate();
+            }
+            if (to == null || r.getWorkDate().compareTo(to) > 0) {
+                to = r.getWorkDate();
+            }
+        }
+        s.setAmount(amount);
+        s.setRecordCount(left.size());
+        s.setFromDate(from);
+        s.setToDate(to);
+        settlementMapper.updateById(s);
+    }
+
+    /**
+     * 删记录（店长）。**已结清的也能删**——店长要能修错账。
+     *
+     * <p>删完把那张结清凭据重算（见 {@link #resyncSettlement}）；一批全删光了凭据也一并删掉。
+     */
     @RequiresRole(Role.USER)
     @PostMapping("/wage/delete")
     public Object wageDelete(String recordId, HttpServletRequest request) {
@@ -635,11 +704,11 @@ public class BbqController {
         if (r == null) {
             return new Result<>(1, "记录不存在", null);
         }
-        if (StringUtils.isNotBlank(r.getSettleId())) {
-            return new Result<>(1, "已结清的记录不可删除", null);
-        }
+        // 先记下来：deleteById 之后就查不到它属于哪张凭据了
+        String settleId = r.getSettleId();
         wageSkewerMapper.delete(new QueryWrapper<BbqWageSkewer>().eq("RECORD_ID", recordId));
         wageMapper.deleteById(recordId);
+        resyncSettlement(settleId);
         return new Result<>(0, "已删除", null);
     }
 
@@ -786,16 +855,36 @@ public class BbqController {
      */
     // NB: path must NOT be exactly "/ledger" — that's the SPA page route; a same-path GET here
     // would swallow browser navigation before the SPA fallback (bit us once via headless check)
-    // Range: pass month=yyyy-MM (月视图) OR from+to dates (周视图 or any custom span ≤93 days).
+    // Range: pass month=yyyy-MM (整月的简写) OR from+to dates (任意区间，≤366 天)。
+    // userId：店长专用，把整个台账收窄到一个人（成员管理里的「薪资总览」按钮），
+    //         带上它时返回结构和店员自视图一致（多一份逐条记录明细）。店员传了会被忽略。
     @RequiresRole(Role.USER)
     @GetMapping("/ledger/data")
-    public Object ledger(String month, String from, String to, HttpServletRequest request) {
+    public Object ledger(String month, String from, String to, String userId, HttpServletRequest request) {
         DreamUser me = SecUtil.getLoginUserToSession(request);
         String role = roleOf(me.getUserId());
         if (role == null) {
             return new Result<>(1, "你不是店里的成员", null);
         }
         boolean manager = "manager".equals(role);
+        /*
+         * 可见范围收敛成一个变量：null = 全店，非 null = 只看这一个人。
+         *
+         * 店员**永远**被钉死在自己身上（传什么 userId 都不看），店长可以选一个人也可以看全店。
+         * 早先这里是散在三处的 `if (!manager) qw.eq("USER_ID", me...)`——加「店长看某一个人」
+         * 的时候，三处判断就会各自演化成不同的条件。收成一个 scopeId 之后它们不可能对不上。
+         */
+        String scopeId;
+        if (!manager) {
+            scopeId = me.getUserId();
+        } else if (StringUtils.isNotBlank(userId)) {
+            if (roleOf(userId) == null) {
+                return new Result<>(1, "TA 不是店里的成员", null);
+            }
+            scopeId = userId;
+        } else {
+            scopeId = null;
+        }
         String rangeFrom;
         String rangeTo;
         if (validDate(from) && validDate(to)) {
@@ -803,8 +892,8 @@ public class BbqController {
                 return new Result<>(1, "起止日期倒挂", null);
             }
             if (java.time.temporal.ChronoUnit.DAYS.between(
-                    java.time.LocalDate.parse(from), java.time.LocalDate.parse(to)) > 93) {
-                return new Result<>(1, "跨度最多 93 天", null);
+                    java.time.LocalDate.parse(from), java.time.LocalDate.parse(to)) > LEDGER_MAX_DAYS) {
+                return new Result<>(1, "跨度最多 " + LEDGER_MAX_DAYS + " 天", null);
             }
             rangeFrom = from;
             rangeTo = to;
@@ -816,14 +905,14 @@ public class BbqController {
         }
         QueryWrapper<BbqWageRecord> qw = new QueryWrapper<BbqWageRecord>()
                 .between("WORK_DATE", rangeFrom, rangeTo).orderByAsc("WORK_DATE", "START_TIME");
-        if (!manager) {
-            qw.eq("USER_ID", me.getUserId());
+        if (scopeId != null) {
+            qw.eq("USER_ID", scopeId);
         }
         List<BbqWageRecord> records = wageMapper.selectList(qw);
         // all-time unsettled (per user), same visibility scope
         QueryWrapper<BbqWageRecord> uqw = new QueryWrapper<BbqWageRecord>().isNull("SETTLE_ID");
-        if (!manager) {
-            uqw.eq("USER_ID", me.getUserId());
+        if (scopeId != null) {
+            uqw.eq("USER_ID", scopeId);
         }
         Map<String, BigDecimal> unsettledByUser = new HashMap<>();
         BigDecimal unsettledTotal = BigDecimal.ZERO;
@@ -926,8 +1015,16 @@ public class BbqController {
         out.put("daily", daily);
         out.put("users", userRows);
         out.put("skewers", skewerStats);
-        // staff see their own per-record detail (incl. skewer lines) to verify the books
-        if (!manager) {
+        // 收窄到一个人时，告诉前端是谁——「薪资总览」的标题要写名字，不能只写「台账」
+        out.put("scopeUserId", scopeId);
+        if (scopeId != null) {
+            DreamUser su = usersById(java.util.Collections.singleton(scopeId)).get(scopeId);
+            out.put("scopeUserName", su == null ? scopeId : su.getUserNickname());
+        }
+        // 逐条记录明细（含穿串行）：店员核对自己的账用，店长看单个员工时同样需要——
+        // 判据是「有没有收窄到一个人」，不是「是不是店员」。写成 !manager 的话，
+        // 店长点开某个人的薪资总览会拿不到明细，而那正是这个页面的主要内容。
+        if (scopeId != null) {
             List<Map<String, Object>> recOut = new ArrayList<>();
             for (BbqWageRecord r : records) {
                 Map<String, Object> m = new HashMap<>();

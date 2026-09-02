@@ -5,6 +5,7 @@ import dayjs from 'dayjs'
 import { bbqApi } from '../../api/bbq'
 import { useAuth } from '../../auth/AuthContext'
 import useIsMobile from '../../hooks/useIsMobile'
+import BbqTabs from './BbqTabs'
 
 /**
  * 耿阿姨烤串 · Burning！——店内趣味排行榜（全体成员可看，不出现任何金额）。
@@ -216,6 +217,7 @@ export default function BbqBurning() {
 
   return (
     <>
+      <BbqTabs />
       {/* 横幅：燃烧的火焰红 */}
       <div
         style={{

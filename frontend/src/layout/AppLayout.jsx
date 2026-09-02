@@ -2,21 +2,17 @@ import { useEffect, useMemo, useState } from 'react'
 import { ProLayout } from '@ant-design/pro-components'
 import { Avatar, Badge, Button, Dropdown } from 'antd'
 import {
-  BarChartOutlined,
   BellOutlined,
   CalendarOutlined,
   CaretRightOutlined,
-  DollarOutlined,
   FireOutlined,
   MessageOutlined,
   ReloadOutlined,
   DatabaseOutlined,
-  TagsOutlined,
   LogoutOutlined,
   NotificationOutlined,
   PushpinFilled,
   ReadOutlined,
-  TeamOutlined,
   UsergroupAddOutlined,
   UserOutlined,
 } from '@ant-design/icons'
@@ -39,6 +35,7 @@ import MobileTabBar, { TAB_BAR_HEIGHT, TOP_BAR_HEIGHT } from './MobileTabBar'
 import { showTabBar, showTopBar } from './mobileNav'
 import useNavigationPaint from './useNavigationPaint'
 import useAppSwipe from './useAppSwipe'
+import { bbqSections } from '../pages/bbq/bbqSections'
 
 /**
  * 整体外壳（P5-3 美化）：ProLayout 的 mix 布局 = 顶栏品牌 + 可折叠侧栏菜单，
@@ -178,30 +175,15 @@ export default function AppLayout() {
         ...(canUse('featNews') ? [{ path: '/official', name: '新闻', icon: <NotificationOutlined /> }] : []),
         // 日程（登录用户；按用户可关）
         ...(user && canUse('featSchedule') ? [{ path: '/schedule', name: '日程', icon: <CalendarOutlined /> }] : []),
-        // 耿阿姨烤串（单店薪资管理）：店长=全部四项；店员=只有台账（看自己的薪资，只读）
-        ...(user?.bbqRole === 'manager'
+        // 耿阿姨烤串（单店薪资管理）：店长共管全店账本，店员只看自己的薪资。
+        // 分区清单来自 pages/bbq/bbqSections——**和页内标签条（BbqTabs）是同一份**，
+        // 加一个分区只改那一处，不会出现"侧栏有、标签条没有"。
+        ...(bbqSections(user?.bbqRole).length
           ? [{
               path: '/bbq',
               name: '耿阿姨烤串',
               icon: <FireOutlined />,
-              routes: [
-                { path: '/bbq/wage', name: '薪资计算', icon: <DollarOutlined /> },
-                { path: '/bbq/ledger', name: '经营台账', icon: <BarChartOutlined /> },
-                { path: '/bbq/burning', name: 'Burning！', icon: <FireOutlined /> },
-                { path: '/bbq/members', name: '成员管理', icon: <TeamOutlined /> },
-                { path: '/bbq/skewers', name: '串价设置', icon: <TagsOutlined /> },
-              ],
-            }]
-          : []),
-        ...(user?.bbqRole === 'staff'
-          ? [{
-              path: '/bbq',
-              name: '耿阿姨烤串',
-              icon: <FireOutlined />,
-              routes: [
-                { path: '/bbq/ledger', name: '我的薪资', icon: <BarChartOutlined /> },
-                { path: '/bbq/burning', name: 'Burning！', icon: <FireOutlined /> },
-              ],
+              routes: bbqSections(user?.bbqRole).map((s) => ({ path: s.path, name: s.label, icon: s.icon })),
             }]
           : []),
         // 私信：侧栏一个入口（未读数在 menuItemRender 里挂角标），头像下拉里那个也保留——

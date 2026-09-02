@@ -3,6 +3,7 @@ import { Button, Card, Empty, Input, InputNumber, Modal, Popconfirm, Spin, messa
 import { DeleteOutlined, EditOutlined, FireOutlined, PlusOutlined } from '@ant-design/icons'
 import { bbqApi } from '../../api/bbq'
 import useIsMobile from '../../hooks/useIsMobile'
+import BbqTabs from './BbqTabs'
 
 /**
  * 耿阿姨烤串 · 串价设置（店长专属）。每种串一个单价（$澳币/串），
@@ -54,6 +55,7 @@ export default function BbqSkewers() {
 
   return (
     <>
+      <BbqTabs />
       <div
         style={{
           position: 'relative', overflow: 'hidden', borderRadius: 16, color: '#fff',

@@ -7,10 +7,11 @@ import {
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { bbqApi } from '../../api/bbq'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext'
 import useIsMobile from '../../hooks/useIsMobile'
 import TimeField, { TimeClear } from '../../components/TimeField'
+import BbqTabs from './BbqTabs'
 
 /**
  * 耿阿姨烤串 · 薪资计算（店长专属）。日历记账：点一天 → 右侧看当天所有人的记录，
@@ -42,7 +43,18 @@ export default function BbqWage() {
   const [dayRecords, setDayRecords] = useState(null)
   const [staff, setStaff] = useState([])
   const [types, setTypes] = useState([])
-  const [filterIds, setFilterIds] = useState([])
+  /*
+   * 从成员管理点「薪资计算」进来时地址上带着 `?staff={userId}`——进页面就替店长把筛选
+   * 选好，省掉"进来 → 找到筛选框 → 在下拉里翻到这个人"这三步。
+   *
+   * **URL 只当初始值用，之后改筛选不回写地址栏。** 回写的话每改一次筛选就往浏览器历史里
+   * 塞一条，返回键会变成"退回上一次筛选"而不是"回到成员管理"——那是这一页最不该有的行为。
+   */
+  const [searchParams] = useSearchParams()
+  const [filterIds, setFilterIds] = useState(() => {
+    const s = searchParams.get('staff')
+    return s ? [s] : []
+  })
 
   // ===== 弹窗表单状态 =====
   const [open, setOpen] = useState(false)
@@ -288,6 +300,7 @@ export default function BbqWage() {
 
   return (
     <>
+      <BbqTabs />
       {/* 横幅：炭火琥珀 */}
       <div
         style={{
@@ -399,15 +412,26 @@ export default function BbqWage() {
                         </span>
                         {r.settled && <span style={{ fontSize: 11, color: '#999', background: '#f0f0f0', borderRadius: 999, padding: '1px 8px', flexShrink: 0 }}>已结清</span>}
                         <span style={{ fontWeight: 800, fontSize: 15, color: r.settled ? '#8c8c8c' : AMBER_DARK, flexShrink: 0 }}>{money(r.total)}</span>
-                        {/* 已结清的记录锁定：不给编辑/删除入口（后端也拒） */}
-                        {!r.settled && (
-                          <span style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 2 }}>
-                            <EditOutlined style={{ color: '#999', cursor: 'pointer' }} onClick={() => openEdit(r)} />
-                            <Popconfirm title="删除这条记录？" onConfirm={() => doDelete(r)} okText="删除" cancelText="取消">
-                              <DeleteOutlined style={{ color: '#bbb', cursor: 'pointer' }} />
-                            </Popconfirm>
-                          </span>
-                        )}
+                        {/*
+                          已结清的记录**也能改能删**（2026-09-02 起）——店长要能修错账，
+                          而错账往往是结清之后才发现的。后端会把那张结清凭据上的金额和条数
+                          跟着重算，所以库里不会留下对不上的数。
+
+                          删除确认文案按结清状态分开写：删一条已结清的记录会动到已经"付过"的
+                          那批账，这件事必须在点下去之前说清楚，不能和普通删除共用一句话。
+                        */}
+                        <span style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 2 }}>
+                          <EditOutlined style={{ color: '#999', cursor: 'pointer' }} title={r.settled ? '修改（已结清，改完结清金额会跟着变）' : '修改'} onClick={() => openEdit(r)} />
+                          <Popconfirm
+                            title={r.settled ? '删除这条已结清的记录？' : '删除这条记录？'}
+                            description={r.settled ? '它属于一批已结清的账，删掉后那批的结清金额会跟着减少' : undefined}
+                            onConfirm={() => doDelete(r)}
+                            okText="删除"
+                            cancelText="取消"
+                          >
+                            <DeleteOutlined style={{ color: '#bbb', cursor: 'pointer' }} />
+                          </Popconfirm>
+                        </span>
                       </div>
                       <div style={{ color: '#8c8c8c', fontSize: 12, marginTop: 6, lineHeight: 1.8 }}>
                         {r.startTime ? (

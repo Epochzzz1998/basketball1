@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Avatar, Button, Card, Empty, Modal, Popconfirm, Select, Spin, Tag, message } from 'antd'
-import { CrownFilled, FireOutlined, PlusOutlined, UserOutlined } from '@ant-design/icons'
+import {
+  BarChartOutlined, CrownFilled, DollarOutlined, FireOutlined, PlusOutlined, UserOutlined,
+} from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { useNavigate } from 'react-router-dom'
 import { bbqApi } from '../../api/bbq'
 import { useAuth } from '../../auth/AuthContext'
 import useIsMobile from '../../hooks/useIsMobile'
+import BbqTabs from './BbqTabs'
 
 /**
  * 耿阿姨烤串 · 成员管理（店长专属）。
@@ -61,6 +64,7 @@ export default function BbqMembers() {
 
   return (
     <>
+      <BbqTabs />
       {/* 横幅：炭火琥珀 */}
       <div
         style={{
@@ -132,7 +136,28 @@ export default function BbqMembers() {
                     </div>
                   </div>
                   {!isManager && (
-                    <span style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                    /* 移动端整行换行，四个按钮会折到第二行；`marginLeft: auto` 让它们在
+                       换行后仍然靠右对齐，不会跑到名字底下贴着左边 */
+                    <span style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', marginLeft: 'auto' }}>
+                      {/* 记账与查账：带上 staff 参数，落地页自己收窄到这个人。
+                          没有做成"每人一个独立页面"——那要多两条路由，而这两页本来就支持按人筛选，
+                          差的只是"进来时替我选好" */}
+                      <Button
+                        size="small"
+                        icon={<DollarOutlined />}
+                        style={{ color: AMBER_DARK, borderColor: `${AMBER}88`, fontWeight: 600 }}
+                        onClick={() => navigate(`/bbq/wage?staff=${encodeURIComponent(r.userId)}`)}
+                      >
+                        薪资计算
+                      </Button>
+                      <Button
+                        size="small"
+                        icon={<BarChartOutlined />}
+                        style={{ color: AMBER_DARK, borderColor: `${AMBER}88` }}
+                        onClick={() => navigate(`/bbq/ledger?staff=${encodeURIComponent(r.userId)}`)}
+                      >
+                        薪资总览
+                      </Button>
                       <Popconfirm title={`提拔 ${dn(r.userId, r.userNickname)} 为店长？`} description="店长共管全店账本，解除只能由超管操作" onConfirm={() => doPromote(r)} okText="提拔" cancelText="取消">
                         <Button size="small" style={{ color: AMBER, borderColor: `${AMBER}88` }}>提拔为店长</Button>
                       </Popconfirm>

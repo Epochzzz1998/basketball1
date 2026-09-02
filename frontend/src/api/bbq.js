@@ -28,11 +28,16 @@ export const bbqApi = {
   wageDay: (date) => http.get('/bbq/wage/day', { params: { date } }),
   wageSave: (payload) => http.post('/bbq/wage/save', form(payload)),
   wageDelete: (recordId) => http.post('/bbq/wage/delete', form({ recordId })),
-  // 结清：预览（确认弹窗罗列对象与金额）→ 执行（记录盖 SETTLE_ID 锁死）。
+  // 结清：预览（确认弹窗罗列对象与金额）→ 执行（记录盖上 SETTLE_ID）。
+  // 注意：盖了 SETTLE_ID **不再等于锁死**——2026-09-02 起已结清的记录也能改能删，
+  // 后端会把那张结清凭据的金额/条数跟着重算。
   // userIds 为 JSON 数组字符串，空 = 所有有未结清账的人；toDate = 结清截止日（店长自选，可未来）
   settlePreview: (userIds, toDate) => http.get('/bbq/settle/preview', { params: { userIds, toDate } }),
   settleConfirm: (userIds, toDate) => http.post('/bbq/settle/confirm', form({ userIds, toDate })),
-  // 台账：店长=全店聚合，店员=自己的（含记录明细）。params: {month} 月视图或 {from, to} 周/区间视图。
+  // 台账：店长=全店聚合，店员=自己的（含记录明细）。
+  // params: {from, to} 任意起止日期（上限一年）；{month:'yyyy-MM'} 是整月的简写，仍然收。
+  //         {userId} 店长专用——把整页收窄到一个人（成员管理的「薪资总览」），
+  //         这时返回结构和店员自视图一致（多一份逐条记录明细）；店员传了会被忽略。
   // 路径带 /data 后缀：GET /bbq/ledger 会和 SPA 页面路由撞车（后端接口优先于 SPA 兜底）
   ledger: (params) => http.get('/bbq/ledger/data', { params }),
   // Burning！四榜（店内成员皆可看）：params 同台账；点赞 toggle；评论分页（每页 5 条）
