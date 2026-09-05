@@ -20,6 +20,7 @@ import { notifyPostPublished } from '../../utils/postBus'
 import {
   PollEditModal, PollPreview, RatingEditModal, RatingPreview, TagPickerModal,
 } from './PostComposerExtras'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 发帖器（P6 改版）。整屏一张"纸"：
@@ -93,6 +94,7 @@ function SettingRow({ icon, label, value, placeholder, onClick, danger }) {
 }
 
 export default function NewsEdit() {
+  const { t } = useTranslation()
   const { newsId: routeId } = useParams()
   const isEdit = !!routeId
   // 频道：从官方新闻区点"发布新闻"带 ?channel=official；后端只对新帖校验（official 需 manager+），编辑保留原频道
@@ -195,8 +197,8 @@ export default function NewsEdit() {
         name: u.userNickname,
         avatar: u.avatar,
         // 备注名只出现在小字里：正文里插的必须是真昵称，否则别人看到的是我私下起的外号
-        sub: dn(u.userId, '') && dn(u.userId, '') !== u.userNickname ? `备注：${dn(u.userId, '')}` : '',
-        group: isNbaZone ? '用户' : '', // 只有一组时不必出小标题
+        sub: dn(u.userId, '') && dn(u.userId, '') !== u.userNickname ? t("备注：{{v0}}", { v0: dn(u.userId, '') }) : '',
+        group: isNbaZone ? t("用户", { context: 'plural' }) : '', // 只有一组时不必出小标题
       })),
       // sub 那行放英文名 + 生涯年份——同姓球员一堆，光中文名认不出是哪个库里
       ...(players || []).map((p) => ({
@@ -204,7 +206,7 @@ export default function NewsEdit() {
         name: p.playerName || p.nameEn,
         avatar: p.photo,
         sub: [p.nameEn, p.firstYear ? `${p.firstYear}-${p.lastYear}` : ''].filter(Boolean).join(' · '),
-        group: '球员',
+        group: t("球员", { context: 'plural' }),
         info: { kind: 'player' }, // 写进 data-info，正文里据此描金标、点击进资料卡
       })),
     ]
@@ -215,7 +217,7 @@ export default function NewsEdit() {
   const removeDraft = async () => {
     try {
       await newsApi.deletePost(newsIdRef.current)
-      message.success('草稿已删除')
+      message.success(t("草稿已删除"))
       navigate(-1)
     } catch { /* 已提示 */ }
   }
@@ -228,7 +230,7 @@ export default function NewsEdit() {
       const url = await upload(file)
       if (url) editorRef.current?.insertImage(url)
     } catch {
-      message.error('图片上传失败')
+      message.error(t("图片上传失败"))
     }
   }
 
@@ -238,13 +240,13 @@ export default function NewsEdit() {
       const url = await newsApi.uploadCommentFile(file, newsIdRef.current)
       if (url) editorRef.current?.insertLink(file.name, url)
     } catch {
-      message.error('附件上传失败')
+      message.error(t("附件上传失败"))
     }
   }
 
   const submit = async (asDraft) => {
     draftRef.current = asDraft
-    if (!asDraft && !title.trim()) return message.warning('请输入标题')
+    if (!asDraft && !title.trim()) return message.warning(t("请输入标题"))
     setSaving(true)
     try {
       await newsApi.saveNews({
@@ -262,7 +264,7 @@ export default function NewsEdit() {
       // 存草稿就到此为止：打分/投票是发布动作，草稿阶段不该挂上去，也不该通知任何人。
       // 存完**留在编辑器里**——跳走的话主按钮上那个「发布」就再也见不到了。
       if (asDraft) {
-        message.success('草稿已保存，点右上角发布发出')
+        message.success(t("草稿已保存，点右上角发布发出"))
         setIsDraft(true)
         return undefined
       }
@@ -270,15 +272,15 @@ export default function NewsEdit() {
       if (!isEdit && rating?.subject) {
         try {
           await ratingApi.create({ newsId: newsIdRef.current, subject: rating.subject, imageUrl: rating.imageUrl || undefined })
-        } catch { message.warning('帖子已发出，但打分开启失败，可在评论区重新开启') }
+        } catch { message.warning(t("帖子已发出，但打分开启失败，可在评论区重新开启")) }
       }
       // 发帖时发起投票（可选，仅新帖）：同打分，失败不阻断发帖
       if (!isEdit && poll?.subject && poll.options?.length >= 2) {
         try {
           await pollApi.create({ newsId: newsIdRef.current, subject: poll.subject, options: JSON.stringify(poll.options) })
-        } catch { message.warning('帖子已发出，但投票发起失败，可在评论区重新发起') }
+        } catch { message.warning(t("帖子已发出，但投票发起失败，可在评论区重新发起")) }
       }
-      message.success(isEdit && !isDraft ? '已保存' : '已发布')
+      message.success(isEdit && !isDraft ? t("已保存") : t("已发布"))
       // 招呼底下那一层重新拉一次：这个编辑器是盖在列表/详情上的浮层，
       // 收起浮层不会让它们重新挂载，不说一声新帖就要手动刷新才出得来
       notifyPostPublished()
@@ -350,7 +352,7 @@ export default function NewsEdit() {
               fontSize: 16, fontWeight: 600, pointerEvents: 'none',
             }}
           >
-            {isEdit ? '编辑' : official ? '新闻' : '贴子'}
+            {isEdit ? t("编辑") : official ? t("新闻") : t("贴子")}
           </span>
           <CloseOutlined
             onClick={goBack}
@@ -363,7 +365,7 @@ export default function NewsEdit() {
               onClick={() => !saving && submit(true)}
               style={{ fontSize: 13, color: '#8c8c8c', flexShrink: 0, position: 'relative' }}
             >
-              存草稿
+              {t("存草稿")}
             </a>
           )}
           <Button
@@ -374,7 +376,7 @@ export default function NewsEdit() {
             style={{ flexShrink: 0, position: 'relative' }}
           >
             {/* 只有「改一篇已经发出去的帖子」才叫保存；新帖和草稿点下去都是真的发出去 */}
-            {isEdit && !isDraft ? '保存' : '发布'}
+            {isEdit && !isDraft ? t("保存") : t("发布")}
           </Button>
         </div>
       </div>
@@ -387,13 +389,13 @@ export default function NewsEdit() {
           <>
             {isDraft && (
               <div style={{ margin: '10px 0 4px', padding: '8px 12px', borderRadius: 10, background: '#fffbe6', fontSize: 12, color: '#ad6800' }}>
-                这是草稿，只有你自己看得到。点右上角「发布」才会公开出去。
+                {t("这是草稿，只有你自己看得到。点右上角「发布」才会公开出去。")}
               </div>
             )}
 
             <Input
               variant="borderless"
-              placeholder="请输入完整贴子标题"
+              placeholder={t("请输入完整贴子标题")}
               value={title}
               maxLength={100}
               onChange={(e) => setTitle(e.target.value)}
@@ -405,14 +407,14 @@ export default function NewsEdit() {
               ref={editorRef}
               bare
               minHeight={pinned ? 180 : 260}
-              placeholder="请输入正文…"
+              placeholder={t("请输入正文…")}
               value={content}
               onChange={setContent}
               uploadImage={upload}
               mentionSearch={searchMentions}
               mentionHint={isNbaZone
-                ? { placeholder: '搜索用户或球员…', emptyText: '没有找到用户或球员' }
-                : { placeholder: '搜索用户…', emptyText: '无匹配用户' }}
+                ? { placeholder: t("搜索用户或球员…"), emptyText: t("没有找到用户或球员") }
+                : { placeholder: t("搜索用户…"), emptyText: t("无匹配用户") }}
             />
 
             {/* 填好的投票/打分摆在正文下面，可叉掉、点一下回到弹窗改 */}
@@ -424,15 +426,15 @@ export default function NewsEdit() {
               {(topicName || official) && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 2px 12px', fontSize: 15, fontWeight: 600 }}>
                   <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#fa541c' }} />
-                  {official ? '官方新闻' : topicName}
+                  {official ? t("官方新闻") : topicName}
                 </div>
               )}
 
               <SettingRow
                 icon={<TagOutlined />}
-                label="添加话题"
+                label={t("添加话题")}
                 value={tags.map((t) => `#${t}`).join(' ')}
-                placeholder="加了话题更容易被翻到"
+                placeholder={t("加了话题更容易被翻到")}
                 onClick={() => setTagOpen(true)}
               />
 
@@ -440,9 +442,9 @@ export default function NewsEdit() {
               {postCats.length > 0 && (
                 <SettingRow
                   icon={<AppstoreOutlined />}
-                  label="分区"
+                  label={t("分区")}
                   value={catLabel}
-                  placeholder="不选 = 未分类"
+                  placeholder={t("不选 = 未分类")}
                   onClick={() => setCatOpen(true)}
                 />
               )}
@@ -452,16 +454,16 @@ export default function NewsEdit() {
                 <>
                   <SettingRow
                     icon={<BarChartOutlined />}
-                    label="投票"
+                    label={t("投票")}
                     value={poll?.subject}
-                    placeholder="发起一个投票"
+                    placeholder={t("发起一个投票")}
                     onClick={() => setPollOpen(true)}
                   />
                   <SettingRow
                     icon={<StarOutlined />}
-                    label="打分"
+                    label={t("打分")}
                     value={rating?.subject}
-                    placeholder="开一个 1-5 星打分"
+                    placeholder={t("开一个 1-5 星打分")}
                     onClick={() => setRatingOpen(true)}
                   />
                 </>
@@ -469,13 +471,13 @@ export default function NewsEdit() {
 
               {isDraft && (
                 <Popconfirm
-                  title="删除这份草稿？"
-                  description="草稿没有发布过，删了不可恢复"
-                  okText="删除"
+                  title={t("删除这份草稿？")}
+                  description={t("草稿没有发布过，删了不可恢复")}
+                  okText={t("删除")}
                   okButtonProps={{ danger: true }}
                   onConfirm={removeDraft}
                 >
-                  <div><SettingRow icon={<CloseOutlined />} label="删除草稿" danger /></div>
+                  <div><SettingRow icon={<CloseOutlined />} label={t("删除草稿")} danger /></div>
                 </Popconfirm>
               )}
             </div>
@@ -494,10 +496,10 @@ export default function NewsEdit() {
         }}
       >
         <Upload accept="image/*" showUploadList={false} beforeUpload={(f) => { pickImage(f); return false }}>
-          <ToolIcon icon={<PictureOutlined />} title="图片" />
+          <ToolIcon icon={<PictureOutlined />} title={t("图片")} />
         </Upload>
         <Upload showUploadList={false} beforeUpload={(f) => { pickFile(f); return false }}>
-          <ToolIcon icon={<PaperClipOutlined />} title="附件" />
+          <ToolIcon icon={<PaperClipOutlined />} title={t("附件")} />
         </Upload>
         {/* EmojiPicker 自带笑脸图标和弹层，这里只要给它一个落点 */}
         <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, fontSize: 20 }}>
@@ -521,7 +523,7 @@ export default function NewsEdit() {
         </>
       )}
       {/* 分区：题主配的那几项，单选，再点一下取消 */}
-      <Modal open={catOpen} onCancel={() => setCatOpen(false)} title="选择分区" footer={null} width={400} destroyOnClose>
+      <Modal open={catOpen} onCancel={() => setCatOpen(false)} title={t("选择分区")} footer={null} width={400} destroyOnClose>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {postCats.map((c) => {
             const on = c.id === categoryId
@@ -541,7 +543,7 @@ export default function NewsEdit() {
             )
           })}
         </div>
-        <div style={{ fontSize: 12, color: '#bbb', marginTop: 14 }}>不选 = 未分类；再点一下已选中的即可取消</div>
+        <div style={{ fontSize: 12, color: '#bbb', marginTop: 14 }}>{t("不选 = 未分类；再点一下已选中的即可取消")}</div>
       </Modal>
     </div>
     </div>

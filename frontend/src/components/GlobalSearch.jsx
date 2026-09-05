@@ -7,6 +7,7 @@ import { useAuth } from '../auth/AuthContext'
 import useIsMobile from '../hooks/useIsMobile'
 import { HistoryChips, SearchResults } from './SearchResults'
 import { dropHistory, flatten, pushHistory, readHistory } from './searchModel'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 全局搜索的**入口**。两种形态：
@@ -26,6 +27,7 @@ import { dropHistory, flatten, pushHistory, readHistory } from './searchModel'
  * 仍然会闪一下光标，看着像是坏了。用 div 画成输入框的样子就没有这个问题。
  */
 export default function GlobalSearch({ variant = 'pill' }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
   const { canUse } = useAuth()
@@ -163,7 +165,7 @@ export default function GlobalSearch({ variant = 'pill' }) {
       >
         <SearchOutlined style={{ color: '#aaa', fontSize: 15 }} />
         <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          想看点什么？
+          {t("想看点什么？")}
         </span>
       </div>
     )
@@ -187,7 +189,7 @@ export default function GlobalSearch({ variant = 'pill' }) {
         }}
       >
         <SearchOutlined style={{ color: hoverTrigger ? '#fa541c' : '#aaa', transition: 'color .2s' }} />
-        {!isMobile && <span style={{ flex: 1 }}>想看点什么？</span>}
+        {!isMobile && <span style={{ flex: 1 }}>{t("想看点什么？")}</span>}
         {!isMobile && <span style={kbd}>/</span>}
       </div>
 
@@ -212,7 +214,7 @@ export default function GlobalSearch({ variant = 'pill' }) {
           value={kw}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder="想看点什么？"
+          placeholder={t("想看点什么？")}
           prefix={<SearchOutlined style={{ color: '#fa541c', fontSize: 18, marginRight: 6 }} />}
           style={{ padding: '14px 18px', fontSize: 16, borderBottom: '1px solid #f0f0f0', borderRadius: 0 }}
         />
@@ -222,7 +224,7 @@ export default function GlobalSearch({ variant = 'pill' }) {
               <HistoryChips history={history} onPick={runHistory} onClear={() => setHistory(dropHistory())} />
             ) : (
               <div style={{ textAlign: 'center', color: '#bbb', padding: '28px 0', fontSize: 13 }}>
-                输入关键词搜索帖子、球员、资讯、用户
+                {t("输入关键词搜索帖子、球员、资讯、用户")}
               </div>
             )
           ) : (

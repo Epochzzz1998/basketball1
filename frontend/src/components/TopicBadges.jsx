@@ -2,6 +2,7 @@ import { Tooltip } from 'antd'
 import {
   EyeInvisibleOutlined, LockOutlined, StopOutlined, TagOutlined, UnlockOutlined,
 } from '@ant-design/icons'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 专题的状态标记：私密/公开、无浏览权、未公开、所属类别。
@@ -31,6 +32,7 @@ import {
  * @param light 是否压在深色背景上（有背景图的卡片、专题横幅）——那时要翻成浅色
  */
 export default function TopicBadges({ topic, light = false, style }) {
+  const { t } = useTranslation()
   if (!topic) return null
   const priv = topic.visibility === 'private'
   const color = light ? 'rgba(255,255,255,.85)' : '#bbb'
@@ -43,25 +45,25 @@ export default function TopicBadges({ topic, light = false, style }) {
         fontSize: 12, color, textShadow: shadow, ...style,
       }}
     >
-      <Tooltip title={priv ? '私密专题，需要加入才能看' : '公开专题'}>
+      <Tooltip title={priv ? t("私密专题，需要加入才能看") : t("公开专题")}>
         {priv ? <LockOutlined /> : <UnlockOutlined />}
       </Tooltip>
 
       {/* 无浏览权是唯一一个「拦住你」的状态，给它红色——其余几项只是陈述事实 */}
       {topic.locked && (
-        <Tooltip title="你没有这个专题的浏览权限">
+        <Tooltip title={t("你没有这个专题的浏览权限")}>
           <StopOutlined style={{ color: light ? '#ffa39e' : '#ff7875' }} />
         </Tooltip>
       )}
 
       {topic.listed === false && (
-        <Tooltip title="不在专题列表里公开，只能通过链接进入">
+        <Tooltip title={t("不在专题列表里公开，只能通过链接进入")}>
           <EyeInvisibleOutlined />
         </Tooltip>
       )}
 
       {topic.categoryName && (
-        <Tooltip title="所属类别">
+        <Tooltip title={t("所属类别")}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, maxWidth: 110 }}>
             <TagOutlined />
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

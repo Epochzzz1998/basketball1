@@ -5,6 +5,7 @@ import { compressImage } from '../utils/image'
 import { topicApi } from '../api/topic'
 import { searchApi } from '../api/search'
 import { useAuth } from '../auth/AuthContext'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 建 / 改专题弹窗。
@@ -20,6 +21,7 @@ const avatarColor = (name) => {
 }
 
 export default function TopicEditModal({ open, onClose, onSaved, topic, categories = [] }) {
+  const { t } = useTranslation()
   const isEdit = !!topic
   const { user, dn } = useAuth() // 题主候选也显示备注名，跟搜索口径一致
   const isSuper = !!user?.isSuperManager // 超管建专题可代指定 owner；普通用户创建后自己即题主
@@ -68,7 +70,7 @@ export default function TopicEditModal({ open, onClose, onSaved, topic, categori
   const addPostCat = () => {
     const n = newCat.trim()
     if (!n || postCats.length >= 20) return
-    if (postCats.some((c) => c.name === n)) return message.info('这个类别已经有了')
+    if (postCats.some((c) => c.name === n)) return message.info(t("这个类别已经有了"))
     setPostCats((arr) => [...arr, { id: `new-${Date.now()}`, name: n }])
     setNewCat('')
   }
@@ -113,10 +115,10 @@ export default function TopicEditModal({ open, onClose, onSaved, topic, categori
         await topicApi.update({ topicId: topic.topicId, ...payload })
         // 帖子类别是另一个接口（整份覆盖），跟着一起提交
         await topicApi.setPostCategories(topic.topicId, postCats)
-        message.success('已保存')
+        message.success(t("已保存"))
       } else {
         await topicApi.create({ ...payload, ownerId: v.ownerId })
-        message.success('专题已创建')
+        message.success(t("专题已创建"))
       }
       onSaved?.()
       onClose()
@@ -131,9 +133,9 @@ export default function TopicEditModal({ open, onClose, onSaved, topic, categori
       onCancel={onClose}
       onOk={submit}
       confirmLoading={saving}
-      okText={isEdit ? '保存' : '创建'}
-      cancelText="取消"
-      title={isEdit ? '编辑专题' : '新建专题'}
+      okText={isEdit ? t("保存") : t("创建")}
+      cancelText={t("取消")}
+      title={isEdit ? t("编辑专题") : t("新建专题")}
       width={520}
       destroyOnClose
     >
@@ -142,17 +144,17 @@ export default function TopicEditModal({ open, onClose, onSaved, topic, categori
             原来是 40 / 200，写得下但显示不下——专题名要出现在卡片、横幅、侧栏、
             搜索结果、面包屑里，那几处宽度固定，超了就是被省略号截掉。
             `showCount` 让人在打字时就看见还剩几个字，而不是点了保存才被后端拒绝 */}
-        <Form.Item name="name" label="专题名称" rules={[{ required: true, message: '请输入名称' }]}>
-          <Input placeholder="如：读书交流区" maxLength={15} showCount />
+        <Form.Item name="name" label={t("专题名称")} rules={[{ required: true, message: t("请输入名称") }]}>
+          <Input placeholder={t("如：读书交流区")} maxLength={15} showCount />
         </Form.Item>
-        <Form.Item name="description" label="简介">
-          <Input.TextArea placeholder="一句话介绍这个专题" maxLength={50} showCount autoSize={{ minRows: 2, maxRows: 4 }} />
+        <Form.Item name="description" label={t("简介")}>
+          <Input.TextArea placeholder={t("一句话介绍这个专题")} maxLength={50} showCount autoSize={{ minRows: 2, maxRows: 4 }} />
         </Form.Item>
         {/* 背景图：专题页顶部整块铺它，百家说的卡片顶部也铺一条。
             要 topicId 才能上传，所以只在编辑时出现（和帖子类别同理）。
             预览按 3:1 画——和专题页横幅的比例一致，选图的时候就能看出会被裁掉哪儿 */}
         {isEdit && (
-          <Form.Item label="背景图" extra="建议 1200×400 左右的横图，jpg/png/webp ≤ 20MB（上传前会自动压到长边 1600）。留空则用默认的橙色渐变">
+          <Form.Item label={t("背景图")} extra={t("建议 1200×400 左右的横图，jpg/png/webp ≤ 20MB（上传前会自动压到长边 1600）。留空则用默认的橙色渐变")}>
             <div
               style={{
                 position: 'relative', width: '100%', aspectRatio: '3 / 1', borderRadius: 12,
@@ -170,7 +172,7 @@ export default function TopicEditModal({ open, onClose, onSaved, topic, categori
                 />
               ) : (
                 <span style={{ color: 'rgba(255,255,255,.85)', fontSize: 13 }}>
-                  <PictureOutlined style={{ marginRight: 6 }} />还没有背景图
+                  <PictureOutlined style={{ marginRight: 6 }} />{t("还没有背景图")}
                 </span>
               )}
             </div>
@@ -183,7 +185,7 @@ export default function TopicEditModal({ open, onClose, onSaved, topic, categori
                   // 20MB：背景图多半是相机原图或壁纸，10MB 很容易顶到。
                   // 服务端 FileUtils.uploadBanner 也是这个数（Spring 的 multipart 上限 30MB，够）
                   if (file.size > 20 * 1024 * 1024) {
-                    message.error('图片不能超过 20MB')
+                    message.error(t("图片不能超过 20MB"))
                     return Upload.LIST_IGNORE
                   }
                   if (bannerPreview) URL.revokeObjectURL(bannerPreview)
@@ -192,7 +194,7 @@ export default function TopicEditModal({ open, onClose, onSaved, topic, categori
                   return false // 不自动上传，点"保存"才提交
                 }}
               >
-                <Button icon={<PictureOutlined />}>{banner || bannerPreview ? '换一张' : '选择图片'}</Button>
+                <Button icon={<PictureOutlined />}>{banner || bannerPreview ? t("换一张") : t("选择图片")}</Button>
               </Upload>
               {(bannerPreview || (banner && banner !== '')) && (
                 <Button
@@ -204,19 +206,19 @@ export default function TopicEditModal({ open, onClose, onSaved, topic, categori
                     setBanner('') // '' = 保存时显式清空（null 会被后端当成"没传"）
                   }}
                 >
-                  移除
+                  {t("移除")}
                 </Button>
               )}
             </Space>
           </Form.Item>
         )}
         {!isEdit && isSuper && (
-          <Form.Item name="ownerId" label="专题 owner（负责管理成员权限）" rules={[{ required: true, message: '请指定一个 owner' }]}>
+          <Form.Item name="ownerId" label={t("专题 owner（负责管理成员权限）")} rules={[{ required: true, message: t("请指定一个 owner") }]}>
             <Select
               virtual={false}
               showSearch
               filterOption={false}
-              placeholder="搜索用户指定为 owner"
+              placeholder={t("搜索用户指定为 owner")}
               onSearch={search}
               notFoundContent={null}
               options={opts.map((o) => ({
@@ -233,36 +235,36 @@ export default function TopicEditModal({ open, onClose, onSaved, topic, categori
         )}
         {/* 专题类别：全站一份，超管在百家说首页的「管理类别」里维护。这里只是挑一个 */}
         {categories.length > 0 && (
-          <Form.Item name="categoryId" label="专题类别" extra="决定这个专题出现在百家说首页哪个筛选按钮下">
+          <Form.Item name="categoryId" label={t("专题类别")} extra={t("决定这个专题出现在百家说首页哪个筛选按钮下")}>
             <Select
               virtual={false}
               allowClear
-              placeholder="不选=未分类"
+              placeholder={t("不选=未分类")}
               options={categories.map((c) => ({ value: c.categoryId, label: c.name }))}
             />
           </Form.Item>
         )}
-        <Form.Item name="visibility" label="可见性">
+        <Form.Item name="visibility" label={t("可见性")}>
           <Radio.Group onChange={(e) => setVisibility(e.target.value)}>
-            <Radio value="public">公开（人人可浏览）</Radio>
-            <Radio value="private">私密（仅授权成员可浏览）</Radio>
+            <Radio value="public">{t("公开（人人可浏览）")}</Radio>
+            <Radio value="private">{t("私密（仅授权成员可浏览）")}</Radio>
           </Radio.Group>
         </Form.Item>
         {visibility === 'public' && (
           <div style={{ background: '#fafafa', borderRadius: 8, padding: '10px 14px' }}>
-            <div style={{ fontSize: 12, color: '#999', marginBottom: 8 }}>公开专题默认只有白名单成员能发帖/发言，可放开给所有人：</div>
+            <div style={{ fontSize: 12, color: '#999', marginBottom: 8 }}>{t("公开专题默认只有白名单成员能发帖/发言，可放开给所有人：")}</div>
             <Form.Item name="openPost" valuePropName="checked" noStyle>
-              <Checkbox>允许所有登录用户发帖</Checkbox>
+              <Checkbox>{t("允许所有登录用户发帖")}</Checkbox>
             </Form.Item>
             <Form.Item name="openComment" valuePropName="checked" noStyle>
-              <Checkbox style={{ marginLeft: 16 }}>允许所有登录用户发言</Checkbox>
+              <Checkbox style={{ marginLeft: 16 }}>{t("允许所有登录用户发言")}</Checkbox>
             </Form.Item>
           </div>
         )}
         {/* 帖子类别：本专题自己的一份，题主说了算，和上面的专题类别是两回事。
             建专题时还没有 topicId，所以只在编辑时出现 */}
         {isEdit && (
-          <Form.Item label="帖子类别" extra="本专题内部用：发帖时选一个，帖子流里按它筛。删掉某一项，用过它的帖子会退回「未分类」">
+          <Form.Item label={t("帖子类别")} extra={t("本专题内部用：发帖时选一个，帖子流里按它筛。删掉某一项，用过它的帖子会退回「未分类」")}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: postCats.length ? 10 : 0 }}>
               {postCats.map((c) => (
                 <Tag
@@ -278,13 +280,13 @@ export default function TopicEditModal({ open, onClose, onSaved, topic, categori
             </div>
             <Space.Compact style={{ width: '100%' }}>
               <Input
-                placeholder="如：公告、战报、求助（最多 20 个）"
+                placeholder={t("如：公告、战报、求助（最多 20 个）")}
                 maxLength={12}
                 value={newCat}
                 onChange={(e) => setNewCat(e.target.value)}
                 onPressEnter={(e) => { e.preventDefault(); addPostCat() }}
               />
-              <Button icon={<PlusOutlined />} onClick={addPostCat} disabled={!newCat.trim() || postCats.length >= 20}>添加</Button>
+              <Button icon={<PlusOutlined />} onClick={addPostCat} disabled={!newCat.trim() || postCats.length >= 20}>{t("添加")}</Button>
             </Space.Compact>
           </Form.Item>
         )}
@@ -293,34 +295,34 @@ export default function TopicEditModal({ open, onClose, onSaved, topic, categori
         {isEdit && isSuper && (
           <Form.Item
             name="filesEnabled"
-            label="文件系统"
+            label={t("文件系统")}
             valuePropName="checked"
-            extra="仅超管可开关。打开后题主可上传文件、建文件夹，能浏览本专题的人都可查看下载。"
+            extra={t("仅超管可开关。打开后题主可上传文件、建文件夹，能浏览本专题的人都可查看下载。")}
             style={{ marginTop: 12 }}
           >
-            <Switch checkedChildren="已开放" unCheckedChildren="未开放" />
+            <Switch checkedChildren={t("已开放")} unCheckedChildren={t("未开放")} />
           </Form.Item>
         )}
         {/* 群聊：默认关，题主自己决定要不要给这个专题开一个实时房间 */}
         {isEdit && (
           <Form.Item
             name="chatEnabled"
-            label="群聊"
+            label={t("群聊")}
             valuePropName="checked"
-            extra="打开后，能浏览本专题的人都可以进群聊；要单独禁某个人发言，去「成员管理」里关他的群聊开关。"
+            extra={t("打开后，能浏览本专题的人都可以进群聊；要单独禁某个人发言，去「成员管理」里关他的群聊开关。")}
             style={{ marginTop: 12 }}
           >
-            <Switch checkedChildren="已开放" unCheckedChildren="未开放" />
+            <Switch checkedChildren={t("已开放")} unCheckedChildren={t("未开放")} />
           </Form.Item>
         )}
         <Form.Item
           name="listed"
-          label="在百家说中可见"
+          label={t("在百家说中可见")}
           valuePropName="checked"
-          extra="关闭后：本专题不在百家说列表出现、帖子也不被全站搜索和首页热榜收录；题主、管理员、已加入成员仍能在列表看到并进入。"
+          extra={t("关闭后：本专题不在百家说列表出现、帖子也不被全站搜索和首页热榜收录；题主、管理员、已加入成员仍能在列表看到并进入。")}
           style={{ marginTop: 12 }}
         >
-          <Switch checkedChildren="可见" unCheckedChildren="隐藏" />
+          <Switch checkedChildren={t("可见")} unCheckedChildren={t("隐藏")} />
         </Form.Item>
       </Form>
     </Modal>

@@ -80,15 +80,15 @@ export const actionTextOf = (m, tr = plain) => {
     case 'commentComment': return t ? tr("回复了您在{{t}}下的评论", { t }) : tr("回复了您的评论")
     case 'mentionComment': return t ? tr("在{{t}}的评论里@了您", { t }) : tr("在评论里@了您")
     case 'mentionNews': return t ? tr("在帖子{{t}}里@了您", { t }) : tr("在帖子里@了您")
-    case 'mentionChat': return tr("在{{v0}}的群聊里@了您", { v0: m.content ? tr('「{{title}}」', { title: m.content }) : tr('专题') })
+    case 'mentionChat': return tr("在{{v0}}的群聊里@了您", { v0: m.content ? tr('「{{title}}」', { title: m.content }) : tr('专题', { context: 'sentence' }) })
     case 'mentionGame': return tr("在赛后短评里@了您")
     case 'mentionLol': return tr("在开黑对局的短评里@了您")
     case 'replyGame': return tr("回复了您的赛后短评")
     case 'replyLol': return tr("回复了您在开黑对局里的短评")
     case 'follow': return tr("关注了你")
     case 'topicApply': return tr("申请加入你的专题{{v0}}", { v0: m.content ? tr('「{{title}}」', { title: m.content }) : '' })
-    case 'topicApproved': return tr("通过了你加入{{v0}}的申请", { v0: m.content ? tr('「{{title}}」', { title: m.content }) : tr('专题') })
-    case 'topicRejected': return tr("驳回了你加入{{v0}}的申请", { v0: m.content ? tr('「{{title}}」', { title: m.content }) : tr('专题') })
+    case 'topicApproved': return tr("通过了你加入{{v0}}的申请", { v0: m.content ? tr('「{{title}}」', { title: m.content }) : tr('专题', { context: 'sentence' }) })
+    case 'topicRejected': return tr("驳回了你加入{{v0}}的申请", { v0: m.content ? tr('「{{title}}」', { title: m.content }) : tr('专题', { context: 'sentence' }) })
     case 'scheduleAssign': return tr("给你指派了一条日程")
     case 'scheduleRemind': return '' // operatorName 即「日程提醒」，短语留空避免重复
     case 'scheduleOverdue': return ''

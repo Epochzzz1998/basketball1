@@ -1,4 +1,5 @@
 import { useGoBack } from './backNav'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 全站统一的返回按钮。
@@ -64,12 +65,13 @@ function Chevron({ size }) {
  * @param size     圆钮直径，默认 32
  */
 export default function BackButton({ variant = 'plain', onClick, label, size = 32, style }) {
+  const { t } = useTranslation()
   const goBack = useGoBack()
   const skin = SKIN[variant] || SKIN.plain
   return (
     <span
       role="button"
-      aria-label="返回"
+      aria-label={t("返回")}
       onClick={onClick || goBack}
       className="back-btn"
       style={{

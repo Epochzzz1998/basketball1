@@ -4,6 +4,7 @@ import { Avatar } from 'antd'
 import { Boot, createEditor, createToolbar } from '@wangeditor/editor'
 import mentionModule from '@wangeditor/plugin-mention'
 import '@wangeditor/editor/dist/css/style.css'
+import { useTranslation } from 'react-i18next'
 
 /**
  * wangEditor 富文本编辑器的轻封装。
@@ -41,7 +42,11 @@ const avatarColor = (name) => {
  * 候选项 {id, name, avatar, sub?}——sub 是名字下面那行小字（球员用它放英文名和生涯年份，
  * 「戴尔·库里 / 斯蒂芬·库里」这种同姓的人光看中文名分不出谁是谁）。
  */
-function MentionPanel({ top, left, search, onPick, onClose, placeholder = '搜索用户…', emptyText = '无匹配用户' }) {
+function MentionPanel({ top, left, search, onPick, onClose, placeholder: placeholderProp, emptyText: emptyTextProp }) {
+  const { t } = useTranslation()
+  // 默认文案不能写在参数默认值里：那一行在 hook 之前执行，t 还不存在
+  const placeholder = placeholderProp ?? t('搜索用户…')
+  const emptyText = emptyTextProp ?? t('无匹配用户')
   const [kw, setKw] = useState('')
   const [opts, setOpts] = useState([])
   const [active, setActive] = useState(0)
@@ -135,9 +140,12 @@ function MentionPanel({ top, left, search, onPick, onClose, placeholder = '搜�
  * ref 上暴露 { insertImage, insertLink, insertText, focus }，给外部工具栏调用。
  */
 const RichTextEditor = forwardRef(function RichTextEditor({
-  value, onChange, uploadImage, mentionSearch, mentionHint, placeholder = '请输入正文…',
+  value, onChange, uploadImage, mentionSearch, mentionHint, placeholder: placeholderProp,
   bare = false, minHeight = 220,
 }, ref) {
+  const { t } = useTranslation()
+  // 同上：默认占位语等 hook 之后再取。它只在创建编辑器那一刻用一次，切语言不会跟着变
+  const placeholder = placeholderProp ?? t('请输入正文…')
   const editorRef = useRef(null)
   const toolbarElRef = useRef(null)
   const editorElRef = useRef(null)

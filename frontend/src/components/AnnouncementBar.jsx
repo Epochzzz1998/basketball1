@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { CloseOutlined, NotificationOutlined } from '@ant-design/icons'
 import { announceApi } from '../api/announce'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 全站滚动公告条。
@@ -23,6 +24,7 @@ const TONE = {
 }
 
 export default function AnnouncementBar() {
+  const { t } = useTranslation()
   const [data, setData] = useState(null)
 
   useEffect(() => {
@@ -77,7 +79,7 @@ export default function AnnouncementBar() {
         </div>
         <CloseOutlined
           onClick={close}
-          title={data.level === 'error' ? '暂时收起（刷新后仍会显示）' : '不再显示这条公告'}
+          title={data.level === 'error' ? t("暂时收起（刷新后仍会显示）") : t("不再显示这条公告")}
           style={{ flexShrink: 0, cursor: 'pointer', opacity: 0.6, fontSize: 14 }}
         />
       </div>

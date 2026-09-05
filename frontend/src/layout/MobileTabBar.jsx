@@ -1,6 +1,7 @@
 import { Badge } from 'antd'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { TABS, activeTab } from './mobileNav'
+import { useTranslation } from 'react-i18next'
 
 const BRAND = '#fa541c'
 
@@ -25,6 +26,7 @@ export const TAB_BAR_HEIGHT = 52
 export const TOP_BAR_HEIGHT = 50
 
 export default function MobileTabBar({ pmUnread = 0, meUnread = 0 }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
   const active = activeTab(location.pathname)
@@ -44,17 +46,17 @@ export default function MobileTabBar({ pmUnread = 0, meUnread = 0 }) {
         borderTop: '1px solid #f0f0f0',
       }}
     >
-      {TABS.map((t) => {
-        const on = active === t.key
-        const Icon = t.icon
-        const n = badgeOf(t.key)
+      {TABS.map((tab) => {
+        const on = active === tab.key
+        const Icon = tab.icon
+        const n = badgeOf(tab.key)
         return (
           <div
-            key={t.key}
+            key={tab.key}
             /* replace 而不是 push：Tab 之间来回点不该在历史里堆一串，
                否则从二级页面返回时要先退回一堆 Tab 切换记录才出得去。
                和左右滑手势保持一致（见 useAppSwipe） */
-            onClick={() => navigate(t.path, { replace: true })}
+            onClick={() => navigate(tab.path, { replace: true })}
             style={{
               flex: 1, display: 'flex', flexDirection: 'column',
               alignItems: 'center', justifyContent: 'center', gap: 2,
@@ -67,7 +69,7 @@ export default function MobileTabBar({ pmUnread = 0, meUnread = 0 }) {
             <Badge count={n} size="small" offset={[2, 0]}>
               <Icon style={{ fontSize: 20, color: on ? BRAND : '#8c8c8c' }} />
             </Badge>
-            <span style={{ fontSize: 10, lineHeight: 1, fontWeight: on ? 700 : 400 }}>{t.label}</span>
+            <span style={{ fontSize: 10, lineHeight: 1, fontWeight: on ? 700 : 400 }}>{t(tab.label)}</span>
           </div>
         )
       })}

@@ -1,4 +1,5 @@
 import http from './http'
+import i18n from '../i18n'
 
 /**
  * 赛后评分：给一场比赛打分写短评，给场上的球员逐个打分。
@@ -77,9 +78,9 @@ export const scoreColor = (s) => {
 export const scoreWord = (s) => {
   const v = Number(s)
   if (!v) return ''
-  if (v >= 4.5) return '神'
-  if (v >= 3.5) return '好'
-  if (v >= 2.5) return '一般'
-  if (v >= 1.5) return '差'
-  return '拉'
+  if (v >= 4.5) return i18n.t("神")
+  if (v >= 3.5) return i18n.t("好")
+  if (v >= 2.5) return i18n.t("一般")
+  if (v >= 1.5) return i18n.t("差")
+  return i18n.t("拉")
 }

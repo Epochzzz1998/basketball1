@@ -1,4 +1,5 @@
 import { CloseOutlined } from '@ant-design/icons'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 全站统一的时间输入：原生 <input type="time">。
@@ -26,11 +27,12 @@ export default function TimeField({ value, onChange, style }) {
 
 /** 时间段的清空按钮：放在整组时间的右边，28px 圆钮好点按；点了把开始+结束一起清掉 */
 export function TimeClear({ visible, onClear }) {
+  const { t } = useTranslation()
   if (!visible) return null
   return (
     <span
       onClick={onClear}
-      title="清空时间"
+      title={t("清空时间")}
       style={{
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         width: 28, height: 28, borderRadius: '50%', cursor: 'pointer', flexShrink: 0,

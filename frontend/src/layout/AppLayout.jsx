@@ -37,6 +37,7 @@ import useNavigationPaint from './useNavigationPaint'
 import useAppSwipe from './useAppSwipe'
 import { bbqSections } from '../pages/bbq/bbqSections'
 import LangToggle from '../components/LangToggle'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 整体外壳（P5-3 美化）：ProLayout 的 mix 布局 = 顶栏品牌 + 可折叠侧栏菜单，
@@ -48,6 +49,7 @@ import LangToggle from '../components/LangToggle'
  * - 子页面渲染进 <Outlet/>，内容区灰底，各页的 Card/ProTable 自然浮成白卡片。
  */
 export default function AppLayout() {
+  const { t } = useTranslation()
   const { user, loading: authLoading, logout, canUse } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -169,37 +171,37 @@ export default function AppLayout() {
       path: '/',
       routes: [
         // 百家说（论坛）是落地页与首要入口，放最前
-        ...(canUse('featForum') ? [{ path: '/news', name: '百家说', icon: <ReadOutlined /> }] : []),
+        ...(canUse('featForum') ? [{ path: '/news', name: t("百家说"), icon: <ReadOutlined /> }] : []),
         // NBA 数据不再出现在侧栏：不是每个人都看球，一整组菜单挂在那儿对多数人是噪音。
         // 入口改在 NBA 专题的横幅上（components/NbaModuleEntry.jsx）——想看的人进那个专题就看得见。
         // 路由和后端门禁都没动，直连 /players 之类照样能进（登录且没被封禁的话）。
-        ...(canUse('featNews') ? [{ path: '/official', name: '新闻', icon: <NotificationOutlined /> }] : []),
+        ...(canUse('featNews') ? [{ path: '/official', name: t("新闻"), icon: <NotificationOutlined /> }] : []),
         // 日程（登录用户；按用户可关）
-        ...(user && canUse('featSchedule') ? [{ path: '/schedule', name: '日程', icon: <CalendarOutlined /> }] : []),
+        ...(user && canUse('featSchedule') ? [{ path: '/schedule', name: t("日程"), icon: <CalendarOutlined /> }] : []),
         // 耿阿姨烤串（单店薪资管理）：店长共管全店账本，店员只看自己的薪资。
         // 分区清单来自 pages/bbq/bbqSections——**和页内标签条（BbqTabs）是同一份**，
         // 加一个分区只改那一处，不会出现"侧栏有、标签条没有"。
         ...(bbqSections(user?.bbqRole).length
           ? [{
               path: '/bbq',
-              name: '耿阿姨烤串',
+              name: t("耿阿姨烤串"),
               icon: <FireOutlined />,
-              routes: bbqSections(user?.bbqRole).map((s) => ({ path: s.path, name: s.label, icon: s.icon })),
+              routes: bbqSections(user?.bbqRole).map((s) => ({ path: s.path, name: t(s.label), icon: s.icon })),
             }]
           : []),
         // 私信：侧栏一个入口（未读数在 menuItemRender 里挂角标），头像下拉里那个也保留——
         // 两个入口指同一页，习惯点哪个都行
-        ...(user && canUse('featPm') ? [{ path: '/messages', name: '私信', icon: <MessageOutlined /> }] : []),
+        ...(user && canUse('featPm') ? [{ path: '/messages', name: t("私信"), icon: <MessageOutlined /> }] : []),
         ...(user?.isSuperManager
           ? [
-              { path: '/admin/players', name: '球员管理', icon: <DatabaseOutlined /> },
-              { path: '/admin/users', name: '用户管理', icon: <UsergroupAddOutlined /> },
+              { path: '/admin/players', name: t("球员管理"), icon: <DatabaseOutlined /> },
+              { path: '/admin/users', name: t("用户管理"), icon: <UsergroupAddOutlined /> },
             ]
           : []),
       ],
     }),
     // canUse 只依赖 user，所以 user 变了就够了；把它列进来会让每次渲染都重算菜单
-    [user], // eslint-disable-line react-hooks/exhaustive-deps
+    [user, t], // eslint-disable-line react-hooks/exhaustive-deps
   )
 
   const onLogout = async () => {
@@ -277,22 +279,22 @@ export default function AppLayout() {
                 style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none', padding: '2px 6px', fontSize: 12, fontWeight: 700, color: '#d46b08' }}
               >
                 <CaretRightOutlined style={{ transform: subsOpen ? 'rotate(90deg)' : 'none', transition: 'transform .15s', fontSize: 10 }} />
-                订阅的专题
+                {t("订阅的专题")}
                 <span style={{ color: '#d9a05f', fontWeight: 400 }}>({subs.length})</span>
               </div>
               {subsOpen && subs.length === 0 && (
                 <div style={{ marginTop: 4, background: '#fffaf3', border: '1px dashed #ffe7ba', borderRadius: 10, padding: '10px 12px', fontSize: 12, color: '#d9a05f', lineHeight: 1.6 }}>
-                  还没有订阅。到已加入的专题页点「订阅」，就会常驻在这里
+                  {t("还没有订阅。到已加入的专题页点「订阅」，就会常驻在这里")}
                 </div>
               )}
               {subsOpen && subs.length > 0 && (
                 <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2, background: '#fffaf3', border: '1px solid #ffe7ba', borderRadius: 10, padding: '6px 4px' }}>
-                  {subs.map((t) => {
-                    const active = location.pathname === `/news/topic/${t.topicId}`
+                  {subs.map((s) => {
+                    const active = location.pathname === `/news/topic/${s.topicId}`
                     return (
                       <div
-                        key={t.topicId}
-                        onClick={() => { navigate(`/news/topic/${t.topicId}`); if (isMobile) setCollapsed(true) }}
+                        key={s.topicId}
+                        onClick={() => { navigate(`/news/topic/${s.topicId}`); if (isMobile) setCollapsed(true) }}
                         style={{
                           display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', borderRadius: 8,
                           cursor: 'pointer', fontSize: 13,
@@ -302,11 +304,11 @@ export default function AppLayout() {
                         }}
                       >
                         {/* 置顶的换成图钉，顺序由后端按各人的置顶时间排好，这里只是让人看懂为什么它在最上面 */}
-                        {t.pinned
+                        {s.pinned
                           ? <PushpinFilled style={{ fontSize: 11, color: '#fa541c', flexShrink: 0 }} />
                           : <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#fa8c16', flexShrink: 0 }} />}
-                        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</span>
-                        {t.newCount > 0 && <Badge count={t.newCount} size="small" style={{ flexShrink: 0 }} />}
+                        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</span>
+                        {s.newCount > 0 && <Badge count={s.newCount} size="small" style={{ flexShrink: 0 }} />}
                       </div>
                     )
                   })}
@@ -345,7 +347,7 @@ export default function AppLayout() {
                       {
                         key: 'profile',
                         icon: <UserOutlined />,
-                        label: '个人主页',
+                        label: t("个人主页"),
                         onClick: () => navigate(`/users/${user.userId}`),
                       },
                       // 私信：头像下拉与侧栏各有一个入口，未读数实时角标
@@ -355,7 +357,7 @@ export default function AppLayout() {
                             icon: <MessageOutlined />,
                             label: (
                               <span>
-                                私信
+                                {t("私信")}
                                 <Badge count={pmUnread} size="small" style={{ marginLeft: 8 }} />
                               </span>
                             ),
@@ -367,7 +369,7 @@ export default function AppLayout() {
                         icon: <BellOutlined />,
                         label: (
                           <span>
-                            我的消息
+                            {t("我的消息")}
                             <Badge count={unread} size="small" style={{ marginLeft: 8 }} />
                           </span>
                         ),
@@ -378,12 +380,12 @@ export default function AppLayout() {
                         ? [{
                             key: 'announce',
                             icon: <NotificationOutlined />,
-                            label: '全站公告',
+                            label: t("全站公告"),
                             onClick: () => setAnnounceOpen(true),
                           }]
                         : []),
                       { type: 'divider' },
-                      { key: 'logout', icon: <LogoutOutlined />, label: '登出', onClick: onLogout },
+                      { key: 'logout', icon: <LogoutOutlined />, label: t("登出"), onClick: onLogout },
                     ],
                   }}
                 >
@@ -410,7 +412,7 @@ export default function AppLayout() {
         <span
           key="reload"
           onClick={() => window.location.reload()}
-          title="刷新页面"
+          title={t("刷新页面")}
           style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             width: 32, height: 32, flexShrink: 0, borderRadius: 16,
@@ -432,8 +434,8 @@ export default function AppLayout() {
         ...(user
           ? []
           : [
-              <Button key="login" type="primary" size="small" onClick={() => navigate('/login')}>登录</Button>,
-              <Button key="reg" size="small" onClick={() => navigate('/register')}>注册</Button>,
+              <Button key="login" type="primary" size="small" onClick={() => navigate('/login')}>{t("登录")}</Button>,
+              <Button key="reg" size="small" onClick={() => navigate('/register')}>{t("注册")}</Button>,
             ]),
       ]}
       token={{
@@ -471,7 +473,7 @@ export default function AppLayout() {
                 这个是整个应用重新加载——换了版本、或者页面状态乱了的时候用 */}
             <ReloadOutlined
               onClick={() => window.location.reload()}
-              title="刷新页面"
+              title={t("刷新页面")}
               style={{ fontSize: 17, color: '#888', flexShrink: 0, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
             />
             {/* 中/EN 切换：裸文字，和旁边裸的刷新图标一个调子 */}
@@ -506,7 +508,7 @@ export default function AppLayout() {
             游客也能看到——公告本来就是发给所有人的 */}
         <AnnouncementBar />
         {/* 手机上只留一个圆钮（那一行很值钱），桌面端把「返回」二字带上 */}
-        {showBack && <BackButton label={isMobile ? undefined : '返回'} style={{ marginBottom: 10 }} />}
+        {showBack && <BackButton label={isMobile ? undefined : t("返回")} style={{ marginBottom: 10 }} />}
         {/* 自己的错误边界要比 ProLayout 内部那个更靠近页面，才会先捕获。
             它显示 error.stack，配合 source map 能反查到原始行号；ProLayout 自带的
             只显示一句 message，压缩后完全定位不到。

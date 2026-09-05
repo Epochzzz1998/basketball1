@@ -6,6 +6,7 @@ import { newsApi } from '../api/news'
 import { followApi } from '../api/follow'
 import { useAuth } from '../auth/AuthContext'
 import useIsMobile from '../hooks/useIsMobile'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 评论/回复输入器：文本框 + 工具栏（表情/图片/文件）+ 附件预览 + 提交。
@@ -25,8 +26,11 @@ export const humanSize = (n) => {
   return `${(n / 1024 / 1024).toFixed(1)}MB`
 }
 
-export default function CommentComposer({ newsId, placeholder, submitText = '发表评论', onSubmit, onCancel, compact }) {
+export default function CommentComposer({ newsId, placeholder, submitText: submitTextProp, onSubmit, onCancel, compact }) {
+  const { t } = useTranslation()
   const isMobile = useIsMobile()
+  // 默认按钮文案等 hook 之后再取，不能写在参数默认值里
+  const submitText = submitTextProp ?? t('发表评论')
   const { user, dn } = useAuth()
   const [text, setText] = useState('')
   const [attachments, setAttachments] = useState([])
@@ -80,7 +84,7 @@ export default function CommentComposer({ newsId, placeholder, submitText = '发
   // 在光标处插入 emoji（拿底层 textarea 的选区拼接，再恢复光标）
   const insertEmoji = (emoji) => {
     const ta = wrapRef.current?.querySelector('textarea')
-    if (!ta) { setText((t) => t + emoji); return }
+    if (!ta) { setText((v) => v + emoji); return }
     const s = ta.selectionStart ?? text.length
     const e = ta.selectionEnd ?? text.length
     setText(text.slice(0, s) + emoji + text.slice(e))
@@ -88,7 +92,7 @@ export default function CommentComposer({ newsId, placeholder, submitText = '发
   }
 
   const doUpload = async ({ file, onSuccess, onError }) => {
-    if (attachments.length >= MAX_ATTACH) { message.warning(`最多 ${MAX_ATTACH} 个附件`); onError?.(new Error('max')); return }
+    if (attachments.length >= MAX_ATTACH) { message.warning(t("最多 {{MAX_ATTACH}} 个附件", { MAX_ATTACH })); onError?.(new Error('max')); return }
     setUploading(true)
     try {
       const url = await newsApi.uploadCommentFile(file, newsId)
@@ -97,7 +101,7 @@ export default function CommentComposer({ newsId, placeholder, submitText = '发
         setAttachments((a) => [...a, { type: isImage ? 'image' : 'file', url, name: file.name, size: file.size }])
         onSuccess?.()
       } else {
-        onError?.(new Error('上传失败'))
+        onError?.(new Error(t("上传失败")))
       }
     } catch (err) {
       onError?.(err) // 具体错误已由 http 拦截器弹出
@@ -190,15 +194,15 @@ export default function CommentComposer({ newsId, placeholder, submitText = '发
         <Space size={16} align="center">
           <EmojiPicker onPick={insertEmoji} />
           <Upload accept={IMG_ACCEPT} multiple showUploadList={false} customRequest={doUpload}>
-            <Tooltip title="图片"><PictureOutlined style={toolIcon} /></Tooltip>
+            <Tooltip title={t("图片")}><PictureOutlined style={toolIcon} /></Tooltip>
           </Upload>
           <Upload accept={FILE_ACCEPT} multiple showUploadList={false} customRequest={doUpload}>
-            <Tooltip title="文件"><FileOutlined style={toolIcon} /></Tooltip>
+            <Tooltip title={t("文件")}><FileOutlined style={toolIcon} /></Tooltip>
           </Upload>
-          {uploading && <span style={{ fontSize: 12, color: '#999' }}>上传中…</span>}
+          {uploading && <span style={{ fontSize: 12, color: '#999' }}>{t("上传中…")}</span>}
         </Space>
         <span style={{ flex: 1 }} />
-        {onCancel && <Button size="small" style={{ marginRight: 8 }} onClick={onCancel}>取消</Button>}
+        {onCancel && <Button size="small" style={{ marginRight: 8 }} onClick={onCancel}>{t("取消")}</Button>}
         <Button
           type="primary"
           size={compact ? 'small' : 'middle'}

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Empty, Modal, Spin, Table } from 'antd'
 import dayjs from 'dayjs'
 import { chatApi } from '../api/chat'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 各专题群聊的存储占用（仅超管）。
@@ -19,6 +20,7 @@ const human = (n) => {
 const day = (v) => (v ? dayjs(v).format('YYYY-MM-DD') : '—')
 
 export default function ChatUsageModal({ open, onClose }) {
+  const { t } = useTranslation()
   const [rows, setRows] = useState(null)
 
   useEffect(() => {
@@ -30,24 +32,24 @@ export default function ChatUsageModal({ open, onClose }) {
   const total = (rows || []).reduce((s, r) => s + (Number(r.totalBytes) || 0), 0)
 
   const columns = [
-    { title: '专题', dataIndex: 'topicName', render: (v, r) => v || r.topicId },
-    { title: '消息', dataIndex: 'msgs', width: 70, align: 'right' },
-    { title: '正文', dataIndex: 'textBytes', width: 90, align: 'right', render: human },
-    { title: '附件', dataIndex: 'fileBytes', width: 100, align: 'right', render: (v, r) => `${human(v)}${r.files ? ` (${r.files})` : ''}` },
-    { title: '合计', dataIndex: 'totalBytes', width: 90, align: 'right', render: (v) => <b>{human(v)}</b> },
-    { title: '时间跨度', width: 190, render: (_, r) => `${day(r.firstAt)} ~ ${day(r.lastAt)}` },
+    { title: t("专题"), dataIndex: 'topicName', render: (v, r) => v || r.topicId },
+    { title: t("消息"), dataIndex: 'msgs', width: 70, align: 'right' },
+    { title: t("正文"), dataIndex: 'textBytes', width: 90, align: 'right', render: human },
+    { title: t("附件"), dataIndex: 'fileBytes', width: 100, align: 'right', render: (v, r) => `${human(v)}${r.files ? ` (${r.files})` : ''}` },
+    { title: t("合计"), dataIndex: 'totalBytes', width: 90, align: 'right', render: (v) => <b>{human(v)}</b> },
+    { title: t("时间跨度"), width: 190, render: (_, r) => `${day(r.firstAt)} ~ ${day(r.lastAt)}` },
   ]
 
   return (
-    <Modal open={open} onCancel={onClose} onOk={onClose} okText="关闭" cancelButtonProps={{ style: { display: 'none' } }} title="群聊存储占用" width={720} destroyOnClose>
+    <Modal open={open} onCancel={onClose} onOk={onClose} okText={t("关闭")} cancelButtonProps={{ style: { display: 'none' } }} title={t("群聊存储占用")} width={720} destroyOnClose>
       {rows === null ? (
         <Spin style={{ display: 'block', margin: '40px auto' }} />
       ) : rows.length === 0 ? (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="还没有任何群聊消息" />
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("还没有任何群聊消息")} />
       ) : (
         <>
           <div style={{ fontSize: 13, color: '#8c8c8c', marginBottom: 10 }}>
-            全站群聊合计 <b>{human(total)}</b>。清理由各专题的题主在群聊页里按日期操作，系统不做自动清理。
+            {t("全站群聊合计")} <b>{human(total)}</b>{t("。清理由各专题的题主在群聊页里按日期操作，系统不做自动清理。")}
           </div>
           <Table
             className="clean-table"

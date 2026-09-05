@@ -14,6 +14,7 @@ import useIsMobile from '../hooks/useIsMobile'
 // @ 昵称渲染成链接：和每日赛场的短评区共用一份（见 mentionText.jsx）
 import { renderMentions as renderContent } from './mentionText'
 import { assetUrl } from '../config/origin'
+import { useTranslation } from 'react-i18next'
 
 const fmt = (v) => (v ? dayjs(v).format('YYYY-MM-DD HH:mm') : '')
 
@@ -28,6 +29,7 @@ const avatarColor = (name) => {
 }
 
 function UserAvatar({ name, src, size, userId }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   // 给了 userId 就可点跳作者主页（评论者头像；自己在输入框旁的头像不传）
   const clickable = userId
@@ -37,7 +39,7 @@ function UserAvatar({ name, src, size, userId }) {
     <Avatar size={size} src={src} {...clickable} />
   ) : (
     <Avatar size={size} {...clickable} style={{ ...clickable.style, background: avatarColor(name), fontWeight: 700 }}>
-      {String(name || '匿')[0].toUpperCase()}
+      {String(name || t("匿"))[0].toUpperCase()}
     </Avatar>
   )
 }
@@ -45,6 +47,7 @@ function UserAvatar({ name, src, size, userId }) {
 // 评论附件渲染：图片走缩略图（点开大图预览），文件走下载卡。
 // 只渲染 http(s)/相对路径的 url，挡掉 javascript: 之类（后端保存时已过滤，这里前端再兜一层）。
 function CommentAttachments({ attachmentsJson }) {
+  const { t } = useTranslation()
   let atts = []
   try { atts = JSON.parse(attachmentsJson || '[]') } catch { atts = [] }
   atts = atts.filter((a) => a && typeof a.url === 'string' && /^(https?:\/\/|\/)/.test(a.url))
@@ -78,7 +81,7 @@ function CommentAttachments({ attachmentsJson }) {
               style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#f5f5f5', borderRadius: 8, color: 'inherit', maxWidth: 280 }}
             >
               <FileOutlined style={{ color: '#fa541c', fontSize: 18 }} />
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name || '文件'}</span>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name || t("文件")}</span>
               {a.size != null && <span style={{ fontSize: 11, color: '#999', flexShrink: 0 }}>{humanSize(a.size)}</span>}
             </a>
           ))}
@@ -90,13 +93,14 @@ function CommentAttachments({ attachmentsJson }) {
 
 // 评论者一行 meta：昵称 + 超管/题主/楼主/头衔 +（楼层号）+ 时间
 function MetaRow({ c, authorId, topicOwnerIds, showFloor }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { dn } = useAuth() // 备注名替换（仅展示层；徽章判断仍用 userId）
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
       {c.userId
-        ? <a onClick={() => navigate(`/users/${c.userId}`)} style={{ fontWeight: 600, color: '#333', fontSize: 14 }}>{dn(c.userId, c.userName) || '匿名'}</a>
-        : <b style={{ fontSize: 14 }}>{dn(c.userId, c.userName) || '匿名'}</b>}
+        ? <a onClick={() => navigate(`/users/${c.userId}`)} style={{ fontWeight: 600, color: '#333', fontSize: 14 }}>{dn(c.userId, c.userName) || t("匿名")}</a>
+        : <b style={{ fontSize: 14 }}>{dn(c.userId, c.userName) || t("匿名")}</b>}
       {c.superManager && <SuperAdminBadge />}
       {topicOwnerIds?.includes(c.userId) && <TopicOwnerBadge />}
       {authorId && c.userId === authorId && <OpBadge />}
@@ -113,6 +117,7 @@ function MetaRow({ c, authorId, topicOwnerIds, showFloor }) {
  * bump 变化 = 楼上（直接回楼）发了新回复 → 跳到最后一页刷新，让新回复可见。
  */
 function FloorReplies({ floorId, newsId, authorId, topicOwnerIds, locked, bump, onCountDelta }) {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
@@ -123,7 +128,7 @@ function FloorReplies({ floorId, newsId, authorId, topicOwnerIds, locked, bump, 
   const totalRef = useRef(0)
   const bumpRef = useRef(bump)
 
-  const requireLogin = () => { message.info('请先登录'); navigate('/login') }
+  const requireLogin = () => { message.info(t("请先登录")); navigate('/login') }
 
   const load = useCallback(async (p) => {
     try {
@@ -157,7 +162,7 @@ function FloorReplies({ floorId, newsId, authorId, topicOwnerIds, locked, bump, 
         : r)))
       message.success(res.msg)
     } else {
-      message.error(res?.msg || '操作失败')
+      message.error(res?.msg || t("操作失败"))
     }
   }
 
@@ -173,21 +178,21 @@ function FloorReplies({ floorId, newsId, authorId, topicOwnerIds, locked, bump, 
       ...(attachments.length ? { attachments: JSON.stringify(attachments) } : {}),
     })
     if (res?.result) {
-      message.success(res.msg || '回复成功')
+      message.success(res.msg || t("回复成功"))
       setReplyingId(null)
       onCountDelta?.(1)
       await load(Math.max(1, Math.ceil((totalRef.current + 1) / REPLY_PAGE_SIZE)))
       return true
     }
-    message.error(res?.msg || '回复失败')
+    message.error(res?.msg || t("回复失败"))
     return false
   }
 
   // 删除楼内自己的回复：tombstone → 原位标灰"原评论已删除"；removed → 重拉当前页并同步楼上计数
   const del = async (item) => {
     const res = await newsApi.deleteComment(item.commentId)
-    if (!res?.result) return message.error(res?.msg || '删除失败')
-    message.success(res.msg || '已删除')
+    if (!res?.result) return message.error(res?.msg || t("删除失败"))
+    message.success(res.msg || t("已删除"))
     if (res.mode === 'tombstone') {
       setRows((list) => (list || []).map((x) => (x.commentId === item.commentId ? { ...x, deleted: '1' } : x)))
     } else {
@@ -211,14 +216,14 @@ function FloorReplies({ floorId, newsId, authorId, topicOwnerIds, locked, bump, 
             <div style={{ margin: '4px 0 2px', whiteSpace: 'pre-wrap', color: r.deleted === '1' ? '#bfbfbf' : '#262626', fontStyle: r.deleted === '1' ? 'italic' : 'normal', fontSize: r.deleted === '1' ? 13 : 14, lineHeight: 1.7 }}>
               {r.deleted !== '1' && r.commentRelId && r.commentRelId !== floorId && r.replyToName && (
                 <span style={{ color: '#8c8c8c' }}>
-                  回复{' '}
+                  {t("回复")}{' '}
                   {r.replyToUserId
                     ? <Link to={`/users/${r.replyToUserId}`} onClick={(e) => e.stopPropagation()} style={{ color: '#fa541c', fontWeight: 600 }}>@{r.replyToName}</Link>
                     : <b>@{r.replyToName}</b>}
                   ：
                 </span>
               )}
-              {r.deleted === '1' ? '原评论已删除' : renderContent(r.content, r.mentions)}
+              {r.deleted === '1' ? t("原评论已删除") : renderContent(r.content, r.mentions)}
             </div>
             {r.deleted !== '1' && <CommentAttachments attachmentsJson={r.attachments} />}
             {/* 操作行：赞/踩靠左（它们是「对这条内容的态度」，跟着内容读下来），
@@ -240,12 +245,12 @@ function FloorReplies({ floorId, newsId, authorId, topicOwnerIds, locked, bump, 
                   style={{ color: replyingId === r.commentId ? '#fa541c' : '#8c8c8c' }}
                   onClick={() => (user ? setReplyingId((id) => (id === r.commentId ? null : r.commentId)) : requireLogin())}
                 >
-                  回复
+                  {t("回复")}
                 </Button>
               )}
               {user && user.userId === r.userId && (
-                <Popconfirm title="删除这条回复？" okText="删除" cancelText="取消" onConfirm={() => del(r)}>
-                  <Button type="text" size="small" icon={<DeleteOutlined />} style={{ color: '#ff4d4f' }}>删除</Button>
+                <Popconfirm title={t("删除这条回复？")} okText={t("删除")} cancelText={t("取消")} onConfirm={() => del(r)}>
+                  <Button type="text" size="small" icon={<DeleteOutlined />} style={{ color: '#ff4d4f' }}>{t("删除")}</Button>
                 </Popconfirm>
               )}
             </div>
@@ -255,8 +260,8 @@ function FloorReplies({ floorId, newsId, authorId, topicOwnerIds, locked, bump, 
                 <CommentComposer
                   newsId={newsId}
                   compact
-                  placeholder={`回复 ${r.userName || ''}`}
-                  submitText="发表回复"
+                  placeholder={t("回复 {{v0}}", { v0: r.userName || '' })}
+                  submitText={t("发表回复")}
                   onSubmit={(payload) => replyTo(r, payload)}
                   onCancel={() => setReplyingId(null)}
                 />
@@ -287,6 +292,7 @@ function FloorReplies({ floorId, newsId, authorId, topicOwnerIds, locked, bump, 
  * "N 条回复"用全部子孙数（后端按 ROOT_ID 统计的 totalReplyNum）。
  */
 function FloorNode({ comment, newsId, authorId, topicOwnerIds, locked, ratingItem, onVoteRating, onDeleteRating, ratingCanDelete, pollItem, onVotePoll, onDeletePoll, onRemoved }) {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const navigate = useNavigate()
   const [c, setC] = useState(comment) // 本楼数据（含 goodNum/badNum/totalReplyNum），就地更新
@@ -294,7 +300,7 @@ function FloorNode({ comment, newsId, authorId, topicOwnerIds, locked, ratingIte
   const [showReplies, setShowReplies] = useState(false)
   const [bump, setBump] = useState(0) // 直接回楼成功 → +1，让 FloorReplies 跳最后一页刷新
 
-  const requireLogin = () => { message.info('请先登录'); navigate('/login') }
+  const requireLogin = () => { message.info(t("请先登录")); navigate('/login') }
   const replyCount = c.totalReplyNum ?? c.commentNum ?? 0
 
   const like = async (type) => {
@@ -305,7 +311,7 @@ function FloorNode({ comment, newsId, authorId, topicOwnerIds, locked, ratingIte
       setC((p) => ({ ...p, goodNum: (p.goodNum || 0) + (type === 'good' ? d : 0), badNum: (p.badNum || 0) + (type === 'bad' ? d : 0) }))
       message.success(res.msg)
     } else {
-      message.error(res?.msg || '操作失败')
+      message.error(res?.msg || t("操作失败"))
     }
   }
 
@@ -321,22 +327,22 @@ function FloorNode({ comment, newsId, authorId, topicOwnerIds, locked, ratingIte
       ...(attachments.length ? { attachments: JSON.stringify(attachments) } : {}),
     })
     if (res?.result) {
-      message.success(res.msg || '回复成功')
+      message.success(res.msg || t("回复成功"))
       setC((p) => ({ ...p, totalReplyNum: (p.totalReplyNum ?? p.commentNum ?? 0) + 1 }))
       setReplyOpen(false)
       setShowReplies(true)
       setBump((b) => b + 1)
       return true
     }
-    message.error(res?.msg || '回复失败')
+    message.error(res?.msg || t("回复失败"))
     return false
   }
 
   // 删除本楼（仅作者本人）：有回复 → 原位墓碑；无回复 → 整楼从列表移除
   const del = async () => {
     const res = await newsApi.deleteComment(c.commentId)
-    if (!res?.result) return message.error(res?.msg || '删除失败')
-    message.success(res.msg || '已删除')
+    if (!res?.result) return message.error(res?.msg || t("删除失败"))
+    message.success(res.msg || t("已删除"))
     if (res.mode === 'removed') onRemoved?.(c.commentId)
     else setC((p) => ({ ...p, deleted: '1' }))
   }
@@ -352,7 +358,7 @@ function FloorNode({ comment, newsId, authorId, topicOwnerIds, locked, ratingIte
 
         {/* 墓碑：作者删了这层楼，但楼内回复保留 */}
         {c.deleted === '1' && (
-          <div style={{ margin: '6px 0', color: '#bfbfbf', fontStyle: 'italic', fontSize: 14 }}>原评论已删除</div>
+          <div style={{ margin: '6px 0', color: '#bfbfbf', fontStyle: 'italic', fontSize: 14 }}>{t("原评论已删除")}</div>
         )}
 
         {/* 内容（@昵称 渲染成可点链接） */}
@@ -395,7 +401,7 @@ function FloorNode({ comment, newsId, authorId, topicOwnerIds, locked, ratingIte
         {c.deleted === '1' ? (
           replyCount > 0 && (
             <Button type="link" size="small" style={{ paddingLeft: 0 }} onClick={() => setShowReplies((s) => !s)}>
-              {showReplies ? '收起' : `${replyCount} 条回复`}
+              {showReplies ? t("收起") : t("{{replyCount}} 条回复", { replyCount })}
             </Button>
           )
         ) : (
@@ -410,7 +416,7 @@ function FloorNode({ comment, newsId, authorId, topicOwnerIds, locked, ratingIte
           </Button>
           {replyCount > 0 && (
             <Button type="link" size="small" onClick={() => setShowReplies((s) => !s)}>
-              {showReplies ? '收起' : `${replyCount} 条回复`}
+              {showReplies ? t("收起") : t("{{replyCount}} 条回复", { replyCount })}
             </Button>
           )}
           <span style={{ flex: 1 }} />
@@ -422,12 +428,12 @@ function FloorNode({ comment, newsId, authorId, topicOwnerIds, locked, ratingIte
               style={{ color: replyOpen ? '#fa541c' : '#8c8c8c' }}
               onClick={() => (user ? setReplyOpen((o) => !o) : requireLogin())}
             >
-              回复
+              {t("回复")}
             </Button>
           )}
           {user && user.userId === c.userId && (
-            <Popconfirm title="删除这条评论？" okText="删除" cancelText="取消" onConfirm={del}>
-              <Button type="text" size="small" icon={<DeleteOutlined />} style={{ color: '#ff4d4f' }}>删除</Button>
+            <Popconfirm title={t("删除这条评论？")} okText={t("删除")} cancelText={t("取消")} onConfirm={del}>
+              <Button type="text" size="small" icon={<DeleteOutlined />} style={{ color: '#ff4d4f' }}>{t("删除")}</Button>
             </Popconfirm>
           )}
         </div>
@@ -439,8 +445,8 @@ function FloorNode({ comment, newsId, authorId, topicOwnerIds, locked, ratingIte
             <CommentComposer
               newsId={newsId}
               compact
-              placeholder={`回复 ${c.userName || ''}`}
-              submitText="发表回复"
+              placeholder={t("回复 {{v0}}", { v0: c.userName || '' })}
+              submitText={t("发表回复")}
               onSubmit={handleReply}
               onCancel={() => setReplyOpen(false)}
             />
@@ -473,6 +479,7 @@ export default function CommentSection({
   ratingByComment = {}, onVoteRating, onDeleteRating, ratingCanDelete, canOpenRating, onOpenRating,
   pollByComment = {}, onVotePoll, onDeletePoll, onOpenPoll,
 }) {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
@@ -494,11 +501,11 @@ export default function CommentSection({
   // 楼主开打分楼：NewsDetail 调 openFloor + 刷新打分项，这里刷新楼列表让新楼出现
   const submitRating = async () => {
     const sub = ratingSubject.trim()
-    if (!sub) return message.warning('请填写打分对象')
+    if (!sub) return message.warning(t("请填写打分对象"))
     setRatingSaving(true)
     try {
       await onOpenRating?.(sub, ratingNote.trim(), ratingImage)
-      message.success('已开启打分')
+      message.success(t("已开启打分"))
       setRatingOpen(false)
       setRatingSubject('')
       setRatingNote('')
@@ -512,14 +519,14 @@ export default function CommentSection({
   // 楼主开投票楼：校验后交给 NewsDetail 的 openPoll（openFloor + 刷新投票项），这里刷新楼列表
   const submitPoll = async () => {
     const sub = pollSubject.trim()
-    if (!sub) return message.warning('请填写投票主题')
+    if (!sub) return message.warning(t("请填写投票主题"))
     const opts = pollOptions.map((o) => o.trim()).filter(Boolean)
-    if (opts.length < 2) return message.warning('至少要 2 个选项')
-    if (new Set(opts).size !== opts.length) return message.warning('选项不能重复')
+    if (opts.length < 2) return message.warning(t("至少要 2 个选项"))
+    if (new Set(opts).size !== opts.length) return message.warning(t("选项不能重复"))
     setPollSaving(true)
     try {
       await onOpenPoll?.(sub, opts, pollNote.trim())
-      message.success('已发起投票')
+      message.success(t("已发起投票"))
       setPollOpen(false)
       setPollSubject('')
       setPollNote('')
@@ -550,7 +557,7 @@ export default function CommentSection({
 
   // 提交评论：成功返回 true 让 composer 清空
   const handlePost = async ({ text, mentions, attachments }) => {
-    if (!user) { message.info('请先登录'); navigate('/login'); return false }
+    if (!user) { message.info(t("请先登录")); navigate('/login'); return false }
     const res = await newsApi.postComment({
       newsId,
       content: text,
@@ -559,11 +566,11 @@ export default function CommentSection({
       ...(attachments.length ? { attachments: JSON.stringify(attachments) } : {}),
     })
     if (res?.result) {
-      message.success(res.msg || '评论成功')
+      message.success(res.msg || t("评论成功"))
       load()
       return true
     }
-    message.error(res?.msg || '评论失败')
+    message.error(res?.msg || t("评论失败"))
     return false
   }
 
@@ -572,7 +579,7 @@ export default function CommentSection({
       {/* 头部：桌面=标题+右对齐胶囊一行；移动端=标题一行、三个胶囊自成一行（紧凑尺寸，不换行乱堆） */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
         <div style={{ fontSize: 16, fontWeight: 700, whiteSpace: 'nowrap' }}>
-          {onlyAuthor ? '楼主评论' : '全部评论'} <span style={{ color: '#999', fontWeight: 400, fontSize: 14 }}>({shown.length})</span>
+          {onlyAuthor ? t("楼主评论") : t("全部评论")} <span style={{ color: '#999', fontWeight: 400, fontSize: 14 }}>({shown.length})</span>
         </div>
         {!isMobile && <span style={{ flex: 1 }} />}
         <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 10, width: isMobile ? '100%' : 'auto' }}>
@@ -582,7 +589,7 @@ export default function CommentSection({
               <span
                 key={v}
                 onClick={() => setSortBy(v)}
-                title={v === 'time' ? '按时间：最新的在前' : '按热度：点赞最多的在前'}
+                title={v === 'time' ? t("按时间：最新的在前") : t("按热度：点赞最多的在前")}
                 style={{
                   padding: '2px 12px', borderRadius: 999, fontSize: 12, cursor: 'pointer', userSelect: 'none',
                   whiteSpace: 'nowrap', transition: 'all .15s',
@@ -592,14 +599,14 @@ export default function CommentSection({
                   boxShadow: sortBy === v ? '0 1px 3px rgba(0,0,0,.08)' : 'none',
                 }}
               >
-                {l}
+                {t(l, { context: 'sort' })}
               </span>
             ))}
           </div>
           {canOpenRating && !locked && (
             <span
               onClick={() => setRatingOpen((v) => !v)}
-              title="以一条新楼开启一个打分项（仅楼主）"
+              title={t("以一条新楼开启一个打分项（仅楼主）")}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer', userSelect: 'none',
                 padding: isMobile ? '4px 10px' : '4px 14px', borderRadius: 999,
@@ -610,13 +617,13 @@ export default function CommentSection({
                 transition: 'all .15s',
               }}
             >
-              <StarFilled /> 开启打分
+              <StarFilled /> {t("开启打分")}
             </span>
           )}
           {canOpenRating && !locked && (
             <span
               onClick={() => setPollOpen((v) => !v)}
-              title="以一条新楼发起一个投票（仅楼主）"
+              title={t("以一条新楼发起一个投票（仅楼主）")}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer', userSelect: 'none',
                 padding: isMobile ? '4px 10px' : '4px 14px', borderRadius: 999,
@@ -627,13 +634,13 @@ export default function CommentSection({
                 transition: 'all .15s',
               }}
             >
-              <BarChartOutlined /> 发起投票
+              <BarChartOutlined /> {t("发起投票")}
             </span>
           )}
           {authorId && (
             <span
               onClick={() => setOnlyAuthor((v) => !v)}
-              title={onlyAuthor ? '显示全部评论' : '只看楼主的评论'}
+              title={onlyAuthor ? t("显示全部评论") : t("只看楼主的评论")}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer', userSelect: 'none',
                 padding: isMobile ? '4px 10px' : '4px 14px', borderRadius: 999,
@@ -645,7 +652,7 @@ export default function CommentSection({
                 transition: 'all .15s',
               }}
             >
-              <UserOutlined /> 只看楼主
+              <UserOutlined /> {t("只看楼主")}
             </span>
           )}
         </div>
@@ -655,11 +662,11 @@ export default function CommentSection({
       {ratingOpen && canOpenRating && !locked && (
         <div style={{ background: '#fff7e6', border: '1px solid #ffd591', borderRadius: 12, padding: '14px 16px', marginBottom: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#d46b08', marginBottom: 10 }}>
-            <StarFilled style={{ marginRight: 6 }} />开启新打分（会以一条新楼发布）
+            <StarFilled style={{ marginRight: 6 }} />{t("开启新打分（会以一条新楼发布）")}
           </div>
           <Space direction="vertical" style={{ width: '100%' }} size={10}>
             <Input
-              placeholder="想为什么打分？"
+              placeholder={t("想为什么打分？")}
               maxLength={30}
               showCount
               value={ratingSubject}
@@ -668,16 +675,16 @@ export default function CommentSection({
             />
             <RatingImagePicker value={ratingImage} onChange={setRatingImage} upload={(f) => newsApi.uploadNewsImage(f, newsId)} />
             <Input
-              placeholder="说明文字（可选）"
+              placeholder={t("说明文字（可选）")}
               maxLength={200}
               value={ratingNote}
               onChange={(e) => setRatingNote(e.target.value)}
             />
             <Space>
               <Button type="primary" size="small" loading={ratingSaving} onClick={submitRating} style={{ background: '#fa8c16', borderColor: '#fa8c16' }}>
-                发布打分楼
+                {t("发布打分楼")}
               </Button>
-              <Button size="small" onClick={() => setRatingOpen(false)}>取消</Button>
+              <Button size="small" onClick={() => setRatingOpen(false)}>{t("取消")}</Button>
             </Space>
           </Space>
         </div>
@@ -687,11 +694,11 @@ export default function CommentSection({
       {pollOpen && canOpenRating && !locked && (
         <div style={{ background: '#e6f4ff', border: '1px solid #91caff', borderRadius: 12, padding: '14px 16px', marginBottom: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#0958d9', marginBottom: 10 }}>
-            <BarChartOutlined style={{ marginRight: 6 }} />发起新投票（会以一条新楼发布）
+            <BarChartOutlined style={{ marginRight: 6 }} />{t("发起新投票（会以一条新楼发布）")}
           </div>
           <Space direction="vertical" style={{ width: '100%' }} size={10}>
             <Input
-              placeholder="想投什么？"
+              placeholder={t("想投什么？")}
               maxLength={30}
               showCount
               value={pollSubject}
@@ -701,30 +708,30 @@ export default function CommentSection({
             {pollOptions.map((opt, i) => (
               <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', maxWidth: 360 }}>
                 <Input
-                  placeholder={`选项 ${i + 1}`}
+                  placeholder={t("选项 {{v0}}", { v0: i + 1 })}
                   maxLength={20}
                   value={opt}
                   onChange={(e) => setPollOptions((arr) => arr.map((x, j) => (j === i ? e.target.value : x)))}
                 />
                 {pollOptions.length > 2 && (
-                  <Button size="small" type="text" danger onClick={() => setPollOptions((arr) => arr.filter((_, j) => j !== i))}>删</Button>
+                  <Button size="small" type="text" danger onClick={() => setPollOptions((arr) => arr.filter((_, j) => j !== i))}>{t("删")}</Button>
                 )}
               </div>
             ))}
             {pollOptions.length < 10 && (
-              <Button size="small" onClick={() => setPollOptions((arr) => [...arr, ''])} style={{ width: 120 }}>+ 添加选项</Button>
+              <Button size="small" onClick={() => setPollOptions((arr) => [...arr, ''])} style={{ width: 120 }}>{t("+ 添加选项")}</Button>
             )}
             <Input
-              placeholder="说明文字（可选）"
+              placeholder={t("说明文字（可选）")}
               maxLength={200}
               value={pollNote}
               onChange={(e) => setPollNote(e.target.value)}
             />
             <Space>
               <Button type="primary" size="small" loading={pollSaving} onClick={submitPoll}>
-                发布投票楼
+                {t("发布投票楼")}
               </Button>
-              <Button size="small" onClick={() => setPollOpen(false)}>取消</Button>
+              <Button size="small" onClick={() => setPollOpen(false)}>{t("取消")}</Button>
             </Space>
           </Space>
         </div>
@@ -737,7 +744,7 @@ export default function CommentSection({
             padding: '14px 20px', textAlign: 'center', color: '#8c8c8c', marginBottom: 20,
           }}
         >
-          <LockOutlined /> 该帖已被锁定，仅可查看，暂不能评论
+          <LockOutlined /> {t("该帖已被锁定，仅可查看，暂不能评论")}
         </div>
       ) : user ? (
         <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
@@ -745,8 +752,8 @@ export default function CommentSection({
           <div style={{ flex: 1 }}>
             <CommentComposer
               newsId={newsId}
-              placeholder="说点什么…"
-              submitText="发表评论"
+              placeholder={t("说点什么…")}
+              submitText={t("发表评论")}
               onSubmit={handlePost}
             />
           </div>
@@ -758,7 +765,7 @@ export default function CommentSection({
             padding: '16px 20px', textAlign: 'center', color: '#888', marginBottom: 20,
           }}
         >
-          登录后参与评论　<a onClick={() => navigate('/login')}>去登录</a>
+          {t("登录后参与评论")}　<a onClick={() => navigate('/login')}>{t("去登录")}</a>
         </div>
       )}
 
@@ -786,7 +793,7 @@ export default function CommentSection({
       ) : (
         <Empty
           image={Empty.PRESENTED_IMAGE_SIMPLE}
-          description={onlyAuthor ? '楼主还没在本帖发表评论' : '还没有评论，来抢沙发'}
+          description={onlyAuthor ? t("楼主还没在本帖发表评论") : t("还没有评论，来抢沙发")}
         />
       )}
     </div>

@@ -6,6 +6,7 @@ import { topicApi } from '../api/topic'
 import { searchApi } from '../api/search'
 import { useAuth } from '../auth/AuthContext'
 import useIsMobile from '../hooks/useIsMobile'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 专题成员权限管理（owner / admin 用）：搜用户加入 + 逐人勾三权（浏览/发帖/发言）+ 移除。
@@ -20,6 +21,7 @@ const avatarColor = (name) => {
 const bool = (b) => (b ? '1' : '0')
 
 export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
+  const { t } = useTranslation()
   const isMobile = useIsMobile()
   const { user, dn } = useAuth()
   const navigate = useNavigate()
@@ -66,12 +68,12 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
   // ===== 题主管理（超管专用，有且只有一个）=====
   const replaceOwner = async (userId) => {
     setOwnerOpts([])
-    if (owners.some((o) => o.userId === userId)) return message.info('该用户已是题主')
+    if (owners.some((o) => o.userId === userId)) return message.info(t("该用户已是题主"))
     try {
       await topicApi.setOwners(topicId, userId)
       load()
       onChange?.() // 让上层刷新题主标识/横幅
-      message.success('已更换题主')
+      message.success(t("已更换题主"))
     } catch { /* 拦截器已提示 */ }
   }
   const ownerSearch = (kw) => {
@@ -91,14 +93,14 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
       await topicApi.setSubOwners(topicId, ids.join(','))
       load()
       onChange?.()
-      message.success('已更新小题主')
+      message.success(t("已更新小题主"))
     } catch { /* 拦截器已提示 */ }
   }
   const addSubOwner = (userId) => {
     setSubOpts([])
-    if (subOwners.some((o) => o.userId === userId)) return message.info('该用户已是小题主')
-    if (owners.some((o) => o.userId === userId)) return message.info('该用户已是题主，无需设为小题主')
-    if (subOwners.length >= 3) return message.warning('每个专题最多 3 个小题主')
+    if (subOwners.some((o) => o.userId === userId)) return message.info(t("该用户已是小题主"))
+    if (owners.some((o) => o.userId === userId)) return message.info(t("该用户已是题主，无需设为小题主"))
+    if (subOwners.length >= 3) return message.warning(t("每个专题最多 3 个小题主"))
     commitSubOwners([...subOwners.map((o) => o.userId), userId])
   }
   const removeSubOwner = (userId) => {
@@ -125,7 +127,7 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
         approve: approve ? '1' : '0',
         ...(approve ? { canComment: f.comment ? '1' : '0', canPost: f.post ? '1' : '0' } : {}),
       })
-      message.success(approve ? '已通过' : '已驳回')
+      message.success(approve ? t("已通过") : t("已驳回"))
       load()
       onChange?.() // 让上层刷新待审批角标
     } catch { /* 拦截器已提示 */ }
@@ -144,7 +146,7 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
 
   const addUser = async (userId) => {
     setOpts([])
-    if (rows?.some((r) => r.userId === userId)) return message.info('该用户已在列表中')
+    if (rows?.some((r) => r.userId === userId)) return message.info(t("该用户已在列表中"))
     try {
       await topicApi.setMember({ topicId, userId, canView: '1', canPost: '0', canComment: '0' })
       load()
@@ -167,12 +169,12 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
   }
 
   return (
-    <Modal open={open} onCancel={onClose} footer={null} title="成员权限管理" width={560} destroyOnClose>
+    <Modal open={open} onCancel={onClose} footer={null} title={t("成员权限管理")} width={560} destroyOnClose>
       {/* 题主管理（超管专用，有且只有一个） */}
       {isSuper && (
         <div style={{ marginBottom: 16, background: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: 10, padding: '10px 14px' }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#389e0d', marginBottom: 10 }}>
-            <CrownFilled style={{ marginRight: 6 }} />题主（唯一 · 超管指派）
+            <CrownFilled style={{ marginRight: 6 }} />{t("题主（唯一 · 超管指派）")}
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
             {owners.slice(0, 1).map((o) => (
@@ -189,7 +191,7 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
             showSearch
             filterOption={false}
             value={null}
-            placeholder="搜索用户更换题主…"
+            placeholder={t("搜索用户更换题主…")}
             style={{ width: '100%' }}
             onSearch={ownerSearch}
             onSelect={replaceOwner}
@@ -204,7 +206,7 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
               ),
             }))}
           />
-          <div style={{ fontSize: 11, color: '#95de64', marginTop: 6 }}>题主有且只有一个，对该专题有完整管理权；在此选择新用户即为更换（原题主自动卸任，若新题主原是小题主会自动移出名单）。</div>
+          <div style={{ fontSize: 11, color: '#95de64', marginTop: 6 }}>{t("题主有且只有一个，对该专题有完整管理权；在此选择新用户即为更换（原题主自动卸任，若新题主原是小题主会自动移出名单）。")}</div>
         </div>
       )}
 
@@ -212,7 +214,7 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
       {canEditSub && (
         <div style={{ marginBottom: 16, background: '#e6f4ff', border: '1px solid #91caff', borderRadius: 10, padding: '10px 14px' }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#0958d9', marginBottom: 10 }}>
-            <CrownFilled style={{ marginRight: 6 }} />小题主（最多 3 人 · 题主指派）
+            <CrownFilled style={{ marginRight: 6 }} />{t("小题主（最多 3 人 · 题主指派）")}
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
             {subOwners.length ? subOwners.map((o) => (
@@ -223,7 +225,7 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
                 </span>
                 <CloseCircleFilled onClick={() => removeSubOwner(o.userId)} style={{ color: '#ccc', cursor: 'pointer', fontSize: 15 }} />
               </span>
-            )) : <span style={{ fontSize: 12, color: '#69b1ff' }}>还没有小题主</span>}
+            )) : <span style={{ fontSize: 12, color: '#69b1ff' }}>{t("还没有小题主")}</span>}
           </div>
           {subOwners.length < 3 && (
             <Select
@@ -231,7 +233,7 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
               showSearch
               filterOption={false}
               value={null}
-              placeholder="搜索用户设为小题主…"
+              placeholder={t("搜索用户设为小题主…")}
               style={{ width: '100%' }}
               onSearch={subSearch}
               onSelect={addSubOwner}
@@ -247,14 +249,14 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
               }))}
             />
           )}
-          <div style={{ fontSize: 11, color: '#69b1ff', marginTop: 6 }}>小题主拥有题主的全部管理权限（管成员、审批、置顶/隐藏/删帖），唯一区别：不能对题主进行任何操作。</div>
+          <div style={{ fontSize: 11, color: '#69b1ff', marginTop: 6 }}>{t("小题主拥有题主的全部管理权限（管成员、审批、置顶/隐藏/删帖），唯一区别：不能对题主进行任何操作。")}</div>
         </div>
       )}
 
       {/* 待审批申请 */}
       {reqs.length > 0 && (
         <div style={{ marginBottom: 16, background: '#fffbe6', border: '1px solid #ffe58f', borderRadius: 10, padding: '10px 14px' }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#ad6800', marginBottom: 8 }}>待审批申请（{reqs.length}）</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#ad6800', marginBottom: 8 }}>{t("待审批申请（")}{reqs.length}）</div>
           {reqs.map((r) => {
             const f = reqFlags[r.requestId] || { comment: true, post: false }
             return (
@@ -267,14 +269,14 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
                   {r.message && <div style={{ fontSize: 12, color: '#999', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.message}</div>}
                 </div>
                 {/* 勾选给哪些权限（浏览默认给） */}
-                <Checkbox checked={f.comment} onChange={(e) => setReqFlag(r.requestId, 'comment', e.target.checked)}>发言</Checkbox>
-                <Checkbox checked={f.post} onChange={(e) => setReqFlag(r.requestId, 'post', e.target.checked)}>发帖</Checkbox>
-                <Button size="small" type="primary" onClick={() => handle(r.requestId, true)}>通过</Button>
-                <Button size="small" danger onClick={() => handle(r.requestId, false)}>驳回</Button>
+                <Checkbox checked={f.comment} onChange={(e) => setReqFlag(r.requestId, 'comment', e.target.checked)}>{t("发言")}</Checkbox>
+                <Checkbox checked={f.post} onChange={(e) => setReqFlag(r.requestId, 'post', e.target.checked)}>{t("发帖")}</Checkbox>
+                <Button size="small" type="primary" onClick={() => handle(r.requestId, true)}>{t("通过")}</Button>
+                <Button size="small" danger onClick={() => handle(r.requestId, false)}>{t("驳回")}</Button>
               </div>
             )
           })}
-          <div style={{ fontSize: 11, color: '#bbb', marginTop: 6 }}>通过后自动给「浏览」，发言/发帖按上方勾选；也可直接驳回。</div>
+          <div style={{ fontSize: 11, color: '#bbb', marginTop: 6 }}>{t("通过后自动给「浏览」，发言/发帖按上方勾选；也可直接驳回。")}</div>
         </div>
       )}
 
@@ -284,7 +286,7 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
           showSearch
           filterOption={false}
           value={null}
-          placeholder="搜索用户加入专题…"
+          placeholder={t("搜索用户加入专题…")}
           style={{ width: '100%' }}
           onSearch={search}
           onSelect={addUser}
@@ -302,11 +304,11 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
       </div>
 
       <div style={{ display: 'flex', fontSize: 12, color: '#999', padding: '0 4px 6px', borderBottom: '1px solid #f0f0f0' }}>
-        <span style={{ flex: 1 }}>成员</span>
-        <span style={{ width: isMobile ? 44 : 56, textAlign: 'center' }}>浏览</span>
-        <span style={{ width: isMobile ? 44 : 56, textAlign: 'center' }}>发帖</span>
-        <span style={{ width: isMobile ? 44 : 56, textAlign: 'center' }}>发言</span>
-        <span style={{ width: isMobile ? 44 : 56, textAlign: 'center' }}>群聊</span>
+        <span style={{ flex: 1 }}>{t("成员")}</span>
+        <span style={{ width: isMobile ? 44 : 56, textAlign: 'center' }}>{t("浏览")}</span>
+        <span style={{ width: isMobile ? 44 : 56, textAlign: 'center' }}>{t("发帖")}</span>
+        <span style={{ width: isMobile ? 44 : 56, textAlign: 'center' }}>{t("发言")}</span>
+        <span style={{ width: isMobile ? 44 : 56, textAlign: 'center' }}>{t("群聊")}</span>
         <span style={{ width: isMobile ? 28 : 36 }} />
       </div>
 
@@ -334,17 +336,17 @@ export default function TopicMemberModal({ topicId, open, onClose, onChange }) {
                 <Checkbox checked={row.canChat !== false} onChange={(e) => setFlags(row, { ...row, canChat: e.target.checked })} />
               </span>
               <span style={{ width: isMobile ? 28 : 36, textAlign: 'center' }}>
-                <Popconfirm title="移除该成员？" onConfirm={() => remove(row.userId)} okText="移除" cancelText="取消">
+                <Popconfirm title={t("移除该成员？")} onConfirm={() => remove(row.userId)} okText={t("移除")} cancelText={t("取消")}>
                   <DeleteOutlined style={{ color: '#bbb', cursor: 'pointer' }} />
                 </Popconfirm>
               </span>
             </div>
           ))
         ) : (
-          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="还没有成员，搜索用户加入" style={{ margin: '24px 0' }} />
+          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("还没有成员，搜索用户加入")} style={{ margin: '24px 0' }} />
         )}
       </div>
-      <div style={{ fontSize: 12, color: '#bbb', marginTop: 10 }}>提示：勾选发帖或发言会自动获得浏览权。owner 和 admin 始终有全部权限，无需加入。</div>
+      <div style={{ fontSize: 12, color: '#bbb', marginTop: 10 }}>{t("提示：勾选发帖或发言会自动获得浏览权。owner 和 admin 始终有全部权限，无需加入。")}</div>
     </Modal>
   )
 }

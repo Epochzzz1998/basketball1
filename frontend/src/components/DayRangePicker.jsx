@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { DatePicker } from 'antd'
 import useIsMobile from '../hooks/useIsMobile'
+import { useTranslation } from 'react-i18next'
 
 const { RangePicker } = DatePicker
 
@@ -18,6 +19,7 @@ const { RangePicker } = DatePicker
  * 顶得不知道去哪了——日期是点出来的，本来就不需要打字。
  */
 export default function DayRangePicker({ value, onChange, disabled, disabledDate }) {
+  const { t } = useTranslation()
   const isMobile = useIsMobile()
   const [from, setFrom] = useState(value?.[0] || null)
   const [to, setTo] = useState(value?.[1] || null)
@@ -66,7 +68,7 @@ export default function DayRangePicker({ value, onChange, disabled, disabledDate
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={row}>
-        <span style={label}>从</span>
+        <span style={label}>{t("从")}</span>
         <DatePicker
           style={{ flex: 1 }}
           value={from}
@@ -74,11 +76,11 @@ export default function DayRangePicker({ value, onChange, disabled, disabledDate
           disabled={disabled}
           disabledDate={guard('from')}
           inputReadOnly
-          placeholder="开始日期"
+          placeholder={t("开始日期")}
         />
       </div>
       <div style={row}>
-        <span style={label}>到</span>
+        <span style={label}>{t("到")}</span>
         <DatePicker
           style={{ flex: 1 }}
           value={to}
@@ -86,7 +88,7 @@ export default function DayRangePicker({ value, onChange, disabled, disabledDate
           disabled={disabled}
           disabledDate={guard('to')}
           inputReadOnly
-          placeholder="结束日期"
+          placeholder={t("结束日期")}
         />
       </div>
     </div>

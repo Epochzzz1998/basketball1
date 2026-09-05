@@ -2,6 +2,7 @@ import axios from 'axios'
 import { message } from 'antd'
 import { getToken } from '../auth/token'
 import { API_BASE, absolutizeData, relativizeData } from '../config/origin'
+import i18n from '../i18n'
 
 /**
  * 全局唯一的 axios 实例——所有接口请求都走它。
@@ -62,8 +63,8 @@ http.interceptors.response.use(
       return absolutizeData(body.data) // 成功：直接把内层 data 交给调用方
     }
     // 业务失败：统一弹错，并 reject 让调用方能 catch
-    message.error(body.msg || '请求失败')
-    return Promise.reject(new Error(body.msg || '请求失败'))
+    message.error(body.msg || i18n.t("请求失败"))
+    return Promise.reject(new Error(body.msg || i18n.t("请求失败")))
   },
   (error) => {
     const status = error.response?.status
@@ -76,9 +77,9 @@ http.interceptors.response.use(
         window.location.href = '/login'
       }
     } else if (status === 403) {
-      message.error('权限不足')
+      message.error(i18n.t("权限不足"))
     } else {
-      message.error(error.response?.data?.msg || '网络错误，请稍后再试')
+      message.error(error.response?.data?.msg || i18n.t("网络错误，请稍后再试"))
     }
     return Promise.reject(error)
   },

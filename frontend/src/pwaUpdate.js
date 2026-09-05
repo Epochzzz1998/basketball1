@@ -1,4 +1,5 @@
 import { message } from 'antd'
+import i18n from './i18n'
 
 /**
  * 让装到主屏的 PWA 及时用上新版本，并且**让人知道刚才发生了什么**。
@@ -57,7 +58,7 @@ export default function setupPwaUpdate() {
     // message 是 antd 的静态方法，React 19 的兼容补丁在 main.jsx 里最先导入过了。
     // 万一提示这一步出了岔子（补丁没生效、message 被裁剪掉），也绝不能挡住重启本身
     try {
-      message.loading({ content: '系统已更新，正在重启…', duration: NOTICE_MS / 1000 })
+      message.loading({ content: i18n.t("系统已更新，正在重启…"), duration: NOTICE_MS / 1000 })
     } catch { /* 提示失败无所谓，下面照样刷 */ }
     setTimeout(() => window.location.reload(), NOTICE_MS)
   }
@@ -68,7 +69,7 @@ export default function setupPwaUpdate() {
       pending = true
       // 这条要说清楚"为什么没立刻重启"，否则下一次莫名其妙的重启更让人困惑
       try {
-        message.info({ content: '系统已更新，等你写完会自动重启', duration: 4 })
+        message.info({ content: i18n.t("系统已更新，等你写完会自动重启"), duration: 4 })
       } catch { /* 同上 */ }
       return
     }

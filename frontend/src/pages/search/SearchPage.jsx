@@ -8,6 +8,7 @@ import useIsMobile from '../../hooks/useIsMobile'
 import BackButton from '../../components/BackButton'
 import { HistoryChips, SearchResults } from '../../components/SearchResults'
 import { dropHistory, flatten, pushHistory, readHistory } from '../../components/searchModel'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 整页搜索（/search）。
@@ -33,6 +34,7 @@ import { dropHistory, flatten, pushHistory, readHistory } from '../../components
 const MEDAL = ['#f5222d', '#fa8c16', '#faad14']
 
 export default function SearchPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
   const { canUse } = useAuth()
@@ -130,7 +132,7 @@ export default function SearchPage() {
         ref={inputRef}
         value={kw}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="想看点什么？"
+        placeholder={t("想看点什么？")}
         // 手机键盘上把「回车」画成「搜索」。结果是边打边出的，按下去只是收键盘看结果
         enterKeyHint="search"
         onPressEnter={() => inputRef.current?.blur()}
@@ -162,7 +164,7 @@ export default function SearchPage() {
           <div style={{ background: '#fff', borderRadius: 14, padding: '14px 16px 6px', marginTop: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, fontWeight: 700, marginBottom: 4 }}>
               <FireOutlined style={{ color: '#f5222d' }} />
-              热帖榜
+              {t("热帖榜")}
             </div>
             {hot === null ? (
               <div style={{ textAlign: 'center', padding: 28 }}><Spin /></div>
@@ -187,7 +189,7 @@ export default function SearchPage() {
                         display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden',
                       }}
                     >
-                      {p.title || '(无标题)'}
+                      {p.title || t("(无标题)")}
                     </div>
                     <div style={{ fontSize: 12, color: '#999', marginTop: 3, display: 'flex', alignItems: 'center', gap: 8 }}>
                       {p.topicName && <span style={{ color: '#fa8c16' }}>{p.topicName}</span>}
@@ -198,7 +200,7 @@ export default function SearchPage() {
                 </Link>
               ))
             ) : (
-              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无内容" style={{ padding: '12px 0 20px' }} />
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("暂无内容")} style={{ padding: '12px 0 20px' }} />
             )}
           </div>
         </>

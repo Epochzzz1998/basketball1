@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { chatApi } from '../api/chat'
 import { subscribeRoom } from '../realtime/pmSocket'
 import { useAuth } from '../auth/AuthContext'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 帖子流工具栏上的群聊入口：一个带未读角标的按钮，点了跳群聊页。
@@ -18,6 +19,7 @@ import { useAuth } from '../auth/AuthContext'
 const BRAND = '#fa541c'
 
 export default function TopicChatEntry({ topic }) {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const navigate = useNavigate()
   const [unread, setUnread] = useState(0)
@@ -48,7 +50,7 @@ export default function TopicChatEntry({ topic }) {
         onClick={() => navigate(`/news/topic/${topicId}/chat`, { state: { fromTopic: true } })}
         style={{ fontWeight: 600, borderRadius: 999, color: BRAND, borderColor: '#ffbb96', background: '#fff7f0' }}
       >
-        群聊
+        {t("群聊")}
       </Button>
     </Badge>
   )

@@ -7,6 +7,7 @@ import { useAuth } from '../../auth/AuthContext'
 import TopicApplyButton from '../../components/TopicApplyButton'
 import NewsList from './NewsList'
 import useIsMobile from '../../hooks/useIsMobile'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 单个专题页：先取专题 + 我的权限。
@@ -14,6 +15,7 @@ import useIsMobile from '../../hooks/useIsMobile'
  * - 有浏览权：渲染 NewsList 的专题模式（发帖/发言/管理按该专题权限）。
  */
 export default function TopicPosts({ module = 'nba' }) {
+  const { t } = useTranslation()
   // section 来自 /news/topic/:topicId/{module}/:section。
   // module 由路由传进来（nba / lol）——两条路由的路径段不同，靠 useParams 分不出来，
   // 而分区注册表是各自一份，必须知道去查哪一份
@@ -53,7 +55,7 @@ export default function TopicPosts({ module = 'nba' }) {
     return (
       <Card style={{ borderRadius: 14 }}>
         {/* 返回走外层布局的全局返回按钮 */}
-        <Empty description="专题不存在或已删除" />
+        <Empty description={t("专题不存在或已删除")} />
       </Card>
     )
   }
@@ -65,8 +67,8 @@ export default function TopicPosts({ module = 'nba' }) {
         <LockOutlined style={{ fontSize: isMobile ? 34 : 46, color: '#d0d0d0' }} />
         <div style={{ fontSize: 18, fontWeight: 700, marginTop: 16 }}>{topic.name}</div>
         <div style={{ color: '#8c8c8c', margin: '8px 0 20px' }}>
-          {topic.description || '这是一个私密专题'}
-          <br />你没有浏览该专题的权限，可向专题 owner（{topic.ownerName || '未知'}）申请加入。
+          {topic.description || t("这是一个私密专题")}
+          <br />{t("你没有浏览该专题的权限，可向专题 owner（")}{topic.ownerName || t("未知")}{t("）申请加入。")}
         </div>
         <Space wrap={isMobile}>
           <TopicApplyButton topic={topic} onApplied={() => load(true)} />

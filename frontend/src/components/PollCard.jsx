@@ -3,6 +3,7 @@ import { BarChartOutlined, CheckCircleFilled, DeleteOutlined } from '@ant-design
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import useIsMobile from '../hooks/useIsMobile'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 投票卡（蓝色系，与橙色打分卡区分）：主题 + 选项行（票数条 + 百分比），点选项即投/改票，
@@ -10,6 +11,7 @@ import useIsMobile from '../hooks/useIsMobile'
  * 数据由上层（NewsDetail）统一持有，onVote(itemId, idx) 投票；canDelete 出删除；disabled=帖已锁定。
  */
 export default function PollCard({ item, onVote, onDelete, canDelete, disabled }) {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
@@ -18,8 +20,8 @@ export default function PollCard({ item, onVote, onDelete, canDelete, disabled }
   const my = item.myChoice
 
   const handleVote = (idx) => {
-    if (!user) { message.info('请先登录'); navigate('/login'); return }
-    if (disabled) { message.info('该帖已被锁定，暂不能投票'); return }
+    if (!user) { message.info(t("请先登录")); navigate('/login'); return }
+    if (disabled) { message.info(t("该帖已被锁定，暂不能投票")); return }
     if (my === idx) return // 点自己已选的不重复提交
     onVote?.(item.itemId, idx)
   }
@@ -35,11 +37,11 @@ export default function PollCard({ item, onVote, onDelete, canDelete, disabled }
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <BarChartOutlined style={{ color: '#1677ff' }} />
         <span style={{ fontWeight: 700, fontSize: 14, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          投票：{item.subject}
+          {t("投票：")}{item.subject}
         </span>
-        <span style={{ fontSize: 12, color: '#999', flexShrink: 0 }}>{count} 人参与</span>
+        <span style={{ fontSize: 12, color: '#999', flexShrink: 0 }}>{count} {t("人参与", { context: 'poll' })}</span>
         {canDelete && (
-          <Popconfirm title="删除该投票？投票记录一并清除" okText="删除" okButtonProps={{ danger: true }} onConfirm={() => onDelete?.(item.itemId)}>
+          <Popconfirm title={t("删除该投票？投票记录一并清除")} okText={t("删除")} okButtonProps={{ danger: true }} onConfirm={() => onDelete?.(item.itemId)}>
             <DeleteOutlined style={{ color: '#bbb', cursor: 'pointer' }} />
           </Popconfirm>
         )}
@@ -66,7 +68,7 @@ export default function PollCard({ item, onVote, onDelete, canDelete, disabled }
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
                 {mine && <CheckCircleFilled style={{ color: '#1677ff' }} />}
                 <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: mine ? 700 : 400 }}>{opt}</span>
-                <span style={{ color: '#8c8c8c', fontSize: 12, flexShrink: 0 }}>{n} 票 · {pct}%</span>
+                <span style={{ color: '#8c8c8c', fontSize: 12, flexShrink: 0 }}>{n} {t("票 ·")} {pct}%</span>
               </div>
             </div>
           )
@@ -74,7 +76,7 @@ export default function PollCard({ item, onVote, onDelete, canDelete, disabled }
       </div>
 
       <div style={{ fontSize: 12, color: '#69b1ff', marginTop: 8 }}>
-        {disabled ? '帖子已锁定，投票只读' : my != null ? '已投票，点其他选项可改票' : '点击选项参与投票'}
+        {disabled ? t("帖子已锁定，投票只读") : my != null ? t("已投票，点其他选项可改票") : t("点击选项参与投票")}
       </div>
     </div>
   )

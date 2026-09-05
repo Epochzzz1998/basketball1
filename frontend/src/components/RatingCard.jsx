@@ -4,6 +4,7 @@ import { CloseCircleFilled, DeleteOutlined, LoadingOutlined, PictureOutlined, St
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import useIsMobile from '../hooks/useIsMobile'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 打分对象配图选择器（开分表单用，发帖页/评论区共用）：虚线上传方块（橙色调，与打分卡同系），
@@ -13,6 +14,7 @@ import useIsMobile from '../hooks/useIsMobile'
 const PICKER_SIZE = 64
 
 export function RatingImagePicker({ value, onChange, upload }) {
+  const { t } = useTranslation()
   const [uploading, setUploading] = useState(false)
 
   const put = useCallback(async (file) => {
@@ -22,12 +24,12 @@ export function RatingImagePicker({ value, onChange, upload }) {
       if (url) onChange(url)
       return url
     } catch (e) {
-      message.error('图片上传失败')
+      message.error(t("图片上传失败"))
       throw e
     } finally {
       setUploading(false)
     }
-  }, [upload, onChange])
+  }, [upload, onChange, t])
 
   /**
    * 剪贴板里的图直接进配图框。监听挂在 document 上（不然要先点中这个小框才收得到
@@ -37,8 +39,8 @@ export function RatingImagePicker({ value, onChange, upload }) {
   useEffect(() => {
     if (value) return undefined
     const onPaste = (e) => {
-      const t = e.target
-      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA)$/.test(t.tagName || ''))) return
+      const el = e.target
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA)$/.test(el.tagName || ''))) return
       const item = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith('image/'))
       if (!item) return
       const file = item.getAsFile()
@@ -88,8 +90,8 @@ export function RatingImagePicker({ value, onChange, upload }) {
         }}
       >
         {uploading ? <LoadingOutlined style={{ fontSize: 18 }} /> : <PictureOutlined style={{ fontSize: 18 }} />}
-        <span style={{ fontSize: 11, marginTop: 3 }}>{uploading ? '上传中' : '配图'}</span>
-        {!uploading && <span style={{ fontSize: 10, marginTop: 1, color: '#e8a33d' }}>点选或粘贴</span>}
+        <span style={{ fontSize: 11, marginTop: 3 }}>{uploading ? t("上传中") : t("配图")}</span>
+        {!uploading && <span style={{ fontSize: 10, marginTop: 1, color: '#e8a33d' }}>{t("点选或粘贴")}</span>}
       </div>
     </Upload>
   )
@@ -101,6 +103,7 @@ export function RatingImagePicker({ value, onChange, upload }) {
  * onVote(itemId, score) 打分/改分；canDelete 时右上出删除（超管或楼主）；disabled=帖已锁定只读。
  */
 export default function RatingCard({ item, onVote, onDelete, canDelete, disabled }) {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
@@ -110,8 +113,8 @@ export default function RatingCard({ item, onVote, onDelete, canDelete, disabled
 
   const handleVote = (score) => {
     if (!score) return // Rate 点同星会回 0（清除），打分场景忽略
-    if (!user) { message.info('请先登录'); navigate('/login'); return }
-    if (disabled) { message.info('该帖已被锁定，暂不能打分'); return }
+    if (!user) { message.info(t("请先登录")); navigate('/login'); return }
+    if (disabled) { message.info(t("该帖已被锁定，暂不能打分")); return }
     onVote?.(item.itemId, score)
   }
 
@@ -126,10 +129,10 @@ export default function RatingCard({ item, onVote, onDelete, canDelete, disabled
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <StarFilled style={{ color: '#fa8c16' }} />
         <span style={{ fontWeight: 700, fontSize: 14, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          为「{item.subject}」打分
+          {t('为「{{subject}}」打分', { subject: item.subject })}
         </span>
         {canDelete && (
-          <Popconfirm title="删除该打分项？投票记录一并清除" okText="删除" okButtonProps={{ danger: true }} onConfirm={() => onDelete?.(item.itemId)}>
+          <Popconfirm title={t("删除该打分项？投票记录一并清除")} okText={t("删除")} okButtonProps={{ danger: true }} onConfirm={() => onDelete?.(item.itemId)}>
             <DeleteOutlined style={{ color: '#bbb', cursor: 'pointer' }} />
           </Popconfirm>
         )}
@@ -152,7 +155,7 @@ export default function RatingCard({ item, onVote, onDelete, canDelete, disabled
               {count ? avg.toFixed(1) : '-'}
             </span>
             <Rate disabled allowHalf value={count ? Math.round(avg * 2) / 2 : 0} style={{ fontSize: 16 }} />
-            <span style={{ fontSize: 12, color: '#999' }}>{count} 人参与</span>
+            <span style={{ fontSize: 12, color: '#999' }}>{count} {t("人参与")}</span>
           </div>
           {/* 5→1 星分布条 */}
           {count > 0 && (
@@ -161,7 +164,7 @@ export default function RatingCard({ item, onVote, onDelete, canDelete, disabled
                 const n = dist[s] || dist[String(s)] || 0
                 return (
                   <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#999' }}>
-                    <span style={{ width: 22, textAlign: 'right' }}>{s} 星</span>
+                    <span style={{ width: 22, textAlign: 'right' }}>{s} {t("星")}</span>
                     <div style={{ flex: 1, height: 6, background: '#fff1d6', borderRadius: 3, overflow: 'hidden' }}>
                       <div style={{ width: `${count ? (n / count) * 100 : 0}%`, height: '100%', background: '#ffa940', borderRadius: 3 }} />
                     </div>
@@ -176,10 +179,10 @@ export default function RatingCard({ item, onVote, onDelete, canDelete, disabled
 
       {/* 我的评分 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, paddingTop: 10, borderTop: '1px dashed #ffe2b8', flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 12, color: '#8c8c8c' }}>我的评分</span>
+        <span style={{ fontSize: 12, color: '#8c8c8c' }}>{t("我的评分")}</span>
         <Rate value={item.myScore || 0} onChange={handleVote} disabled={disabled} style={{ fontSize: 18 }} />
         <span style={{ fontSize: 12, color: '#bbb' }}>
-          {disabled ? '已锁定' : item.myScore ? `已打 ${item.myScore} 星，点星可改` : '点星参与打分'}
+          {disabled ? t("已锁定") : item.myScore ? t("已打 {{myScore}} 星，点星可改", { myScore: item.myScore }) : t("点星参与打分")}
         </span>
       </div>
     </div>

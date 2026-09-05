@@ -1,4 +1,5 @@
 import { LoadingOutlined, ArrowDownOutlined } from '@ant-design/icons'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 下拉刷新的指示器。跟着手指走的那一小条。
@@ -7,6 +8,7 @@ import { LoadingOutlined, ArrowDownOutlined } from '@ant-design/icons'
  * 盖住的话第一条帖子会在下拉时被遮掉一半。
  */
 export default function PullRefreshIndicator({ pull, refreshing, threshold }) {
+  const { t } = useTranslation()
   if (pull <= 0 && !refreshing) return null
   const ready = pull >= threshold
   return (
@@ -21,9 +23,9 @@ export default function PullRefreshIndicator({ pull, refreshing, threshold }) {
       }}
     >
       {refreshing
-        ? <><LoadingOutlined /> 正在刷新</>
+        ? <><LoadingOutlined /> {t("正在刷新")}</>
         : <><ArrowDownOutlined style={{ transform: ready ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
-          {ready ? '松开刷新' : '下拉刷新'}</>}
+          {ready ? t("松开刷新") : t("下拉刷新")}</>}
     </div>
   )
 }
