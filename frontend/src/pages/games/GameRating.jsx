@@ -9,6 +9,8 @@ import { KIND_TAG, reasonText } from './absence'
 import RatingComments from './RatingComments'
 import { ScoreDots, ScorePanel } from './ratingParts'
 import MentionTextArea from '../../components/MentionTextArea'
+import { useTranslation } from 'react-i18next'
+import { displayName } from '../players/rankConfig'
 
 const BRAND = '#fa541c'
 
@@ -38,6 +40,7 @@ const BRAND = '#fa541c'
  * 但他们和有数据的人不该混在一起排：一个是评表现，一个是评「这个安排」。
  */
 export default function GameRating({ gameId, teams, isMobile, onPlayer, userInformationId }) {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const navigate = useNavigate()
   const [data, setData] = useState(undefined)
@@ -59,7 +62,7 @@ export default function GameRating({ gameId, teams, isMobile, onPlayer, userInfo
   /** 没登录时不要让人白填一遍再被拒——点第一下就说清楚 */
   const requireLogin = () => {
     if (user) return true
-    message.info('请先登录')
+    message.info(t("请先登录"))
     navigate('/login')
     return false
   }
@@ -70,7 +73,7 @@ export default function GameRating({ gameId, teams, isMobile, onPlayer, userInfo
   const submitGame = (score) => {
     if (!requireLogin()) return
     gameRatingApi.rateGame(gameId, score)
-      .then(() => { message.success(score ? '已评分' : '已取消评分'); load() })
+      .then(() => { message.success(score ? t("已评分") : t("已取消评分")); load() })
       .catch(() => {})
   }
 
@@ -84,7 +87,7 @@ export default function GameRating({ gameId, teams, isMobile, onPlayer, userInfo
     if (!requireLogin()) return Promise.resolve(false)
     setSaving(true)
     return gameRatingApi.comment(gameId, playerId, content)
-      .then(() => { message.success('已发布'); load(); return true })
+      .then(() => { message.success(t("已发布")); load(); return true })
       .catch(() => false)
       .finally(() => setSaving(false))
   }
@@ -103,11 +106,11 @@ export default function GameRating({ gameId, teams, isMobile, onPlayer, userInfo
   }
 
   if (data === undefined) return <Spin style={{ display: 'block', margin: '60px auto' }} />
-  if (data === null) return <Empty description="评分暂时打不开" />
+  if (data === null) return <Empty description={t("评分暂时打不开")} />
 
   const g = data.game || {}
   const scored = Number(g.scored || 0)
-  const active = teams.find((t) => t.team === team) || teams[0]
+  const active = teams.find((x) => x.team === team) || teams[0]
 
   return (
     <>
@@ -116,10 +119,10 @@ export default function GameRating({ gameId, teams, isMobile, onPlayer, userInfo
 
         <div style={{ borderTop: '1px solid #f0f0f0', marginTop: 16, paddingTop: 14 }}>
           <div style={{ color: '#666', fontWeight: 700, marginBottom: 8 }}>
-            我的评分
+            {t("我的评分")}
             {myScore != null && (
               <span style={{ color: '#ccc', fontWeight: 400, fontSize: 12, marginLeft: 8 }}>
-                再点一次当前分数可取消
+                {t("再点一次当前分数可取消")}
               </span>
             )}
           </div>
@@ -134,7 +137,7 @@ export default function GameRating({ gameId, teams, isMobile, onPlayer, userInfo
             <MentionTextArea
               value={draft}
               onChange={setDraft}
-              placeholder="说说这场比赛，打 @ 提到别人"
+              placeholder={t("说说这场比赛，打 @ 提到别人")}
               maxLength={300}
               autoSize={{ minRows: 1, maxRows: 5 }}
               style={{ minWidth: 200 }}
@@ -147,14 +150,14 @@ export default function GameRating({ gameId, teams, isMobile, onPlayer, userInfo
               onClick={() => postComment('', draft.trim()).then((ok) => ok && setDraft(''))}
               style={{ background: BRAND, borderColor: BRAND, alignSelf: 'flex-end' }}
             >
-              发布
+              {t("发布")}
             </Button>
           </div>
         </div>
       </Card>
 
       <Card
-        title={`这场比赛的短评 (${(data.comments || []).length})`}
+        title={t("这场比赛的短评 ({{length}})", { length: (data.comments || []).length })}
         style={{ borderRadius: 14, marginBottom: 14 }}
         styles={{ body: { padding: isMobile ? '4px 12px 12px' : '6px 18px 14px' } }}
       >
@@ -174,13 +177,13 @@ export default function GameRating({ gameId, teams, isMobile, onPlayer, userInfo
         value={active?.team}
         onChange={setTeam}
         style={{ marginBottom: 12 }}
-        options={teams.map((t) => ({
-          value: t.team,
+        options={teams.map((tm) => ({
+          value: tm.team,
           label: (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '2px 0' }}>
-              <TeamLogo code={t.team} size={20} />
-              <TeamNames value={t.team} />
-              <HomeAwayTag home={t.isHome} size={14} />
+              <TeamLogo code={tm.team} size={20} />
+              <TeamNames value={tm.team} />
+              <HomeAwayTag home={tm.isHome} size={14} />
             </span>
           ),
         }))}
@@ -255,6 +258,7 @@ function PlayerRow({
   r, agg, hist, comments, replies, mine, meId, isMobile,
   onPick, onPlayer, onComment, onReply, onDeleteReply, onDeleteComment,
 }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   // 输入框从空开始、发完清空。短评是追加式的，回填上一条会让人以为再发是在改它
   const [draft, setDraft] = useState('')
@@ -268,22 +272,22 @@ function PlayerRow({
           onClick={() => onPlayer?.(r.playerId)}
           style={{ color: r.absent ? '#999' : '#222', fontWeight: 600 }}
         >
-          {r.playerName || r.nameEn || '-'}
+          {displayName(r) || '-'}
         </a>
         {!r.absent && Number(r.starter) === 1 && (
           <span style={{ color: '#bbb', fontSize: 11, border: '1px solid #eee', borderRadius: 4, padding: '0 4px' }}>
-            首发
+            {t("首发")}
           </span>
         )}
         {r.absent ? (
           <span style={{ color: '#bbb', fontSize: 12 }}>
-            {KIND_TAG[r.absent] || '未出场'}
+            {KIND_TAG[r.absent] ? t(KIND_TAG[r.absent]) : t("未出场")}
             {r.absent === 'DNP' && reasonText(r.reason) && reasonText(r.reason) !== '未上场'
-              && ` · ${reasonText(r.reason)}`}
+              && ` · ${t(reasonText(r.reason))}`}
           </span>
         ) : (
           <span style={{ color: '#999', fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
-            {r.pts} 分 {r.reb} 板 {r.ast} 助 · {r.playingTime} 分钟
+            {r.pts} {t("分")} {r.reb} {t("板")} {r.ast} {t("助 ·")} {r.playingTime} {t("分钟")}
           </span>
         )}
       </div>
@@ -304,7 +308,7 @@ function PlayerRow({
           onClick={() => setOpen((v) => !v)}
           style={{ color: n ? '#666' : '#bbb', fontSize: 12, marginLeft: 'auto' }}
         >
-          {open ? <DownOutlined /> : <RightOutlined />} 短评{n ? ` (${n})` : ''}
+          {open ? <DownOutlined /> : <RightOutlined />} {t("短评")}{n ? ` (${n})` : ''}
         </a>
       </div>
 
@@ -314,7 +318,7 @@ function PlayerRow({
             <MentionTextArea
               value={draft}
               onChange={setDraft}
-              placeholder={`说说${r.playerName || r.nameEn || '他'}这场`}
+              placeholder={t("说说{{v0}}这场", { v0: displayName(r) || t('他') })}
               maxLength={300}
               autoSize={{ minRows: 1, maxRows: 4 }}
               style={{ minWidth: 160 }}
@@ -326,7 +330,7 @@ function PlayerRow({
               onClick={() => onComment(r.playerId, draft.trim()).then((ok) => ok && setDraft(''))}
               style={{ background: BRAND, borderColor: BRAND, alignSelf: 'flex-end' }}
             >
-              发布
+              {t("发布")}
             </Button>
           </div>
           <div style={{ marginTop: 4 }}>
@@ -337,7 +341,7 @@ function PlayerRow({
               onReply={onReply}
               onDeleteReply={onDeleteReply}
               onDeleteComment={onDeleteComment}
-              emptyText="还没有人评价他这场"
+              emptyText={t("还没有人评价他这场")}
             />
           </div>
         </div>

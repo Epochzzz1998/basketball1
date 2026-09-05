@@ -1,4 +1,5 @@
-import { NBA_TEAM_NAMES, teamZh } from '../pages/players/rankConfig'
+import { teamZh } from '../pages/players/rankConfig'
+import { useTranslation } from 'react-i18next'
 
 /**
  * NBA 30 队队标。
@@ -18,7 +19,8 @@ const norm = (code) => String(code ?? '').trim().toUpperCase()
 export default function TeamLogo({ code, size = 22, style, title }) {
   const c = norm(code)
   const url = LOGOS[c]
-  const label = title ?? (NBA_TEAM_NAMES[c] || c)
+  // teamZh 会跟着语言翻队名；认不出的队码原样返回
+  const label = title ?? teamZh(c)
   if (!url) {
     return (
       <span
@@ -55,9 +57,10 @@ export default function TeamLogo({ code, size = 22, style, title }) {
  * 宽高写死成正方形，同一列里的几个标才对得齐。
  */
 export function HomeAwayTag({ home, size = 18, style }) {
+  const { t } = useTranslation()
   return (
     <span
-      title={home ? '主场' : '客场'}
+      title={home ? t("主场") : t("客场")}
       style={{
         flexShrink: 0, display: 'inline-block', boxSizing: 'border-box',
         width: size, height: size, borderRadius: 4,
@@ -69,7 +72,7 @@ export function HomeAwayTag({ home, size = 18, style }) {
         ...style,
       }}
     >
-      {home ? '主' : '客'}
+      {home ? t("主") : t("客")}
     </span>
   )
 }

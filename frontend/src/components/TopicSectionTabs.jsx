@@ -1,5 +1,6 @@
 import { Segmented } from 'antd'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 专题里的「分区标签条」：横幅下面单独一行，点了下面的内容整块换掉，
@@ -27,6 +28,8 @@ import { useNavigate } from 'react-router-dom'
  */
 export default function TopicSectionTabs({ topic, section, topicId, moduleKey, sections }) {
   const navigate = useNavigate()
+  // 分区名在各模块的注册表里是中文，中文同时是 i18n 的 key，渲染时翻一下
+  const { t } = useTranslation()
   if (!topic || topic.topicId !== topicId) return null
 
   const base = `/news/topic/${topic.topicId}`
@@ -37,7 +40,7 @@ export default function TopicSectionTabs({ topic, section, topicId, moduleKey, s
         // 否则它会当成"未选中"，切回讨论区时高亮不会跟过来
         value={section || ''}
         onChange={(v) => navigate(v ? `${base}/${moduleKey}/${v}` : base)}
-        options={sections.map((s) => ({ value: s.key || '', label: s.label, icon: s.icon }))}
+        options={sections.map((s) => ({ value: s.key || '', label: t(s.label), icon: s.icon }))}
         style={{ display: 'inline-flex' }}
       />
     </div>

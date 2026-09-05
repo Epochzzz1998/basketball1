@@ -4,6 +4,7 @@ import useUrlState from '../../hooks/useUrlState'
 import AllTimeTab from './AllTimeTab'
 import AwardHistory from './AwardHistory'
 import DraftHistory from './DraftHistory'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 历史数据（/history）：生涯总榜 + 历史荣誉。
@@ -13,6 +14,7 @@ import DraftHistory from './DraftHistory'
  * 摆在一起会让人以为切赛季能改变它们，所以单独成一个菜单。
  */
 export default function HistoryHome() {
+  const { t } = useTranslation()
   // tab 写进 URL：从总榜点进某个球员再返回时，回到的是同一个 tab；
   // 球员身份头上那枚选秀标签也是靠 ?tab=draft 直接落到选秀那一块的。
   // 第三个参数（按数字解析）不能给：tab 的值是 'alltime'/'draft' 这类字符串，
@@ -25,9 +27,9 @@ export default function HistoryHome() {
         value={tab}
         onChange={setTab}
         options={[
-          { value: 'alltime', icon: <HistoryOutlined />, label: '历史总榜' },
-          { value: 'awards', icon: <TrophyOutlined />, label: '历史荣誉' },
-          { value: 'draft', icon: <SolutionOutlined />, label: '历史选秀' },
+          { value: 'alltime', icon: <HistoryOutlined />, label: t("历史总榜") },
+          { value: 'awards', icon: <TrophyOutlined />, label: t("历史荣誉") },
+          { value: 'draft', icon: <SolutionOutlined />, label: t("历史选秀") },
         ]}
       />
       {tab === 'alltime' && <AllTimeTab />}

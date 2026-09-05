@@ -6,7 +6,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { playerApi } from '../../api/player'
 import { teamApi } from '../../api/team'
 import { HONOR_GROUPS } from './honorConfig'
-import { ADVANCED_STATS, LATEST_SEASON, NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, RANKING_STATS, filterByPosition, fmtAdv, fmtDelta, fmtNum, fmtPct, fmtTeamChainZh, honorEligible, numOrNull, playoffRecord, qualifiedBoard, withValue } from './rankConfig'
+import { ADVANCED_STATS, LATEST_SEASON, NBA_STRUCTURE, NBA_TEAM_NAMES, PLAYOFF_TAG, RANKING_STATS, filterByPosition, fmtAdv, fmtDelta, fmtNum, fmtPct, fmtTeamChainZh, honorEligible, numOrNull, playoffRecord, qualifiedBoard, withValue, displayName } from './rankConfig'
 import { compactColumns, rankCardFields, sumColWidth } from './statColumns'
 import { GlossaryButton, GlossaryTip } from './statGlossary'
 import PositionFilter from './PositionFilter'
@@ -16,12 +16,14 @@ import AllPlayerSeasonStats from './AllPlayerSeasonStats'
 import { TeamCell } from '../../components/TeamLogo'
 import useIsMobile from '../../hooks/useIsMobile'
 import useUrlState from '../../hooks/useUrlState'
+import { useTranslation } from 'react-i18next'
 
 const MEDAL = ['#f5b301', '#9aa0a6', '#b87333'] // 金 / 银 / 铜
 
 /* ============ Tab 1：单项排行 ============ */
 
 function StatRankCard({ stat, seasonNum, stage, pos }) {
+  const { t } = useTranslation()
   const [rows, setRows] = useState(null)
   const navigate = useNavigate()
 
@@ -47,11 +49,11 @@ function StatRankCard({ stat, seasonNum, stage, pos }) {
     <Card
       title={
         <>
-          <GlossaryTip field={stat.field}>{stat.label}榜</GlossaryTip>
-          {stat.note && <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 400, color: '#999' }}>{stat.note}</span>}
+          <GlossaryTip field={stat.field}>{t(stat.label)}{t("榜")}</GlossaryTip>
+          {stat.note && <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 400, color: '#999' }}>{t(stat.note)}</span>}
         </>
       }
-      extra={<a onClick={() => navigate(`/rankings/${stat.field}?seasonNum=${seasonNum}&stage=${stage}${pos && pos !== 'all' ? `&pos=${pos}` : ''}`)}>完整排行 →</a>}
+      extra={<a onClick={() => navigate(`/rankings/${stat.field}?seasonNum=${seasonNum}&stage=${stage}${pos && pos !== 'all' ? `&pos=${pos}` : ''}`)}>{t("完整排行 →")}</a>}
       loading={rows === null}
       styles={{ body: { padding: '8px 20px' } }}
     >
@@ -68,7 +70,7 @@ function StatRankCard({ stat, seasonNum, stage, pos }) {
               {i + 1}
             </span>
             <Link to={`/players/${r.playerId}?seasonNum=${seasonNum}`} style={{ flex: 1, fontWeight: i < 3 ? 600 : 400 }}>
-              {r.playerName}
+              {displayName(r)}
             </Link>
             <span style={{ color: '#999', fontSize: 12, marginRight: 14 }}><TeamCell value={r.playerTeam} size={14} /></span>
             <span style={{ fontWeight: 700, color: '#fa541c', fontVariantNumeric: 'tabular-nums' }}>
@@ -77,7 +79,7 @@ function StatRankCard({ stat, seasonNum, stage, pos }) {
           </div>
         ))
       ) : (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="该赛季暂无数据" />
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("该赛季暂无数据")} />
       )}
     </Card>
   )
@@ -108,17 +110,18 @@ function StatsTab({ seasonNum, stage }) {
 /* ============ Tab 2：赛季荣誉 ============ */
 
 function HonorCard({ group, rows, seasonNum }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const members = group.pick(rows)
   return (
     <Card
       title={
         <>
-          {group.title}
-          {group.note && <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 400, color: '#999' }}>{group.note}</span>}
+          {t(group.title)}
+          {group.note && <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 400, color: '#999' }}>{t(group.note)}</span>}
         </>
       }
-      extra={<a onClick={() => navigate(`/rankings/honors/${group.key}?seasonNum=${seasonNum}`)}>完整数据 →</a>}
+      extra={<a onClick={() => navigate(`/rankings/honors/${group.key}?seasonNum=${seasonNum}`)}>{t("完整数据 →")}</a>}
       styles={{ body: { padding: '8px 20px' } }}
     >
       {members.length ? (
@@ -136,14 +139,14 @@ function HonorCard({ group, rows, seasonNum }) {
               </span>
             )}
             <div style={{ flex: 1, minWidth: 0 }}>
-              <Link to={`/players/${r.playerId}?seasonNum=${seasonNum}`} style={{ fontWeight: i < 3 ? 600 : 400 }}>{r.playerName}</Link>
+              <Link to={`/players/${r.playerId}?seasonNum=${seasonNum}`} style={{ fontWeight: i < 3 ? 600 : 400 }}>{displayName(r)}</Link>
               <span style={{ color: '#999', fontSize: 12, marginLeft: 8 }}>{fmtTeamChainZh(r.playerTeam)} · {r.playerPosition}</span>
               <div style={{ color: '#8c8c8c', fontSize: 12 }}>{group.sub(r)}</div>
             </div>
           </div>
         ))
       ) : (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="该赛季暂无数据" />
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("该赛季暂无数据")} />
       )}
     </Card>
   )
@@ -160,6 +163,7 @@ const SPECIAL_AWARDS = {
 }
 
 function SpecialAwardCards({ seasonNum, rows }) {
+  const { t } = useTranslation()
   const [awards, setAwards] = useState(null) // fmvp/smoy/mip 来自后端 season_award
   const isMobile = useIsMobile()
 
@@ -172,7 +176,7 @@ function SpecialAwardCards({ seasonNum, rows }) {
     return () => { alive = false }
   }, [seasonNum])
 
-  const off = (p, r, a) => `${fmtNum(p)}分 ${fmtNum(r)}板 ${fmtNum(a)}助`
+  const off = (p, r, a) => t("{{v0}}分 {{v1}}板 {{v2}}助", { v0: fmtNum(p), v1: fmtNum(r), v2: fmtNum(a) })
   const gray = { color: '#8c8c8c', fontSize: 12 }
 
   const entries = []
@@ -187,7 +191,7 @@ function SpecialAwardCards({ seasonNum, rows }) {
   if (dpoyRow) {
     entries.push({
       key: 'dpoy', playerId: dpoyRow.playerId, playerName: dpoyRow.playerName, playerTeam: dpoyRow.playerTeam,
-      lines: [<div key="l" style={gray}>{fmtNum(dpoyRow.playerAvgSteal)}断 {fmtNum(dpoyRow.playerAvgBlock)}帽 {fmtNum(dpoyRow.playerAvgReb)}板</div>],
+      lines: [<div key="l" style={gray}>{fmtNum(dpoyRow.playerAvgSteal)}{t("断")} {fmtNum(dpoyRow.playerAvgBlock)}{t("帽")} {fmtNum(dpoyRow.playerAvgReb)}{t("板")}</div>],
     })
   }
   for (const key of ['fmvp', 'smoy', 'mip', 'roy']) {
@@ -195,16 +199,16 @@ function SpecialAwardCards({ seasonNum, rows }) {
     if (!w) continue
     const lines = key === 'fmvp'
       ? [
-          <div key="a" style={gray}>常规赛 {off(w.pts, w.reb, w.ast)}</div>,
-          <div key="b" style={{ color: '#d48806', fontSize: 12, fontWeight: 600 }}>季后赛 {off(w.poPts, w.poReb, w.poAst)}</div>,
+          <div key="a" style={gray}>{t("常规赛")} {off(w.pts, w.reb, w.ast)}</div>,
+          <div key="b" style={{ color: '#d48806', fontSize: 12, fontWeight: 600 }}>{t("季后赛")} {off(w.poPts, w.poReb, w.poAst)}</div>,
         ]
       : key === 'mip'
         ? [
-            <div key="a" style={gray}>上季 {off(w.prevPts, w.prevReb, w.prevAst)}</div>,
+            <div key="a" style={gray}>{t("上季")} {off(w.prevPts, w.prevReb, w.prevAst)}</div>,
             <div key="b" style={{ color: '#3f8600', fontSize: 12, fontWeight: 600 }}>
-              本季 {off(w.pts, w.reb, w.ast)}
+              {t("本季")} {off(w.pts, w.reb, w.ast)}
               {w.prevPts != null && w.pts != null && (
-                <span style={{ marginLeft: 6 }}>↑ {fmtDelta(numOrNull(w.pts) - numOrNull(w.prevPts))}分</span>
+                <span style={{ marginLeft: 6 }}>↑ {fmtDelta(numOrNull(w.pts) - numOrNull(w.prevPts))}{t("分")}</span>
               )}
             </div>,
           ]
@@ -226,8 +230,8 @@ function SpecialAwardCards({ seasonNum, rows }) {
               <Space align="center" size={14}>
                 <span style={{ fontSize: isMobile ? 22 : 30, lineHeight: 1 }}>{meta.icon}</span>
                 <div>
-                  <div style={{ color: '#888', fontSize: 12 }}>{meta.label}</div>
-                  <Link to={`/players/${e.playerId}?seasonNum=${seasonNum}`} style={{ fontWeight: 700, fontSize: 16 }}>{e.playerName}</Link>
+                  <div style={{ color: '#888', fontSize: 12 }}>{t(meta.label)}</div>
+                  <Link to={`/players/${e.playerId}?seasonNum=${seasonNum}`} style={{ fontWeight: 700, fontSize: 16 }}>{displayName(e)}</Link>
                   <span style={{ color: '#999', fontSize: 12, marginLeft: 8 }}><TeamCell value={e.playerTeam} size={14} /></span>
                   {e.lines}
                 </div>
@@ -290,6 +294,7 @@ function teamsInScope(scope) {
 const TIER = { 总冠军: 0, 总决赛: 1, 分区决赛: 2, 半决赛: 3, 首轮: 4 }
 
 function TeamsTab({ seasonNum, stage }) {
+  const { t } = useTranslation()
   const isMobile = useIsMobile()
   const [rows, setRows] = useState(null)
   const [scope, setScope] = useState('all')
@@ -318,7 +323,7 @@ function TeamsTab({ seasonNum, stage }) {
     render: (v) => fmtNum(v, d),
   })
   const netCol = {
-    title: '净胜分', width: 84,
+    title: t("净胜分"), width: 84,
     sorter: (a, b) => (a.pts - a.ptsAllowed) - (b.pts - b.ptsAllowed),
     render: (_, r) => {
       const d = Number(r.pts) - Number(r.ptsAllowed)
@@ -326,14 +331,14 @@ function TeamsTab({ seasonNum, stage }) {
     },
   }
   const rankCol = {
-    title: '排名', width: 60, fixed: 'left',
+    title: t("排名"), width: 60, fixed: 'left',
     render: (_, __, i) => (
       <span style={{ fontWeight: 700, fontStyle: 'italic', color: i < 3 ? MEDAL[i] : '#bbb' }}>{i + 1}</span>
     ),
   }
   const teamCol = {
     // 表格里不放队标（队标只在球员卡片/卡片墙这些地方出现）
-    title: '球队', dataIndex: 'teamCode', width: 140, fixed: 'left',
+    title: t("球队"), dataIndex: 'teamCode', width: 140, fixed: 'left',
     render: (code) => (
       <Space size={6}>
         <Link to={`/players/team/${code}`}><b>{NBA_TEAM_NAMES[code] || code}</b></Link>
@@ -343,12 +348,12 @@ function TeamsTab({ seasonNum, stage }) {
   }
   const resultCol = {
     // 跟同排数据列一样右对齐：这一列夹在「胜率」和「场均得分」中间，只有它靠左很跳
-    title: po ? '成绩' : '季后赛', dataIndex: 'playoffResult', width: 110,
+    title: po ? t("成绩") : t("季后赛"), dataIndex: 'playoffResult', width: 110,
     render: (v) => <Tag color={PLAYOFF_TAG[v] || 'default'} style={{ marginInlineEnd: 0 }}>{v || '-'}</Tag>,
   }
 
   const poRecordCol = {
-    title: '战绩', width: 80,
+    title: t("战绩"), width: 80,
     sorter: (a, b) => (playoffRecord(a.playoffResult, a.games)?.wins ?? 0) - (playoffRecord(b.playoffResult, b.games)?.wins ?? 0),
     render: (_, r) => {
       const rec = playoffRecord(r.playoffResult, r.games)
@@ -359,22 +364,22 @@ function TeamsTab({ seasonNum, stage }) {
   const columns = po
     ? [
         rankCol, teamCol, resultCol, poRecordCol,
-        { title: '出战', dataIndex: 'games', width: 70, sorter: (a, b) => a.games - b.games },
-        numCol('场均得分', 'pts'), numCol('场均失分', 'ptsAllowed'), netCol,
-        numCol('篮板', 'reb'), numCol('助攻', 'ast'), numCol('抢断', 'stl'), numCol('盖帽', 'blk'), numCol('失误', 'tov'),
+        { title: t("出战"), dataIndex: 'games', width: 70, sorter: (a, b) => a.games - b.games },
+        numCol(t("场均得分"), 'pts'), numCol(t("场均失分"), 'ptsAllowed'), netCol,
+        numCol(t("篮板"), 'reb'), numCol(t("助攻"), 'ast'), numCol(t("抢断"), 'stl'), numCol(t("盖帽"), 'blk'), numCol(t("失误"), 'tov'),
       ]
     : [
         rankCol, teamCol,
-        { title: '胜', dataIndex: 'wins', width: 60, sorter: (a, b) => a.wins - b.wins },
-        { title: '负', dataIndex: 'losses', width: 60, sorter: (a, b) => a.losses - b.losses },
+        { title: t("胜"), dataIndex: 'wins', width: 60, sorter: (a, b) => a.wins - b.wins },
+        { title: t("负"), dataIndex: 'losses', width: 60, sorter: (a, b) => a.losses - b.losses },
         {
-          title: '胜率', dataIndex: 'winRate', width: 80,
+          title: t("胜率"), dataIndex: 'winRate', width: 80,
           sorter: (a, b) => a.winRate - b.winRate,
           render: (v) => fmtPct(v),
         },
         resultCol,
-        numCol('场均得分', 'pts'), numCol('场均失分', 'ptsAllowed'), netCol,
-        numCol('篮板', 'reb'), numCol('助攻', 'ast'), numCol('抢断', 'stl'), numCol('盖帽', 'blk'), numCol('失误', 'tov'),
+        numCol(t("场均得分"), 'pts'), numCol(t("场均失分"), 'ptsAllowed'), netCol,
+        numCol(t("篮板"), 'reb'), numCol(t("助攻"), 'ast'), numCol(t("抢断"), 'stl'), numCol(t("盖帽"), 'blk'), numCol(t("失误"), 'tov'),
       ]
 
   return (
@@ -386,12 +391,12 @@ function TeamsTab({ seasonNum, stage }) {
       }}>
       <div style={{ padding: '14px 20px' }}> {/* 卡体已无内边距，这行自己撑开 */}
         <Space size="middle" wrap>
-          范围：
-          <Select virtual={false} value={scope} onChange={setScope} options={SCOPES} style={{ width: 140 }} />
+          {t("范围：")}
+          <Select virtual={false} value={scope} onChange={setScope} options={SCOPES.map((o) => ({ ...o, label: t(o.label) }))} style={{ width: 140 }} />
           <Badge
             status="processing"
             text={<span style={{ color: '#888', fontSize: 12 }}>
-              {po ? '仅当季 16 支季后赛球队，按轮次+净胜排序' : '点击表头可按数据排序'}；点球队名看本队球员
+              {po ? t("仅当季 16 支季后赛球队，按轮次+净胜排序") : t("点击表头可按数据排序")}{t("；点球队名看本队球员")}
             </span>}
           />
         </Space>
@@ -417,6 +422,7 @@ function TeamsTab({ seasonNum, stage }) {
 
 /** 联盟排行：单项排行 / 赛季荣誉 / 球队排行 三个 Tab，共用赛季选择 + 常规赛/季后赛切换 */
 export default function LeagueRankings() {
+  const { t } = useTranslation()
   // 赛季/赛段写进 URL：从完整排行等次级页返回时不再跳回默认最新赛季
   const [seasonNum, setSeasonNum] = useUrlState('seasonNum', LATEST_SEASON, true)
   const [stage, setStage] = useUrlState('stage', 'reg') // reg=常规赛 po=季后赛（荣誉为全季评选）
@@ -426,7 +432,7 @@ export default function LeagueRankings() {
     <>
       <Card style={{ marginBottom: 16 }} styles={{ body: { padding: '14px 20px' } }}>
         <Space size="middle" wrap>
-          <span style={{ fontSize: 16, fontWeight: 600 }}>联盟排行</span>
+          <span style={{ fontSize: 16, fontWeight: 600 }}>{t("联盟排行")}</span>
           <Segmented
             value={stage}
             onChange={(v) => {
@@ -436,7 +442,7 @@ export default function LeagueRankings() {
                 setTab('stats')
               }
             }}
-            options={[{ label: '常规赛', value: 'reg' }, { label: '季后赛', value: 'po' }]}
+            options={[{ label: t("常规赛"), value: 'reg' }, { label: t("季后赛"), value: 'po' }]}
           />
           <SeasonPicker value={seasonNum} onChange={setSeasonNum} />
         </Space>
@@ -445,13 +451,13 @@ export default function LeagueRankings() {
         value={tab}
         onChange={setTab}
         options={[
-          { value: 'stats', icon: <OrderedListOutlined />, label: '单项排行' },
+          { value: 'stats', icon: <OrderedListOutlined />, label: t("单项排行") },
           // 荣誉是全季评选（FMVP 已含），季后赛模式下不显示该 Tab
-          ...(stage === 'po' ? [] : [{ value: 'honors', icon: <CrownOutlined />, label: '赛季荣誉' }]),
+          ...(stage === 'po' ? [] : [{ value: 'honors', icon: <CrownOutlined />, label: t("赛季荣誉") }]),
           // 新秀榜只有常规赛：判据那条 SQL 只写在常规赛的查询里，季后赛走的是另一条，
           // 挂上去会静默地把全体季后赛球员当成新秀
-          ...(stage === 'po' ? [] : [{ value: 'rookies', icon: <RiseOutlined />, label: '新秀榜' }]),
-          { value: 'teams', icon: <TeamOutlined />, label: '球队排行' },
+          ...(stage === 'po' ? [] : [{ value: 'rookies', icon: <RiseOutlined />, label: t("新秀榜") }]),
+          { value: 'teams', icon: <TeamOutlined />, label: t("球队排行") },
           // 历史总榜跟赛季无关（生涯累计），赛季/赛段选择对它不起作用
         ]}
       />

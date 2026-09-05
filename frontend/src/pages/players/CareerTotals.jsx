@@ -4,6 +4,7 @@ import { playerApi } from '../../api/player'
 import { CAREER_TOTAL_STATS, fmtTotal } from './rankConfig'
 import { RankChip } from './SeasonProfile'
 import useIsMobile from '../../hooks/useIsMobile'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 生涯总数 + 历史排名。格子样式与资料卡的数据格完全一致（同样一行三个），
@@ -20,6 +21,7 @@ import useIsMobile from '../../hooks/useIsMobile'
  */
 
 export default function CareerTotals({ playerId }) {
+  const { t } = useTranslation()
   const isMobile = useIsMobile()
   const [row, setRow] = useState(undefined) // undefined=加载中, null=无数据
 
@@ -33,12 +35,12 @@ export default function CareerTotals({ playerId }) {
   }, [playerId])
 
   if (row === undefined) return <Spin style={{ display: 'block', margin: '40px auto' }} />
-  if (!row) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无生涯总数（该球员未匹配到历史数据）" />
+  if (!row) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("暂无生涯总数（该球员未匹配到历史数据）")} />
 
   return (
     <>
       <div style={{ color: '#bbb', fontSize: 12, marginBottom: 10 }}>
-        {row.firstYear}-{row.lastYear} · {row.seasons} 个赛季 · 名次为 NBA 历史排名（1947 年至今）
+        {row.firstYear}-{row.lastYear} · {row.seasons} {t("个赛季 · 名次为 NBA 历史排名（1947 年至今）")}
       </div>
       <Row gutter={isMobile ? [6, 6] : [10, 10]}>
         {CAREER_TOTAL_STATS.map((s) => {
@@ -49,14 +51,14 @@ export default function CareerTotals({ playerId }) {
           return (
             <Col key={s.key} xs={8} sm={8}>
               <div style={{ border: '1px solid #f0f0f0', borderRadius: 10, padding: isMobile ? '7px 6px' : '10px 12px', background: '#fff' }}>
-                <div style={{ color: '#888', fontSize: isMobile ? 11 : 12, whiteSpace: 'nowrap' }}>{s.label}</div>
+                <div style={{ color: '#888', fontSize: isMobile ? 11 : 12, whiteSpace: 'nowrap' }}>{t(s.label)}</div>
                 <div style={{
                   fontSize: isMobile ? 16 : 20, fontWeight: 800, color: '#fa541c',
                   margin: '2px 0 4px', fontVariantNumeric: 'tabular-nums',
                 }}>
                   {fmtTotal(v)}
                 </div>
-                {showRank && <RankChip rank={rank} prefix="历史第" to={`/rankings/alltime/${s.key}`} />}
+                {showRank && <RankChip rank={rank} prefix={t("历史第")} to={`/rankings/alltime/${s.key}`} />}
               </div>
             </Col>
           )

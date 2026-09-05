@@ -1,4 +1,5 @@
-/**
+
+import i18n from '../../i18n'/**
  * 选秀详情标签：贴在球员身份头名字下面的那一枚，也复用在历史选秀表的顺位列里。
  *
  * ## 为什么分档而不是一律灰底
@@ -36,9 +37,9 @@ export const draftTier = (pick) => {
 export const draftText = (d) => {
   if (!d) return ''
   const pick = Number(d.pickNum) || 0
-  if (!pick) return `${d.draftYear}年第${d.roundNum}轮`
+  if (!pick) return i18n.t("{{draftYear}}年第{{roundNum}}轮", { draftYear: d.draftYear, roundNum: d.roundNum })
   const tier = draftTier(pick)
-  return `${d.draftYear}年${tier.name || `${pick}号秀`}`
+  return i18n.t("{{draftYear}}年{{v1}}", { draftYear: d.draftYear, v1: tier.name ? i18n.t(tier.name) : i18n.t("{{pick}}号秀", { pick }) })
 }
 
 /**

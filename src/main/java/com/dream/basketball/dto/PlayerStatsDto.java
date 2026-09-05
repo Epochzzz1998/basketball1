@@ -15,6 +15,15 @@ import lombok.Data;
 @Data
 public class PlayerStatsDto extends PlayerStats {
     private String playerName;
+    /**
+     * B-R 原名（dream_player.NAME_EN），给英文界面显示用。
+     *
+     * 这一列 2026-09-05 才进这个 DTO：之前五条按 PlayerStatsDto 返回的查询在 SQL 里已经
+     * select 了 NAME_EN as nameEn，但 DTO 上没有同名字段，MyBatis 映射时**静默丢弃**——
+     * 编译不报、SQL 不报、接口 200，只是 JSON 里没有这个键。返回 Map 的那几条查询没这个问题，
+     * 所以同一份 SQL 改动一半接口生效一半不生效，是在 API 层逐个打了才发现的。
+     */
+    private String nameEn;
     private String playerNumber;
     /** 球员照片 URL（dream_player.PHOTO；没上传过为 null） */
     private String photo;

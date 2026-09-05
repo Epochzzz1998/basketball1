@@ -1,4 +1,5 @@
-/** 球员数据模块共享配置：赛季选项、数字格式化、单项排行榜配置、NBA 队名映射 */
+
+import i18n from '../../i18n'/** 球员数据模块共享配置：赛季选项、数字格式化、单项排行榜配置、NBA 队名映射 */
 
 // 第 N 赛季 = (SEASON_BASE+N)-(SEASON_BASE+1+N)：第 1 赛季即 1976-77（锚点 1976 = ABA 合并元年，覆盖 50 年）
 export const SEASON_BASE = 1975
@@ -7,12 +8,20 @@ export const SEASON_BASE = 1975
 export const CAREER_SEASON = 99
 
 export const seasonYearLabel = (n) =>
-  Number(n) === CAREER_SEASON ? '生涯场均' : `${SEASON_BASE + Number(n)}-${SEASON_BASE + 1 + Number(n)} 赛季`
+  Number(n) === CAREER_SEASON ? i18n.t("生涯场均") : i18n.t("{{v0}}-{{v1}} 赛季", { v0: SEASON_BASE + Number(n), v1: SEASON_BASE + 1 + Number(n) })
+
+/**
+ * 只有年份、不带「赛季」两个字：手机上窄的地方用（赛季选择器的胶囊、球队页横幅）。
+ * 原来那几处是拿 seasonYearLabel(n).replace(' 赛季', '') 硬剥的——英文模式下后缀变成了
+ * " Season"，replace 剥不掉，就会显示成 "1976-1977 Season" 撑破胶囊。
+ */
+export const seasonYears = (n) =>
+  Number(n) === CAREER_SEASON ? i18n.t('生涯') : `${SEASON_BASE + Number(n)}-${SEASON_BASE + 1 + Number(n)}`
 
 // 数据表的赛季列用：只留年份后两位，如 1986-1987 → 86-87（生涯档=生涯）
 export const seasonShort = (n) =>
   Number(n) === CAREER_SEASON
-    ? '生涯'
+    ? i18n.t("生涯")
     : `${String(SEASON_BASE + Number(n)).slice(-2)}-${String(SEASON_BASE + 1 + Number(n)).slice(-2)}`
 
 // 最新赛季（第 50 季 = 2025-2026；同步工具每天维护这一季，ESPN 年份 − 1976 = 赛季号）
@@ -292,7 +301,7 @@ export const CAREER_TOTAL_STATS = [
 export const fmtTotal = (v) => (v == null ? '-' : Number(v).toLocaleString('en-US'))
 
 /** 不达标的原因，决定标签文案 */
-export const unqualifiedReason = (field) => (PCT_QUALIFY[field] ? '出手不足' : '场次不足')
+export const unqualifiedReason = (field) => (PCT_QUALIFY[field] ? i18n.t("出手不足") : i18n.t("场次不足"))
 
 /** 名次 = 池子里比他强的人数 + 1；asc 项（失误/犯规）越少越前 */
 export const rankIn = (rows, field, value, asc, po = false) => {
@@ -342,9 +351,26 @@ export const DEFUNCT_TEAM_NAMES = {
   DNN: '丹佛掘金(1949)', TRH: '多伦多哈士奇', AND: '安德森包装工',
 }
 
+/**
+ * 球员显示名：英文界面用 NAME_EN，中文界面用本地化的 PLAYER_NAME。
+ *
+ * 这是 dream_player 表里现成的两列（NAME_EN 4907 行全满，是 B-R 的原名），不是翻译文件——
+ * 球员名是数据，一行一个，不可能也不该进 en.json。所有显示球员名的地方都走这里，
+ * 数据表的「球员」列、榜单卡、对比页、比赛详情……缺一处，英文界面上就会冒出一个中文名。
+ * 老数据没汉化的行 PLAYER_NAME 可能等于 NAME_EN，两种语言显示一样，正确。
+ */
+export const displayName = (r) => {
+  if (!r) return ''
+  if (i18n.language === 'en' && r.nameEn) return r.nameEn
+  return r.playerName || r.nameEn || ''
+}
+
 export const teamZh = (code) => {
   const c = String(code ?? '').trim().toUpperCase()
-  return NBA_TEAM_NAMES[c] || DEFUNCT_TEAM_NAMES[c] || String(code ?? '')
+  // 队名表里存的是中文，中文同时是 i18n 的 key：这里包一层，所有显示队名的地方
+  // （表格球队列、交易链、榜单卡、队标 title）就都跟着语言走了，不用一处处改。
+  // 认不出的队码（或生涯汇总行的 '/'）原样返回——t() 对没有翻译的 key 就是原样返回。
+  return i18n.t(NBA_TEAM_NAMES[c] || DEFUNCT_TEAM_NAMES[c] || String(code ?? ''))
 }
 
 // \u4ea4\u6613\u94fe\u7684\u4e2d\u6587\u7248\uff1a'CHI->BOS' \u2192 '\u516c\u725b\u2192\u51ef\u5c14\u7279\u4eba'\uff08\u7bad\u5934\u540e\u540c\u6837\u57ab\u96f6\u5bbd\u7a7a\u683c\uff0c\u7a84\u5217\u53ea\u5728\u961f\u540d\u8fb9\u754c\u65ad\u884c\uff09

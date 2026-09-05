@@ -36,6 +36,7 @@ import { showTabBar, showTopBar } from './mobileNav'
 import useNavigationPaint from './useNavigationPaint'
 import useAppSwipe from './useAppSwipe'
 import { bbqSections } from '../pages/bbq/bbqSections'
+import LangToggle from '../components/LangToggle'
 
 /**
  * 整体外壳（P5-3 美化）：ProLayout 的 mix 布局 = 顶栏品牌 + 可折叠侧栏菜单，
@@ -419,6 +420,8 @@ export default function AppLayout() {
         >
           <ReloadOutlined />
         </span>,
+        // 中/EN 切换：和刷新同款胶囊，紧挨着放——这两个都是"随时想起来就想按"的东西
+        <LangToggle key="lang" variant="pill" />,
         // 浏览器通知开关。**只在桌面端出现**：手机上顶栏那一行本来就挤，
         // 而且「我」页里已经有一个同样的开关了，App 端不缺入口。
         // 桌面端原来只有「我的消息」页工具条里那一个，等于要先知道它在那儿才找得到——
@@ -471,6 +474,8 @@ export default function AppLayout() {
               title="刷新页面"
               style={{ fontSize: 17, color: '#888', flexShrink: 0, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
             />
+            {/* 中/EN 切换：裸文字，和旁边裸的刷新图标一个调子 */}
+            <LangToggle variant="bare" />
           </div>
           )}
           {/* 顶栏是 fixed 的，用一个等高的占位块把内容推下去。

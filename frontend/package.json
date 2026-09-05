@@ -27,8 +27,10 @@
     "axios": "^1.7.9",
     "dayjs": "^1.11.21",
     "dompurify": "^3.4.10",
+    "i18next": "^26.4.2",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-i18next": "^17.0.13",
     "react-router-dom": "^7.1.1",
     "snabbdom": "^3.6.4"
   },

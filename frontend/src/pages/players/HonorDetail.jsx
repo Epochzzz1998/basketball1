@@ -8,9 +8,11 @@ import { seasonYearLabel, LATEST_SEASON, honorEligible } from './rankConfig'
 import SeasonPicker from '../../components/SeasonPicker'
 import useIsMobile from '../../hooks/useIsMobile'
 import { buildFullStatColumns, compactColumns, sumColWidth } from './statColumns'
+import { useTranslation } from 'react-i18next'
 
 /** 某项荣誉的完整数据（/rankings/honors/:group）：该组全部球员 + 全量数据列 */
 export default function HonorDetail() {
+  const { t } = useTranslation()
   const { group: groupKey } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
@@ -39,7 +41,7 @@ export default function HonorDetail() {
     // 阵容组没有名次角标（rankOf 不设），完整数据页也不出名次列
     ...(group.rankOf
       ? [{
-          title: '名次', width: isMobile ? 40 : 48, fixed: 'left',
+          title: t("名次"), width: isMobile ? 40 : 48, fixed: 'left',
           render: (_, r, i) => (
             <span style={{ color: '#888' }}>{group.rankOf(r)}</span>
           ),
@@ -53,7 +55,7 @@ export default function HonorDetail() {
       <ProTable
         className="stat-compact"
         bordered
-        headerTitle={`${seasonYearLabel(seasonNum)} · ${group.title} · 完整数据`}
+        headerTitle={t("{{v0}} · {{title}} · 完整数据", { v0: seasonYearLabel(seasonNum), title: t(group.title) })}
         rowKey="statsId"
         loading={rows === null}
         dataSource={members}

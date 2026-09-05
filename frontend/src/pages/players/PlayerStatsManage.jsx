@@ -4,6 +4,7 @@ import { Button, Popconfirm, message } from 'antd'
 import { useParams, Link } from 'react-router-dom'
 import { playerApi } from '../../api/player'
 import { CAREER_SEASON } from './rankConfig'
+import { useTranslation } from 'react-i18next'
 
 // [字段, 列名, 类型]：数字用 digit(InputNumber)，文本用 text
 const STAT_FIELDS = [
@@ -32,6 +33,7 @@ const isTemp = (id) => typeof id === 'string' && id.startsWith('new-')
  * savePlayerStats 对空 statsId 会补 UUID 再保存，并重算生涯汇总行(seasonNum=99)。
  */
 export default function PlayerStatsManage() {
+  const { t } = useTranslation()
   const { playerId } = useParams()
   const [rows, setRows] = useState([])
   const [editableKeys, setEditableKeys] = useState([])
@@ -65,7 +67,7 @@ export default function PlayerStatsManage() {
     // 临时行清空 statsId（让后端补 UUID）并带上 playerId
     const payload = rows.map((r) => (isTemp(r.statsId) ? { ...r, statsId: '', playerId } : r))
     await playerApi.savePlayerStats(payload, playerId)
-    message.success('已保存，生涯汇总已重算')
+    message.success(t("已保存，生涯汇总已重算"))
     reload()
   }
 
@@ -76,20 +78,20 @@ export default function PlayerStatsManage() {
       return
     }
     await playerApi.deletePlayerStats(row.statsId, playerId)
-    message.success('已删除，生涯汇总已重算')
+    message.success(t("已删除，生涯汇总已重算"))
     reload()
   }
 
   const columns = [
-    ...STAT_FIELDS.map(([dataIndex, title, valueType]) => ({ title, dataIndex, valueType, width: 92 })),
+    ...STAT_FIELDS.map(([dataIndex, title, valueType]) => ({ title: t(title), dataIndex, valueType, width: 92 })),
     {
-      title: '操作', valueType: 'option', fixed: 'right', width: 80, editable: false,
+      title: t("操作"), valueType: 'option', fixed: 'right', width: 80, editable: false,
       render: (_, row) =>
         row.seasonNum === SUMMARY_SEASON
-          ? [<span key="s" style={{ color: '#999' }}>汇总行</span>]
+          ? [<span key="s" style={{ color: '#999' }}>{t("汇总行")}</span>]
           : [
-              <Popconfirm key="del" title="删除该赛季数据？" onConfirm={() => onDelete(row)}>
-                <a style={{ color: '#ff4d4f' }}>删除</a>
+              <Popconfirm key="del" title={t("删除该赛季数据？")} onConfirm={() => onDelete(row)}>
+                <a style={{ color: '#ff4d4f' }}>{t("删除")}</a>
               </Popconfirm>,
             ],
     },
@@ -99,7 +101,7 @@ export default function PlayerStatsManage() {
     <>
       <EditableProTable
         rowKey="statsId"
-        headerTitle="生涯逐季数据管理（保存后自动重算生涯汇总行）"
+        headerTitle={t("生涯逐季数据管理（保存后自动重算生涯汇总行）")}
         loading={loading}
         value={rows}
         onChange={setRows}
@@ -108,8 +110,8 @@ export default function PlayerStatsManage() {
         columns={columns}
         scroll={{ x: 3300 }}
         toolBarRender={() => [
-          <Button key="add" onClick={onAddRow}>新增一行赛季</Button>,
-          <Button key="save" type="primary" onClick={onSaveAll}>保存全部（重算汇总）</Button>,
+          <Button key="add" onClick={onAddRow}>{t("新增一行赛季")}</Button>,
+          <Button key="save" type="primary" onClick={onSaveAll}>{t("保存全部（重算汇总）")}</Button>,
         ]}
       />
     </>

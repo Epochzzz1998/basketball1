@@ -1,8 +1,9 @@
 import { fmtNum as f } from './rankConfig'
+import i18n from '../../i18n'
 
 /** 荣誉小字：进攻类=得分/篮板/助攻；防守类=抢断/盖帽/篮板 */
-const offSub = (r) => `${f(r.playerAvgScore)}分 ${f(r.playerAvgReb)}板 ${f(r.playerAvgAss)}助`
-const defSub = (r) => `${f(r.playerAvgSteal)}断 ${f(r.playerAvgBlock)}帽 ${f(r.playerAvgReb)}板`
+const offSub = (r) => i18n.t("{{v0}}分 {{v1}}板 {{v2}}助", { v0: f(r.playerAvgScore), v1: f(r.playerAvgReb), v2: f(r.playerAvgAss) })
+const defSub = (r) => i18n.t("{{v0}}断 {{v1}}帽 {{v2}}板", { v0: f(r.playerAvgSteal), v1: f(r.playerAvgBlock), v2: f(r.playerAvgReb) })
 
 // 空名次垫底（数据源只给获奖者名次；手工补 2-10 名后自然按名次排）
 const byMvp = (a, b) => (a.mvpRank ?? 999) - (b.mvpRank ?? 999)

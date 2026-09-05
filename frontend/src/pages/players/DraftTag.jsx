@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { draftText, draftTier } from './draftConfig'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 身份头上那一枚。可点，落到历史数据的选秀那一届。
@@ -8,6 +9,7 @@ import { draftText, draftTier } from './draftConfig'
  * 再加一层路径会让「返回」多退一步。
  */
 export default function DraftTag({ draft, size = 'normal' }) {
+  const { t } = useTranslation()
   if (!draft) return null
   const pick = Number(draft.pickNum) || 0
   const tier = draftTier(pick)
@@ -15,7 +17,7 @@ export default function DraftTag({ draft, size = 'normal' }) {
   return (
     <Link
       to={`/history?tab=draft&year=${draft.draftYear}`}
-      title={pick ? `第 ${pick} 顺位 · 第 ${draft.roundNum} 轮 · ${draft.team || ''}` : undefined}
+      title={pick ? t("第 {{pick}} 顺位 · 第 {{roundNum}} 轮 · {{v2}}", { pick, roundNum: draft.roundNum, v2: draft.team || '' }) : undefined}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 4,
         padding: small ? '0 6px' : '1px 9px',

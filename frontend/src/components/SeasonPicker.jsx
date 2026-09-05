@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Popover } from 'antd'
 import { CaretDownOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons'
-import { CAREER_SEASON, EARLIEST_SEASON, LATEST_SEASON, SEASON_BASE, seasonShort, seasonYearLabel } from '../pages/players/rankConfig'
+import { CAREER_SEASON, EARLIEST_SEASON, LATEST_SEASON, SEASON_BASE, seasonShort, seasonYearLabel, seasonYears } from '../pages/players/rankConfig'
 import useIsMobile from '../hooks/useIsMobile'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 全站统一的赛季选择器（与顶栏搜索胶囊同一设计语言）：
@@ -21,6 +22,7 @@ const ERAS = [...new Set(Array.from({ length: MAX_SEASON - MIN_SEASON + 1 },
 const eraLabel = (e) => `${String(e).slice(-2)}s` // '80s'——「80年代」在分段条里放不下会截断
 
 export default function SeasonPicker({ value, onChange, includeCareer = true, compact = false }) {
+  const { t } = useTranslation()
   const isMobile = useIsMobile()
   const [open, setOpen] = useState(false)
   const [hover, setHover] = useState(false)
@@ -108,7 +110,7 @@ export default function SeasonPicker({ value, onChange, includeCareer = true, co
             ...(isCareer ? { background: '#fa541c', borderColor: '#fa541c', color: '#fff', fontWeight: 700 } : { color: '#555' }),
           }}
         >
-          🏅 生涯
+          {t("🏅 生涯")}
         </div>
       )}
     </div>
@@ -146,9 +148,9 @@ export default function SeasonPicker({ value, onChange, includeCareer = true, co
         >
           {/* compact 用短标签（25-26）——全称两只并排在 390px 宽度里放不下。
               手机上（完整排行的工具条里还挤着位置筛选）去掉「赛季」二字，年份留全 */}
-          {value === CAREER_SEASON ? '生涯'
+          {value === CAREER_SEASON ? t("生涯")
             : compact ? seasonShort(value)
-            : isMobile ? seasonYearLabel(value).replace(' 赛季', '')
+            : isMobile ? seasonYears(value)
             : seasonYearLabel(value)}
           <CaretDownOutlined
             style={{ fontSize: 10, color: '#999', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}

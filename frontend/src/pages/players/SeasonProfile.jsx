@@ -10,6 +10,7 @@ import { CAREER_AWARDS } from './honorConfig'
 import { GlossaryIcon, GlossaryTip } from './statGlossary'
 import CareerTotals from './CareerTotals'
 import useIsMobile from '../../hooks/useIsMobile'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 赛季资料卡：选中某赛季 → 当季荣誉徽章 + 六维能力雷达（当季联盟百分位）
@@ -108,7 +109,10 @@ const Radar = ({ data, color = '#fa541c', fill = 'rgba(250,84,28,.22)' }) => (
   <RadarChart series={[{ color, fill, data }]} />
 )
 
-export function RankChip({ rank, prefix = '联盟第', to, unqualified, tied }) {
+export function RankChip({ rank, prefix: prefixProp, to, unqualified, tied }) {
+  const { t } = useTranslation()
+  // 默认值不能写在参数列表里：那时 hook 还没跑，t 不存在
+  const prefix = prefixProp ?? t("联盟第")
   // 手机上一行三个格子，胶囊得再小一号，否则「并列季后赛第 12」放不下
   const isMobile = useIsMobile()
   const fs = isMobile ? 10 : 12
@@ -131,7 +135,7 @@ export function RankChip({ rank, prefix = '联盟第', to, unqualified, tied }) 
         padding: pad, borderRadius: 10, cursor: to ? 'pointer' : undefined,
       }}
     >
-      {tied > 1 ? '并列' : ''}{prefix} {rank}
+      {tied > 1 ? t("并列") : ''}{prefix} {rank}
     </span>
   )
   // 点名次胶囊 → 当季该单项的完整联盟排名
@@ -139,6 +143,7 @@ export function RankChip({ rank, prefix = '联盟第', to, unqualified, tied }) 
 }
 
 export default function SeasonProfile({ playerId, honors, onTeamChange, onSeasonChange }) {
+  const { t } = useTranslation()
   const isMobile = useIsMobile()
   const [career, setCareer] = useState(null)   // 本人常规赛逐季
   const [poRows, setPoRows] = useState(null)   // 本人季后赛逐季
@@ -233,7 +238,7 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
   if (career === null || seasonNum === null) return <Spin style={{ display: 'block', margin: '60px auto' }} />
 
   const isCareer = seasonNum === CAREER_SEASON
-  const seasonLabel = isCareer ? '生涯' : seasonYearLabel(seasonNum)
+  const seasonLabel = isCareer ? t("生涯") : seasonYearLabel(seasonNum)
   const changeSeason = (v) => {
     setSeasonNum(v)
     setSearchParams((prev) => {
@@ -246,8 +251,8 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
 
   if (!row) {
     return (
-      <Card title="赛季资料卡" extra={picker}>
-        <Empty description={`${seasonLabel}未出战（未进入联盟或赛季报销）`} />
+      <Card title={t("赛季资料卡")} extra={picker}>
+        <Empty description={t("{{seasonLabel}}未出战（未进入联盟或赛季报销）", { seasonLabel })} />
       </Card>
     )
   }
@@ -275,7 +280,7 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
             <div style={{ border: '1px solid #f0f0f0', borderRadius: 10, padding: isMobile ? '7px 6px' : '10px 12px', background: '#fff' }}>
               <div style={{ color: '#888', fontSize: isMobile ? 11 : 12, whiteSpace: 'nowrap' }}>
                 {/* 高阶项的格子标题可悬停出释义；基础项 GlossaryTip 原样返回，不加下划线 */}
-                <GlossaryTip field={s.key}>{s.label}</GlossaryTip>
+                <GlossaryTip field={s.key}>{t(s.label)}</GlossaryTip>
                 {/* 备注（"最少排"「联盟平均 15"）在手机上放不下，去说明书里看 */}
                 {s.note && !isMobile && <span style={{ marginLeft: 4, fontSize: 11, color: '#ccc' }}>{s.note}</span>}
               </div>
@@ -300,12 +305,12 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
   }
 
   const radarOf = (dataRow, leagueRows) =>
-    RADAR_AXES.map((a) => ({ label: a.label, value: percentileOf(leagueRows, a.get, a.get(dataRow)) }))
+    RADAR_AXES.map((a) => ({ label: t(a.label), value: percentileOf(leagueRows, a.get, a.get(dataRow)) }))
 
   return (
     <>
       <Card
-        title={`${seasonLabel} 资料卡`}
+        title={t("{{seasonLabel}} 资料卡", { seasonLabel })}
         extra={picker}
         style={{ marginBottom: 16 }}
         styles={{ body: { padding: '18px 20px' } }}
@@ -318,36 +323,36 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
           {/* 整季在队、一场没打。B-R 的 Inactive 名单不带原因，所以只说「未出场」，
               不说「报销」——数据能证明前者，证不了后者 */}
           {!isCareer && Number(row.playerAppearance ?? 0) === 0 && (
-            <Tag color="default" style={{ color: '#8c8c8c' }}>本赛季未出场</Tag>
+            <Tag color="default" style={{ color: '#8c8c8c' }}>{t("本赛季未出场")}</Tag>
           )}
           {chips.map((a) => (
             <Tag key={a.key} color={a.gold ? 'gold' : 'orange'} style={{ fontWeight: 600 }}>
-              {a.icon} {a.label}{a.count ? ` ×${a.count}` : ''}
+              {a.icon} {t(a.label)}{a.count ? ` ×${a.count}` : ''}
             </Tag>
           ))}
           {!isCareer && Number(row.mvpRank) > 1 && Number(row.mvpRank) <= 10 && (
-            <Tag color="purple">MVP 票选第 {row.mvpRank}</Tag>
+            <Tag color="purple">{t("MVP 票选第")} {row.mvpRank}</Tag>
           )}
           {!isCareer && Number(row.dpoyRank) > 1 && Number(row.dpoyRank) <= 10 && (
-            <Tag color="cyan">DPOY 票选第 {row.dpoyRank}</Tag>
+            <Tag color="cyan">{t("DPOY 票选第")} {row.dpoyRank}</Tag>
           )}
         </Space>
 
         {/* 常规赛数据卡（六维雷达挪到卡片下方） */}
-        <div style={{ fontWeight: 700, marginBottom: 10, fontSize: 15 }}>{isCareer ? '生涯场均' : '常规赛'}</div>
-        {statCard(row, league, '联盟第', '#fa541c', 'rg')}
+        <div style={{ fontWeight: 700, marginBottom: 10, fontSize: 15 }}>{isCareer ? t("生涯场均") : t("常规赛")}</div>
+        {statCard(row, league, t("联盟第"), '#fa541c', 'rg')}
         {/* 高阶数据单独一块：跟基础数据混在一起就是 30 多个格子，一屏塞不下。
             生涯档整块不出——B-R 只按赛季发布高阶指标，没有生涯合计，21 个格子会全是 "/" */}
         {!isCareer && (
           <>
             <div style={{ fontWeight: 700, margin: '20px 0 10px', fontSize: 15 }}>
-              高阶数据
+              {t("高阶数据")}
               <GlossaryIcon />
               <span style={{ color: '#bbb', fontSize: 12, fontWeight: 400, marginLeft: 8 }}>
-                PER 联盟平均 15；BPM / 效率均为每百回合口径
+                {t("PER 联盟平均 15；BPM / 效率均为每百回合口径")}
               </span>
             </div>
-            {statCard(row, league, '联盟第', '#fa541c', 'rg', ADVANCED_STATS)}
+            {statCard(row, league, t("联盟第"), '#fa541c', 'rg', ADVANCED_STATS)}
           </>
         )}
         <div style={{ maxWidth: 440, margin: '20px auto 0' }}>
@@ -355,7 +360,7 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
             ? <Spin style={{ display: 'block', margin: '60px auto' }} />
             : <Radar data={radarOf(row, leagueQual)} />}
           <div style={{ textAlign: 'center', color: '#bbb', fontSize: 12, marginTop: 2 }}>
-            六维 = {isCareer ? '生涯场均' : '当季'}联盟百分位（0-100；防守 = 抢断+盖帽，真实命中 = TS%）
+            {t("六维 =")} {isCareer ? t("生涯场均") : t("当季")}{t("联盟百分位（0-100；防守 = 抢断+盖帽，真实命中 = TS%）")}
           </div>
         </div>
       </Card>
@@ -364,7 +369,7 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
       <Card
         title={
           <Space>
-            季后赛
+            {t("季后赛")}
             {poRow?.playoffResult && (
               <Tag color={PLAYOFF_TAG[poRow.playoffResult] || 'default'}>{poRow.playoffResult}</Tag>
             )}
@@ -373,7 +378,7 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
         styles={{ body: { padding: '18px 20px' } }}
       >
         {!poRow ? (
-          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={isCareer ? '生涯未进过季后赛' : '该赛季未进季后赛'} />
+          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={isCareer ? t("生涯未进过季后赛") : t("该赛季未进季后赛")} />
         ) : (
           <>
             {/* 出场/场均时间的 Tag 撤掉后这里只剩队名，生涯档下会整个空掉——空 Space
@@ -384,15 +389,15 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
               </Space>
             )}
             {/* 季后赛数据卡（雷达同样在卡片下方，只和当季季后赛球员比） */}
-            <div style={{ fontWeight: 700, marginBottom: 10, fontSize: 15 }}>季后赛</div>
-            {statCard(poRow, poLeague, '季后赛第', '#d4380d', 'po')}
+            <div style={{ fontWeight: 700, marginBottom: 10, fontSize: 15 }}>{t("季后赛")}</div>
+            {statCard(poRow, poLeague, t("季后赛第"), '#d4380d', 'po')}
             {!isCareer && (
               <>
                 <div style={{ fontWeight: 700, margin: '20px 0 10px', fontSize: 15 }}>
-                  高阶数据
+                  {t("高阶数据")}
                   <GlossaryIcon />
                 </div>
-                {statCard(poRow, poLeague, '季后赛第', '#d4380d', 'po', ADVANCED_STATS)}
+                {statCard(poRow, poLeague, t("季后赛第"), '#d4380d', 'po', ADVANCED_STATS)}
               </>
             )}
             <div style={{ maxWidth: 440, margin: '20px auto 0' }}>
@@ -400,7 +405,7 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
                 ? <Spin style={{ display: 'block', margin: '60px auto' }} />
                 : <Radar data={radarOf(poRow, poLeague)} color="#d4380d" fill="rgba(212,56,13,.20)" />}
               <div style={{ textAlign: 'center', color: '#bbb', fontSize: 12, marginTop: 2 }}>
-                六维 = {isCareer ? '生涯' : '当季'}季后赛球员百分位（0-100）
+                {t("六维 =")} {isCareer ? t("生涯") : t("当季")}{t("季后赛球员百分位（0-100）")}
               </div>
             </div>
           </>
@@ -410,7 +415,7 @@ export default function SeasonProfile({ playerId, honors, onTeamChange, onSeason
       {/* 生涯总数放最后：上面两张卡是场均，这一块是累计值，量级和读法都不同，
           混在场均中间会让人误读。只有"生涯"这一档才有意义 */}
       {isCareer && (
-        <Card title="生涯总数" style={{ marginTop: 16 }} styles={{ body: { padding: '18px 20px' } }}>
+        <Card title={t("生涯总数")} style={{ marginTop: 16 }} styles={{ body: { padding: '18px 20px' } }}>
           <CareerTotals playerId={playerId} />
         </Card>
       )}

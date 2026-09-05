@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Col, Modal, Row, Tooltip } from 'antd'
 import { QuestionCircleOutlined } from '@ant-design/icons'
 import useIsMobile from '../../hooks/useIsMobile'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 高阶数据说明书：全站唯一一份解释文案。
@@ -156,6 +157,7 @@ const Scale = ({ items, color, size = 11 }) => (
 
 /** 说明书弹窗本体 */
 export function StatGlossaryModal({ open, onClose }) {
+  const { t } = useTranslation()
   const isMobile = useIsMobile()
   return (
     <Modal
@@ -165,9 +167,9 @@ export function StatGlossaryModal({ open, onClose }) {
       width={isMobile ? '94vw' : 860}
       title={
         <span>
-          高阶数据说明书
+          {t("高阶数据说明书")}
           <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 400, color: '#bbb' }}>
-            口径与 Basketball-Reference 一致
+            {t("口径与 Basketball-Reference 一致")}
           </span>
         </span>
       }
@@ -177,8 +179,8 @@ export function StatGlossaryModal({ open, onClose }) {
         <div key={g.group}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '18px 0 10px' }}>
             <span style={{ width: 3, height: 14, background: g.color, borderRadius: 2 }} />
-            <span style={{ fontWeight: 700, fontSize: 15 }}>{g.group}</span>
-            <span style={{ fontSize: 12, color: '#bbb' }}>{g.intro}</span>
+            <span style={{ fontWeight: 700, fontSize: 15 }}>{t(g.group)}</span>
+            <span style={{ fontSize: 12, color: '#bbb' }}>{t(g.intro)}</span>
           </div>
           <Row gutter={[10, 10]}>
             {g.items.map((it) => (
@@ -191,7 +193,7 @@ export function StatGlossaryModal({ open, onClose }) {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
-                    <span style={{ fontWeight: 700, fontSize: 14 }}>{it.label}</span>
+                    <span style={{ fontWeight: 700, fontSize: 14 }}>{t(it.label)}</span>
                     <span style={{ fontSize: 11, color: '#bbb' }}>{it.en}</span>
                   </div>
                   <div style={{ fontSize: 13, color: '#555', lineHeight: 1.75, marginTop: 4 }}>{it.desc}</div>
@@ -203,9 +205,7 @@ export function StatGlossaryModal({ open, onClose }) {
         </div>
       ))}
       <div style={{ marginTop: 20, fontSize: 12, color: '#bbb', lineHeight: 1.8 }}>
-        参考刻度是常见水准的大致位置，不是硬门槛。没有数据的格子显示「/」：生涯汇总没有
-        高阶指标（B-R 只按赛季发布，不发生涯合计）；1976-77 没有全联盟的失误和前场篮板
-        统计，进攻/防守效率那年也算不出来。
+        {t("参考刻度是常见水准的大致位置，不是硬门槛。没有数据的格子显示「/」：生涯汇总没有 高阶指标（B-R 只按赛季发布，不发生涯合计）；1976-77 没有全联盟的失误和前场篮板 统计，进攻/防守效率那年也算不出来。")}
       </div>
     </Modal>
   )
@@ -227,12 +227,13 @@ export function GlossaryIcon({ style }) {
 
 /** 数据表工具条上的「指标说明」入口（手机上表头 tooltip 不好点，主要靠它） */
 export function GlossaryButton() {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   return (
     <>
       <a onClick={() => setOpen(true)} style={{ fontSize: 12, color: '#8c8c8c', whiteSpace: 'nowrap' }}>
         <QuestionCircleOutlined style={{ marginRight: 4 }} />
-        指标说明
+        {t("指标说明")}
       </a>
       <StatGlossaryModal open={open} onClose={() => setOpen(false)} />
     </>
@@ -246,6 +247,7 @@ export function GlossaryButton() {
  * 这一件事。发现入口靠工具条上的「指标说明」——手机也只能走那儿。
  */
 export function GlossaryTip({ field, children }) {
+  const { t } = useTranslation()
   const it = BY_FIELD[field]
   if (!it) return children
   return (
@@ -255,7 +257,7 @@ export function GlossaryTip({ field, children }) {
       title={
         <div style={{ fontSize: 12, lineHeight: 1.7 }}>
           <div style={{ fontWeight: 700 }}>
-            {it.label}
+            {t(it.label)}
             <span style={{ fontWeight: 400, opacity: 0.65, marginLeft: 5 }}>{it.en}</span>
           </div>
           <div style={{ marginTop: 2 }}>{it.desc}</div>

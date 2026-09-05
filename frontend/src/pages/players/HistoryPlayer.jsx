@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import { Card, Col, Empty, Row, Spin, Tag } from 'antd'
 import { useParams } from 'react-router-dom'
 import { playerApi } from '../../api/player'
-import { CAREER_TOTAL_STATS, fmtTotal } from './rankConfig'
+import { CAREER_TOTAL_STATS, fmtTotal, displayName } from './rankConfig'
 import { RankChip } from './SeasonProfile'
 import useIsMobile from '../../hooks/useIsMobile'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 历史球员最小档案（/players/history/:brId）。
@@ -16,6 +17,7 @@ import useIsMobile from '../../hooks/useIsMobile'
  * 格子样式与球员资料卡完全一致，一行三个。
  */
 export default function HistoryPlayer() {
+  const { t } = useTranslation()
   const { brId } = useParams()
   const isMobile = useIsMobile()
   const [row, setRow] = useState(undefined)
@@ -30,21 +32,21 @@ export default function HistoryPlayer() {
   }, [brId])
 
   if (row === undefined) return <Spin style={{ display: 'block', margin: '80px auto' }} />
-  if (!row) return <Empty description="没有这名球员的历史数据" style={{ padding: 60 }} />
+  if (!row) return <Empty description={t("没有这名球员的历史数据")} style={{ padding: 60 }} />
 
   return (
     <Card
       title={
         <span>
-          {row.playerName}
+          {displayName(row)}
           <Tag style={{ marginLeft: 10 }}>{row.firstYear}-{row.lastYear}</Tag>
-          <Tag>{row.seasons} 个赛季</Tag>
+          <Tag>{row.seasons} {t("个赛季")}</Tag>
         </span>
       }
       styles={{ body: { padding: '18px 20px' } }}
     >
       <div style={{ color: '#bbb', fontSize: 12, marginBottom: 12 }}>
-        本站的逐季数据从 1976-77 赛季起，这名球员的赛季不在范围内，因此只有生涯总数与历史排名。
+        {t("本站的逐季数据从 1976-77 赛季起，这名球员的赛季不在范围内，因此只有生涯总数与历史排名。")}
       </div>
       <Row gutter={isMobile ? [6, 6] : [10, 10]}>
         {CAREER_TOTAL_STATS.map((s) => {
@@ -56,14 +58,14 @@ export default function HistoryPlayer() {
           return (
             <Col key={s.key} xs={8} sm={8}>
               <div style={{ border: '1px solid #f0f0f0', borderRadius: 10, padding: isMobile ? '7px 6px' : '10px 12px', background: '#fff' }}>
-                <div style={{ color: '#888', fontSize: isMobile ? 11 : 12, whiteSpace: 'nowrap' }}>{s.label}</div>
+                <div style={{ color: '#888', fontSize: isMobile ? 11 : 12, whiteSpace: 'nowrap' }}>{t(s.label)}</div>
                 <div style={{
                   fontSize: isMobile ? 16 : 20, fontWeight: 800, color: '#fa541c',
                   margin: '2px 0 4px', fontVariantNumeric: 'tabular-nums',
                 }}>
                   {fmtTotal(v)}
                 </div>
-                {showRank && <RankChip rank={rank} prefix="历史第" to={`/rankings/alltime/${s.key}`} />}
+                {showRank && <RankChip rank={rank} prefix={t("历史第")} to={`/rankings/alltime/${s.key}`} />}
               </div>
             </Col>
           )

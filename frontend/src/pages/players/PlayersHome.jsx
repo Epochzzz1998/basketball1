@@ -7,12 +7,14 @@ import { playerApi } from '../../api/player'
 import { NBA_TEAM_NAMES } from './rankConfig'
 import TeamLogo from '../../components/TeamLogo'
 import useIsMobile from '../../hooks/useIsMobile'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 球队卡片墙：NBA 30 队全量展示。有球员数据的队正常高亮（队码来自 /player/teams 去重），
  * 暂无数据的队置灰标注，但都可点进本队页。
  */
 function TeamGrid() {
+  const { t } = useTranslation()
   const [activeTeams, setActiveTeams] = useState(null) // 数据中实际出现过的队码
   const navigate = useNavigate()
   const isMobile = useIsMobile()
@@ -20,7 +22,7 @@ function TeamGrid() {
   useEffect(() => {
     let alive = true
     playerApi.listTeams()
-      .then((t) => { if (alive) setActiveTeams(new Set(t || [])) })
+      .then((list) => { if (alive) setActiveTeams(new Set(list || [])) })
       .catch(() => { if (alive) setActiveTeams(new Set()) })
     return () => { alive = false }
   }, [])
@@ -48,7 +50,7 @@ function TeamGrid() {
                 {!isMobile && <span style={{ color: '#bbb', fontSize: 12, fontWeight: 400, marginLeft: 6 }}>{code}</span>}
               </div>
               <div style={{ color: '#999', fontSize: isMobile ? 11 : 12, marginTop: 2 }}>
-                {isMobile ? (active ? code : '暂无数据') : (active ? '查看本队球员' : '暂无球员数据')}
+                {isMobile ? (active ? code : t("暂无数据")) : (active ? t("查看本队球员") : t("暂无球员数据"))}
               </div>
             </Card>
           </Col>
@@ -63,6 +65,7 @@ function TeamGrid() {
  * 球队卡片墙在前，球员数据概览（原赛季榜）在后；选中态为品牌橙圆角滑块。
  */
 export default function PlayersHome() {
+  const { t } = useTranslation()
   const [tab, setTab] = useState('teams')
 
   return (
@@ -92,7 +95,7 @@ export default function PlayersHome() {
               value: 'teams',
               label: (
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0 10px' }}>
-                  <TeamOutlined /> 球队
+                  <TeamOutlined /> {t("球队")}
                 </span>
               ),
             },
@@ -100,7 +103,7 @@ export default function PlayersHome() {
               value: 'overview',
               label: (
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0 10px' }}>
-                  <BarChartOutlined /> 球员数据概览
+                  <BarChartOutlined /> {t("球员数据概览")}
                 </span>
               ),
             },

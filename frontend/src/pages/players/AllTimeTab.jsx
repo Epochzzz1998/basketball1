@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { Card, Col, Empty, Row } from 'antd'
 import { Link, useNavigate } from 'react-router-dom'
 import { playerApi } from '../../api/player'
-import { CAREER_TOTAL_STATS, fmtTotal } from './rankConfig'
+import { CAREER_TOTAL_STATS, fmtTotal, displayName } from './rankConfig'
+import { useTranslation } from 'react-i18next'
 
 const MEDAL = ['#f5b301', '#9aa0a6', '#b87333'] // 金 / 银 / 铜
 
@@ -13,6 +14,7 @@ const MEDAL = ['#f5b301', '#9aa0a6', '#b87333'] // 金 / 银 / 铜
  */
 
 function AllTimeCard({ stat }) {
+  const { t } = useTranslation()
   const [rows, setRows] = useState(null)
   const navigate = useNavigate()
 
@@ -28,8 +30,8 @@ function AllTimeCard({ stat }) {
 
   return (
     <Card
-      title={`${stat.label}榜`}
-      extra={<a onClick={() => navigate(`/rankings/alltime/${stat.key}`)}>完整总榜 →</a>}
+      title={t("{{label}}榜", { label: t(stat.label) })}
+      extra={<a onClick={() => navigate(`/rankings/alltime/${stat.key}`)}>{t("完整总榜 →")}</a>}
       loading={rows === null}
       styles={{ body: { padding: '8px 20px' } }}
     >
@@ -49,23 +51,22 @@ function AllTimeCard({ stat }) {
             to={r.playerId ? `/players/${r.playerId}?seasonNum=99` : `/players/history/${r.brId}`}
             style={{ flex: 1, fontWeight: i < 3 ? 600 : 400 }}
           >
-            {r.playerName}
+            {displayName(r)}
           </Link>
           <span style={{ color: '#999', fontSize: 12, marginRight: 14 }}>{r.lastYear}</span>
           <span style={{ fontWeight: 700, color: '#fa541c', fontVariantNumeric: 'tabular-nums' }}>{fmtTotal(r.val)}</span>
         </div>
-      )) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无数据" />}
+      )) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("暂无数据")} />}
     </Card>
   )
 }
 
 export default function AllTimeTab() {
+  const { t } = useTranslation()
   return (
     <>
       <div style={{ marginBottom: 14, color: '#888', fontSize: 13 }}>
-        生涯累计总数，池子是 <b>1947 年至今的全联盟</b>——含大量本站没有逐季数据的老球员，
-        他们的名字点进去是只有生涯总数的简档。抢断 / 盖帽 / 失误 / 前场篮板自 1973-74 起统计，
-        三分自 1979-80 起，更早的球员这几项没有记录。
+        {t("生涯累计总数，池子是")} <b>{t("1947 年至今的全联盟")}</b>{t("——含大量本站没有逐季数据的老球员， 他们的名字点进去是只有生涯总数的简档。抢断 / 盖帽 / 失误 / 前场篮板自 1973-74 起统计， 三分自 1979-80 起，更早的球员这几项没有记录。")}
       </div>
       <Row gutter={[16, 16]}>
         {CAREER_TOTAL_STATS.map((s) => (

@@ -5,19 +5,19 @@ import '@ant-design/v5-patch-for-react-19'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
-import { ConfigProvider } from 'antd'
-import zhCN from 'antd/locale/zh_CN'
+// 必须在任何组件调用 useTranslation 之前初始化（副作用导入）
+import './i18n'
+import LocaleProvider from './components/LocaleProvider'
 import 'antd/dist/reset.css'
 import './index.css'
 import App from './App.jsx'
 import { AuthProvider } from './auth/AuthContext'
-import { themeConfig } from './theme'
 import setupPwaUpdate from './pwaUpdate'
 import { isNative } from './config/origin'
 
 /**
  * 应用入口，自外向内包了三层"环境"：
- * - ConfigProvider：antd 主题/中文语言。
+ * - ConfigProvider：antd 主题 + 语言包（跟着 i18n 的当前语言走，见 LocaleProvider）。
  * - BrowserRouter：前端路由（基于浏览器 History）。
  * - AuthProvider：全局登录态（启动即拉 /user/current）。
  */
@@ -29,12 +29,12 @@ if (!isNative) setupPwaUpdate()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <ConfigProvider locale={zhCN} theme={themeConfig}>
+    <LocaleProvider>
       <BrowserRouter>
         <AuthProvider>
           <App />
         </AuthProvider>
       </BrowserRouter>
-    </ConfigProvider>
+    </LocaleProvider>
   </StrictMode>,
 )

@@ -8,6 +8,7 @@ import useUrlState from '../../hooks/useUrlState'
 import { compactColumns } from './statColumns'
 import { draftTier, modernTeam } from './draftConfig'
 import { NBA_TEAM_NAMES } from './rankConfig'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 历史选秀（/history?tab=draft）：一届一张表，1947 年至今 80 届。
@@ -29,6 +30,7 @@ import { NBA_TEAM_NAMES } from './rankConfig'
 const YEAR_FALLBACK = 2026
 
 export default function DraftHistory() {
+  const { t } = useTranslation()
   const isMobile = useIsMobile()
   // 年份写进 URL：球员身份头上那枚选秀标签就是靠 ?year= 直接落到这一届的
   const [year, setYear] = useUrlState('year', YEAR_FALLBACK, true)
@@ -51,7 +53,7 @@ export default function DraftHistory() {
   // 身份列：这个人是谁、被谁在第几顺位选走的
   const idCols = useMemo(() => ([
     {
-      title: '顺位', key: 'pick', width: isMobile ? 52 : 78, fixed: 'left',
+      title: t("顺位"), key: 'pick', width: isMobile ? 52 : 78, fixed: 'left',
       render: (_, r) => {
         const pick = Number(r.pickNum) || 0
         const tier = draftTier(pick)
@@ -63,23 +65,23 @@ export default function DraftHistory() {
           }}>
             {/* 老年份没有总顺位，退回「轮-本轮第几个」，不编号。
                 手机上只留数字：表头已经写着「顺位」，「第10顺位」五个字在窄列里会折成两行 */}
-            {pick ? (isMobile ? pick : `第${pick}顺位`) : `${r.roundNum}轮${r.roundPick}`}
+            {pick ? (isMobile ? pick : t("第{{pick}}顺位", { pick })) : t("{{roundNum}}轮{{roundPick}}", { roundNum: r.roundNum, roundPick: r.roundPick })}
           </span>
         )
       },
     },
     {
-      title: '球队', dataIndex: 'team', width: 66,
+      title: t("球队"), dataIndex: 'team', width: 66,
       // 队码按血脉换成现行码取队标；换过码的把「当年的码 → 现在是谁」写进悬停。
       // 彻底消失的老特许权（CHS/STB/AND…）没有继承者，落 TeamLogo 的灰底码块
       render: (v) => {
         if (!v) return <span style={{ color: '#ddd' }}>—</span>
         const m = modernTeam(v)
-        return <TeamLogo code={m} size={22} title={m === v ? v : `${v}（现${NBA_TEAM_NAMES[m] || m}）`} />
+        return <TeamLogo code={m} size={22} title={m === v ? v : t("{{v}}（现{{v1}}）", { v, v1: NBA_TEAM_NAMES[m] || m })} />
       },
     },
     {
-      title: '球员', key: 'name', width: 150, fixed: 'left',
+      title: t("球员"), key: 'name', width: 150, fixed: 'left',
       render: (_, r) => {
         const name = r.nameZh || r.nameEn
         if (r.playerId) return <Link to={`/players/${r.playerId}?seasonNum=99`}>{name}</Link>
@@ -89,13 +91,13 @@ export default function DraftHistory() {
       },
     },
     // 轮次在手机上省掉：顺位已经能推出轮次，而窄屏一列都不能浪费
-    ...(isMobile ? [] : [{ title: '轮次', dataIndex: 'roundNum', width: 54, render: (v) => `${v} 轮` }]),
+    ...(isMobile ? [] : [{ title: t("轮次"), dataIndex: 'roundNum', width: 54, render: (v) => t("{{v}} 轮", { v }) }]),
     // ellipsis：大学全名（Central Michigan University）不截断的话会把整行撑成两行
     {
-      title: '学校 / 来源', dataIndex: 'college', width: 150, ellipsis: true,
+      title: t("学校 / 来源"), dataIndex: 'college', width: 150, ellipsis: true,
       render: (v) => v || <span style={{ color: '#ddd' }}>—</span>,
     },
-  ]), [isMobile])
+  ]), [isMobile, t])
 
   /**
    * 生涯累计列。
@@ -107,21 +109,21 @@ export default function DraftHistory() {
   // 场均一位小数；空 = 没打过或那个年代没统计（盖帽抢断 1973-74 才有）
   const avg = (v) => (v == null ? <span style={{ color: '#ddd' }}>—</span> : Number(v).toFixed(1))
   const careerCols = useMemo(() => ([
-    { title: '赛季', dataIndex: 'seasons', width: 54, render: (v) => v ?? <span style={{ color: '#ddd' }}>—</span> },
-    { title: '场数', dataIndex: 'games', width: 62, render: (v) => v ?? <span style={{ color: '#ddd' }}>—</span> },
-    { title: '场均得分', dataIndex: 'avgPts', width: 76, render: avg },
-    { title: '场均篮板', dataIndex: 'avgTrb', width: 76, render: avg },
-    { title: '场均助攻', dataIndex: 'avgAst', width: 76, render: avg },
-    { title: '场均盖帽', dataIndex: 'avgBlk', width: 76, render: avg },
-    { title: '场均抢断', dataIndex: 'avgStl', width: 76, render: avg },
-  ]), [])
+    { title: t("赛季"), dataIndex: 'seasons', width: 54, render: (v) => v ?? <span style={{ color: '#ddd' }}>—</span> },
+    { title: t("场数"), dataIndex: 'games', width: 62, render: (v) => v ?? <span style={{ color: '#ddd' }}>—</span> },
+    { title: t("场均得分"), dataIndex: 'avgPts', width: 76, render: avg },
+    { title: t("场均篮板"), dataIndex: 'avgTrb', width: 76, render: avg },
+    { title: t("场均助攻"), dataIndex: 'avgAst', width: 76, render: avg },
+    { title: t("场均盖帽"), dataIndex: 'avgBlk', width: 76, render: avg },
+    { title: t("场均抢断"), dataIndex: 'avgStl', width: 76, render: avg },
+  ]), [t])
 
   const columns = useMemo(() => {
     const id = isMobile ? compactColumns(idCols) : idCols
     // 组标题只套在生涯那几列上，身份列不套——套上去它们会平白多顶一行空表头
     const career = isMobile ? compactColumns(careerCols) : careerCols
-    return [...id, { title: '生涯场均', key: 'career', children: career }]
-  }, [isMobile, idCols, careerCols])
+    return [...id, { title: t("生涯场均"), key: 'career', children: career }]
+  }, [isMobile, idCols, careerCols, t])
 
   const played = rows?.filter((r) => Number(r.games) > 0).length ?? 0
 
@@ -134,14 +136,14 @@ export default function DraftHistory() {
             onChange={setYear}
             // 「2003 年选秀」在 116px 里会被省略成「2003 年...」，卡片标题已经说明是选秀了
             style={{ width: 104 }}
-            options={(years || [year]).map((y) => ({ value: y, label: `${y} 年` }))}
+            options={(years || [year]).map((y) => ({ value: y, label: t("{{y}} 年", { y }) }))}
             loading={years === null}
           />
           {rows && (
-            <Tag color="orange">{rows.length} 个顺位</Tag>
+            <Tag color="orange">{rows.length} {t("个顺位")}</Tag>
           )}
           {rows && (
-            <span style={{ color: '#999', fontSize: 12 }}>其中 {played} 人打过 NBA</span>
+            <span style={{ color: '#999', fontSize: 12 }}>{t("其中")} {played} {t("人打过 NBA")}</span>
           )}
         </div>
       )}
@@ -158,7 +160,7 @@ export default function DraftHistory() {
           pagination={false}
           scroll={{ x: 'max-content' }}
         />
-      ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="这一届没有数据" style={{ padding: 30 }} />}
+      ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("这一届没有数据")} style={{ padding: 30 }} />}
     </Card>
   )
 }

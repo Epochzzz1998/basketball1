@@ -5,6 +5,7 @@ import { playerApi } from '../../api/player'
 import { CAREER_TOTAL_STATS, fmtTotal } from './rankConfig'
 import { compactColumns, sumColWidth } from './statColumns'
 import useIsMobile from '../../hooks/useIsMobile'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 单项生涯总数的历史总榜（/rankings/alltime/:field）。
@@ -15,10 +16,11 @@ import useIsMobile from '../../hooks/useIsMobile'
  * 不分页一滚到底：得分榜有四千多人，分页反而不好找人。
  */
 export default function AllTimeBoard() {
+  const { t } = useTranslation()
   const { field } = useParams()
   const isMobile = useIsMobile()
   const [rows, setRows] = useState(null)
-  const stat = CAREER_TOTAL_STATS.find((s) => s.key === field) || { key: field, label: '数据' }
+  const stat = CAREER_TOTAL_STATS.find((s) => s.key === field) || { key: field, label: t("数据") }
 
   useEffect(() => {
     let alive = true
@@ -32,22 +34,22 @@ export default function AllTimeBoard() {
   const MEDAL = ['#f5b301', '#9aa0a6', '#b87333']
   const columns = [
     {
-      title: '名次', dataIndex: 'rk', width: 60, fixed: 'left',
+      title: t("名次"), dataIndex: 'rk', width: 60, fixed: 'left',
       render: (v) => (
         <span style={{ fontWeight: v <= 3 ? 800 : 400, fontStyle: 'italic', color: v <= 3 ? MEDAL[v - 1] : '#bbb' }}>{v}</span>
       ),
     },
     {
-      title: '球员', dataIndex: 'playerName', width: 150, fixed: 'left',
+      title: t("球员"), dataIndex: 'playerName', width: 150, fixed: 'left',
       // 本库有资料卡的进资料卡（生涯档），没有的进最小档案，都不留死链接
       render: (name, r) => (
         <Link to={r.playerId ? `/players/${r.playerId}?seasonNum=99` : `/players/history/${r.brId}`}>{name}</Link>
       ),
     },
-    { title: '年代', dataIndex: 'firstYear', width: 96, render: (_, r) => `${r.firstYear}-${r.lastYear}` },
-    { title: '赛季', dataIndex: 'seasons', width: 56 },
+    { title: t("年代"), dataIndex: 'firstYear', width: 96, render: (_, r) => `${r.firstYear}-${r.lastYear}` },
+    { title: t("赛季"), dataIndex: 'seasons', width: 56 },
     {
-      title: stat.label, dataIndex: 'val', width: 96,
+      title: t(stat.label), dataIndex: 'val', width: 96,
       render: (v) => <b style={{ color: '#fa541c', fontVariantNumeric: 'tabular-nums' }}>{fmtTotal(v)}</b>,
     },
   ]
@@ -55,8 +57,8 @@ export default function AllTimeBoard() {
 
   return (
     <Card
-      title={`${stat.label} · 历史总榜`}
-      extra={<span style={{ color: '#bbb', fontSize: 12 }}>{rows ? `${rows.length} 人` : ''}</span>}
+      title={t("{{label}} · 历史总榜", { label: t(stat.label) })}
+      extra={<span style={{ color: '#bbb', fontSize: 12 }}>{rows ? t("{{length}} 人", { length: rows.length }) : ''}</span>}
       styles={{ body: { padding: 0 } }}
     >
       {rows === null ? (
@@ -80,7 +82,7 @@ export default function AllTimeBoard() {
           scroll={{ x: sumColWidth(cols) }}
         />
       ) : (
-        <Empty description="暂无数据" style={{ padding: 40 }} />
+        <Empty description={t("暂无数据")} style={{ padding: 40 }} />
       )}
     </Card>
   )

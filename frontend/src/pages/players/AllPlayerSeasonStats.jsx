@@ -10,6 +10,7 @@ import { TeamNames } from '../../components/TeamLogo'
 import StatViewSwitch from './StatViewSwitch'
 import PositionFilter from './PositionFilter'
 import { ADVANCED_TABLE_FIELDS, BASIC_TABLE_FIELDS, buildFullStatColumns, buildAdvancedStatColumns, HONOR_COLUMN_KEYS, compactColumns, sumColWidth } from './statColumns'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 球员数据榜（公开）。可独立使用（自带赛季选择），也可受控嵌入（传 seasonNum 则隐藏内部选择）。
@@ -24,6 +25,7 @@ import { ADVANCED_TABLE_FIELDS, BASIC_TABLE_FIELDS, buildFullStatColumns, buildA
  * - 排序直连 P3-1 白名单；不分页一滚到底；独立使用时带球员名模糊搜索。
  */
 export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: seasonProp, round = null, rookieOnly = false }) {
+  const { t } = useTranslation()
   // 独立使用时赛季写进 URL（返回可恢复）；受控嵌入（球队页）时忽略此值
   const [seasonState, setSeasonState] = useUrlState('seasonNum', LATEST_SEASON, true)
   const [playerName, setPlayerName] = useState() // 球员名模糊搜索（后端 LIKE）
@@ -44,11 +46,11 @@ export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: s
     .map((c) => {
       if (!byRound) return c
       if (c.dataIndex === 'playerTeam') {
-        return { ...c, title: '对手', dataIndex: 'oppTeam', render: (v) => <TeamNames value={v} /> }
+        return { ...c, title: t("对手"), dataIndex: 'oppTeam', render: (v) => <TeamNames value={v} /> }
       }
       // 系列赛页没有首发场次这一列，别拿 0 冒充「无人首发」
       if (c.dataIndex === 'playerAppearance') {
-        return { ...c, title: '出场', width: 48, render: (_, r) => r.playerAppearance ?? 0 }
+        return { ...c, title: t("出场"), width: 48, render: (_, r) => r.playerAppearance ?? 0 }
       }
       return c
     })
@@ -67,7 +69,7 @@ export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: s
     <ProTable
       className="stat-compact"
       bordered
-      headerTitle={team ? undefined : rookieOnly ? '本赛季新秀（按场均得分）' : '球员赛季数据榜'}
+      headerTitle={team ? undefined : rookieOnly ? t("本赛季新秀（按场均得分）") : t("球员赛季数据榜")}
       rowKey="statsId"
       columns={columns}
       /* adv 必须在 params 里：列裁剪之后两种视图取的是不同的列，切视图不重新请求的话
@@ -81,7 +83,7 @@ export default function AllPlayerSeasonStats({ team, stage = 'reg', seasonNum: s
         <Input.Search
           key="search"
           allowClear
-          placeholder="搜索球员名"
+          placeholder={t("搜索球员名")}
           style={{ width: isMobile ? 150 : 200 }}
           onSearch={(v) => setPlayerName(v.trim() || undefined)}
         />,

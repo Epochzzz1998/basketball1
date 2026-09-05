@@ -1,4 +1,5 @@
 import { MAX_SCORE, MIN_SCORE, scoreColor, scoreWord } from '../../api/gameRating'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 打分的三个显示部件：平均分面板、分数分布柱、1-5 打分格。
@@ -14,6 +15,7 @@ import { MAX_SCORE, MIN_SCORE, scoreColor, scoreWord } from '../../api/gameRatin
  * 没人评过时平均分显示破折号而不是 0——0 分是一种评价，「还没人评」不是。
  */
 export function ScorePanel({ avg, n, rows, big }) {
+  const { t } = useTranslation()
   const has = Number(n || 0) > 0
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: big ? 20 : 14, flexWrap: 'wrap' }}>
@@ -25,7 +27,7 @@ export function ScorePanel({ avg, n, rows, big }) {
           {has ? avg : '—'}
         </div>
         <div style={{ color: '#999', fontSize: big ? 12 : 10, marginTop: big ? 4 : 2 }}>
-          {has ? `${n} 人 · ${scoreWord(avg)}` : '还没人打分'}
+          {has ? t("{{n}} 人 · {{v1}}", { n, v1: scoreWord(avg) }) : t("还没人打分")}
         </div>
       </div>
       <ScoreBars rows={rows} total={n} big={big} />
@@ -50,6 +52,7 @@ const LABEL_H = 14        // 底下那行档位数字（10px 字 + 2px 间距）
 const COUNT_H = 13        // 大号柱顶上的人数
 
 function ScoreBars({ rows, total, big }) {
+  const { t } = useTranslation()
   if (!Number(total || 0)) return null
   const byScore = Object.fromEntries((rows || []).map((r) => [Number(r.score), Number(r.n)]))
   const max = Math.max(1, ...Object.values(byScore))
@@ -64,7 +67,7 @@ function ScoreBars({ rows, total, big }) {
         const s = MIN_SCORE + i
         const n = byScore[s] || 0
         return (
-          <div key={s} style={{ flex: 1, textAlign: 'center' }} title={`${s} 分 · ${n} 人`}>
+          <div key={s} style={{ flex: 1, textAlign: 'center' }} title={t("{{s}} 分 · {{n}} 人", { s, n })}>
             {big && (
               <div style={{ color: n ? '#999' : '#eee', fontSize: 10, lineHeight: `${COUNT_H}px` }}>
                 {n || ''}
