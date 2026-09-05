@@ -1,4 +1,5 @@
 import { CrownFilled } from '@ant-design/icons'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 身份小徽标（用在评论者、帖子作者名旁）：
@@ -14,25 +15,28 @@ const base = {
 }
 
 export function SuperAdminBadge({ style }) {
+  const { t } = useTranslation()
   return (
-    <span title="超级管理员" style={{ ...base, color: '#fff', background: 'linear-gradient(135deg, #ff7a45, #d4380d)', boxShadow: '0 1px 3px rgba(212,56,13,.30)', ...style }}>
-      <CrownFilled style={{ fontSize: 11 }} /> 超管
+    <span title={t("超级管理员")} style={{ ...base, color: '#fff', background: 'linear-gradient(135deg, #ff7a45, #d4380d)', boxShadow: '0 1px 3px rgba(212,56,13,.30)', ...style }}>
+      <CrownFilled style={{ fontSize: 11 }} /> {t("超管")}
     </span>
   )
 }
 
 export function TopicOwnerBadge({ style }) {
+  const { t } = useTranslation()
   return (
-    <span title="题主（本专题的创建/负责人）" style={{ ...base, color: '#fff', background: 'linear-gradient(135deg, #597ef7, #2f54eb)', boxShadow: '0 1px 3px rgba(47,84,235,.25)', ...style }}>
-      题主
+    <span title={t("题主（本专题的创建/负责人）")} style={{ ...base, color: '#fff', background: 'linear-gradient(135deg, #597ef7, #2f54eb)', boxShadow: '0 1px 3px rgba(47,84,235,.25)', ...style }}>
+      {t("题主")}
     </span>
   )
 }
 
 export function OpBadge({ style }) {
+  const { t } = useTranslation()
   return (
-    <span title="楼主（本帖发帖人）" style={{ ...base, fontWeight: 600, color: '#8c8c8c', background: '#f5f5f5', border: '1px solid #e4e4e4', ...style }}>
-      楼主
+    <span title={t("楼主（本帖发帖人）")} style={{ ...base, fontWeight: 600, color: '#8c8c8c', background: '#f5f5f5', border: '1px solid #e4e4e4', ...style }}>
+      {t("楼主")}
     </span>
   )
 }

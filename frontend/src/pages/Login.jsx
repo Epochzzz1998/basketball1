@@ -6,6 +6,7 @@ import { useAuth } from '../auth/AuthContext'
 import { authApi } from '../api/auth'
 import AuthShell from '../components/AuthShell'
 import useAuthWide from '../hooks/useAuthWide'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 登录页。表单字段名与后端一致：loginName（固定登录名）/ password / code（验证码）。
@@ -23,6 +24,7 @@ import useAuthWide from '../hooks/useAuthWide'
  * 下面 `loadCaptcha` 那几行就是在处理这个。
  */
 export default function Login() {
+  const { t } = useTranslation()
   const { login } = useAuth()
   const wide = useAuthWide()
   const navigate = useNavigate()
@@ -50,7 +52,7 @@ export default function Login() {
     setSubmitting(true)
     try {
       await login({ ...values, captchaId: idRef.current })
-      message.success('登录成功')
+      message.success(t("登录成功"))
       navigate(location.state?.from || '/', { replace: true })
     } catch {
       // 具体错误已由 http 拦截器弹出；这里只需换一张验证码
@@ -62,28 +64,28 @@ export default function Login() {
   }
 
   return (
-    <AuthShell title="欢迎回来">
+    <AuthShell title={t("欢迎回来")}>
       <Form onFinish={onFinish} size={wide ? 'large' : 'middle'}>
-        <Form.Item name="loginName" rules={[{ required: true, message: '请输入登录名' }]}>
-          <Input variant="filled" prefix={<UserOutlined style={{ color: '#b3b3b3' }} />} placeholder="登录名" autoComplete="off" />
+        <Form.Item name="loginName" rules={[{ required: true, message: t("请输入登录名") }]}>
+          <Input variant="filled" prefix={<UserOutlined style={{ color: '#b3b3b3' }} />} placeholder={t("登录名")} autoComplete="off" />
         </Form.Item>
-        <Form.Item name="password" rules={[{ required: true, message: '请输入密码' }]}>
-          <Input.Password variant="filled" prefix={<LockOutlined style={{ color: '#b3b3b3' }} />} placeholder="密码" autoComplete="off" />
+        <Form.Item name="password" rules={[{ required: true, message: t("请输入密码") }]}>
+          <Input.Password variant="filled" prefix={<LockOutlined style={{ color: '#b3b3b3' }} />} placeholder={t("密码")} autoComplete="off" />
         </Form.Item>
         <Form.Item>
           <div style={{ display: 'flex', gap: 10 }}>
-            <Form.Item name="code" noStyle rules={[{ required: true, message: '请输入验证码' }]}>
+            <Form.Item name="code" noStyle rules={[{ required: true, message: t("请输入验证码") }]}>
               <Input
                 variant="filled"
                 prefix={<SafetyCertificateOutlined style={{ color: '#b3b3b3' }} />}
-                placeholder="验证码"
+                placeholder={t("验证码")}
                 style={{ flex: 1 }}
               />
             </Form.Item>
             {/* 拿不到图时给一个可点的占位，而不是一个碎图标——加载失败也要能重试 */}
             <div
               onClick={loadCaptcha}
-              title="点击刷新"
+              title={t("点击刷新")}
               style={{
                 height: 44, width: 116, flexShrink: 0, cursor: 'pointer',
                 borderRadius: 10, border: '1px solid #f0f0f0', overflow: 'hidden',
@@ -92,8 +94,8 @@ export default function Login() {
               }}
             >
               {captcha?.image
-                ? <img src={captcha.image} alt="验证码" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                : '点击加载'}
+                ? <img src={captcha.image} alt={t("验证码")} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                : t("点击加载")}
             </div>
           </div>
         </Form.Item>
@@ -105,10 +107,10 @@ export default function Login() {
           loading={submitting}
           style={{ fontWeight: 700, boxShadow: '0 6px 16px rgba(250,84,28,.3)' }}
         >
-          登 录
+          {t("登 录")}
         </Button>
         <div style={{ marginTop: 20, textAlign: 'center', color: '#8c8c8c' }}>
-          没有账号？<Link to="/register" style={{ fontWeight: 600 }}>去注册</Link>
+          {t("没有账号？")}<Link to="/register" style={{ fontWeight: 600 }}>{t("去注册")}</Link>
         </div>
       </Form>
     </AuthShell>

@@ -1,5 +1,6 @@
 import { ConfigProvider } from 'antd'
 import useAuthWide from '../hooks/useAuthWide'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 登录/注册页共用外壳（P5 重设计 v2）：分栏式大卡片 + 球场元素背景
@@ -46,6 +47,7 @@ function Backdrop() {
 }
 
 function BrandPanel() {
+  const { t } = useTranslation()
   const ring = (size, pos) => ({
     position: 'absolute', width: size, height: size, borderRadius: '50%',
     border: '2px solid rgba(255,255,255,.14)', ...pos,
@@ -69,9 +71,9 @@ function BrandPanel() {
       <div style={{ flex: 1 }} />
 
       <div style={{ fontSize: 32, fontWeight: 800, lineHeight: 1.4 }}>
-        见你所见
+        {t("见你所见")}
         <br />
-        想你所想
+        {t("想你所想")}
       </div>
     </div>
   )

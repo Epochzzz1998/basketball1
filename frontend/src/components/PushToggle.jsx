@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Space, Switch, Tooltip, Typography, message } from 'antd'
 import { BellOutlined } from '@ant-design/icons'
 import { pushApi } from '../api/push'
+import { useTranslation } from 'react-i18next'
 
 const { Text } = Typography
 
@@ -35,6 +36,7 @@ const toB64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)))
  * - **必须由用户点击触发。** 页面加载时自动申请会被浏览器直接拒掉。
  */
 export default function PushToggle({ compact = false, variant }) {
+  const { t } = useTranslation()
   const [supported, setSupported] = useState(true)
   const [serverKey, setServerKey] = useState(null)   // null=还没问到，''=服务端没开
   const [on, setOn] = useState(false)
@@ -64,14 +66,14 @@ export default function PushToggle({ compact = false, variant }) {
 
   const enable = async () => {
     if (isIos && !standalone) {
-      message.info('iPhone 上要先把网站「添加到主屏幕」，从桌面图标打开才能收推送')
+      message.info(t("iPhone 上要先把网站「添加到主屏幕」，从桌面图标打开才能收推送"))
       return
     }
     const perm = await Notification.requestPermission()
     if (perm !== 'granted') {
       message.warning(perm === 'denied'
-        ? '通知权限被拒绝了。浏览器不会再弹第二次，需要去系统/浏览器设置里手动打开'
-        : '没有授予通知权限')
+        ? t("通知权限被拒绝了。浏览器不会再弹第二次，需要去系统/浏览器设置里手动打开")
+        : t("没有授予通知权限"))
       return
     }
     const reg = await navigator.serviceWorker.ready
@@ -87,7 +89,7 @@ export default function PushToggle({ compact = false, variant }) {
       auth: json.keys?.auth || toB64(sub.getKey('auth')),
     })
     setOn(true)
-    message.success('已开启通知推送')
+    message.success(t("已开启通知推送"))
   }
 
   const disable = async () => {
@@ -100,7 +102,7 @@ export default function PushToggle({ compact = false, variant }) {
       await sub.unsubscribe()
     }
     setOn(false)
-    message.success('已关闭')
+    message.success(t("已关闭"))
   }
 
   const toggle = async (next) => {
@@ -108,7 +110,7 @@ export default function PushToggle({ compact = false, variant }) {
     try {
       await (next ? enable() : disable())
     } catch (e) {
-      message.error(e?.message || '操作失败')
+      message.error(e?.message || t("操作失败"))
     } finally {
       setBusy(false)
     }
@@ -138,8 +140,8 @@ export default function PushToggle({ compact = false, variant }) {
     return (
       <Tooltip title={
         isIos && !standalone
-          ? 'iPhone 需要先把网站添加到主屏幕'
-          : on ? '浏览器通知已开启，点一下关闭' : '开启浏览器通知：有人@你、回复你、指派日程时会弹提示'
+          ? t("iPhone 需要先把网站添加到主屏幕")
+          : on ? t("浏览器通知已开启，点一下关闭") : t("开启浏览器通知：有人@你、回复你、指派日程时会弹提示")
       }>
         <span
           onClick={() => !busy && toggle(!on)}
@@ -161,10 +163,10 @@ export default function PushToggle({ compact = false, variant }) {
 
   return (
     <Space size={8}>
-      <Tooltip title={isIos && !standalone ? 'iPhone 需要先添加到主屏幕' : '有人@你、回复你、指派日程时会收到通知'}>
+      <Tooltip title={isIos && !standalone ? t("iPhone 需要先添加到主屏幕") : t("有人@你、回复你、指派日程时会收到通知")}>
         <Space size={6}>
           <BellOutlined style={{ color: on ? '#fa541c' : '#bbb' }} />
-          <Text style={{ fontSize: 13, color: '#666' }}>通知推送</Text>
+          <Text style={{ fontSize: 13, color: '#666' }}>{t("通知推送")}</Text>
           <Switch size="small" checked={on} loading={busy} onChange={toggle} />
         </Space>
       </Tooltip>

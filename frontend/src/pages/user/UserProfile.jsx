@@ -14,6 +14,7 @@ import { queueName } from '../../api/lol'
 import { LOL_TOPIC_ID } from '../../config/modules'
 import { useAuth } from '../../auth/AuthContext'
 import UserTitles from '../../components/UserTitles'
+import { Trans, useTranslation } from 'react-i18next'
 
 /**
  * 用户主页（/users/:userId，公开）。他人视角：资料横幅 + 统计条 + 帖子/评论。
@@ -33,6 +34,21 @@ const fmtDate = (v) => {
   return `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}`
 }
 
+// 足迹里「在 <某处> 下」那个链接的样式：限宽省略，三种来源共用
+const TRAIL_LINK = { display: 'inline-block', maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'bottom' }
+
+/**
+ * 「在 <链接> 下」/「在 <链接> 里评 xxx」这句话。
+ * 英文语序和中文不一样（Under … / Rated … in …），链接又夹在句子中间，
+ * 所以走 <Trans>：整句是一个 key，<l> 标出链接落在哪，中英各自排自己的语序。
+ */
+function CommentWhere({ to, label, playerName }) {
+  const link = <Link to={to} style={TRAIL_LINK} />
+  return playerName
+    ? <Trans i18nKey="在 <l>{{label}}</l> 里评 {{playerName}}" values={{ label, playerName }} components={{ l: link }} />
+    : <Trans i18nKey="在 <l>{{label}}</l> 下" values={{ label }} components={{ l: link }} />
+}
+
 const daysSince = (v) => {
   if (!v) return '-'
   const t = new Date(v)
@@ -41,8 +57,9 @@ const daysSince = (v) => {
 }
 
 function PostList({ posts, hidden }) {
-  if (hidden) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="该用户已隐藏发帖" />
-  if (!posts?.length) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="还没有发过帖子" />
+  const { t } = useTranslation()
+  if (hidden) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("该用户已隐藏发帖")} />
+  if (!posts?.length) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("还没有发过帖子")} />
   return (
     <List
       dataSource={posts}
@@ -51,10 +68,10 @@ function PostList({ posts, hidden }) {
           {/* 堆叠版式：标签 + 标题（最多两行截断），数据行固定在下——长短标题结构一致 */}
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0 }}>
             {p.newsChannel === 'official'
-              ? <Tag color="orange" style={{ flexShrink: 0, marginInlineEnd: 0 }}>官方</Tag>
+              ? <Tag color="orange" style={{ flexShrink: 0, marginInlineEnd: 0 }}>{t("官方")}</Tag>
               : (
                 <Tag style={{ flexShrink: 0, marginInlineEnd: 0, maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {p.topicName ? `论坛 · ${p.topicName}` : '论坛'}
+                  {p.topicName ? t("论坛 · {{topicName}}", { topicName: p.topicName }) : t("论坛")}
                 </Tag>
               )}
             <Link
@@ -86,8 +103,9 @@ function PostList({ posts, hidden }) {
  * 各自用一枚标签说明来处。
  */
 function CommentTrail({ comments, hidden }) {
-  if (hidden) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="该用户已隐藏评论" />
-  if (!comments?.length) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="还没有发表过评论" />
+  const { t } = useTranslation()
+  if (hidden) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("该用户已隐藏评论")} />
+  if (!comments?.length) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("还没有发表过评论")} />
   return (
     <List
       dataSource={comments}
@@ -100,10 +118,10 @@ function CommentTrail({ comments, hidden }) {
             }}
           >
             {c.kind === 'game'
-              ? <Tag color="orange" style={{ marginRight: 6 }}>赛后</Tag>
+              ? <Tag color="orange" style={{ marginRight: 6 }}>{t("赛后")}</Tag>
               : c.kind === 'lol'
-                ? <Tag color="purple" style={{ marginRight: 6 }}>开黑</Tag>
-                : Number(c.level) > 1 && <Tag color="cyan" style={{ marginRight: 6 }}>回复</Tag>}
+                ? <Tag color="purple" style={{ marginRight: 6 }}>{t("开黑")}</Tag>
+                : Number(c.level) > 1 && <Tag color="cyan" style={{ marginRight: 6 }}>{t("回复")}</Tag>}
             {c.content}
           </div>
           {/* meta 行永远单行：帖名/队名限宽省略，长短标题样式一致 */}
@@ -113,12 +131,13 @@ function CommentTrail({ comments, hidden }) {
               <>
                 {c.newsTitle
                   ? (
-                    <>在 <Link
-                      to={`/news/${c.newsId}`}
-                      style={{ display: 'inline-block', maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'bottom' }}
-                    >《{c.newsTitle}》</Link> 下</>
+                    <Trans
+                      i18nKey="在 <l>《{{title}}》</l> 下"
+                      values={{ title: c.newsTitle }}
+                      components={{ l: <Link to={`/news/${c.newsId}`} style={TRAIL_LINK} /> }}
+                    />
                   )
-                  : <span>原帖已删除</span>}
+                  : <span>{t("原帖已删除")}</span>}
                 <span style={{ margin: '0 8px' }}>·</span>{fmtDate(c.commentDate)}
                 <span style={{ margin: '0 8px' }}>·</span><LikeOutlined /> {c.goodNum ?? 0}
               </>
@@ -141,20 +160,17 @@ function CommentTrail({ comments, hidden }) {
  * 永远是他现在给的分，不是发这句话时给的。
  */
 function GameCommentMeta({ c }) {
+  const { t } = useTranslation()
   const vs = c.awayTeam && c.homeTeam
     ? `${c.awayTeam} ${c.awayScore ?? ''}-${c.homeScore ?? ''} ${c.homeTeam}`
-    : '这场比赛'
+    : t("这场比赛")
   return (
     <>
-      在 <Link
-        to={`/games/${c.gameId}?tab=rating`}
-        style={{ display: 'inline-block', maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'bottom' }}
-      >{vs}</Link>
-      {c.playerName ? <> 里评 {c.playerName}</> : <> 下</>}
+      <CommentWhere to={`/games/${c.gameId}?tab=rating`} label={vs} playerName={c.playerName} />
       {c.myScore != null && (
         <>
           <span style={{ margin: '0 8px' }}>·</span>
-          <span style={{ color: '#fa541c', fontWeight: 700 }}>{c.myScore} 分</span>
+          <span style={{ color: '#fa541c', fontWeight: 700 }}>{t('{{score}} 分', { score: c.myScore })}</span>
         </>
       )}
       <span style={{ margin: '0 8px' }}>·</span>{fmtDate(c.commentDate)}
@@ -172,21 +188,18 @@ function GameCommentMeta({ c }) {
  * （`LolFeed` 的 `useUrlState('match')`），和 @ 通知点进来是同一条路。
  */
 function LolCommentMeta({ c }) {
-  const t = new Date(c.gameStart)
-  const stamp = Number.isNaN(t.getTime())
-    ? '那一局'
-    : `${t.getMonth() + 1}/${t.getDate()} ${queueName(c.queueId)}`
+  const { t } = useTranslation()
+  const d = new Date(c.gameStart)
+  const stamp = Number.isNaN(d.getTime())
+    ? t("那一局")
+    : `${d.getMonth() + 1}/${d.getDate()} ${queueName(c.queueId)}`
   return (
     <>
-      在 <Link
-        to={`/news/topic/${LOL_TOPIC_ID}/lol/feed?match=${c.gameId}`}
-        style={{ display: 'inline-block', maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'bottom' }}
-      >{stamp}</Link>
-      {c.playerName ? <> 里评 {c.playerName}</> : <> 下</>}
+      <CommentWhere to={`/news/topic/${LOL_TOPIC_ID}/lol/feed?match=${c.gameId}`} label={stamp} playerName={c.playerName} />
       {c.myScore != null && (
         <>
           <span style={{ margin: '0 8px' }}>·</span>
-          <span style={{ color: '#fa541c', fontWeight: 700 }}>{c.myScore} 分</span>
+          <span style={{ color: '#fa541c', fontWeight: 700 }}>{t('{{score}} 分', { score: c.myScore })}</span>
         </>
       )}
       <span style={{ margin: '0 8px' }}>·</span>{fmtDate(c.commentDate)}
@@ -196,8 +209,9 @@ function LolCommentMeta({ c }) {
 
 // 收藏足迹 Tab：行=频道 + 标题 + 点赞/评论数 + 收藏时间；本人可直接取消收藏
 function FavoriteList({ favorites, hidden, isSelf, onUnfavorite }) {
-  if (hidden) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="该用户已隐藏收藏" />
-  if (!favorites?.length) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={isSelf ? '还没有收藏，看到喜欢的帖子点「收藏」存起来' : '还没有收藏'} />
+  const { t } = useTranslation()
+  if (hidden) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("该用户已隐藏收藏")} />
+  if (!favorites?.length) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={isSelf ? t("还没有收藏，看到喜欢的帖子点「收藏」存起来") : t("还没有收藏")} />
   return (
     <List
       dataSource={favorites}
@@ -206,10 +220,10 @@ function FavoriteList({ favorites, hidden, isSelf, onUnfavorite }) {
           {/* 堆叠版式：标签 + 标题（最多两行截断），数据行固定在下——长短标题结构一致 */}
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0 }}>
             {p.newsChannel === 'official'
-              ? <Tag color="orange" style={{ flexShrink: 0, marginInlineEnd: 0 }}>官方</Tag>
+              ? <Tag color="orange" style={{ flexShrink: 0, marginInlineEnd: 0 }}>{t("官方")}</Tag>
               : (
                 <Tag style={{ flexShrink: 0, marginInlineEnd: 0, maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {p.topicName ? `论坛 · ${p.topicName}` : '论坛'}
+                  {p.topicName ? t("论坛 · {{topicName}}", { topicName: p.topicName }) : t("论坛")}
                 </Tag>
               )}
             <Link
@@ -226,7 +240,7 @@ function FavoriteList({ favorites, hidden, isSelf, onUnfavorite }) {
             <span><LikeOutlined /> {p.goodNum ?? 0}</span>
             <span><CommentOutlined /> {p.commentNum ?? 0}</span>
             <span>{fmtDate(p.favTime)}</span>
-            {isSelf && <a onClick={() => onUnfavorite(p.newsId)} style={{ fontSize: 12 }}>取消收藏</a>}
+            {isSelf && <a onClick={() => onUnfavorite(p.newsId)} style={{ fontSize: 12 }}>{t("取消收藏")}</a>}
           </div>
         </List.Item>
       )}
@@ -236,6 +250,7 @@ function FavoriteList({ favorites, hidden, isSelf, onUnfavorite }) {
 
 // 关注/粉丝列表弹窗：行=头像+昵称+互关标，点击跳对方主页
 function FollowListModal({ userId, tab, onClose, onTabChange }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { dn } = useAuth()
   const [rows, setRows] = useState(null)
@@ -251,7 +266,7 @@ function FollowListModal({ userId, tab, onClose, onTabChange }) {
       <Tabs
         activeKey={tab || 'following'}
         onChange={onTabChange}
-        items={[{ key: 'following', label: '关注' }, { key: 'followers', label: '粉丝' }]}
+        items={[{ key: 'following', label: t("关注", { context: 'noun' }) }, { key: 'followers', label: t("粉丝") }]}
       />
       {rows === null ? (
         <div style={{ textAlign: 'center', padding: 30 }}><Spin /></div>
@@ -269,12 +284,12 @@ function FollowListModal({ userId, tab, onClose, onTabChange }) {
               <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>
                 {dn(r.userId, r.userNickname)}
               </span>
-              {r.mutual && <Tag color="green" style={{ marginInlineEnd: 0 }}>互相关注</Tag>}
+              {r.mutual && <Tag color="green" style={{ marginInlineEnd: 0 }}>{t("互相关注")}</Tag>}
             </div>
           ))}
         </div>
       ) : (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={tab === 'followers' ? '还没有粉丝' : '还没有关注任何人'} />
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={tab === 'followers' ? t("还没有粉丝") : t("还没有关注任何人")} />
       )}
     </Modal>
   )
@@ -282,6 +297,7 @@ function FollowListModal({ userId, tab, onClose, onTabChange }) {
 
 // 黑名单管理弹窗（仅本人）：列表 + 逐个解除
 function BlocklistModal({ open, onClose }) {
+  const { t } = useTranslation()
   const { dn } = useAuth()
   const [rows, setRows] = useState(null)
 
@@ -295,12 +311,12 @@ function BlocklistModal({ open, onClose }) {
     try {
       await blockApi.toggle(userId)
       setRows((list) => (list || []).filter((r) => r.userId !== userId))
-      message.success('已解除拉黑')
+      message.success(t("已解除拉黑"))
     } catch { /* 拦截器已提示 */ }
   }
 
   return (
-    <Modal open={open} footer={null} onCancel={onClose} title="黑名单管理" width={420}>
+    <Modal open={open} footer={null} onCancel={onClose} title={t("黑名单管理")} width={420}>
       {rows === null ? (
         <div style={{ textAlign: 'center', padding: 30 }}><Spin /></div>
       ) : rows.length ? (
@@ -313,19 +329,20 @@ function BlocklistModal({ open, onClose }) {
               <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>
                 {dn(r.userId, r.userNickname)}
               </span>
-              <Button size="small" onClick={() => unblock(r.userId)}>解除拉黑</Button>
+              <Button size="small" onClick={() => unblock(r.userId)}>{t("解除拉黑")}</Button>
             </div>
           ))}
         </div>
       ) : (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="黑名单是空的" />
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("黑名单是空的")} />
       )}
-      <div style={{ fontSize: 12, color: '#bbb', marginTop: 10 }}>被拉黑的用户无法给你发私信、无法关注你；帖子和评论互相仍可见。</div>
+      <div style={{ fontSize: 12, color: '#bbb', marginTop: 10 }}>{t("被拉黑的用户无法给你发私信、无法关注你；帖子和评论互相仍可见。")}</div>
     </Modal>
   )
 }
 
 export default function UserProfile() {
+  const { t } = useTranslation()
   const { userId } = useParams()
   const navigate = useNavigate()
   const { user: me, refresh: refreshAuth, remarks } = useAuth()
@@ -368,7 +385,7 @@ export default function UserProfile() {
     return (
       <Card>
         {/* 返回走外层布局的全局返回按钮 */}
-        <Empty description="用户不存在或已注销" />
+        <Empty description={t("用户不存在或已注销")} />
       </Card>
     )
   }
@@ -394,12 +411,12 @@ export default function UserProfile() {
         await userApi.uploadAvatar(avatarFile)
       }
       const res = await userApi.updateProfile(userNickname.trim())
-      message.success(res?.msg || '已更新')
+      message.success(res?.msg || t("已更新"))
       closeEdit()
       load()
       refreshAuth()
     } catch (e) {
-      message.error(e?.msg || '更新失败')
+      message.error(e?.msg || t("更新失败"))
     } finally {
       setSaving(false)
     }
@@ -409,11 +426,11 @@ export default function UserProfile() {
     const v = await pwdForm.validateFields()
     try {
       const res = await userApi.changePassword(v.oldPassword, v.newPassword)
-      message.success(res?.msg || '密码已修改')
+      message.success(res?.msg || t("密码已修改"))
       setPwdOpen(false)
       pwdForm.resetFields()
     } catch (e) {
-      message.error(e?.msg || '修改失败')
+      message.error(e?.msg || t("修改失败"))
     }
   }
 
@@ -421,10 +438,10 @@ export default function UserProfile() {
   const togglePrivacy = async (field, checked) => {
     try {
       await userApi.setActivityPrivacy({ [field]: checked ? '1' : '0' })
-      message.success('已保存')
+      message.success(t("已保存"))
       load()
     } catch (e) {
-      message.error(e?.msg || '保存失败')
+      message.error(e?.msg || t("保存失败"))
     }
   }
 
@@ -433,7 +450,7 @@ export default function UserProfile() {
     try {
       const res = await followApi.toggle(userId)
       setData((d) => (d ? { ...d, following: res.following, followerCount: res.followerCount } : d))
-      message.success(res.following ? '已关注' : '已取消关注')
+      message.success(res.following ? t("已关注") : t("已取消关注"))
     } catch { /* 拦截器已提示 */ }
   }
 
@@ -442,7 +459,7 @@ export default function UserProfile() {
     try {
       const res = await blockApi.toggle(userId)
       setData((d) => (d ? { ...d, blockedByMe: res.blocked, ...(res.blocked ? { following: false } : {}) } : d))
-      message.success(res.blocked ? '已拉黑，对方无法再私信或关注你' : '已解除拉黑')
+      message.success(res.blocked ? t("已拉黑，对方无法再私信或关注你") : t("已解除拉黑"))
     } catch { /* 拦截器已提示 */ }
   }
 
@@ -451,7 +468,7 @@ export default function UserProfile() {
     try {
       await newsApi.favorite(nid)
       setData((d) => (d ? { ...d, favorites: (d.favorites || []).filter((r) => r.newsId !== nid) } : d))
-      message.success('已取消收藏')
+      message.success(t("已取消收藏"))
     } catch { /* 拦截器已提示 */ }
   }
 
@@ -459,10 +476,10 @@ export default function UserProfile() {
   const actionBtns = isSelf ? (
     <>
       <Button ghost size="small" icon={<EditOutlined />} onClick={() => { editForm.setFieldsValue({ userNickname: displayName }); setEditOpen(true) }}>
-        编辑资料
+        {t("编辑资料")}
       </Button>
       <Button ghost size="small" icon={<LockOutlined />} onClick={() => setPwdOpen(true)}>
-        修改密码
+        {t("修改密码")}
       </Button>
     </>
   ) : me ? (
@@ -474,24 +491,24 @@ export default function UserProfile() {
         onClick={toggleFollow}
         style={following ? { background: 'rgba(255,255,255,.28)', borderColor: 'transparent', color: '#fff' } : undefined}
       >
-        {following ? '已关注' : '关注'}
+        {following ? t("已关注") : t("关注")}
       </Button>
       <Button ghost size="small" icon={<MessageOutlined />} onClick={() => navigate(`/messages?peerId=${userId}`)}>
-        发私信
+        {t("发私信")}
       </Button>
       {/* 备注：只有我自己看得到；设置后全站显示备注名，本页保留真名 */}
       <Button ghost size="small" icon={<TagOutlined />} onClick={() => { setRemarkInput(remarks?.[userId] || ''); setRemarkOpen(true) }}>
-        {remarks?.[userId] ? '改备注' : '备注'}
+        {remarks?.[userId] ? t("改备注") : t("备注")}
       </Button>
       <Popconfirm
-        title={blockedByMe ? '解除拉黑该用户？' : '拉黑该用户？'}
-        description={blockedByMe ? undefined : '拉黑后对方无法私信或关注你，并解除你们的相互关注'}
-        okText={blockedByMe ? '解除' : '拉黑'}
+        title={blockedByMe ? t("解除拉黑该用户？") : t("拉黑该用户？")}
+        description={blockedByMe ? undefined : t("拉黑后对方无法私信或关注你，并解除你们的相互关注")}
+        okText={blockedByMe ? t("解除") : t("拉黑")}
         okButtonProps={blockedByMe ? undefined : { danger: true }}
         onConfirm={toggleBlock}
       >
         <Button ghost size="small" icon={<StopOutlined />} style={{ opacity: blockedByMe ? 1 : 0.75 }}>
-          {blockedByMe ? '已拉黑' : '拉黑'}
+          {blockedByMe ? t("已拉黑") : t("拉黑")}
         </Button>
       </Popconfirm>
     </>
@@ -526,12 +543,12 @@ export default function UserProfile() {
                   <TagOutlined /> {remarks[userId]}
                 </Tag>
               )}
-              {role && <Tag color={role.color}>{role.label}</Tag>}
+              {role && <Tag color={role.color}>{t(role.label)}</Tag>}
               <UserTitles titles={user.titles} />
             </Space>
             <div style={{ opacity: 0.9, marginTop: 6, fontSize: isMobile ? 13 : 14 }}>@{user.userName}</div>
             <div style={{ opacity: 0.75, marginTop: 4, fontSize: 12 }}>
-              加入于 {fmtDate(user.registTime)} · 最近活跃 {fmtDate(user.lastLoginTime)}
+              {t('加入于 {{a}} · 最近活跃 {{b}}', { a: fmtDate(user.registTime), b: fmtDate(user.lastLoginTime) })}
             </div>
           </div>
         </div>
@@ -556,15 +573,15 @@ export default function UserProfile() {
               )}
             </div>
           )
-          const followGuard = (tab) => () => (followsHidden ? message.info('该用户未公开关注和粉丝') : setFollowTab(tab))
+          const followGuard = (tab) => () => (followsHidden ? message.info(t("该用户未公开关注和粉丝")) : setFollowTab(tab))
           return (
             <Row gutter={isMobile ? 4 : 16}>
-              <Col xs={4} sm={4}>{cell('发帖', stats.posts ?? 0)}</Col>
-              <Col xs={4} sm={4}>{cell('评论', stats.comments ?? 0)}</Col>
-              <Col xs={4} sm={4}>{cell('获赞', stats.likes ?? 0, { color: '#fa541c', prefix: <LikeOutlined /> })}</Col>
-              <Col xs={4} sm={4}>{cell('关注', followingCount ?? 0, { onClick: followGuard('following'), titleAttr: '查看关注列表' })}</Col>
-              <Col xs={4} sm={4}>{cell('粉丝', followerCount ?? 0, { onClick: followGuard('followers'), titleAttr: '查看粉丝列表' })}</Col>
-              <Col xs={4} sm={4}>{cell('加入天数', daysSince(user.registTime))}</Col>
+              <Col xs={4} sm={4}>{cell(t("发帖", { context: 'noun' }), stats.posts ?? 0)}</Col>
+              <Col xs={4} sm={4}>{cell(t("评论", { context: 'noun' }), stats.comments ?? 0)}</Col>
+              <Col xs={4} sm={4}>{cell(t("获赞"), stats.likes ?? 0, { color: '#fa541c', prefix: <LikeOutlined /> })}</Col>
+              <Col xs={4} sm={4}>{cell(t("关注", { context: 'noun' }), followingCount ?? 0, { onClick: followGuard('following'), titleAttr: t("查看关注列表") })}</Col>
+              <Col xs={4} sm={4}>{cell(t("粉丝"), followerCount ?? 0, { onClick: followGuard('followers'), titleAttr: t("查看粉丝列表") })}</Col>
+              <Col xs={4} sm={4}>{cell(t("加入天数"), daysSince(user.registTime))}</Col>
             </Row>
           )
         })()}
@@ -581,10 +598,10 @@ export default function UserProfile() {
         {/* 本人：主页隐私开关（隐藏后他人看不到，自己仍可见）。移动端 2×2 网格分区排列，桌面一行横排 */}
         {isSelf && (() => {
           const privacyItems = [
-            ['hidePosts', '隐藏我的发帖', !!user.hidePosts],
-            ['hideComments', '隐藏我的评论', !!user.hideComments],
-            ['hideFollows', '隐藏关注/粉丝', !!user.hideFollows],
-            ['hideFavorites', '隐藏我的收藏', !!user.hideFavorites],
+            ['hidePosts', t("隐藏我的发帖"), !!user.hidePosts],
+            ['hideComments', t("隐藏我的评论"), !!user.hideComments],
+            ['hideFollows', t("隐藏关注/粉丝"), !!user.hideFollows],
+            ['hideFavorites', t("隐藏我的收藏"), !!user.hideFavorites],
           ]
           const sw = ([field, label, checked]) => (
             <span key={field} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
@@ -598,55 +615,55 @@ export default function UserProfile() {
               size="small"
               value={user.pmPolicy === 'following' ? 'following' : 'all'}
               style={{ width: 138 }}
-              options={[{ value: 'all', label: '所有人' }, { value: 'following', label: '仅我关注的人' }]}
+              options={[{ value: 'all', label: t("所有人") }, { value: 'following', label: t("仅我关注的人") }]}
               onChange={async (v) => {
-                try { await userApi.setPmPolicy(v); message.success('已保存'); load() } catch { /* 已提示 */ }
+                try { await userApi.setPmPolicy(v); message.success(t("已保存")); load() } catch { /* 已提示 */ }
               }}
             />
           )
           return isMobile ? (
             <div style={{ padding: '6px 2px 14px', borderBottom: '1px solid #f5f5f5' }}>
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
-                <span style={{ fontSize: 13, color: '#8c8c8c', fontWeight: 500 }}>主页隐私</span>
+                <span style={{ fontSize: 13, color: '#8c8c8c', fontWeight: 500 }}>{t("主页隐私")}</span>
                 <span style={{ flex: 1 }} />
-                <a style={{ fontSize: 13 }} onClick={() => setBlocklistOpen(true)}>黑名单管理</a>
+                <a style={{ fontSize: 13 }} onClick={() => setBlocklistOpen(true)}>{t("黑名单管理")}</a>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', rowGap: 12, columnGap: 8 }}>
                 {privacyItems.map(sw)}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14 }}>
-                <span style={{ fontSize: 13, color: '#8c8c8c' }}>谁能私信我</span>
+                <span style={{ fontSize: 13, color: '#8c8c8c' }}>{t("谁能私信我")}</span>
                 {pmSelect}
               </div>
-              <div style={{ fontSize: 11, color: '#bbb', marginTop: 10 }}>仅对他人隐藏，你自己仍能看到</div>
+              <div style={{ fontSize: 11, color: '#bbb', marginTop: 10 }}>{t("仅对他人隐藏，你自己仍能看到")}</div>
             </div>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: 18, padding: '6px 4px 12px', borderBottom: '1px solid #f5f5f5', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 13, color: '#8c8c8c' }}>主页隐私</span>
+              <span style={{ fontSize: 13, color: '#8c8c8c' }}>{t("主页隐私")}</span>
               {privacyItems.map(sw)}
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 13, color: '#8c8c8c' }}>谁能私信我</span>
+                <span style={{ fontSize: 13, color: '#8c8c8c' }}>{t("谁能私信我")}</span>
                 {pmSelect}
               </span>
-              <a style={{ fontSize: 13, whiteSpace: 'nowrap' }} onClick={() => setBlocklistOpen(true)}>黑名单管理</a>
-              <span style={{ fontSize: 12, color: '#bbb' }}>仅对他人隐藏，你自己仍能看到</span>
+              <a style={{ fontSize: 13, whiteSpace: 'nowrap' }} onClick={() => setBlocklistOpen(true)}>{t("黑名单管理")}</a>
+              <span style={{ fontSize: 12, color: '#bbb' }}>{t("仅对他人隐藏，你自己仍能看到")}</span>
             </div>
           )
         })()}
         <Tabs
           defaultActiveKey="posts"
           items={[
-            { key: 'posts', label: `${isSelf ? '我' : '他'}的帖子（${stats.posts ?? 0}）`, children: <PostList posts={posts} hidden={postsHidden} /> },
-            { key: 'comments', label: `${isSelf ? '我' : '他'}的评论（${stats.comments ?? 0}）`, children: <CommentTrail comments={comments} hidden={commentsHidden} /> },
-            { key: 'favorites', label: `${isSelf ? '我' : '他'}的收藏（${favoritesHidden ? '-' : (favorites?.length ?? 0)}）`, children: <FavoriteList favorites={favorites} hidden={favoritesHidden} isSelf={isSelf} onUnfavorite={unfavorite} /> },
+            { key: 'posts', label: isSelf ? t('我的帖子（{{n}}）', { n: stats.posts ?? 0 }) : t('他的帖子（{{n}}）', { n: stats.posts ?? 0 }), children: <PostList posts={posts} hidden={postsHidden} /> },
+            { key: 'comments', label: isSelf ? t('我的评论（{{n}}）', { n: stats.comments ?? 0 }) : t('他的评论（{{n}}）', { n: stats.comments ?? 0 }), children: <CommentTrail comments={comments} hidden={commentsHidden} /> },
+            { key: 'favorites', label: isSelf ? t('我的收藏（{{n}}）', { n: favoritesHidden ? '-' : (favorites?.length ?? 0) }) : t('他的收藏（{{n}}）', { n: favoritesHidden ? '-' : (favorites?.length ?? 0) }), children: <FavoriteList favorites={favorites} hidden={favoritesHidden} isSelf={isSelf} onUnfavorite={unfavorite} /> },
           ]}
         />
       </Card>
 
       {/* 编辑资料：头像 + 昵称（头像先暂存，点"保存"才上传生效） */}
-      <Modal title="编辑资料" open={editOpen} onCancel={closeEdit} onOk={saveEdit} okText="保存" confirmLoading={saving} destroyOnClose>
+      <Modal title={t("编辑资料")} open={editOpen} onCancel={closeEdit} onOk={saveEdit} okText={t("保存")} confirmLoading={saving} destroyOnClose>
         <Form form={editForm} layout="vertical">
-          <Form.Item label="头像">
+          <Form.Item label={t("头像")}>
             <Space size={16} align="center">
               <Avatar
                 size={64}
@@ -661,7 +678,7 @@ export default function UserProfile() {
                 showUploadList={false}
                 beforeUpload={(file) => {
                   if (file.size > 10 * 1024 * 1024) {
-                    message.error('图片不能超过 10MB')
+                    message.error(t("图片不能超过 10MB"))
                     return Upload.LIST_IGNORE
                   }
                   if (avatarPreview) URL.revokeObjectURL(avatarPreview)
@@ -670,47 +687,47 @@ export default function UserProfile() {
                   return false // 不自动上传，点"保存"才提交
                 }}
               >
-                <Button icon={<CameraOutlined />}>选择新头像</Button>
+                <Button icon={<CameraOutlined />}>{t("选择新头像")}</Button>
               </Upload>
-              <span style={{ color: '#999', fontSize: 12 }}>jpg/png/webp ≤ 10MB，点"保存"后生效</span>
+              <span style={{ color: '#999', fontSize: 12 }}>{t("jpg/png/webp ≤ 10MB，点\"保存\"后生效")}</span>
             </Space>
           </Form.Item>
           <Form.Item
             name="userNickname"
-            label="昵称"
-            rules={[{ required: true, message: '请输入昵称' }, { max: 20, message: '最多 20 个字符' }]}
+            label={t("昵称")}
+            rules={[{ required: true, message: t("请输入昵称") }, { max: 20, message: t("最多 20 个字符") }]}
           >
-            <Input maxLength={20} showCount placeholder="新的昵称" />
+            <Input maxLength={20} showCount placeholder={t("新的昵称")} />
           </Form.Item>
         </Form>
       </Modal>
 
       {/* 修改密码 */}
-      <Modal title="修改密码" open={pwdOpen} onCancel={() => setPwdOpen(false)} onOk={savePassword} okText="确认修改" destroyOnClose>
+      <Modal title={t("修改密码")} open={pwdOpen} onCancel={() => setPwdOpen(false)} onOk={savePassword} okText={t("确认修改")} destroyOnClose>
         <Form form={pwdForm} layout="vertical">
-          <Form.Item name="oldPassword" label="原密码" rules={[{ required: true, message: '请输入原密码' }]}>
-            <Input.Password placeholder="原密码" />
+          <Form.Item name="oldPassword" label={t("原密码")} rules={[{ required: true, message: t("请输入原密码") }]}>
+            <Input.Password placeholder={t("原密码")} />
           </Form.Item>
           <Form.Item
             name="newPassword"
-            label="新密码"
-            rules={[{ required: true, message: '请输入新密码' }, { min: 6, max: 32, message: '6-32 位' }]}
+            label={t("新密码")}
+            rules={[{ required: true, message: t("请输入新密码") }, { min: 6, max: 32, message: t("6-32 位") }]}
           >
-            <Input.Password placeholder="新密码（6-32 位）" />
+            <Input.Password placeholder={t("新密码（6-32 位）")} />
           </Form.Item>
           <Form.Item
             name="confirm"
-            label="确认新密码"
+            label={t("确认新密码")}
             dependencies={['newPassword']}
             rules={[
-              { required: true, message: '请再次输入新密码' },
+              { required: true, message: t("请再次输入新密码") },
               ({ getFieldValue }) => ({
                 validator: (_, v) =>
-                  !v || getFieldValue('newPassword') === v ? Promise.resolve() : Promise.reject(new Error('两次输入不一致')),
+                  !v || getFieldValue('newPassword') === v ? Promise.resolve() : Promise.reject(new Error(t("两次输入不一致"))),
               }),
             ]}
           >
-            <Input.Password placeholder="再输一遍" />
+            <Input.Password placeholder={t("再输一遍")} />
           </Form.Item>
         </Form>
       </Modal>
@@ -718,17 +735,17 @@ export default function UserProfile() {
 
       {/* 设置备注：只有我自己看得到；清空保存 = 删除备注 */}
       <Modal
-        title={`给 ${displayName} 设置备注`}
+        title={t("给 {{displayName}} 设置备注", { displayName })}
         open={remarkOpen}
         onCancel={() => setRemarkOpen(false)}
-        okText="保存"
-        cancelText="取消"
+        okText={t("保存")}
+        cancelText={t("取消")}
         destroyOnClose
         onOk={async () => {
           try {
             await remarkApi.set(userId, remarkInput.trim())
             window.dispatchEvent(new Event('remarks-changed'))
-            message.success(remarkInput.trim() ? '已备注' : '已清除备注')
+            message.success(remarkInput.trim() ? t("已备注") : t("已清除备注"))
             setRemarkOpen(false)
           } catch { /* 已提示 */ }
         }}
@@ -736,13 +753,13 @@ export default function UserProfile() {
         <Input
           value={remarkInput}
           onChange={(e) => setRemarkInput(e.target.value)}
-          placeholder="备注名（留空保存 = 清除备注）"
+          placeholder={t("备注名（留空保存 = 清除备注）")}
           maxLength={20}
           showCount
           autoFocus
         />
         <div style={{ color: '#999', fontSize: 12, marginTop: 8 }}>
-          备注只有你自己看得到：设置后各处都显示备注名，TA 的个人主页仍显示真名。
+          {t("备注只有你自己看得到：设置后各处都显示备注名，TA 的个人主页仍显示真名。")}
         </div>
       </Modal>
     </>

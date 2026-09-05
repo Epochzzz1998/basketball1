@@ -62,65 +62,72 @@ export const linkOf = (m) =>
  *
  * 推送场景下 newsTitle 是拿不到的（载荷里没有），所以每一支都要能在没有标题时说得通。
  */
-export const actionTextOf = (m) => {
-  const t = m.newsTitle ? `「${m.newsTitle}」` : ''
+/**
+ * 翻译函数从外面传进来：消息页传 react-i18next 的 t；不传就是下面这个 plain——原样返回中文，
+ * 只做 {{x}} 插值。**这里故意不 import i18n**：service worker 也用这个文件，把 i18next 打进 sw
+ * 没意义（sw 读不到页面的 localStorage，不知道当前语言），所以系统推送永远是中文。
+ */
+const plain = (key, vars) => (vars ? key.replace(/\{\{(\w+)\}\}/g, (_, n) => (vars[n] ?? '')) : key)
+
+export const actionTextOf = (m, tr = plain) => {
+  const t = m.newsTitle ? tr('「{{title}}」', { title: m.newsTitle }) : ''
   switch (m.msgType) {
-    case 'goodNews': return `点赞了您的帖子${t}`
-    case 'badNews': return `点踩了您的帖子${t}`
-    case 'commentNews': return `评论了您的帖子${t}`
-    case 'goodComment': return t ? `点赞了您在${t}下的评论` : '点赞了您的评论'
-    case 'badComment': return t ? `点踩了您在${t}下的评论` : '点踩了您的评论'
-    case 'commentComment': return t ? `回复了您在${t}下的评论` : '回复了您的评论'
-    case 'mentionComment': return t ? `在${t}的评论里@了您` : '在评论里@了您'
-    case 'mentionNews': return t ? `在帖子${t}里@了您` : '在帖子里@了您'
-    case 'mentionChat': return `在${m.content ? `「${m.content}」` : '专题'}的群聊里@了您`
-    case 'mentionGame': return '在赛后短评里@了您'
-    case 'mentionLol': return '在开黑对局的短评里@了您'
-    case 'replyGame': return '回复了您的赛后短评'
-    case 'replyLol': return '回复了您在开黑对局里的短评'
-    case 'follow': return '关注了你'
-    case 'topicApply': return `申请加入你的专题${m.content ? `「${m.content}」` : ''}`
-    case 'topicApproved': return `通过了你加入${m.content ? `「${m.content}」` : '专题'}的申请`
-    case 'topicRejected': return `驳回了你加入${m.content ? `「${m.content}」` : '专题'}的申请`
-    case 'scheduleAssign': return '给你指派了一条日程'
+    case 'goodNews': return tr("点赞了您的帖子{{t}}", { t })
+    case 'badNews': return tr("点踩了您的帖子{{t}}", { t })
+    case 'commentNews': return tr("评论了您的帖子{{t}}", { t })
+    case 'goodComment': return t ? tr("点赞了您在{{t}}下的评论", { t }) : tr("点赞了您的评论")
+    case 'badComment': return t ? tr("点踩了您在{{t}}下的评论", { t }) : tr("点踩了您的评论")
+    case 'commentComment': return t ? tr("回复了您在{{t}}下的评论", { t }) : tr("回复了您的评论")
+    case 'mentionComment': return t ? tr("在{{t}}的评论里@了您", { t }) : tr("在评论里@了您")
+    case 'mentionNews': return t ? tr("在帖子{{t}}里@了您", { t }) : tr("在帖子里@了您")
+    case 'mentionChat': return tr("在{{v0}}的群聊里@了您", { v0: m.content ? tr('「{{title}}」', { title: m.content }) : tr('专题') })
+    case 'mentionGame': return tr("在赛后短评里@了您")
+    case 'mentionLol': return tr("在开黑对局的短评里@了您")
+    case 'replyGame': return tr("回复了您的赛后短评")
+    case 'replyLol': return tr("回复了您在开黑对局里的短评")
+    case 'follow': return tr("关注了你")
+    case 'topicApply': return tr("申请加入你的专题{{v0}}", { v0: m.content ? tr('「{{title}}」', { title: m.content }) : '' })
+    case 'topicApproved': return tr("通过了你加入{{v0}}的申请", { v0: m.content ? tr('「{{title}}」', { title: m.content }) : tr('专题') })
+    case 'topicRejected': return tr("驳回了你加入{{v0}}的申请", { v0: m.content ? tr('「{{title}}」', { title: m.content }) : tr('专题') })
+    case 'scheduleAssign': return tr("给你指派了一条日程")
     case 'scheduleRemind': return '' // operatorName 即「日程提醒」，短语留空避免重复
     case 'scheduleOverdue': return ''
     case 'scheduleExpiry': return ''
-    case 'pm': return '给你发了一条私信'
-    case 'test': return '推送已经通了'
+    case 'pm': return tr("给你发了一条私信")
+    case 'test': return tr("推送已经通了")
     default: return m.contentMsg || ''
   }
 }
 
 /** 第二行明细：评论类展示评论/回复原文（存在 contentMsg 里），点赞类展示原帖/原评论摘要（存在 content 里） */
-export const detailOf = (m) => {
-  const s = (v) => stripHtml(v) || '(无内容)'
+export const detailOf = (m, tr = plain) => {
+  const s = (v) => stripHtml(v) || tr("(无内容)")
   switch (m.msgType) {
-    case 'commentNews': return `评论内容：${s(m.contentMsg)}`
-    case 'commentComment': return `回复内容：${s(m.contentMsg)} ｜ 您的评论：${s(m.content)}`
+    case 'commentNews': return tr("评论内容：{{v0}}", { v0: s(m.contentMsg) })
+    case 'commentComment': return tr("回复内容：{{v0}} ｜ 您的评论：{{v1}}", { v0: s(m.contentMsg), v1: s(m.content) })
     case 'goodComment':
-    case 'badComment': return `您的评论：${s(m.content)}`
-    case 'mentionComment': return `评论内容：${s(m.content)}`
-    case 'mentionNews': return `帖子：${s(m.content)}`
+    case 'badComment': return tr("您的评论：{{v0}}", { v0: s(m.content) })
+    case 'mentionComment': return tr("评论内容：{{v0}}", { v0: s(m.content) })
+    case 'mentionNews': return tr("帖子：{{v0}}", { v0: s(m.content) })
     // 群聊没有「原帖」这回事：content 存的是专题名（已进标题），明细给那条群聊原文
-    case 'mentionChat': return `群聊消息：${s(m.contentMsg)}`
+    case 'mentionChat': return tr("群聊消息：{{v0}}", { v0: s(m.contentMsg) })
     // 比赛信息点进去就看到了，消息里要展示的是那句话本身（content 存的就是它）
-    case 'mentionGame': return `短评：${s(m.content)}`
-    case 'mentionLol': return `短评：${s(m.content)}`
+    case 'mentionGame': return tr("短评：{{v0}}", { v0: s(m.content) })
+    case 'mentionLol': return tr("短评：{{v0}}", { v0: s(m.content) })
     // 回复类展示的是**对方那句回复**（content 存的就是它），点进去才看得到上下文
     case 'replyGame':
-    case 'replyLol': return `回复：${s(m.content)}`
-    case 'follow': return '点击去 TA 的主页看看'
-    case 'topicApply': return '点击进入专题，在成员管理里审批'
-    case 'topicApproved': return '点击进入该专题'
-    case 'topicRejected': return `专题：${s(m.content)}`
-    case 'scheduleAssign': return `日程：${s(m.content)} ｜ 点击查看当天日历`
+    case 'replyLol': return tr("回复：{{v0}}", { v0: s(m.content) })
+    case 'follow': return tr("点击去 TA 的主页看看")
+    case 'topicApply': return tr("点击进入专题，在成员管理里审批")
+    case 'topicApproved': return tr("点击进入该专题")
+    case 'topicRejected': return tr("专题：{{v0}}", { v0: s(m.content) })
+    case 'scheduleAssign': return tr("日程：{{v0}} ｜ 点击查看当天日历", { v0: s(m.content) })
     case 'scheduleRemind': return s(m.content)
     case 'scheduleOverdue': return `⚠️ ${s(m.content)}`
     case 'scheduleExpiry': return `⏳ ${s(m.content)}`
     case 'pm': return s(m.contentMsg)
-    case 'test': return '收到这条就说明整条链路是通的'
-    default: return `原帖：${s(m.content)}` // goodNews / badNews
+    case 'test': return tr("收到这条就说明整条链路是通的")
+    default: return tr("原帖：{{v0}}", { v0: s(m.content) }) // goodNews / badNews
   }
 }
 

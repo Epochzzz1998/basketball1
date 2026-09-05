@@ -93,7 +93,7 @@ export default function RatingComments({
                     同一个人的两条短评会显示两个不同的分 */}
                 {c.myScore != null && (
                   <span style={{ color: scoreColor(c.myScore), fontWeight: 800, fontSize: 14 }}>
-                    {c.myScore} {t("分")}
+                    {t("{{score}} 分", { score: c.myScore })}
                   </span>
                 )}
                 <span style={{ color: '#ccc', fontSize: 12, marginLeft: 'auto' }}>

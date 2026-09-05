@@ -11,6 +11,7 @@ import { userInformationApi } from '../../api/userInformation'
 import { topicApi } from '../../api/topic'
 import PushToggle from '../../components/PushToggle'
 import AnnouncementEditModal from '../../components/AnnouncementEditModal'
+import { useTranslation } from 'react-i18next'
 
 const BRAND = '#fa541c'
 
@@ -67,6 +68,7 @@ function Divider() {
  * 所以布局用的是普通卡片流，宽屏下不会散架。
  */
 export default function Mine() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { user, logout, canUse } = useAuth()
   const [unread, setUnread] = useState(0)
@@ -84,8 +86,8 @@ export default function Mine() {
   if (!user) {
     return (
       <Card style={{ borderRadius: 14 }}>
-        <Empty description="登录后这里是你的消息、订阅和设置">
-          <Button type="primary" onClick={() => navigate('/login')}>去登录</Button>
+        <Empty description={t("登录后这里是你的消息、订阅和设置")}>
+          <Button type="primary" onClick={() => navigate('/login')}>{t("去登录")}</Button>
         </Empty>
       </Card>
     )
@@ -110,7 +112,7 @@ export default function Mine() {
               {user.userNickname}
             </div>
             <div style={{ fontSize: 12, color: '#999', marginTop: 3 }}>
-              {user.isSuperManager ? '超级管理员' : '查看我的主页'}
+              {user.isSuperManager ? t("超级管理员") : t("查看我的主页")}
             </div>
           </div>
           <RightOutlined style={{ fontSize: 12, color: '#ccc' }} />
@@ -121,7 +123,7 @@ export default function Mine() {
       <Group>
         <Row
           icon={<BellOutlined />}
-          label="我的消息"
+          label={t("我的消息")}
           extra={unread > 0 ? <Badge count={unread} size="small" style={{ marginRight: 4 }} /> : null}
           onClick={() => navigate('/me')}
         />
@@ -129,34 +131,34 @@ export default function Mine() {
         {/* 推送开关就地放在这儿，不是跳走：它是个开关不是一个页面。
             浏览器不支持或服务端没配密钥时 PushToggle 自己返回 null，
             这一行就只剩标题，不会出现一个点不动的空开关 */}
-        <Row icon={<NotificationOutlined />} label="手机推送" extra={<PushToggle compact />} arrow={false} />
+        <Row icon={<NotificationOutlined />} label={t("手机推送")} extra={<PushToggle compact />} arrow={false} />
       </Group>
 
       {/* 订阅的专题：原来在侧栏，搬到这里 */}
       <Group>
-        <Row icon={<PushpinFilled />} label={`订阅的专题 (${subs.length})`} arrow={false} />
+        <Row icon={<PushpinFilled />} label={t("订阅的专题 ({{length}})", { length: subs.length })} arrow={false} />
         {subs.length === 0 ? (
           <div style={{ padding: '0 16px 14px 44px', fontSize: 12, color: '#bbb', lineHeight: 1.6 }}>
-            还没有订阅。进已加入的专题点「订阅」，就会常驻在这里
+            {t("还没有订阅。进已加入的专题点「订阅」，就会常驻在这里")}
           </div>
         ) : (
-          subs.map((t) => (
-            <div key={t.topicId}>
+          subs.map((s) => (
+            <div key={s.topicId}>
               <Divider />
               <div
-                onClick={() => navigate(`/news/topic/${t.topicId}`)}
+                onClick={() => navigate(`/news/topic/${s.topicId}`)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px 11px 44px',
                   cursor: 'pointer', fontSize: 14, WebkitTapHighlightColor: 'transparent',
                 }}
               >
-                {t.pinned
+                {s.pinned
                   ? <PushpinFilled style={{ fontSize: 11, color: BRAND, flexShrink: 0 }} />
                   : <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#fa8c16', flexShrink: 0 }} />}
                 <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {t.name}
+                  {s.name}
                 </span>
-                {t.newCount > 0 && <Badge count={t.newCount} size="small" />}
+                {s.newCount > 0 && <Badge count={s.newCount} size="small" />}
                 <RightOutlined style={{ fontSize: 11, color: '#ccc' }} />
               </div>
             </div>
@@ -168,24 +170,24 @@ export default function Mine() {
           免得留一张空白卡片 */}
       {hasModules && (
         <Group>
-          {canUse('featNews') && <Row icon={<ReadOutlined />} label="新闻" onClick={() => navigate('/official')} />}
+          {canUse('featNews') && <Row icon={<ReadOutlined />} label={t("新闻")} onClick={() => navigate('/official')} />}
           {canUse('featNews') && (bbqManager || bbqStaff) && <Divider />}
           {bbqManager && (
             <>
-              <Row icon={<DollarOutlined />} label="薪资计算" onClick={() => navigate('/bbq/wage')} />
+              <Row icon={<DollarOutlined />} label={t("薪资计算")} onClick={() => navigate('/bbq/wage')} />
               <Divider />
-              <Row icon={<BarChartOutlined />} label="经营台账" onClick={() => navigate('/bbq/ledger')} />
+              <Row icon={<BarChartOutlined />} label={t("经营台账")} onClick={() => navigate('/bbq/ledger')} />
               <Divider />
               <Row icon={<FireOutlined />} label="Burning！" onClick={() => navigate('/bbq/burning')} />
               <Divider />
-              <Row icon={<TeamOutlined />} label="成员管理" onClick={() => navigate('/bbq/members')} />
+              <Row icon={<TeamOutlined />} label={t("成员管理")} onClick={() => navigate('/bbq/members')} />
               <Divider />
-              <Row icon={<TagsOutlined />} label="串价设置" onClick={() => navigate('/bbq/skewers')} />
+              <Row icon={<TagsOutlined />} label={t("串价设置")} onClick={() => navigate('/bbq/skewers')} />
             </>
           )}
           {bbqStaff && (
             <>
-              <Row icon={<BarChartOutlined />} label="我的薪资" onClick={() => navigate('/bbq/ledger')} />
+              <Row icon={<BarChartOutlined />} label={t("我的薪资")} onClick={() => navigate('/bbq/ledger')} />
               <Divider />
               <Row icon={<FireOutlined />} label="Burning！" onClick={() => navigate('/bbq/burning')} />
             </>
@@ -196,21 +198,21 @@ export default function Mine() {
       {/* 超管 */}
       {user.isSuperManager && (
         <Group>
-          <Row icon={<DatabaseOutlined />} label="球员管理" onClick={() => navigate('/admin/players')} />
+          <Row icon={<DatabaseOutlined />} label={t("球员管理")} onClick={() => navigate('/admin/players')} />
           <Divider />
-          <Row icon={<UsergroupAddOutlined />} label="用户管理" onClick={() => navigate('/admin/users')} />
+          <Row icon={<UsergroupAddOutlined />} label={t("用户管理")} onClick={() => navigate('/admin/users')} />
           <Divider />
-          <Row icon={<NotificationOutlined />} label="全站公告" onClick={() => setAnnounceOpen(true)} />
+          <Row icon={<NotificationOutlined />} label={t("全站公告")} onClick={() => setAnnounceOpen(true)} />
         </Group>
       )}
 
       <Group>
         <Row
           icon={<LogoutOutlined />}
-          label="登出"
+          label={t("登出")}
           danger
           arrow={false}
-          onClick={async () => { await logout(); message.success('已登出'); navigate('/login') }}
+          onClick={async () => { await logout(); message.success(t("已登出")); navigate('/login') }}
         />
       </Group>
 
