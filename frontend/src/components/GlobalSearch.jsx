@@ -189,7 +189,8 @@ export default function GlobalSearch({ variant = 'pill' }) {
         }}
       >
         <SearchOutlined style={{ color: hoverTrigger ? '#fa541c' : '#aaa', transition: 'color .2s' }} />
-        {!isMobile && <span style={{ flex: 1 }}>{t("想看点什么？")}</span>}
+        {/* 胶囊只有 220px，英文整句放不下：这里用短文案，再加单行省略兜底 */}
+        {!isMobile && <span style={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t("想看点什么？", { context: 'pill' })}</span>}
         {!isMobile && <span style={kbd}>/</span>}
       </div>
 
