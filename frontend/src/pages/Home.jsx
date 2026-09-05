@@ -12,7 +12,8 @@ import SeasonPicker from '../components/SeasonPicker'
 import TeamLogo, { TeamCell } from '../components/TeamLogo'
 import useIsMobile from '../hooks/useIsMobile'
 import useUrlState from '../hooks/useUrlState'
-import { LATEST_SEASON, NBA_TEAM_NAMES, fmtDelta, fmtNum, numOrNull, playoffRecord, qualifiedBoard, teamRegion } from './players/rankConfig'
+import { LATEST_SEASON, displayName, fmtDelta, fmtNum, numOrNull, playoffRecord, qualifiedBoard, teamRegion, teamZh } from './players/rankConfig'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 首页（P5-2 现代化改版 v2）：赛季维度的联盟总览仪表盘
@@ -55,6 +56,7 @@ function SectionTitle({ title, extra, onExtra }) {
 
 /** 单项领跑卡：榜首大字 + 2/3 名小行，整卡可点进完整排行 */
 function LeaderCard({ stat, rows, seasonNum }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
   const top = rows?.[0]
@@ -67,7 +69,7 @@ function LeaderCard({ stat, rows, seasonNum }) {
       styles={{ body: { padding: '16px 18px' } }}
     >
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
-        <span style={{ fontSize: 13, color: '#888', fontWeight: 600 }}>{stat.label}</span>
+        <span style={{ fontSize: 13, color: '#888', fontWeight: 600 }}>{t(stat.label)}</span>
         <span style={{ flex: 1 }} />
         <span style={{ fontSize: 18 }}>{stat.icon}</span>
       </div>
@@ -79,7 +81,7 @@ function LeaderCard({ stat, rows, seasonNum }) {
               onClick={(e) => e.stopPropagation()}
               style={{ fontSize: 16, fontWeight: 700, color: '#222', ...clamp(1) }}
             >
-              {top.playerName}
+              {displayName(top)}
             </Link>
             <span style={{ fontSize: 12, color: '#999', flexShrink: 0 }}><TeamCell value={top.playerTeam} size={14} /></span>
           </div>
@@ -89,13 +91,13 @@ function LeaderCard({ stat, rows, seasonNum }) {
           {rows.slice(1, 3).map((r, i) => (
             <div key={r.statsId} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#8c8c8c', padding: '3px 0' }}>
               <span style={{ width: 14, fontStyle: 'italic', fontWeight: 700, color: '#bbb' }}>{i + 2}</span>
-              <span style={{ flex: 1, ...clamp(1) }}>{r.playerName}</span>
+              <span style={{ flex: 1, ...clamp(1) }}>{displayName(r)}</span>
               <span style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtNum(r[stat.field])}</span>
             </div>
           ))}
         </>
       ) : (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无数据" />
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("暂无数据")} />
       )}
     </Card>
   )
@@ -103,25 +105,26 @@ function LeaderCard({ stat, rows, seasonNum }) {
 
 /** 分区战局卡：15 队完整战绩 + 胜率条（进季后赛的队着色，未进灰色） */
 function StandingsCard({ conf, rows, accent }) {
+  const { t } = useTranslation()
   const teams = rows
     ?.filter((r) => teamRegion(r.teamCode).conf === conf)
     .map((r) => ({ ...r, winRate: r.wins + r.losses ? r.wins / (r.wins + r.losses) : 0 }))
     .sort((a, b) => b.winRate - a.winRate || b.wins - a.wins)
   return (
     <Card
-      title={<span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 4, background: accent, marginRight: 8, verticalAlign: 1 }} />{conf}战局</span>}
-      extra={<Link to="/rankings" style={{ fontSize: 13, color: '#888' }}>球队排行 <RightOutlined style={{ fontSize: 10 }} /></Link>}
+      title={<span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 4, background: accent, marginRight: 8, verticalAlign: 1 }} />{t('{{conf}}战局', { conf: t(conf) })}</span>}
+      extra={<Link to="/rankings" style={{ fontSize: 13, color: '#888' }}>{t("球队排行")} <RightOutlined style={{ fontSize: 10 }} /></Link>}
       loading={rows === null}
       style={{ borderRadius: 16, height: '100%' }}
       styles={{ body: { padding: '4px 18px 8px' } }}
     >
       {teams?.length ? (
-        teams.map((t, i) => {
-          const inPo = t.playoffResult && t.playoffResult !== '未进季后赛'
+        teams.map((tm, i) => {
+          const inPo = tm.playoffResult && tm.playoffResult !== '未进季后赛'
           return (
             <Link
-              key={t.teamCode}
-              to={`/players/team/${t.teamCode}`}
+              key={tm.teamCode}
+              to={`/players/team/${tm.teamCode}`}
               style={{
                 display: 'flex', alignItems: 'center', gap: 8, padding: '5.5px 0', color: 'inherit', fontSize: 13,
                 borderBottom: i === teams.length - 1 ? 'none' : '1px solid #f7f7f7',
@@ -130,18 +133,18 @@ function StandingsCard({ conf, rows, accent }) {
               <span style={{ width: 20, textAlign: 'center', fontStyle: 'italic', fontWeight: 800, color: i < 3 ? MEDAL[i] : '#c8c8c8' }}>
                 {i + 1}
               </span>
-              <TeamLogo code={t.teamCode} size={20} />
-              <span style={{ fontWeight: 600 }}>{NBA_TEAM_NAMES[t.teamCode] || t.teamCode}</span>
-              <span style={{ fontSize: 11, color: '#bbb' }}>{t.teamCode}</span>
-              {t.playoffResult === '总冠军' && <span title="总冠军" style={{ fontSize: 12 }}>🏆</span>}
+              <TeamLogo code={tm.teamCode} size={20} />
+              <span style={{ fontWeight: 600 }}>{teamZh(tm.teamCode)}</span>
+              <span style={{ fontSize: 11, color: '#bbb' }}>{tm.teamCode}</span>
+              {tm.playoffResult === '总冠军' && <span title={t("总冠军")} style={{ fontSize: 12 }}>🏆</span>}
               <span style={{ flex: 1 }} />
               <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
-                {t.wins}<span style={{ color: '#bbb' }}>-</span>{t.losses}
+                {tm.wins}<span style={{ color: '#bbb' }}>-</span>{tm.losses}
               </span>
               <span style={{ width: 44, height: 5, borderRadius: 3, background: '#f0f0f0', overflow: 'hidden', flexShrink: 0 }}>
                 <span
                   style={{
-                    display: 'block', height: '100%', width: `${Math.round(t.winRate * 100)}%`,
+                    display: 'block', height: '100%', width: `${Math.round(tm.winRate * 100)}%`,
                     background: inPo ? accent : '#d0d0d0', borderRadius: 3,
                   }}
                 />
@@ -150,7 +153,7 @@ function StandingsCard({ conf, rows, accent }) {
           )
         })
       ) : (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无数据" />
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("暂无数据")} />
       )}
     </Card>
   )
@@ -158,35 +161,36 @@ function StandingsCard({ conf, rows, accent }) {
 
 /** 赛季荣誉速览：总冠军（季后赛球队榜推得，带夺冠战绩） + FMVP/最佳第六人/MIP/最佳新秀（season_award） */
 function HonorsCard({ awards, poTeams, seasonNum }) {
-  const off = (p, r, a) => `${fmtNum(p)}分 ${fmtNum(r)}板 ${fmtNum(a)}助`
-  const champion = poTeams?.find((t) => t.playoffResult === '总冠军')
+  const { t } = useTranslation()
+  const off = (p, r, a) => t("{{v0}}分 {{v1}}板 {{v2}}助", { v0: fmtNum(p), v1: fmtNum(r), v2: fmtNum(a) })
+  const champion = poTeams?.find((x) => x.playoffResult === '总冠军')
   const rec = champion && playoffRecord('总冠军', champion.games)
 
   const rows = []
   if (champion) {
     rows.push({
       key: 'champ', icon: '🏆', label: '总冠军', teamCode: champion.teamCode,
-      name: NBA_TEAM_NAMES[champion.teamCode] || champion.teamCode, to: `/players/team/${champion.teamCode}`,
-      sub: rec ? `季后赛 ${rec.wins}-${rec.losses} 夺冠` : '',
+      name: teamZh(champion.teamCode), to: `/players/team/${champion.teamCode}`,
+      sub: rec ? t("季后赛 {{wins}}-{{losses}} 夺冠", { wins: rec.wins, losses: rec.losses }) : '',
     })
   }
   for (const [key, icon, label] of [['fmvp', '🏅', '总决赛 FMVP'], ['smoy', '🪑', '最佳第六人'], ['mip', '📈', '最快进步球员'], ['roy', '🌱', '最佳新秀']]) {
     const w = awards?.find((r) => r.award === key)
     if (!w) continue
     rows.push({
-      key, icon, label, name: w.playerName, to: `/players/${w.playerId}?seasonNum=${seasonNum}`,
+      key, icon, label, name: displayName(w), to: `/players/${w.playerId}?seasonNum=${seasonNum}`,
       sub: key === 'fmvp'
-        ? `季后赛 ${off(w.poPts, w.poReb, w.poAst)}`
+        ? t("季后赛 {{v0}}", { v0: off(w.poPts, w.poReb, w.poAst) })
         : key === 'mip' && w.prevPts != null && w.pts != null
-          ? `${off(w.pts, w.reb, w.ast)} · 较上季 ↑${fmtDelta(numOrNull(w.pts) - numOrNull(w.prevPts))}分`
+          ? t("{{v0}} · 较上季 ↑{{v1}}分", { v0: off(w.pts, w.reb, w.ast), v1: fmtDelta(numOrNull(w.pts) - numOrNull(w.prevPts)) })
           : off(w.pts, w.reb, w.ast),
     })
   }
 
   return (
     <Card
-      title={<span>🏆 赛季荣誉</span>}
-      extra={<Link to="/rankings" style={{ fontSize: 13, color: '#888' }}>全部荣誉 <RightOutlined style={{ fontSize: 10 }} /></Link>}
+      title={<span>🏆 {t("赛季荣誉")}</span>}
+      extra={<Link to="/rankings" style={{ fontSize: 13, color: '#888' }}>{t("全部荣誉")} <RightOutlined style={{ fontSize: 10 }} /></Link>}
       loading={awards === null || poTeams === null}
       style={{ borderRadius: 16, background: 'linear-gradient(160deg, #fffdf5 0%, #fff8e6 100%)' }}
       styles={{ body: { padding: '6px 18px 10px' } }}
@@ -203,7 +207,7 @@ function HonorsCard({ awards, poTeams, seasonNum }) {
           >
             <span style={{ fontSize: 22 }}>{r.icon}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, color: '#ad8b00' }}>{r.label}</div>
+              <div style={{ fontSize: 12, color: '#ad8b00' }}>{t(r.label)}</div>
               <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
                 {r.teamCode && <TeamLogo code={r.teamCode} size={20} />}
                 {r.name}
@@ -213,7 +217,7 @@ function HonorsCard({ awards, poTeams, seasonNum }) {
           </Link>
         ))
       ) : (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无荣誉数据" />
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("暂无荣誉数据")} />
       )}
     </Card>
   )
@@ -221,11 +225,12 @@ function HonorsCard({ awards, poTeams, seasonNum }) {
 
 /** 论坛热帖榜：点赞×2 + 评论×3 计热度；卡片在右列里拉伸填满剩余高度 */
 function HotList({ posts }) {
+  const { t } = useTranslation()
   const { dn } = useAuth() // 热帖作者名走我的备注
   return (
     <Card
-      title={<span><FireOutlined style={{ color: '#f5222d', marginRight: 6 }} />热帖榜</span>}
-      extra={<Link to="/news" style={{ fontSize: 13, color: '#888' }}>更多 <RightOutlined style={{ fontSize: 10 }} /></Link>}
+      title={<span><FireOutlined style={{ color: '#f5222d', marginRight: 6 }} />{t("热帖榜")}</span>}
+      extra={<Link to="/news" style={{ fontSize: 13, color: '#888' }}>{t("更多")} <RightOutlined style={{ fontSize: 10 }} /></Link>}
       loading={posts === null}
       style={{ borderRadius: 16, flex: 1, display: 'flex', flexDirection: 'column' }}
       styles={{ body: { padding: '4px 18px 10px', flex: 1, display: 'flex', flexDirection: 'column' } }}
@@ -249,7 +254,7 @@ function HotList({ posts }) {
               {i + 1}
             </span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: i < 3 ? 600 : 400, ...clamp(1) }}>{p.title || '(无标题)'}</div>
+              <div style={{ fontSize: 14, fontWeight: i < 3 ? 600 : 400, ...clamp(1) }}>{p.title || t("(无标题)")}</div>
               <div style={{ fontSize: 12, color: '#999', marginTop: 3, display: 'flex', alignItems: 'center', gap: 6 }}>
                 {p.topicName && (
                   <Tag color="blue" style={{ marginInlineEnd: 0, fontSize: 11, lineHeight: '16px', padding: '0 6px', flexShrink: 0 }}>
@@ -264,13 +269,14 @@ function HotList({ posts }) {
           </Link>
         ))
       ) : (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="还没有帖子，来发第一帖" style={{ margin: 'auto' }} />
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("还没有帖子，来发第一帖")} style={{ margin: 'auto' }} />
       )}
     </Card>
   )
 }
 
 export default function Home() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const navigate = useNavigate()
   const [seasonNum, setSeasonNum] = useUrlState('seasonNum', LATEST_SEASON, true) // 写进 URL，返回时保留
@@ -292,7 +298,7 @@ export default function Home() {
       .then((r) => {
         if (!alive) return
         const m = {}
-        ;(Array.isArray(r) ? r : []).forEach((t) => { if (t?.topicId) m[t.topicId] = t.name })
+        ;(Array.isArray(r) ? r : []).forEach((tp) => { if (tp?.topicId) m[tp.topicId] = tp.name })
         setTopicNameMap(m)
       })
       .catch(() => {})
@@ -346,22 +352,22 @@ export default function Home() {
           }}
         >
           <span style={{ fontSize: 20 }}>👋</span>
-          <span style={{ color: '#873800', fontWeight: 500 }}>登录后可发帖、评论、点赞，参与社区互动</span>
+          <span style={{ color: '#873800', fontWeight: 500 }}>{t("登录后可发帖、评论、点赞，参与社区互动")}</span>
           <span style={{ flex: 1 }} />
-          <Button type="primary" onClick={() => navigate('/login')}>登录</Button>
-          <Button onClick={() => navigate('/register')}>注册</Button>
+          <Button type="primary" onClick={() => navigate('/login')}>{t("登录")}</Button>
+          <Button onClick={() => navigate('/register')}>{t("注册")}</Button>
         </div>
       )}
 
       {/* 页头：标题 + 全页赛季选择 */}
       <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12, margin: '2px 2px 4px' }}>
-        <span style={{ fontSize: 21, fontWeight: 800 }}>🏀 联盟概览</span>
+        <span style={{ fontSize: 21, fontWeight: 800 }}>🏀 {t("联盟概览")}</span>
         <span style={{ flex: 1 }} />
         <SeasonPicker value={seasonNum} onChange={setSeasonNum} includeCareer={false} />
       </div>
 
       {/* ① 数据领跑 */}
-      <SectionTitle title="数据领跑" extra="完整排行" onExtra={() => navigate('/rankings')} />
+      <SectionTitle title={t("数据领跑")} extra={t("完整排行")} onExtra={() => navigate('/rankings')} />
       <Row gutter={[14, 14]}>
         {(leaders || LEADER_STATS.map((stat) => ({ stat, rows: null }))).map(({ stat, rows }) => (
           <Col key={stat.field} flex="1 1 176px" style={{ minWidth: 176 }}>
@@ -371,7 +377,7 @@ export default function Home() {
       </Row>
 
       {/* ② 联盟格局：东西部 15 队 + 荣誉/热帖右列 */}
-      <SectionTitle title="联盟格局" />
+      <SectionTitle title={t("联盟格局")} />
       <Row gutter={[16, 16]}>
         <Col xs={24} md={12} lg={8}><StandingsCard conf="东部" rows={teams} accent="#2f54eb" /></Col>
         <Col xs={24} md={12} lg={8}><StandingsCard conf="西部" rows={teams} accent="#f5222d" /></Col>

@@ -754,5 +754,21 @@
   "页面不存在。": "Page not found.",
   "这个页面出错了": "Something went wrong on this page",
   "刷新重试": "Reload",
-  "复制错误详情": "Copy error details"
+  "复制错误详情": "Copy error details",
+  "{{conf}}战局": "{{conf}} Standings",
+  "季后赛 {{wins}}-{{losses}} 夺冠": "Won the title {{wins}}-{{losses}} in the playoffs",
+  "季后赛 {{v0}}": "Playoffs: {{v0}}",
+  "{{v0}} · 较上季 ↑{{v1}}分": "{{v0}} · ↑{{v1}} PTS vs last season",
+  "全部荣誉": "All awards",
+  "暂无荣誉数据": "No award data",
+  "热帖榜": "Hot Posts",
+  "更多": "More",
+  "(无标题)": "(untitled)",
+  "还没有帖子，来发第一帖": "No posts yet. Write the first one",
+  "登录后可发帖、评论、点赞，参与社区互动": "Sign in to post, comment and like",
+  "登录": "Sign in",
+  "注册": "Sign up",
+  "数据领跑": "Stat Leaders",
+  "完整排行": "Full rankings",
+  "联盟格局": "Around the League"
 }
