@@ -539,15 +539,17 @@ export default function CommentSection({
 
   // 只看楼主时按楼主 userId 过滤顶层评论；回复不受影响（各楼展开时单独拉取）
   const filtered = onlyAuthor && authorId ? comments.filter((c) => c.userId === authorId) : comments
-  // 排序：时间=后端默认楼层倒序（最新在前）；热度=点赞数降序（同赞按时间）
+  // 排序：时间=楼层倒序（最新的在最上面）；热度=点赞数降序（同赞再按楼层倒序）。
+  // 后端固定按楼层升序返回，两种排序都在前端重排——楼列表是一次全量拿到的，不分页。
   const shown = sortBy === 'hot'
     ? [...filtered].sort((a, b) => (b.goodNum || 0) - (a.goodNum || 0) || (b.floor || 0) - (a.floor || 0))
-    : filtered
+    : [...filtered].sort((a, b) => (b.floor || 0) - (a.floor || 0))
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await newsApi.listComments({ newsId, level: '1', page: 1, limit: 100 })
+      // 后端一次返回这个帖子的全部楼（不分页），排序在上面的 shown 里做
+      const res = await newsApi.listComments({ newsId, level: '1' })
       setComments(res.records || [])
     } finally {
       setLoading(false)

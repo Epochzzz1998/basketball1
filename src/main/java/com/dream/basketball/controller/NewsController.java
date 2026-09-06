@@ -99,7 +99,9 @@ public class NewsController extends BaseUtils {
                 return handlerSuccessPageJson(0, "成功", 0, java.util.Collections.emptyList());
             }
         }
-        PageHelper.startPage(page, limit);
+        // 这里不能用 PageHelper：帖子列表走 ES（一次全量返回），PageHelper 只拦 MyBatis，
+        // 这个没人消费的分页参数会被 getNewsByParams 里第一条 getById 领走（还白跑一次 count）。
+        // page/limit 保留只为兼容前端已有的请求参数，实际不分页。
         List<NewsDto> rows = newsService.getNewsByParams(param);
         java.util.Set<String> hidden = topicPerms.hiddenTopicIds(me);
         // 隐藏帖：只有该内容的管理者能看到（专题帖→该专题 canManage；官方/跨专题→manager+）
@@ -147,18 +149,19 @@ public class NewsController extends BaseUtils {
         return handlerSuccessPageJson(0, "成功", rows.size(), rows);
     }
 
-    /** 评论列表数据（公开） */
+    /** 评论列表数据（公开）：一个帖子的全部楼一次返回，不分页（前端自己排序） */
     @GetMapping("/CommentListData")
     public Object commentListData(String newsId, String level, String commentRelId, String commentId,
                                   Integer page, Integer limit) throws Exception {
-        PageHelper.startPage(page, limit);
+        // 同 newsListData：楼列表走 ES，PageHelper 对它无效，反而会被 fillCommenterInfo 的第一条 SQL 领走。
+        // page/limit 保留只为兼容前端已有的请求参数，实际不分页。
         DreamNewsCommentDto param = new DreamNewsCommentDto();
         param.setNewsId(newsId);
         param.setLevel(level);
         param.setCommentId(commentId);
         param.setCommentRelId(commentRelId);
         List<DreamNewsCommentDto> rows = newsService.getCommentListByParams(param);
-        return handlerSuccessPageJson(0, "成功", (int) new PageInfo<>(rows).getTotal(), rows);
+        return handlerSuccessPageJson(0, "成功", rows.size(), rows);
     }
 
     /** 楼内回复平铺列表（公开）：一层楼的全部子孙回复按时间升序分页，带被回复人当前昵称（回复 @xxx 用） */

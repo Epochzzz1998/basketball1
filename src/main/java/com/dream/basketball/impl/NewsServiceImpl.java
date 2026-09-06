@@ -335,11 +335,11 @@ public class NewsServiceImpl implements NewsService {
     */
     public List<DreamNewsCommentDto> getCommentListByParams(DreamNewsCommentDto params){
         NativeSearchQueryBuilder builder = getCommentMatchSearch(params);
+        // 分页和排序都在 getCommentMatchSearch 里设好了，必须在 build() 之前设：
+        // build() 已经把查询定型，之后再 withXxx 改的只是 builder，对本次查询是空操作
+        // （这里原来有一句 build 之后的 floor DESC，从来没生效过）。
+        // 返回顺序固定为楼层升序，前端要倒序/按热度自己排。
         NativeSearchQuery nativeSearchQuery = builder.build();
-        // 设置分页信息
-//        builder.withPageable(PageRequest.of(0, 5));
-        // 设置排序
-        builder.withSort(SortBuilders.fieldSort("floor").order(SortOrder.DESC));
         SearchHits<Comment> search = template.search(nativeSearchQuery, Comment.class);
         List<SearchHit<Comment>> searchHits = search.getSearchHits();
         List<DreamNewsCommentDto> dreamNewsCommentDtos = new ArrayList<>();
@@ -461,10 +461,13 @@ public class NewsServiceImpl implements NewsService {
         NativeSearchQueryBuilder builder = new NativeSearchQueryBuilder();
         BoolQueryBuilder queryBuilder = new BoolQueryBuilder();
         queryBuilder.must(QueryBuilders.matchQuery("commentRelId", commentRelId).operator(Operator.AND));
+        // 只要个数：取 totalHits，别数返回的 hits——默认一页就 10 条，数出来最多也只有 10。
+        // 顺手把页设成 1 条，省得白搬 10 个文档回来。
+        builder.withPageable(PageRequest.of(0, 1));
         NativeSearchQueryBuilder builderFinish = builder.withQuery(queryBuilder);
         NativeSearchQuery nativeSearchQuery = builderFinish.build();
         SearchHits<Comment> search = template.search(nativeSearchQuery, Comment.class);
-        return search.getSearchHits().size();
+        return (int) search.getTotalHits();
     }
 
     /**
@@ -529,6 +532,10 @@ public class NewsServiceImpl implements NewsService {
     private NativeSearchQueryBuilder getCommentMatchSearch(DreamNewsCommentDto params) {
         NativeSearchQueryBuilder builder = new NativeSearchQueryBuilder();
         BoolQueryBuilder queryBuilder = new BoolQueryBuilder();
+        // 必须显式给 pageable：不给的话 Spring Data ES 会套上默认的 PageRequest.of(0, 10)
+        // （Query.DEFAULT_PAGE），一个帖子超过 10 层楼之后，新发的楼就再也查不出来了。
+        // 和帖子列表（getMatchSearch）同款约定：一次拉全量，排序/分页交给上层。
+        builder.withPageable(PageRequest.of(0, 10000));
         if (params != null) {
             if (StringUtils.isNotBlank(params.getNewsId())) {
                 queryBuilder.must(QueryBuilders.matchQuery("newsId", params.getNewsId()).operator(Operator.AND));
