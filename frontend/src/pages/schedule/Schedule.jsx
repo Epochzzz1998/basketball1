@@ -10,6 +10,8 @@ import { scheduleApi } from '../../api/schedule'
 import { useAuth } from '../../auth/AuthContext'
 import useIsMobile from '../../hooks/useIsMobile'
 import TimeField, { TimeClear } from '../../components/TimeField'
+import i18n from '../../i18n'
+import { useTranslation } from 'react-i18next'
 
 /**
  * 日程表（/schedule，登录）。月视图日历 + 选中日面板（移动端在下方）。
@@ -44,24 +46,31 @@ const isOverdue = (e) => {
 const recurLabel = (e) => {
   if (!e.recur) return null
   const end = dayjs(e.recurEnd).format('M/D')
-  return e.recur === 'day' ? `每日 · 至 ${end}` : `每周${WEEK[dayjs(e.date).day()]} · 至 ${end}`
+  return e.recur === 'day'
+    ? i18n.t('每日 · 至 {{end}}', { end })
+    : i18n.t('每周{{w}} · 至 {{end}}', { w: i18n.t(WEEK[dayjs(e.date).day()], { context: 'weekday' }), end })
 }
 
 /** 循环延续弹层：上限约束的是**总时长**（开始日→新截止日 ≤180 天/24 周），按剩余额度限制输入 */
 function ExtendPop({ e, onExtend }) {
+  const { t } = useTranslation()
   const daily = e.recur === 'day'
   const spanDays = dayjs(e.recurEnd).diff(dayjs(e.date), 'day')
   const remain = daily ? 180 - spanDays : Math.floor((168 - spanDays) / 7)
   const [n, setN] = useState(Math.min(daily ? 7 : 4, Math.max(1, remain)))
   if (remain <= 0) {
-    return <span style={{ fontSize: 12, color: '#999' }}>该循环总时长已达上限（{daily ? '180 天' : '24 周'}），不能再延续</span>
+    return (
+      <span style={{ fontSize: 12, color: '#999' }}>
+        {t('该循环总时长已达上限（{{v}}），不能再延续', { v: daily ? t('180 天') : t('24 周') })}
+      </span>
+    )
   }
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-      <span style={{ fontSize: 12, color: '#666' }}>延长</span>
+      <span style={{ fontSize: 12, color: '#666' }}>{t("延长")}</span>
       <InputNumber size="small" min={1} max={remain} value={n} onChange={setN} style={{ width: 74 }} />
-      <span style={{ fontSize: 12, color: '#666' }}>{daily ? `天（还可延 ${remain} 天）` : `周（还可延 ${remain} 周）`}</span>
-      <Button size="small" type="primary" onClick={() => n && onExtend(e, n)}>确定</Button>
+      <span style={{ fontSize: 12, color: '#666' }}>{daily ? t("天（还可延 {{remain}} 天）", { remain }) : t("周（还可延 {{remain}} 周）", { remain })}</span>
+      <Button size="small" type="primary" onClick={() => n && onExtend(e, n)}>{t("确定")}</Button>
     </div>
   )
 }
@@ -76,6 +85,7 @@ const timeLabel = (e) => {
 }
 
 export default function Schedule() {
+  const { t } = useTranslation()
   const { user, dn } = useAuth()
   const isMobile = useIsMobile()
   const [params] = useSearchParams()
@@ -177,15 +187,15 @@ export default function Schedule() {
 
   const saveEdit = async () => {
     const e = editingEvent
-    const t = title.trim()
-    if (!t) return message.warning('先写点标题')
-    if (taskType === 'deadline' && !deadline) return message.warning('截止任务要选一个截止日期')
+    const txt = title.trim()
+    if (!txt) return message.warning(t("先写点标题"))
+    if (taskType === 'deadline' && !deadline) return message.warning(t("截止任务要选一个截止日期"))
     setSaving(true)
     try {
       await scheduleApi.update({
         eventId: e.eventId,
         date: e.recur ? undefined : key(editDate || dayjs(e.date)),
-        title: t,
+        title: txt,
         time: timeRange?.[0] || undefined,
         endTime: timeRange?.[1] || undefined,
         endDate: !e.recur && taskType === 'deadline' && deadline ? key(deadline) : undefined,
@@ -193,7 +203,7 @@ export default function Schedule() {
         note: note.trim() || undefined,
         assigneeId: assignee || undefined,
       })
-      message.success('已保存')
+      message.success(t("已保存"))
       cancelEdit()
       load()
     } catch { /* 拦截器已提示 */ } finally {
@@ -202,21 +212,21 @@ export default function Schedule() {
   }
 
   const addEvent = async () => {
-    const t = title.trim()
-    if (!t) return message.warning('先写点标题')
-    if (taskType === 'deadline' && !deadline) return message.warning('截止任务要选一个截止日期')
+    const txt = title.trim()
+    if (!txt) return message.warning(t("先写点标题"))
+    if (taskType === 'deadline' && !deadline) return message.warning(t("截止任务要选一个截止日期"))
     const recurring = taskType === 'rday' || taskType === 'rweek'
     if (recurring) {
-      if (!deadline) return message.warning('循环任务必须设置循环截止日期')
+      if (!deadline) return message.warning(t("循环任务必须设置循环截止日期"))
       const span = deadline.diff(selected, 'day')
-      if (taskType === 'rday' && span > 180) return message.warning('每日循环最长 180 天')
-      if (taskType === 'rweek' && span > 168) return message.warning('每周循环最长 24 周')
+      if (taskType === 'rday' && span > 180) return message.warning(t("每日循环最长 180 天"))
+      if (taskType === 'rweek' && span > 168) return message.warning(t("每周循环最长 24 周"))
     }
     setSaving(true)
     try {
       await scheduleApi.create({
         date: key(selected),
-        title: t,
+        title: txt,
         time: timeRange?.[0] || undefined,
         endTime: timeRange?.[1] || undefined,
         endDate: taskType === 'deadline' && deadline ? key(deadline) : undefined,
@@ -226,7 +236,7 @@ export default function Schedule() {
         note: note.trim() || undefined,
         assigneeId: assignee || undefined,
       })
-      message.success('已添加')
+      message.success(t("已添加"))
       setTitle('')
       setTimeRange(null)
       setDeadline(null)
@@ -257,14 +267,14 @@ export default function Schedule() {
     try {
       const newEnd = await scheduleApi.extend(e.eventId, amount)
       setEvents((list) => list.map((x) => (x.eventId === e.eventId ? { ...x, recurEnd: newEnd } : x)))
-      message.success(`已延续至 ${newEnd}`)
+      message.success(t("已延续至 {{newEnd}}", { newEnd }))
     } catch { /* 拦截器已提示 */ }
   }
 
   const del = async (e) => {
     try {
       await scheduleApi.remove(e.eventId)
-      message.success('已删除')
+      message.success(t("已删除"))
       setEvents((list) => list.filter((x) => x.eventId !== e.eventId))
     } catch { /* 拦截器已提示 */ }
   }
@@ -316,7 +326,7 @@ export default function Schedule() {
             </div>
           )
         })}
-        {list.length > 4 && <div style={{ fontSize: 11, color: '#999', paddingLeft: 6 }}>+{list.length - 4} 项</div>}
+        {list.length > 4 && <div style={{ fontSize: 11, color: '#999', paddingLeft: 6 }}>{t('+{{n}} 项', { n: list.length - 4 })}</div>}
       </div>
     )
   }
@@ -337,11 +347,15 @@ export default function Schedule() {
         <div style={ring(110, { bottom: -45, right: 260 })} />
         <div style={{ position: 'relative' }}>
           <div style={{ fontSize: isMobile ? 18 : 22, fontWeight: 800 }}>
-            <CalendarOutlined style={{ marginRight: 8 }} />日程
+            <CalendarOutlined style={{ marginRight: 8 }} />{t("日程")}
           </div>
           <div style={{ opacity: 0.88, marginTop: 6, fontSize: 13 }}>
-            点一天，安排一件事；带负责人的事件当天早上 8 点自动提醒，超时未完成会标红并提醒
-            {todayList.length > 0 && <span style={{ marginLeft: 10, fontWeight: 700 }}>· 今天 {todayList.filter((e) => !e.done).length}/{todayList.length} 件待办</span>}
+            {t("点一天，安排一件事；带负责人的事件当天早上 8 点自动提醒，超时未完成会标红并提醒")}
+            {todayList.length > 0 && (
+              <span style={{ marginLeft: 10, fontWeight: 700 }}>
+                {t('· 今天 {{a}}/{{b}} 件待办', { a: todayList.filter((e) => !e.done).length, b: todayList.length })}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -351,7 +365,7 @@ export default function Schedule() {
             {/* 自绘月份头：‹ 2026年7月 › + 回到今天（青色胶囊） */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '2px 6px 10px' }}>
               <Button size="small" type="text" icon={<LeftOutlined />} onClick={() => setSelected((s) => s.subtract(1, 'month'))} />
-              <span style={{ fontSize: 16, fontWeight: 700 }}>{selected.format('YYYY 年 M 月')}</span>
+              <span style={{ fontSize: 16, fontWeight: 700 }}>{selected.format(t("YYYY 年 M 月"))}</span>
               <Button size="small" type="text" icon={<RightOutlined />} onClick={() => setSelected((s) => s.add(1, 'month'))} />
               <span style={{ flex: 1 }} />
               <span
@@ -362,7 +376,7 @@ export default function Schedule() {
                   border: `1px solid ${TEAL}66`, transition: 'all .15s', whiteSpace: 'nowrap',
                 }}
               >
-                回到今天
+                {t("回到今天")}
               </span>
             </div>
             <style>{`
@@ -413,13 +427,13 @@ export default function Schedule() {
       {isMobile && monthKey === dayjs().format('YYYY-MM') && (
         <Card style={{ borderRadius: 16, marginTop: 16 }} styles={{ body: { padding: '12px 14px' } }}>
           <div style={{ fontSize: 14, fontWeight: 800, color: TEAL_DARK, marginBottom: 8 }}>
-            <FieldTimeOutlined style={{ marginRight: 6 }} />接下来 7 天
+            <FieldTimeOutlined style={{ marginRight: 6 }} />{t("接下来 7 天")}
           </div>
           {(() => {
             const days = Array.from({ length: 7 }, (_, i) => dayjs().add(i, 'day'))
             const rows = days.filter((d) => (byDate[key(d)] || []).length > 0)
             if (rows.length === 0) {
-              return <div style={{ color: '#9bd4d0', fontSize: 13, padding: '6px 0' }}>未来 7 天没有安排，点上面日历的某一天加一件</div>
+              return <div style={{ color: '#9bd4d0', fontSize: 13, padding: '6px 0' }}>{t("未来 7 天没有安排，点上面日历的某一天加一件")}</div>
             }
             return rows.map((d) => {
               const list = byDate[key(d)] || []
@@ -432,9 +446,9 @@ export default function Schedule() {
                 >
                   <div style={{ width: 44, flexShrink: 0, textAlign: 'center' }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: d.isSame(dayjs(), 'day') ? TEAL_DARK : '#262626' }}>
-                      {d.isSame(dayjs(), 'day') ? '今天' : d.format('M/D')}
+                      {d.isSame(dayjs(), 'day') ? t("今天") : d.format('M/D')}
                     </div>
-                    <div style={{ fontSize: 11, color: '#bbb' }}>周{WEEK[d.day()]}</div>
+                    <div style={{ fontSize: 11, color: '#bbb' }}>{t('周{{w}}', { w: t(WEEK[d.day()], { context: 'weekday' }) })}</div>
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     {list.slice(0, 3).map((e) => (
@@ -445,9 +459,9 @@ export default function Schedule() {
                         </span>
                       </div>
                     ))}
-                    {list.length > 3 && <div style={{ fontSize: 12, color: '#999' }}>还有 {list.length - 3} 项…</div>}
+                    {list.length > 3 && <div style={{ fontSize: 12, color: '#999' }}>{t('还有 {{n}} 项…', { n: list.length - 3 })}</div>}
                   </div>
-                  <span style={{ fontSize: 12, color: '#bbb', flexShrink: 0 }}>{undone ? `${undone} 待办` : '全部完成'}</span>
+                  <span style={{ fontSize: 12, color: '#bbb', flexShrink: 0 }}>{undone ? t("{{undone}} 待办", { undone }) : t("全部完成")}</span>
                   <RightOutlined style={{ fontSize: 10, color: '#ccc', flexShrink: 0 }} />
                 </div>
               )
@@ -461,9 +475,11 @@ export default function Schedule() {
       {(() => {
         const detailTitle = (
           <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 10 }}>
-            <span style={{ fontSize: 17, fontWeight: 800 }}>{selected.format('M月D日')}</span>
+            <span style={{ fontSize: 17, fontWeight: 800 }}>{selected.format(t("M月D日"))}</span>
             <span style={{ fontSize: 13, color: '#999', fontWeight: 400 }}>
-              周{WEEK[selected.day()]}{dayEvents.length ? ` · ${dayEvents.length} 件事` : ''}
+              {dayEvents.length
+                ? t('周{{w}} · {{n}} 件事', { w: t(WEEK[selected.day()], { context: 'weekday' }), n: dayEvents.length })
+                : t('周{{w}}', { w: t(WEEK[selected.day()], { context: 'weekday' }) })}
             </span>
           </span>
         )
@@ -493,7 +509,7 @@ export default function Schedule() {
                       {canToggle && (
                         <span
                           onClick={() => toggleDone(e)}
-                          title={e.done ? '取消完成' : '标记完成'}
+                          title={e.done ? t("取消完成") : t("标记完成")}
                           style={{ cursor: 'pointer', fontSize: 19, color: e.done ? '#52c41a' : '#c9c9c9', marginTop: 1, flexShrink: 0 }}
                         >
                           {e.done ? <CheckCircleFilled /> : <CheckCircleOutlined />}
@@ -511,10 +527,10 @@ export default function Schedule() {
                           </span>
                           {e.category && (
                             <span style={{ fontSize: 11, lineHeight: '17px', padding: '0 7px', borderRadius: 999, background: `${catColor(e)}14`, color: catColor(e), border: `1px solid ${catColor(e)}38`, flexShrink: 0 }}>
-                              {e.category}
+                              {t(e.category)}
                             </span>
                           )}
-                          {od && <Tag color="red" style={{ marginInlineEnd: 0, lineHeight: '18px' }}>已超时</Tag>}
+                          {od && <Tag color="red" style={{ marginInlineEnd: 0, lineHeight: '18px' }}>{t("已超时")}</Tag>}
                         </div>
                         {(tl || e.recur) && (
                           <div style={{ marginTop: 5, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -537,7 +553,7 @@ export default function Schedule() {
                             )}
                             {e.recur && e.mine && (
                               <Popover trigger="click" content={<ExtendPop e={e} onExtend={extendRecur} />}>
-                                <a style={{ fontSize: 12 }}>延续</a>
+                                <a style={{ fontSize: 12 }}>{t("延续")}</a>
                               </Popover>
                             )}
                           </div>
@@ -548,21 +564,21 @@ export default function Schedule() {
                             {e.assigneeId && (
                               <span
                                 onClick={() => navigate(`/users/${e.assigneeId}`)}
-                                title="进入个人主页"
+                                title={t("进入个人主页")}
                                 style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#666', cursor: 'pointer', background: '#fff', border: '1px solid #ececec', borderRadius: 999, padding: '1px 9px 1px 2px' }}
                               >
                                 <Avatar size={18} src={e.assigneeAvatar || undefined}>{String(dn(e.assigneeId, e.assigneeName) || '?')[0]}</Avatar>
-                                {dn(e.assigneeId, e.assigneeName)}{e.assigneeId === selfId ? '（我）' : ''}
+                                {dn(e.assigneeId, e.assigneeName)}{e.assigneeId === selfId ? t("（我）") : ''}
                               </span>
                             )}
-                            {!e.mine && <span style={{ fontSize: 11, color: '#bbb' }}>来自 {dn(e.ownerId, e.ownerName)}</span>}
+                            {!e.mine && <span style={{ fontSize: 11, color: '#bbb' }}>{t('来自 {{name}}', { name: dn(e.ownerId, e.ownerName) })}</span>}
                           </div>
                         )}
                       </div>
                       {e.mine && (
                         <span style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 3, flexShrink: 0 }}>
-                          <EditOutlined title="编辑" style={{ color: '#bbb', cursor: 'pointer' }} onClick={() => startEdit(e)} />
-                          <Popconfirm title="删除这个事件？" okText="删除" cancelText="取消" okButtonProps={{ danger: true }} onConfirm={() => del(e)}>
+                          <EditOutlined title={t("编辑")} style={{ color: '#bbb', cursor: 'pointer' }} onClick={() => startEdit(e)} />
+                          <Popconfirm title={t("删除这个事件？")} okText={t("删除")} cancelText={t("取消")} okButtonProps={{ danger: true }} onConfirm={() => del(e)}>
                             <DeleteOutlined style={{ color: '#ccc', cursor: 'pointer' }} />
                           </Popconfirm>
                         </span>
@@ -572,17 +588,17 @@ export default function Schedule() {
                 })}
               </div>
             ) : (
-              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="这天还没有安排" style={{ margin: '18px 0' }} />
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("这天还没有安排")} style={{ margin: '18px 0' }} />
             )}
 
             {/* 新增表单 */}
             <div style={{ background: '#f6fffd', border: `1px dashed ${TEAL}55`, borderRadius: 12, padding: '12px 12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', fontSize: 13, fontWeight: 700, color: TEAL_DARK, marginBottom: 8 }}>
                 {editingEvent
-                  ? <><EditOutlined style={{ marginRight: 5 }} />编辑「{String(editingEvent.title || '').slice(0, 12)}」</>
-                  : <><PlusOutlined style={{ marginRight: 5 }} />给 {selected.format('M月D日')} 添加</>}
+                  ? <><EditOutlined style={{ marginRight: 5 }} />{t('编辑「{{v}}」', { v: String(editingEvent.title || '').slice(0, 12) })}</>
+                  : <><PlusOutlined style={{ marginRight: 5 }} />{t('给 {{d}} 添加', { d: selected.format(t('M月D日')) })}</>}
                 <span style={{ flex: 1 }} />
-                {editingEvent && <a style={{ fontSize: 12, fontWeight: 400 }} onClick={cancelEdit}>取消编辑</a>}
+                {editingEvent && <a style={{ fontSize: 12, fontWeight: 400 }} onClick={cancelEdit}>{t("取消编辑")}</a>}
               </div>
               {/* 任务类型：青色胶囊组（选中实心、未选描边），替代方块 Segmented */}
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
@@ -603,14 +619,14 @@ export default function Schedule() {
                         transition: 'all .15s',
                       }}
                     >
-                      {label}
+                      {t(label)}
                     </span>
                   )
                 })}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <Input
-                  placeholder="要做什么？"
+                  placeholder={t("要做什么？")}
                   maxLength={50}
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
@@ -618,19 +634,19 @@ export default function Schedule() {
                 />
                 {editingEvent && !editingEvent.recur && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 12, color: '#666', flexShrink: 0 }}>日期</span>
+                    <span style={{ fontSize: 12, color: '#666', flexShrink: 0 }}>{t("日期")}</span>
                     <DatePicker value={editDate} onChange={setEditDate} allowClear={false} inputReadOnly style={{ width: 140 }} />
-                    <span style={{ fontSize: 11, color: '#9bd4d0' }}>可以把这件事挪到别的日子</span>
+                    <span style={{ fontSize: 11, color: '#9bd4d0' }}>{t("可以把这件事挪到别的日子")}</span>
                   </div>
                 )}
                 {editingEvent && editingEvent.recur && (
-                  <div style={{ fontSize: 12, color: '#9bd4d0' }}>循环任务的日期与循环范围不可改；要延长循环用事件卡上的「延续」</div>
+                  <div style={{ fontSize: 12, color: '#9bd4d0' }}>{t("循环任务的日期与循环范围不可改；要延长循环用事件卡上的「延续」")}</div>
                 )}
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <Select
                     virtual={false}
                     allowClear
-                    placeholder="类型"
+                    placeholder={t("类型")}
                     value={category}
                     onChange={setCategory}
                     style={{ width: 92, flexShrink: 0 }}
@@ -638,7 +654,7 @@ export default function Schedule() {
                       value: name,
                       label: (
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: c }} />{name}
+                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: c }} />{t(name)}
                         </span>
                       ),
                     }))}
@@ -652,7 +668,7 @@ export default function Schedule() {
                   </span>
                   {taskType !== 'day' && !(editingEvent && editingEvent.recur) && (
                     <DatePicker
-                      placeholder={taskType === 'deadline' ? '截止日期' : '循环截止'}
+                      placeholder={taskType === 'deadline' ? t("截止日期") : t("循环截止")}
                       value={deadline}
                       onChange={setDeadline}
                       disabledDate={(d) => {
@@ -669,7 +685,7 @@ export default function Schedule() {
                 <Select
                   virtual={false}
                   allowClear
-                  placeholder="负责人(可选)"
+                  placeholder={t("负责人(可选)")}
                   value={assignee}
                   onChange={setAssignee}
                   style={{ width: '100%' }}
@@ -684,22 +700,26 @@ export default function Schedule() {
                   }))}
                 />
                 <Input
-                  placeholder="备注(可选)"
+                  placeholder={t("备注(可选)")}
                   maxLength={200}
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   onPressEnter={addEvent}
                 />
                 <Button type="primary" loading={saving} onClick={editingEvent ? saveEdit : addEvent} style={{ background: TEAL_DARK, borderColor: TEAL_DARK, borderRadius: 8 }}>
-                  {editingEvent ? '保存修改' : '添加'}
+                  {editingEvent ? t("保存修改") : t("添加")}
                 </Button>
               </div>
               <div style={{ fontSize: 11, color: '#9bd4d0', marginTop: 8 }}>
                 {taskType === 'deadline'
-                  ? '截止任务：从这天开始、到截止日期为止（开始时间落在开始日、截止时间落在截止日）；超时未完成会标红并提醒'
+                  ? t('截止任务：从这天开始、到截止日期为止（开始时间落在开始日、截止时间落在截止日）；超时未完成会标红并提醒')
                   : taskType === 'rday' || taskType === 'rweek'
-                    ? `${taskType === 'rday' ? '每天重复（最长 180 天）' : `每周${WEEK[selected.day()]}重复（最长 24 周）`}，必须设循环截止日；每一次单独打勾；结束前一天早 8 点会提醒延续`
-                    : '时间段可选；负责人只能是"我自己或关注我的人"，有负责人的事件当天早 8 点自动提醒'}
+                    ? t('{{v}}，必须设循环截止日；每一次单独打勾；结束前一天早 8 点会提醒延续', {
+                        v: taskType === 'rday'
+                          ? t('每天重复（最长 180 天）')
+                          : t('每周{{w}}重复（最长 24 周）', { w: t(WEEK[selected.day()], { context: 'weekday' }) }),
+                      })
+                    : t('时间段可选；负责人只能是"我自己或关注我的人"，有负责人的事件当天早 8 点自动提醒')}
               </div>
             </div>
           </>
