@@ -68,3 +68,6 @@ tools/nba_sync/rs_crawl.log
 tools/nba_sync/.cache_backup/
 tools/nba_sync/absence_rescrape.log
 tools/nba_sync/absence_resume.log
+
+# Local dev: the Elasticsearch IK analyzer is downloaded, not committed
+/es-plugins/

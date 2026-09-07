@@ -1,0 +1,69 @@
+# Dependencies for local development. Same images and versions as production,
+# with the data kept in named volumes so `docker compose down -v` gives you a
+# clean slate. The application itself is not in here: run it from your IDE or
+# with `./mvnw spring-boot:run -Dspring-boot.run.profiles=local`.
+#
+# Every port is bound to 127.0.0.1 on purpose. None of these services should be
+# reachable from your network.
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: dream-dev-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: "devpassword"
+      MYSQL_DATABASE: "dream"
+      MYSQL_USER: "epoch"
+      MYSQL_PASSWORD: "devpassword"
+      TZ: "Australia/Melbourne"
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+  redis:
+    image: redis:alpine
+    container_name: dream-dev-redis
+    command: redis-server --requirepass devpassword --appendonly yes
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data:/data
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: dream-dev-rabbitmq
+    # Pin the hostname: the node name is rabbit@<hostname>, and a random one
+    # means every recreate looks like a brand new empty node.
+    hostname: dream-dev-rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=epoch
+      - RABBITMQ_DEFAULT_PASS=devpassword
+      - RABBITMQ_DEFAULT_VHOST=my_vhost
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"   # management UI
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+
+  elasticsearch:
+    image: elasticsearch:7.17.16
+    container_name: dream-dev-elasticsearch
+    environment:
+      - "discovery.type=single-node"
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+      - "xpack.security.enabled=false"
+    ports:
+      - "127.0.0.1:9200:9200"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+      # The post and comment indices are mapped with the IK Chinese analyzer, so
+      # the plugin has to be present before the app creates them. Download the
+      # analysis-ik release that matches 7.17.16 and unzip it here as
+      # ./es-plugins/analysis-ik/ , then start this service.
+      - ./es-plugins:/usr/share/elasticsearch/plugins
+
+volumes:
+  mysql-data:
+  redis-data:
+  rabbitmq-data:
+  es-data:
